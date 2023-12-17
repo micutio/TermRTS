@@ -9,25 +9,32 @@ internal class Program
         // Create Channel for strings
         var channel = Channel.CreateUnbounded<string>();
 
-        // Start background thread for sending messages
-        var senderTask = Task.Run(async () =>
+        var keyInputTask = Task.Run(async () =>
         {
             var writer = channel.Writer;
-            for (int i = 0; i < 5; i += 1)
+            var keepRunning = true;
+            while (keepRunning)
             {
-                await writer.WriteAsync($"Message {i}");
-                await Task.Delay(1000); // delay to illustrate
+                if (!Console.KeyAvailable) continue;
+
+                ConsoleKeyInfo keyInfo = await Task.Run(() => Console.ReadKey(true));
+                if (keyInfo.Key == ConsoleKey.Escape)
+                {
+                    keepRunning = false;
+                }
+                await writer.WriteAsync($"key press detected {keyInfo.KeyChar}");
             }
+            await writer.WriteAsync("Closing channel.");
             writer.Complete();
         });
 
         // main thread reads messages from the channel
-        var reader = channel.Reader;
-
+        Console.CursorVisible = false;
         var canvas = new ConsoleCanvas()
             .CreateBorder()
             .Render();
 
+        var reader = channel.Reader;
         await foreach (var message in reader.ReadAllAsync())
         {
             canvas.Clear().CreateBorder();
@@ -35,8 +42,7 @@ internal class Program
             canvas.Render();
         }
 
-        await senderTask;
-
-        Console.ReadKey();
+        //await
+        Task.WhenAll(keyInputTask).Wait();
     }
 }
