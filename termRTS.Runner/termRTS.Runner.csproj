@@ -11,4 +11,8 @@
     <PackageReference Include="ConsoleRenderer" Version="0.6.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\termRTS.Engine\termRTS.Engine.csproj" />
+  </ItemGroup>
+
 </Project>

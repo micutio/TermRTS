@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "termRTS.Runner", "termRTS.Runner\termRTS.Runner.csproj", "{A5C99C5E-9DF2-4988-B199-DEB5A56BBD4E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "termRTS.Engine", "termRTS.Engine\termRTS.Engine.csproj", "{AE58DA73-FEA6-4201-B6ED-7F2060B4B48E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{A5C99C5E-9DF2-4988-B199-DEB5A56BBD4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5C99C5E-9DF2-4988-B199-DEB5A56BBD4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5C99C5E-9DF2-4988-B199-DEB5A56BBD4E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE58DA73-FEA6-4201-B6ED-7F2060B4B48E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE58DA73-FEA6-4201-B6ED-7F2060B4B48E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE58DA73-FEA6-4201-B6ED-7F2060B4B48E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE58DA73-FEA6-4201-B6ED-7F2060B4B48E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
