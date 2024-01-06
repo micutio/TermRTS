@@ -26,18 +26,22 @@ internal class Core<TW, T> where T : Enum
 
     private TW _world;
     private readonly List<GameSystem<TW, T>> _systems;
-    private readonly List<Dictionary<T, IGameComponent>> _entities;
+    private readonly List<GameEntity<T>> _entities;
+    private readonly IInput _input;
+    private readonly IRenderer<TW, T> _renderer;
     // TODO: some form of event queue for:
     //       - handling input
     //       - adding/removing entities to/from the game
 
-    public Core(TW world)
+    public Core(TW world, IInput input, IRenderer<TW, T> renderer)
     {
         _stopwatch = new Stopwatch();
         _isGameRunning = false;
         _world = world;
-        _entities = new List<Dictionary<T, IGameComponent>>();
-        _systems = new List<GameSystem<TW, T>>();
+        _entities = new();
+        _systems = new();
+        _input = input;
+        _renderer = renderer;
     }
 
     public void GameLoop()
@@ -45,6 +49,7 @@ internal class Core<TW, T> where T : Enum
         _isGameRunning = true;
         _stopwatch.Start();
         var lag = TimeSpan.Zero;
+        TimeSpan renderElapsed;
 
         while (_isGameRunning)
         {
@@ -52,11 +57,11 @@ internal class Core<TW, T> where T : Enum
             lag += _stopwatch.Elapsed;
             _stopwatch.Restart();
 
-            processInput();
+            ProcessInput();
 
-            update(ref lag);
+            Update(ref lag);
 
-            var renderElapsed = render(lag);
+            Render(ref lag, out renderElapsed);
 
             // Take a break if we're ahead of time.
             var loopTimeMs = lag + renderElapsed;
@@ -72,12 +77,12 @@ internal class Core<TW, T> where T : Enum
         }
     }
 
-    private void processInput()
+    private void ProcessInput()
     {
-
+        // TODO: Something with IInput
     }
 
-    private void update(ref TimeSpan lag)
+    private void Update(ref TimeSpan lag)
     {
         // Advance as many steps as we need to catch up with lag.
         while (lag >= MS_PER_UPDATE)
@@ -88,7 +93,7 @@ internal class Core<TW, T> where T : Enum
                 foreach (var sys in _systems)
                 {
                     sys.ProcessComponents(
-                            entity,
+                            entity.WritableComponents,
                             _entities,
                             ref _world);
                 }
@@ -99,15 +104,21 @@ internal class Core<TW, T> where T : Enum
         }
     }
 
-    private TimeSpan render(TimeSpan lag)
+    private void Render(ref TimeSpan lag, out TimeSpan renderElapsed)
     {
         var howFarIntoNextFrameMs = lag.TotalMilliseconds / MS_PER_UPDATE.TotalMilliseconds;
         var renderWatch = Stopwatch.StartNew();
 
-        // TODO: Render World and all Entity objects
+        _renderer.renderWorld(_world, howFarIntoNextFrameMs);
+
+        foreach (var entity in _entities)
+        {
+            entity.ApplyChanges();
+            _renderer.renderEntity(entity, howFarIntoNextFrameMs);
+        }
 
         renderWatch.Stop();
         Console.WriteLine($"render duration: {renderWatch.Elapsed}");
-        return renderWatch.Elapsed;
+        renderElapsed = renderWatch.Elapsed;
     }
 }

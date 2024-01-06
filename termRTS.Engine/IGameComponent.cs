@@ -1,6 +1,3 @@
 namespace termRTS.Engine;
 
-public interface IGameComponent : ICloneable
-{
-
-}
+public interface IGameComponent : ICloneable { }

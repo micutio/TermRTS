@@ -16,6 +16,6 @@ public abstract class GameSystem<TW, T> where T : Enum
     // TODO: If possible, enforce that otherEs are immutable
     public abstract void ProcessComponents(
             Dictionary<T, IGameComponent> thisEntityComponents,
-            List<Dictionary<T, IGameComponent>> otherEntityComponents,
+            List<GameEntity<T>> otherEntityComponents,
             ref TW world);
 }

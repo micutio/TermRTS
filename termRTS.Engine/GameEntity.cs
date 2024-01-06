@@ -11,6 +11,10 @@ public abstract class GameEntity<T> where T : Enum
     private readonly Dictionary<T, IGameComponent> _writableComponents = new();
     private readonly Dictionary<T, IGameComponent> _readableComponents = new();
 
+    public Dictionary<T, IGameComponent> WritableComponents => _writableComponents;
+
+    public Dictionary<T, IGameComponent> ReadableComponents => _readableComponents;
+
     protected void AddComponent(T systemType, IGameComponent component)
     {
         _writableComponents.Add(systemType, component);
@@ -21,10 +25,6 @@ public abstract class GameEntity<T> where T : Enum
     {
         _readableComponents[systemType] = component;
     }
-
-    public IGameComponent GetWritableComponent(T componentType) => _writableComponents[componentType];
-
-    public IGameComponent GetReadonlyComponent(T componentType) => _readableComponents[componentType];
 
     public bool IsCompatibleWith(T[] componentTypes)
     {
