@@ -11,32 +11,34 @@ namespace termRTS.Engine;
 /// <summary>
 /// The one who ties the whole system together.
 /// </summary>
-/// <typeparam name="TW">
+/// <typeparam name="TWorld">
 /// Type of the world class.
 /// </typeparam>
-/// <typeparam name="T">
+/// <typeparam name="TComponents">
 /// Type of the enum listing all component types.
 /// </typeparam
-internal class Core<TW, T> where T : Enum
+internal class Core<TWorld, TComponents> where TComponents : Enum
 {
     private static readonly TimeSpan MS_PER_UPDATE = TimeSpan.FromSeconds(1.0 / 60.0);
 
     private readonly Stopwatch _stopwatch;
     private bool _isGameRunning;
+    private EventQueue<IEvent, ulong> _eventQueue;
 
-    private TW _world;
-    private readonly List<GameSystem<TW, T>> _systems;
-    private readonly List<GameEntity<T>> _entities;
+    private TWorld _world;
+    private readonly List<GameSystem<TWorld, TComponents>> _systems;
+    private readonly List<GameEntity<TComponents>> _entities;
     private readonly IInput _input;
-    private readonly IRenderer<TW, T> _renderer;
+    private readonly IRenderer<TWorld, TComponents> _renderer;
     // TODO: some form of event queue for:
     //       - handling input
     //       - adding/removing entities to/from the game
 
-    public Core(TW world, IInput input, IRenderer<TW, T> renderer)
+    public Core(TWorld world, IInput input, IRenderer<TWorld, TComponents> renderer)
     {
         _stopwatch = new Stopwatch();
         _isGameRunning = false;
+        _eventQueue = new();
         _world = world;
         _entities = new();
         _systems = new();
