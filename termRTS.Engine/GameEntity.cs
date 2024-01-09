@@ -3,40 +3,28 @@ namespace termRTS.Engine;
 /// <summary>
 /// Game entity, providing facilities for registering components.
 /// </summary>
-/// <typeparam name="T">
+/// <typeparam name="TComponents">
 /// Type of the Enum listing all component types.
 /// </typeparam>
-public abstract class GameEntity<T> where T : Enum
+public abstract class GameEntity<TComponents> where TComponents : Enum
 {
-    private readonly Dictionary<T, IGameComponent> _writableComponents = new();
-    private readonly Dictionary<T, IGameComponent> _readableComponents = new();
+    public bool IsMarkedForRemoval { get; set; } = false;
 
-    public Dictionary<T, IGameComponent> WritableComponents => _writableComponents;
+    public Dictionary<TComponents, IGameComponent> Components { get; } = new();
 
-    public Dictionary<T, IGameComponent> ReadableComponents => _readableComponents;
-
-    protected void AddComponent(T systemType, IGameComponent component)
+    protected void AddComponent(TComponents systemType, IGameComponent component)
     {
-        _writableComponents.Add(systemType, component);
-        _readableComponents.Add(systemType, (IGameComponent)component.Clone());
+        Components.Add(systemType, component);
     }
 
-    public void SetComponent(T systemType, IGameComponent component)
+    public void SetComponent(TComponents systemType, IGameComponent component)
     {
-        _readableComponents[systemType] = component;
+        Components[systemType] = component;
     }
 
-    public bool IsCompatibleWith(T[] componentTypes)
+    public bool IsCompatibleWith(TComponents[] componentTypes)
     {
-        return componentTypes.All(_writableComponents.ContainsKey);
-    }
-
-    public void ApplyChanges()
-    {
-        foreach (var item in _writableComponents)
-        {
-            _readableComponents[item.Key] = (IGameComponent)item.Value.Clone();
-        }
+        return componentTypes.All(Components.ContainsKey);
     }
 }
 

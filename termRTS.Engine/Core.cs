@@ -7,6 +7,8 @@ namespace termRTS.Engine;
 // assigning to private class fields.
 // Ideas for double buffer implementation:
 //      - https://codereview.stackexchange.com/questions/108763/simple-generic-double-buffer-pattern
+// Tutorial for writing a logger:
+//      - https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/interpolated-string-handler
 
 /// <summary>
 /// The one who ties the whole system together.
@@ -16,18 +18,20 @@ namespace termRTS.Engine;
 /// </typeparam>
 /// <typeparam name="TComponents">
 /// Type of the enum listing all component types.
-/// </typeparam
+/// </typeparam>
 internal class Core<TWorld, TComponents> where TComponents : Enum
 {
     private static readonly TimeSpan MS_PER_UPDATE = TimeSpan.FromSeconds(1.0 / 60.0);
 
     private readonly Stopwatch _stopwatch;
     private bool _isGameRunning;
-    private EventQueue<IEvent, ulong> _eventQueue;
+    private readonly EventQueue<IEvent, ulong> _eventQueue;
 
     private TWorld _world;
     private readonly List<GameSystem<TWorld, TComponents>> _systems;
     private readonly List<GameEntity<TComponents>> _entities;
+    private readonly List<Dictionary<TComponents, IGameComponent>> _entitiesPendingChanges;
+    private readonly List<GameEntity<TComponents>> _newEntities;
     private readonly IInput _input;
     private readonly IRenderer<TWorld, TComponents> _renderer;
     // TODO: some form of event queue for:
@@ -38,12 +42,34 @@ internal class Core<TWorld, TComponents> where TComponents : Enum
     {
         _stopwatch = new Stopwatch();
         _isGameRunning = false;
-        _eventQueue = new();
+        _eventQueue = new EventQueue<IEvent, ulong>();
         _world = world;
-        _entities = new();
-        _systems = new();
+        _entities = new List<GameEntity<TComponents>>();
+        _entitiesPendingChanges = new List<Dictionary<TComponents, IGameComponent>>();
+        _newEntities = new List<GameEntity<TComponents>>();
+        _systems = new List<GameSystem<TWorld, TComponents>>();
         _input = input;
         _renderer = renderer;
+    }
+
+    public void Shutdown()
+    {
+        _isGameRunning = false;
+    }
+
+    public void AddEntity(GameEntity<TComponents> entity)
+    {
+        _newEntities.Add(entity);
+    }
+
+    public void AddGameSystem(GameSystem<TWorld, TComponents> system)
+    {
+        _systems.Add(system);
+    }
+
+    public void RemoveGameSystem(GameSystem<TWorld, TComponents> system)
+    {
+        _systems.Remove(system);
     }
 
     public void GameLoop()
@@ -51,7 +77,6 @@ internal class Core<TWorld, TComponents> where TComponents : Enum
         _isGameRunning = true;
         _stopwatch.Start();
         var lag = TimeSpan.Zero;
-        TimeSpan renderElapsed;
 
         while (_isGameRunning)
         {
@@ -63,7 +88,7 @@ internal class Core<TWorld, TComponents> where TComponents : Enum
 
             Update(ref lag);
 
-            Render(ref lag, out renderElapsed);
+            Render(ref lag, out var renderElapsed);
 
             // Take a break if we're ahead of time.
             var loopTimeMs = lag + renderElapsed;
@@ -90,17 +115,34 @@ internal class Core<TWorld, TComponents> where TComponents : Enum
         while (lag >= MS_PER_UPDATE)
         {
             // Run game logic.
-            foreach (var entity in _entities)
+            for (var i = 0; i < _entities.Count; i += 1)
             {
                 foreach (var sys in _systems)
                 {
-                    sys.ProcessComponents(
-                            entity.WritableComponents,
-                            _entities,
-                            ref _world);
+                    var listView = _entities[..];
+                    listView.RemoveAt(i);
+                    sys.ProcessComponents(_entities[i], listView, ref _world);
                 }
             }
-            // TODO: Apply changes to the game world after all entities are done.
+
+            // Apply changes to the game world after all entities are done.
+            for (var i = 0; i < _entities.Count; i += 1)
+            {
+                var entity = _entities[i];
+                var pendingChanges = _entitiesPendingChanges[i];
+                
+                if (pendingChanges.Count <= 0) continue;
+                
+                foreach (var item in pendingChanges)
+                {
+                    entity.Components[item.Key] = item.Value;
+                }
+                pendingChanges.Clear();
+            }
+
+            _entities.RemoveAll(e => e.IsMarkedForRemoval);
+            _entities.AddRange(_newEntities);
+            _newEntities.Clear();
 
             lag -= MS_PER_UPDATE;
         }
@@ -111,12 +153,11 @@ internal class Core<TWorld, TComponents> where TComponents : Enum
         var howFarIntoNextFrameMs = lag.TotalMilliseconds / MS_PER_UPDATE.TotalMilliseconds;
         var renderWatch = Stopwatch.StartNew();
 
-        _renderer.renderWorld(_world, howFarIntoNextFrameMs);
+        _renderer.RenderWorld(_world, howFarIntoNextFrameMs);
 
-        foreach (var entity in _entities)
+        for (var i = 0; i < _entities.Count; i += 1)
         {
-            entity.ApplyChanges();
-            _renderer.renderEntity(entity, howFarIntoNextFrameMs);
+            _renderer.RenderEntity(_entities[i].Components, howFarIntoNextFrameMs);
         }
 
         renderWatch.Stop();

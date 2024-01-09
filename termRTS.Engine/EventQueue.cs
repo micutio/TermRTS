@@ -20,7 +20,7 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
 
     #region Constructor
 
-    public EventQueue(IComparer<TPriority> comparer = default)
+    public EventQueue(IComparer<TPriority>? comparer = default)
     {
         comparer ??= Comparer<TPriority>.Default;
         _queue = new(Comparer<(TPriority, long)>.Create((x, y) =>
