@@ -28,27 +28,31 @@ public interface ICore
 public class Core<TWorld, TComponents> : ICore where TComponents : Enum
 {
     private bool _isGameRunning;
-    private readonly EventQueue<IEvent, ulong> _eventQueue;
+    private readonly UInt128 _timeStepSizeMs;
+    private UInt128 _timeMs;
+    private readonly EventQueue<IEvent, UInt128> _eventQueue;
 
     private TWorld _world;
+    private readonly IRenderer<TWorld, TComponents> _renderer;
     private readonly List<GameSystem<TWorld, TComponents>> _systems;
     private readonly List<GameEntity<TComponents>> _entities;
     private readonly Dictionary<int, Dictionary<TComponents, IGameComponent>> _entitiesPendingChanges;
     private readonly List<GameEntity<TComponents>> _newEntities;
-    private readonly IInput _input;
-    private readonly IRenderer<TWorld, TComponents> _renderer;
+    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
 
-    public Core(TWorld world, IInput input, IRenderer<TWorld, TComponents> renderer)
+    public Core(UInt128 timeStepSizeMs, TWorld world, IRenderer<TWorld, TComponents> renderer)
     {
         _isGameRunning = false;
-        _eventQueue = new EventQueue<IEvent, ulong>();
+        _timeMs = 0L;
+        _timeStepSizeMs = timeStepSizeMs;
+        _eventQueue = new EventQueue<IEvent, UInt128>();
         _world = world;
+        _renderer = renderer;
         _entities = new List<GameEntity<TComponents>>();
         _entitiesPendingChanges = new Dictionary<int, Dictionary<TComponents, IGameComponent>>();
         _newEntities = new List<GameEntity<TComponents>>();
+        _eventSinks = new Dictionary<EventType, List<IEventSink>>();
         _systems = new List<GameSystem<TWorld, TComponents>>();
-        _input = input;
-        _renderer = renderer;
     }
 
     public void Shutdown()
@@ -76,8 +80,32 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         _systems.Remove(system);
     }
 
+    public void AddEventSink(IEventSink sink, EventType type)
+    {
+        var isFound = _eventSinks.TryGetValue(type, out var sinks);
+        if (!isFound) sinks = new List<IEventSink>();
+
+        if (sinks == null) return;
+
+        sinks.Add(sink);
+        _eventSinks[type] = sinks;
+    }
+
+    public void RemoveEventSink(IEventSink sink, EventType type)
+    {
+        _eventSinks[type].Remove(sink);
+    }
+
     public void ProcessInput()
     {
+        while (_eventQueue.Count > 0  && _eventQueue.First().Item2 <= _timeMs)
+        {
+            _eventQueue.TryTake(out var item);
+            foreach (var eventSink in _eventSinks[item.Item1.getType()])
+            {
+                eventSink.ProcessEvent(item.Item1);
+            }
+        }
     }
 
     public void Tick()
@@ -122,7 +150,7 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         //  - all pending changes cleared
         //  - all pending new entities added
         //  - all to-be-removed entities removed
-
+        _timeMs += _timeStepSizeMs;
     }
 
     public void Render(double howFarIntoNextFrameMs)
