@@ -1,6 +1,6 @@
 ﻿using System.Threading.Channels;
 
-namespace termRTS.Engine;
+namespace termRTS.Runner;
 
 public class Input
 {

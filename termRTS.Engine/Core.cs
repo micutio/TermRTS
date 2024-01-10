@@ -15,6 +15,8 @@ public interface ICore
 //      - https://codereview.stackexchange.com/questions/108763/simple-generic-double-buffer-pattern
 // Tutorial for writing a logger:
 //      - https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/interpolated-string-handler
+// Tutorial for async channels & multiplexers:
+//      - https://deniskyashif.com/2019/12/08/csharp-channels-part-1/
 
 /// <summary>
 /// The one who ties the whole system together.
