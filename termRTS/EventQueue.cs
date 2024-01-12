@@ -62,6 +62,16 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         }
     }
 
+    public bool TryPeek(out TElement? element, out TPriority? priority)
+    {
+        lock (_queue)
+        {
+            var value = _queue.TryPeek(out var element1, out var priority1);
+            element = element1;
+            priority = priority1.Item1;
+            return value;
+        }
+    }
 
     public object SyncRoot => throw new NotSupportedException();
 
