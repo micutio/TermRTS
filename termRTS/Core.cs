@@ -1,10 +1,9 @@
-﻿namespace termRTS.Engine;
+﻿namespace termRTS;
 
-public interface ICore
+public interface ICore : termRTS.IEventSink
 {
     public bool IsGameRunning();
-    public void ProcessInput();
-    public void Tick();
+    public void Tick(UInt128 timeStepSizeMs);
     public void Render(double howFarIntoNextFrameMs);
 }
 
@@ -27,34 +26,26 @@ public interface ICore
 /// <typeparam name="TComponents">
 /// Type of the enum listing all component types.
 /// </typeparam>
-public class Core<TWorld, TComponents> : ICore where TComponents : Enum
+public class Core<TWorld, TComponents> : termRTS.ICore where TComponents : Enum
 {
     private bool _isGameRunning;
-    private readonly UInt128 _timeStepSizeMs;
-    private UInt128 _timeMs;
-    private readonly EventQueue<IEvent, UInt128> _eventQueue;
 
     private TWorld _world;
     private readonly IRenderer<TWorld, TComponents> _renderer;
-    private readonly List<GameSystem<TWorld, TComponents>> _systems;
-    private readonly List<GameEntity<TComponents>> _entities;
-    private readonly Dictionary<int, Dictionary<TComponents, IGameComponent>> _entitiesPendingChanges;
-    private readonly List<GameEntity<TComponents>> _newEntities;
-    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
+    private readonly List<System<TWorld, TComponents>> _systems;
+    private readonly List<termRTS.EntityBase<TComponents>> _entities;
+    private readonly Dictionary<int, Dictionary<TComponents, IComponent>> _entitiesPendingChanges;
+    private readonly List<termRTS.EntityBase<TComponents>> _newEntities;
 
-    public Core(UInt128 timeStepSizeMs, TWorld world, IRenderer<TWorld, TComponents> renderer)
+    public Core(TWorld world, IRenderer<TWorld, TComponents> renderer)
     {
         _isGameRunning = false;
-        _timeMs = 0L;
-        _timeStepSizeMs = timeStepSizeMs;
-        _eventQueue = new EventQueue<IEvent, UInt128>();
         _world = world;
         _renderer = renderer;
-        _entities = new List<GameEntity<TComponents>>();
-        _entitiesPendingChanges = new Dictionary<int, Dictionary<TComponents, IGameComponent>>();
-        _newEntities = new List<GameEntity<TComponents>>();
-        _eventSinks = new Dictionary<EventType, List<IEventSink>>();
-        _systems = new List<GameSystem<TWorld, TComponents>>();
+        _entities = new List<termRTS.EntityBase<TComponents>>();
+        _entitiesPendingChanges = new Dictionary<int, Dictionary<TComponents, termRTS.IComponent>>();
+        _newEntities = new List<termRTS.EntityBase<TComponents>>();
+        _systems = new List<termRTS.System<TWorld, TComponents>>();
     }
 
     public void Shutdown()
@@ -67,50 +58,27 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         return _isGameRunning;
     }
 
-    public void AddEntity(GameEntity<TComponents> entity)
+    public void AddEntity(termRTS.EntityBase<TComponents> entity)
     {
         _newEntities.Add(entity);
     }
 
-    public void AddGameSystem(GameSystem<TWorld, TComponents> system)
+    public void AddGameSystem(termRTS.System<TWorld, TComponents> system)
     {
         _systems.Add(system);
     }
 
-    public void RemoveGameSystem(GameSystem<TWorld, TComponents> system)
+    public void RemoveGameSystem(termRTS.System<TWorld, TComponents> system)
     {
         _systems.Remove(system);
     }
 
-    public void AddEventSink(IEventSink sink, EventType type)
+    public void ProcessEvent(termRTS.IEvent evt)
     {
-        var isFound = _eventSinks.TryGetValue(type, out var sinks);
-        if (!isFound) sinks = new List<IEventSink>();
-
-        if (sinks == null) return;
-
-        sinks.Add(sink);
-        _eventSinks[type] = sinks;
+        throw new NotImplementedException();
     }
 
-    public void RemoveEventSink(IEventSink sink, EventType type)
-    {
-        _eventSinks[type].Remove(sink);
-    }
-
-    public void ProcessInput()
-    {
-        while (_eventQueue.Count > 0  && _eventQueue.First().Item2 <= _timeMs)
-        {
-            _eventQueue.TryTake(out var item);
-            foreach (var eventSink in _eventSinks[item.Item1.getType()])
-            {
-                eventSink.ProcessEvent(item.Item1);
-            }
-        }
-    }
-
-    public void Tick()
+    public void Tick(UInt128 timeStepSizeMs)
     {
         // Run game logic.
         // NOTE: Try flipping the `for` and `foreach` loops to see which variant is faster.
@@ -120,7 +88,7 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
             {
                 var listView = _entities[..];
                 listView.RemoveAt(i);
-                var change = sys.ProcessComponents(_entities[i], listView, ref _world);
+                var change = sys.ProcessComponents(timeStepSizeMs, _entities[i], listView, ref _world);
                 if (change != null)
                 {
                     _entitiesPendingChanges[i] = change;
@@ -152,7 +120,6 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         //  - all pending changes cleared
         //  - all pending new entities added
         //  - all to-be-removed entities removed
-        _timeMs += _timeStepSizeMs;
     }
 
     public void Render(double howFarIntoNextFrameMs)

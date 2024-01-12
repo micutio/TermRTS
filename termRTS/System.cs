@@ -1,4 +1,4 @@
-namespace termRTS.Engine;
+namespace termRTS;
 
 /// <summary>
 /// A System defines one or multiple required components and processes <c>Entity</c>s which
@@ -10,12 +10,13 @@ namespace termRTS.Engine;
 /// <typeparam name="TComponents">
 /// Type of the enum listing all component types.
 /// </typeparam>
-public abstract class GameSystem<TWorld, TComponents> where TComponents : Enum
+public abstract class System<TWorld, TComponents> where TComponents : Enum
 {
     // TODO: Process entities and world in two-state fashion.
     // TODO: If possible, enforce that otherEs are immutable
-    public abstract Dictionary<TComponents, IGameComponent>? ProcessComponents(
-            GameEntity<TComponents> thisEntityComponents,
-            List<GameEntity<TComponents>> otherEntityComponents,
+    public abstract Dictionary<TComponents, termRTS.IComponent>? ProcessComponents(
+            UInt128 timeStepSizeMs,
+            termRTS.EntityBase<TComponents> thisEntityComponents,
+            List<termRTS.EntityBase<TComponents>> otherEntityComponents,
             ref TWorld world);
 }

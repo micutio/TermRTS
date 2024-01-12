@@ -1,4 +1,4 @@
-namespace termRTS.Engine;
+namespace termRTS;
 
 public interface IEvent
 {
