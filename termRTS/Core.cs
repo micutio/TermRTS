@@ -29,7 +29,6 @@ public interface ICore : termRTS.IEventSink
 public class Core<TWorld, TComponents> : termRTS.ICore where TComponents : Enum
 {
     private bool _isGameRunning;
-
     private TWorld _world;
     private readonly IRenderer<TWorld, TComponents> _renderer;
     private readonly List<System<TWorld, TComponents>> _systems;
@@ -39,7 +38,7 @@ public class Core<TWorld, TComponents> : termRTS.ICore where TComponents : Enum
 
     public Core(TWorld world, IRenderer<TWorld, TComponents> renderer)
     {
-        _isGameRunning = false;
+        _isGameRunning = true;
         _world = world;
         _renderer = renderer;
         _entities = new List<termRTS.EntityBase<TComponents>>();

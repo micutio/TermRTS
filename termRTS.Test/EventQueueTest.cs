@@ -25,9 +25,9 @@ public class EventQueueTest
     public void TestPriorities()
     {
         var eq = new termRTS.EventQueue<string, int>();
-        eq.TryAdd(("foo", 0));
         eq.TryAdd(("bar", 1));
         eq.TryAdd(("baz", 2));
+        eq.TryAdd(("foo", 0));
 
         eq.TryPeek(out var elem1, out var prio1);
         Assert.Equal("foo", elem1);
