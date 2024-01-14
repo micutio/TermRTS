@@ -29,21 +29,25 @@ public class NullRenderer : termRTS.IRenderer<NullWorld, EmptyComponentType>
     }
 }
 
-public class CoreTestTheoryData : TheoryData<termRTS.Core<NullWorld, EmptyComponentType>>
+public class EngineTestTheoryData : TheoryData<termRTS.Core<NullWorld, EmptyComponentType>>
 {
-    public CoreTestTheoryData()
+    public EngineTestTheoryData()
     {
         Add(new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer()));
     }
 }
 
-public class CoreTest
+public class EngineTest
 {
     [Theory]
-    [ClassData(typeof(CoreTestTheoryData))]
+    [ClassData(typeof(EngineTestTheoryData))]
     public void TestSetup(termRTS.Core<NullWorld, EmptyComponentType> core)
     {
         Assert.True(core.IsGameRunning());
+        core.Tick(16L);
+        core.Tick(16L);
+        core.Tick(16L);
+        core.Tick(16L);
         core.Shutdown();
         Assert.False(core.IsGameRunning());
     }

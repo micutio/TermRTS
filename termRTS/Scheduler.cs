@@ -13,6 +13,11 @@ public class Scheduler
     private readonly Dictionary<termRTS.EventType, List<termRTS.IEventSink>> _eventSinks;
     private readonly ICore _core;
 
+    public UInt128 TimeMs
+    {
+        get { return _timeMs; }
+    }
+
     public Scheduler(double frameTimeMs, UInt128 timeStepSizeMs, ICore core)
     {
         _msPerUpdate = TimeSpan.FromSeconds(frameTimeMs);
