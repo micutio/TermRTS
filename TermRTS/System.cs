@@ -1,4 +1,4 @@
-namespace termRTS;
+namespace TermRTS;
 
 /// <summary>
 /// A System defines one or multiple required components and processes <c>Entity</c>s which
@@ -12,11 +12,10 @@ namespace termRTS;
 /// </typeparam>
 public abstract class System<TWorld, TComponents> where TComponents : Enum
 {
-    // TODO: Process entities and world in two-state fashion.
-    // TODO: If possible, enforce that otherEs are immutable
-    public abstract Dictionary<TComponents, termRTS.IComponent>? ProcessComponents(
+    // NOTE: If possible, enforce that otherEs are immutable
+    public abstract Dictionary<TComponents, IComponent>? ProcessComponents(
             UInt128 timeStepSizeMs,
-            termRTS.EntityBase<TComponents> thisEntityComponents,
-            List<termRTS.EntityBase<TComponents>> otherEntityComponents,
+            EntityBase<TComponents> thisEntityComponents,
+            List<EntityBase<TComponents>> otherEntityComponents,
             ref TWorld world);
 }

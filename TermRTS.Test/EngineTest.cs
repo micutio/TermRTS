@@ -1,7 +1,7 @@
 
-namespace termRTS.Test;
+namespace TermRTS.Test;
 
-public class NullWorld : termRTS.IWorld
+public class NullWorld : IWorld
 {
     public void ApplyChange()
     {
@@ -14,7 +14,7 @@ public enum EmptyComponentType
     Empty,
 }
 
-public class NullRenderer : termRTS.IRenderer<NullWorld, EmptyComponentType>
+public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
 {
     public void RenderEntity(
             Dictionary<EmptyComponentType, IComponent> entity,
@@ -29,7 +29,7 @@ public class NullRenderer : termRTS.IRenderer<NullWorld, EmptyComponentType>
     }
 }
 
-public class EngineTestTheoryData : TheoryData<termRTS.Core<NullWorld, EmptyComponentType>>
+public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentType>>
 {
     public EngineTestTheoryData()
     {
@@ -41,7 +41,7 @@ public class EngineTest
 {
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestSetup(termRTS.Core<NullWorld, EmptyComponentType> core)
+    public void TestSetup(Core<NullWorld, EmptyComponentType> core)
     {
         Assert.True(core.IsGameRunning());
         core.Tick(16L);

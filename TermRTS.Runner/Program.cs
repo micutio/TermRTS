@@ -1,6 +1,6 @@
 ﻿using ConsoleRenderer;
 
-namespace termRTS.Runner;
+namespace TermRTS.Runner;
 
 internal static class Program
 {

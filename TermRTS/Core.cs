@@ -1,6 +1,6 @@
-﻿namespace termRTS;
+﻿namespace TermRTS;
 
-public interface ICore : termRTS.IEventSink
+public interface ICore : IEventSink
 {
     public bool IsGameRunning();
     public void Tick(UInt128 timeStepSizeMs);
@@ -26,25 +26,25 @@ public interface ICore : termRTS.IEventSink
 /// <typeparam name="TComponents">
 /// Type of the enum listing all component types.
 /// </typeparam>
-public class Core<TWorld, TComponents> : termRTS.ICore where TComponents : Enum
+public class Core<TWorld, TComponents> : ICore where TComponents : Enum
 {
     private bool _isGameRunning;
     private TWorld _world;
     private readonly IRenderer<TWorld, TComponents> _renderer;
     private readonly List<System<TWorld, TComponents>> _systems;
-    private readonly List<termRTS.EntityBase<TComponents>> _entities;
+    private readonly List<EntityBase<TComponents>> _entities;
     private readonly Dictionary<int, Dictionary<TComponents, IComponent>> _entitiesPendingChanges;
-    private readonly List<termRTS.EntityBase<TComponents>> _newEntities;
+    private readonly List<EntityBase<TComponents>> _newEntities;
 
     public Core(TWorld world, IRenderer<TWorld, TComponents> renderer)
     {
         _isGameRunning = true;
         _world = world;
         _renderer = renderer;
-        _entities = new List<termRTS.EntityBase<TComponents>>();
-        _entitiesPendingChanges = new Dictionary<int, Dictionary<TComponents, termRTS.IComponent>>();
-        _newEntities = new List<termRTS.EntityBase<TComponents>>();
-        _systems = new List<termRTS.System<TWorld, TComponents>>();
+        _entities = new List<EntityBase<TComponents>>();
+        _entitiesPendingChanges = new Dictionary<int, Dictionary<TComponents, IComponent>>();
+        _newEntities = new List<EntityBase<TComponents>>();
+        _systems = new List<System<TWorld, TComponents>>();
     }
 
     public void Shutdown()
@@ -57,22 +57,22 @@ public class Core<TWorld, TComponents> : termRTS.ICore where TComponents : Enum
         return _isGameRunning;
     }
 
-    public void AddEntity(termRTS.EntityBase<TComponents> entity)
+    public void AddEntity(EntityBase<TComponents> entity)
     {
         _newEntities.Add(entity);
     }
 
-    public void AddGameSystem(termRTS.System<TWorld, TComponents> system)
+    public void AddGameSystem(System<TWorld, TComponents> system)
     {
         _systems.Add(system);
     }
 
-    public void RemoveGameSystem(termRTS.System<TWorld, TComponents> system)
+    public void RemoveGameSystem(System<TWorld, TComponents> system)
     {
         _systems.Remove(system);
     }
 
-    public void ProcessEvent(termRTS.IEvent evt)
+    public void ProcessEvent(IEvent evt)
     {
         throw new NotImplementedException();
     }

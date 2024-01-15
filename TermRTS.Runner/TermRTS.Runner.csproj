@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\termRTS\termRTS.csproj" />
+    <ProjectReference Include="..\TermRTS\TermRTS.csproj" />
   </ItemGroup>
 
 </Project>

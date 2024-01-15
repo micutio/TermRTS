@@ -1,20 +1,16 @@
 // https://stackoverflow.com/questions/23470196/concurrent-collection-with-priority
 
 using System.Collections;
-
-// https://stackoverflow.com/questions/23470196/concurrent-collection-with-priority
-
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 
-namespace termRTS;
+namespace TermRTS;
 
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
     #region Private Fields
 
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
-    private long _index = 0L;
+    private long _index;
 
     #endregion
 
@@ -48,7 +44,7 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         return true;
     }
 
-    public bool TryTake([MaybeNullWhen(false)] out (TElement, TPriority) item)
+    public bool TryTake(out (TElement, TPriority) item)
     {
         lock (_queue)
         {

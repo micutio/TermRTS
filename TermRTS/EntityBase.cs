@@ -1,4 +1,4 @@
-namespace termRTS;
+namespace TermRTS;
 
 /// <summary>
 /// Game entity, providing facilities for registering components.
@@ -10,14 +10,14 @@ public abstract class EntityBase<TComponents> where TComponents : Enum
 {
     public bool IsMarkedForRemoval { get; set; } = false;
 
-    public Dictionary<TComponents, termRTS.IComponent> Components { get; } = new();
+    public Dictionary<TComponents, IComponent> Components { get; } = new();
 
-    protected void AddComponent(TComponents systemType, termRTS.IComponent component)
+    protected void AddComponent(TComponents systemType, IComponent component)
     {
         Components.Add(systemType, component);
     }
 
-    public void SetComponent(TComponents systemType, termRTS.IComponent component)
+    public void SetComponent(TComponents systemType, IComponent component)
     {
         Components[systemType] = component;
     }

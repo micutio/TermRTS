@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Threading.Channels;
 
-namespace termRTS;
+namespace TermRTS;
 
 public class Scheduler
 {
@@ -9,14 +9,11 @@ public class Scheduler
     private readonly UInt128 _timeStepSizeMs;
     private UInt128 _timeMs;
     private readonly Stopwatch _stopwatch;
-    private readonly EventQueue<termRTS.IEvent, UInt128> _eventQueue;
-    private readonly Dictionary<termRTS.EventType, List<termRTS.IEventSink>> _eventSinks;
+    private readonly EventQueue<IEvent, UInt128> _eventQueue;
+    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
     private readonly ICore _core;
 
-    public UInt128 TimeMs
-    {
-        get { return _timeMs; }
-    }
+    public UInt128 TimeMs => _timeMs;
 
     public Scheduler(double frameTimeMs, UInt128 timeStepSizeMs, ICore core)
     {
@@ -29,21 +26,22 @@ public class Scheduler
         _core = core;
     }
 
-    public void AddEventSources(params ChannelReader<(termRTS.IEvent, UInt128)>[] sources)
+    public void AddEventSources(params ChannelReader<(IEvent, UInt128)>[] sources)
     {
         Task.Run(async () =>
         {
-            async Task Redirect(ChannelReader<(termRTS.IEvent, UInt128)> input)
+            await Task.WhenAll(sources.Select(Redirect).ToArray());
+            return;
+
+            async Task Redirect(ChannelReader<(IEvent, UInt128)> input)
             {
                 await foreach (var item in input.ReadAllAsync())
                     _eventQueue.TryAdd(item);
             }
-
-            await Task.WhenAll(sources.Select(i => Redirect(i)).ToArray());
         });
     }
 
-    public void AddEventSink(termRTS.IEventSink sink, termRTS.EventType type)
+    public void AddEventSink(IEventSink sink, EventType type)
     {
         var isFound = _eventSinks.TryGetValue(type, out var sinks);
         if (!isFound) sinks = new List<IEventSink>();
@@ -54,7 +52,7 @@ public class Scheduler
         _eventSinks[type] = sinks;
     }
 
-    public void RemoveEventSink(termRTS.IEventSink sink, termRTS.EventType type)
+    public void RemoveEventSink(IEventSink sink, EventType type)
     {
         _eventSinks[type].Remove(sink);
     }
