@@ -37,6 +37,16 @@ public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentTyp
     }
 }
 
+public class WatcherSystem : System<NullWorld, EmptyComponentType>
+{
+
+    public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(UInt128 timeStepSize, EntityBase<EmptyComponentType> thisEntityComponents, List<EntityBase<EmptyComponentType>> otherEntityComponents, ref NullWorld world)
+    {
+        return null;
+    }
+
+}
+
 public class EngineTest
 {
     [Theory]
@@ -50,5 +60,13 @@ public class EngineTest
         core.Tick(16L);
         core.Shutdown();
         Assert.False(core.IsGameRunning());
+    }
+
+    [Theory]
+    [ClassData(typeof(EngineTestTheoryData))]
+    public void TestSchedulerSetup(Core<NullWorld, EmptyComponentType> core)
+    {
+        var scheduler = new Scheduler(16, 16, core);
+
     }
 }
