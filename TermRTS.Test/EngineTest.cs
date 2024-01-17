@@ -1,4 +1,6 @@
 
+using System.Threading.Channels;
+
 namespace TermRTS.Test;
 
 public class NullWorld : IWorld
@@ -39,10 +41,27 @@ public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentTyp
 
 public class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
+    private int _remainingTicks;
+    private Channel<(IEvent, UInt128)> _eventChannel;
+    public ChannelReader<(IEvent, UInt128)> EventOutput;
+
+    public WatcherSystem(int remainingTicks)
+    {
+        _remainingTicks = remainingTicks;
+        _eventChannel = Channel.CreateUnbounded<(IEvent, UInt128)>();
+        EventOutput = _eventChannel.Reader;
+    }
 
     public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(UInt128 timeStepSize, EntityBase<EmptyComponentType> thisEntityComponents, List<EntityBase<EmptyComponentType>> otherEntityComponents, ref NullWorld world)
     {
-        return null;
+        _remainingTicks -= 1;
+
+        if (_remainingTicks == 0)
+        {
+            _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
+        }
+
+        return new Dictionary<EmptyComponentType, IComponent>();
     }
 
 }
@@ -66,7 +85,17 @@ public class EngineTest
     [ClassData(typeof(EngineTestTheoryData))]
     public void TestSchedulerSetup(Core<NullWorld, EmptyComponentType> core)
     {
+        // Setup Scheduler
+        var watcherSystem = new WatcherSystem(remainingTicks: 12);
         var scheduler = new Scheduler(16, 16, core);
+        scheduler.AddEventSources(watcherSystem.EventOutput);
+        core.AddGameSystem(watcherSystem);
+        
+        // Run it
+        scheduler.GameLoop();
 
+        // It should terminate after 12 ticks of 16ms simulated time each.
+        UInt128 finalTime = 12 * 16;
+        Assert.Equal(finalTime, scheduler.TimeMs);
     }
 }

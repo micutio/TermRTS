@@ -1,4 +1,6 @@
-﻿namespace TermRTS;
+﻿using System.Diagnostics;
+
+namespace TermRTS;
 
 public interface ICore : IEventSink
 {
@@ -74,7 +76,20 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
 
     public void ProcessEvent(IEvent evt)
     {
-        throw new NotImplementedException();
+        switch (evt.getType())
+        {
+            case EventType.KeyInput:
+                throw new NotImplementedException();
+            case EventType.MouseInput:
+                throw new NotImplementedException();
+            case EventType.Output:
+                throw new NotImplementedException();
+            case EventType.Shutdown:
+                _isGameRunning = false;
+                return;
+            default:
+                throw new UnreachableException();
+        }
     }
 
     public void Tick(UInt128 timeStepSizeMs)

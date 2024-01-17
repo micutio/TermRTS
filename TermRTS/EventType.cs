@@ -4,5 +4,6 @@ public enum EventType
 {
     KeyInput,
     MouseInput,
-    Output
+    Output,
+    Shutdown
 }
