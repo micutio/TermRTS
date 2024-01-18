@@ -53,8 +53,8 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
             EntityBase<EmptyComponentType> thisEntityComponents,
             List<EntityBase<EmptyComponentType>> otherEntityComponents, ref NullWorld world)
     {
-        Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
         _remainingTicks -= 1;
+        Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
         {
@@ -72,7 +72,7 @@ public class DebugProgram
     {
         var core = new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer());
         // Setup Scheduler
-        var watcherSystem = new WatcherSystem(remainingTicks: 12);
+        var watcherSystem = new WatcherSystem(remainingTicks: 1);
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
         scheduler.AddEventSink(core, EventType.Shutdown);

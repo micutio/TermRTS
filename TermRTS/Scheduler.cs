@@ -74,7 +74,7 @@ public class Scheduler
     public void GameLoop()
     {
         _stopwatch.Start();
-        var lag = TimeSpan.Zero;
+        var lag = TimeSpan.FromMilliseconds((double)_timeStepSizeMs);
 
         while (_core.IsGameRunning())
         {
@@ -85,15 +85,17 @@ public class Scheduler
 
             // STEP 1: INPUT
             ProcessInput();
+            if (!_core.IsGameRunning()) break;
 
             // STEP 2: UPDATE
-            Console.WriteLine($"[Scheduler Gameloop Update] lag: {lag}, ms per update: {_msPerUpdate}");
+            Console.WriteLine($"[Scheduler Gameloop] lag: {lag}, ms per update: {_msPerUpdate}");
             while (lag >= _msPerUpdate)
             {
-                Console.WriteLine($"[Scheduler Gameloop Update] lag: {lag}, ms per update: {_msPerUpdate}");
+                Console.WriteLine("TICK");
                 _core.Tick(_timeStepSizeMs);
                 _timeMs += _timeStepSizeMs;
                 lag -= _msPerUpdate;
+                Console.WriteLine($"[Scheduler Gameloop Update] lag: {lag}, ms per update: {_msPerUpdate}");
             }
 
             // STEP 3: RENDER
