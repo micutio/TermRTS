@@ -76,13 +76,13 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
 
     public void ProcessEvent(IEvent evt)
     {
-        switch (evt.getType())
+        switch (evt.Type())
         {
             case EventType.KeyInput:
                 throw new NotImplementedException();
             case EventType.MouseInput:
                 throw new NotImplementedException();
-            case EventType.Output:
+            case EventType.Profile:
                 throw new NotImplementedException();
             case EventType.Shutdown:
                 _isGameRunning = false;
@@ -102,7 +102,6 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         // NOTE: Try flipping the `for` and `foreach` loops to see which variant is faster.
         for (var i = 0; i < _entities.Count; i += 1)
         {
-            // Console.WriteLine($"CORE TICK {i}");
             foreach (var sys in _systems)
             {
                 var listView = _entities[..];

@@ -2,5 +2,5 @@ namespace TermRTS;
 
 public interface IEvent
 {
-    public EventType getType();
+    public EventType Type();
 }

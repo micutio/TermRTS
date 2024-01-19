@@ -5,6 +5,7 @@ namespace TermRTS;
 
 public class Scheduler
 {
+    private readonly Profiler _profiler;
     private readonly TimeSpan _msPerUpdate;
     private readonly UInt64 _timeStepSizeMs;
     private UInt64 _timeMs;
@@ -17,6 +18,7 @@ public class Scheduler
 
     public Scheduler(double frameTimeMs, UInt64 timeStepSizeMs, ICore core)
     {
+        _profiler = new Profiler(timeStepSizeMs);
         _msPerUpdate = TimeSpan.FromMilliseconds(frameTimeMs);
         _timeStepSizeMs = timeStepSizeMs;
         _timeMs = 0L;
@@ -69,7 +71,16 @@ public class Scheduler
         while (_eventQueue.TryPeek(out var item, out var priority) && priority <= _timeMs)
         {
             _eventQueue.TryTake(out var eventItem);
-            foreach (var eventSink in _eventSinks[eventItem.Item1.getType()])
+
+            // TODO: makes this cleaner!
+            if (eventItem.Item1.Type() == EventType.Profile)
+            {
+                Console.WriteLine(_profiler.ToString());
+            }
+
+            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
+
+            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
             {
                 eventSink.ProcessEvent(eventItem.Item1);
             }
@@ -85,7 +96,8 @@ public class Scheduler
         {
             _stopwatch.Stop();
             lag += _stopwatch.Elapsed;
-            // Console.WriteLine($"[Scheduler Gameloop] current time: {_timeMs}, lag: {lag}");
+
+            Console.WriteLine($"[Scheduler Gameloop] current time: {_timeMs}, lag: {lag.TotalMilliseconds}");
             _stopwatch.Restart();
 
             // STEP 1: INPUT
@@ -93,14 +105,12 @@ public class Scheduler
             if (!_core.IsGameRunning()) break;
 
             // STEP 2: UPDATE
-            // Console.WriteLine($"[Scheduler Gameloop] lag: {lag}, ms per update: {_msPerUpdate}");
             while (lag >= _msPerUpdate)
             {
-                Console.WriteLine("TICK");
+                // Console.WriteLine("TICK");
                 _core.Tick(_timeStepSizeMs);
                 _timeMs += _timeStepSizeMs;
                 lag -= _msPerUpdate;
-                // Console.WriteLine($"[Scheduler Gameloop Update] lag: {lag}, ms per update: {_msPerUpdate}");
             }
 
             // STEP 3: RENDER
@@ -108,19 +118,21 @@ public class Scheduler
             var renderWatch = Stopwatch.StartNew();
             _core.Render(howFarIntoNextFrameMs);
             renderWatch.Stop();
-            // Console.WriteLine($"[Scheduler Gameloop] render duration: {renderWatch.Elapsed}");
+            Console.WriteLine($"[Scheduler Gameloop] render duration: {renderWatch.Elapsed}");
             var renderElapsed = renderWatch.Elapsed;
 
             // Take a break if we're ahead of time.
             var loopTimeMs = lag + renderElapsed;
+            _profiler.AddTickTimeSample((UInt64)loopTimeMs.TotalMilliseconds, (UInt64)renderElapsed.TotalMilliseconds);
 
             // If we spent longer than our allotted time, skip right ahead...
+            Console.WriteLine($"loop active time: {loopTimeMs.TotalMilliseconds}");
             if (loopTimeMs >= _msPerUpdate)
                 continue;
 
             // ...otherwise wait until the next frame is due.
             var sleepyTime = (_msPerUpdate - loopTimeMs).TotalMilliseconds;
-            // Console.WriteLine($"[Scheduler Gameloop] pausing game loop for {sleepyTime} ms");
+            Console.WriteLine($"[Scheduler Gameloop] pausing game loop for {sleepyTime} ms");
             Thread.Sleep((int)sleepyTime);
         }
     }

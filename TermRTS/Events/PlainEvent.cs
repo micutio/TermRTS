@@ -9,7 +9,7 @@ public class PlainEvent : IEvent
         _type = typ;
     }
 
-    public EventType getType()
+    public EventType Type()
     {
         return _type;
     }
