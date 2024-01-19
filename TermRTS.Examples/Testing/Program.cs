@@ -38,18 +38,18 @@ public class NullEntity : EntityBase<EmptyComponentType>
 public class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
     private int _remainingTicks;
-    private Channel<(IEvent, UInt128)> _eventChannel;
-    public ChannelReader<(IEvent, UInt128)> EventOutput;
+    private Channel<(IEvent, UInt64)> _eventChannel;
+    public ChannelReader<(IEvent, UInt64)> EventOutput;
 
     public WatcherSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<(IEvent, UInt128)>();
+        _eventChannel = Channel.CreateUnbounded<(IEvent, UInt64)>();
         EventOutput = _eventChannel.Reader;
     }
 
     public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
-            UInt128 timeStepSize,
+            UInt64 timeStepSize,
             EntityBase<EmptyComponentType> thisEntityComponents,
             List<EntityBase<EmptyComponentType>> otherEntityComponents,
             ref NullWorld world)
@@ -84,6 +84,6 @@ public class DebugProgram
         scheduler.GameLoop();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
-        UInt128 finalTime = 12 * 16;
+        UInt64 finalTime = 12 * 16;
     }
 }

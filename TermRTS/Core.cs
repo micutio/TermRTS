@@ -5,7 +5,7 @@ namespace TermRTS;
 public interface ICore : IEventSink
 {
     public bool IsGameRunning();
-    public void Tick(UInt128 timeStepSizeMs);
+    public void Tick(UInt64 timeStepSizeMs);
     public void Render(double howFarIntoNextFrameMs);
 }
 
@@ -92,7 +92,7 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         }
     }
 
-    public void Tick(UInt128 timeStepSizeMs)
+    public void Tick(UInt64 timeStepSizeMs)
     {
         // Run game logic.
         _entities.RemoveAll(e => e.IsMarkedForRemoval);
@@ -102,7 +102,7 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
         // NOTE: Try flipping the `for` and `foreach` loops to see which variant is faster.
         for (var i = 0; i < _entities.Count; i += 1)
         {
-            Console.WriteLine($"CORE TICK {i}");
+            // Console.WriteLine($"CORE TICK {i}");
             foreach (var sys in _systems)
             {
                 var listView = _entities[..];

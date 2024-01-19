@@ -14,7 +14,7 @@ public abstract class System<TWorld, TComponents> where TComponents : Enum
 {
     // NOTE: If possible, enforce that otherEs are immutable
     public abstract Dictionary<TComponents, IComponent>? ProcessComponents(
-            UInt128 timeStepSizeMs,
+            UInt64 timeStepSizeMs,
             EntityBase<TComponents> thisEntityComponents,
             List<EntityBase<TComponents>> otherEntityComponents,
             ref TWorld world);
