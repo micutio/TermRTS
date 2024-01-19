@@ -109,4 +109,21 @@ public class EngineTest
         UInt128 finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);
     }
+
+    [Theory]
+    [ClassData(typeof(EngineTestTheoryData))]
+    public void TestScheduledEvent(Core<NullWorld, EmptyComponentType> core)
+    {
+        // Setup Scheduler
+        var scheduler = new Scheduler(16, 16, core);
+        scheduler.AddEventSink(core, EventType.Shutdown);
+        scheduler.QueueEvent((new PlainEvent(EventType.Shutdown), 12 * 16));
+
+        // Run it
+        scheduler.GameLoop();
+
+        // It should terminate after 12 ticks of 16ms simulated time each.
+        UInt128 finalTime = 12 * 16;
+        Assert.Equal(finalTime, scheduler.TimeMs);
+    }
 }

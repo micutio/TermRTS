@@ -59,6 +59,11 @@ public class Scheduler
         _eventSinks[type].Remove(sink);
     }
 
+    public void QueueEvent((IEvent, UInt128) item)
+    {
+        _eventQueue.TryAdd(item);
+    }
+
     public void ProcessInput()
     {
         while (_eventQueue.TryPeek(out var item, out var priority) && priority <= _timeMs)
