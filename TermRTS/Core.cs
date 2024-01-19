@@ -95,6 +95,10 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
     public void Tick(UInt128 timeStepSizeMs)
     {
         // Run game logic.
+        _entities.RemoveAll(e => e.IsMarkedForRemoval);
+        _entities.AddRange(_newEntities);
+        _newEntities.Clear();
+
         // NOTE: Try flipping the `for` and `foreach` loops to see which variant is faster.
         for (var i = 0; i < _entities.Count; i += 1)
         {
@@ -126,10 +130,6 @@ public class Core<TWorld, TComponents> : ICore where TComponents : Enum
             }
         }
         _entitiesPendingChanges.Clear();
-
-        _entities.RemoveAll(e => e.IsMarkedForRemoval);
-        _entities.AddRange(_newEntities);
-        _newEntities.Clear();
 
         // New game state:
         //  - all pending changes cleared

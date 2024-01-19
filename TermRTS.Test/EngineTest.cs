@@ -39,6 +39,11 @@ public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentTyp
     }
 }
 
+public class NullEntity : EntityBase<EmptyComponentType>
+{
+
+}
+
 public class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
     private int _remainingTicks;
@@ -52,7 +57,11 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(UInt128 timeStepSize, EntityBase<EmptyComponentType> thisEntityComponents, List<EntityBase<EmptyComponentType>> otherEntityComponents, ref NullWorld world)
+    public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
+            UInt128 timeStepSize,
+            EntityBase<EmptyComponentType> thisEntityComponents,
+            List<EntityBase<EmptyComponentType>> otherEntityComponents,
+            ref NullWorld world)
     {
         _remainingTicks -= 1;
 
@@ -89,8 +98,10 @@ public class EngineTest
         var watcherSystem = new WatcherSystem(remainingTicks: 12);
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
+        scheduler.AddEventSink(core, EventType.Shutdown);
         core.AddGameSystem(watcherSystem);
-        
+        core.AddEntity(new NullEntity());
+
         // Run it
         scheduler.GameLoop();
 

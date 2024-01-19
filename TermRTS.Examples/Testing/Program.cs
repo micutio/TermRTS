@@ -51,7 +51,8 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
     public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
             UInt128 timeStepSize,
             EntityBase<EmptyComponentType> thisEntityComponents,
-            List<EntityBase<EmptyComponentType>> otherEntityComponents, ref NullWorld world)
+            List<EntityBase<EmptyComponentType>> otherEntityComponents,
+            ref NullWorld world)
     {
         _remainingTicks -= 1;
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
