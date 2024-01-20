@@ -35,7 +35,7 @@ public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentTyp
 {
     public EngineTestTheoryData()
     {
-        Add(new Core<NullWorld, EmptyComponentType>(16, new NullWorld(), new NullRenderer()));
+        Add(new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer()));
     }
 }
 
