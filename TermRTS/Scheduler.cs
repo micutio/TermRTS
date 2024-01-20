@@ -97,7 +97,7 @@ public class Scheduler
             _stopwatch.Stop();
             lag += _stopwatch.Elapsed;
 
-            Console.WriteLine($"[Scheduler Gameloop] current time: {_timeMs}, lag: {lag.TotalMilliseconds}");
+            Console.WriteLine($"current time: {_timeMs}, lag: {lag.TotalMilliseconds}");
             _stopwatch.Restart();
 
             // STEP 1: INPUT
@@ -118,7 +118,7 @@ public class Scheduler
             var renderWatch = Stopwatch.StartNew();
             _core.Render(howFarIntoNextFrameMs);
             renderWatch.Stop();
-            Console.WriteLine($"[Scheduler Gameloop] render duration: {renderWatch.Elapsed}");
+            Console.WriteLine($"render duration: {renderWatch.Elapsed}");
             var renderElapsed = renderWatch.Elapsed;
 
             // Take a break if we're ahead of time.
@@ -131,9 +131,9 @@ public class Scheduler
                 continue;
 
             // ...otherwise wait until the next frame is due.
-            var sleepyTime = (_msPerUpdate - loopTimeMs).TotalMilliseconds;
-            Console.WriteLine($"[Scheduler Gameloop] pausing game loop for {sleepyTime} ms");
-            Thread.Sleep((int)sleepyTime);
+            var sleepyTime = (int)Math.Round((_msPerUpdate - loopTimeMs).TotalMilliseconds, 0, MidpointRounding.ToPositiveInfinity);
+            Console.WriteLine($"pausing game loop for {sleepyTime} ms ---------------");
+            Thread.Sleep(sleepyTime);
         }
     }
 }
