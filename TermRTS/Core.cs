@@ -18,6 +18,8 @@ public interface ICore : IEventSink
 //      - https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/interpolated-string-handler
 // Tutorial for async channels & multiplexers:
 //      - https://deniskyashif.com/2019/12/08/csharp-channels-part-1/
+// Site for converting normal text into ASCII art:
+//      - https://www.patorjk.com/software/taag/
 
 /// <summary>
 /// The one who ties the whole system together.
