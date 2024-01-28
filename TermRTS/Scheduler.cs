@@ -66,14 +66,13 @@ public class Scheduler : IEventSink
         Task.Run(async () =>
         {
             await Task.WhenAll(sources.Select(Redirect).ToArray());
-            return;
-
-            async Task Redirect(ChannelReader<(IEvent, UInt64)> input)
-            {
-                await foreach (var item in input.ReadAllAsync())
-                    _eventQueue.TryAdd(item);
-            }
         });
+    }
+
+    private async Task Redirect(ChannelReader<(IEvent, UInt64)> input)
+    {
+        await foreach (var item in input.ReadAllAsync())
+            _eventQueue.TryAdd(item);
     }
 
     /// <summary>
@@ -82,7 +81,8 @@ public class Scheduler : IEventSink
     public void AddEventSink(IEventSink sink, EventType type)
     {
         var isFound = _eventSinks.TryGetValue(type, out var sinks);
-        if (!isFound || sinks == null) sinks = new List<IEventSink>();
+        if (!isFound || sinks == null)
+            sinks = new List<IEventSink>();
 
         sinks.Add(sink);
         _eventSinks[type] = sinks;
@@ -113,24 +113,24 @@ public class Scheduler : IEventSink
     public void SimulationLoop()
     {
         _stopwatch.Start();
-        var lag = TimeSpan.FromMilliseconds((double)_timeStepSizeMs);
+        var lag = TimeSpan.FromMilliseconds(_timeStepSizeMs);
 
         while (_core.IsRunning())
         {
             _stopwatch.Stop();
             lag += _stopwatch.Elapsed;
 
-            Console.WriteLine($"current time: {_timeMs}, lag: {lag.TotalMilliseconds}");
+            // Console.WriteLine($"current time: {_timeMs}, lag: {lag.TotalMilliseconds}");
             _stopwatch.Restart();
 
             // STEP 1: INPUT
             ProcessInput();
-            if (!_core.IsRunning()) break;
+            if (!_core.IsRunning())
+                break;
 
             // STEP 2: UPDATE
             while (lag >= _msPerUpdate)
             {
-                // Console.WriteLine("TICK");
                 _core.Tick(_timeStepSizeMs);
                 _timeMs += _timeStepSizeMs;
                 lag -= _msPerUpdate;
@@ -141,7 +141,7 @@ public class Scheduler : IEventSink
             var renderWatch = Stopwatch.StartNew();
             _core.Render(howFarIntoNextFrameMs);
             renderWatch.Stop();
-            Console.WriteLine($"render duration: {renderWatch.Elapsed}");
+            // Console.WriteLine($"render duration: {renderWatch.Elapsed}");
             var renderElapsed = renderWatch.Elapsed;
 
             // Take a break if we're ahead of time.
@@ -149,13 +149,13 @@ public class Scheduler : IEventSink
             _profiler.AddTickTimeSample((UInt64)loopTimeMs.TotalMilliseconds, (UInt64)renderElapsed.TotalMilliseconds);
 
             // If we spent longer than our allotted time, skip right ahead...
-            Console.WriteLine($"loop active time: {loopTimeMs.TotalMilliseconds}");
+            // Console.WriteLine($"loop active time: {loopTimeMs.TotalMilliseconds}");
             if (loopTimeMs >= _msPerUpdate)
                 continue;
 
             // ...otherwise wait until the next frame is due.
             var sleepyTime = (int)Math.Round((_msPerUpdate - loopTimeMs).TotalMilliseconds, 0, MidpointRounding.ToPositiveInfinity);
-            Console.WriteLine($"pausing game loop for {sleepyTime} ms ---------------");
+            // Console.WriteLine($"pausing game loop for {sleepyTime} ms ---------------");
             Thread.Sleep(sleepyTime);
         }
     }
@@ -183,11 +183,12 @@ public class Scheduler : IEventSink
     /// </summary>
     private void ProcessInput()
     {
-        while (_eventQueue.TryPeek(out var item, out var priority) && priority <= _timeMs)
+        while (_eventQueue.TryPeek(out _, out var priority) && priority <= _timeMs)
         {
             _eventQueue.TryTake(out var eventItem);
 
-            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
+            if (!_eventSinks.ContainsKey(eventItem.Item1.Type()))
+                continue;
 
             foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
             {

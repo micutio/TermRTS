@@ -2,7 +2,7 @@
 
 namespace TermRTS.Examples.Testing;
 
-public class NullWorld : TermRTS.IWorld
+internal class NullWorld : TermRTS.IWorld
 {
     public void ApplyChange()
     {
@@ -10,12 +10,12 @@ public class NullWorld : TermRTS.IWorld
     }
 }
 
-public enum EmptyComponentType
+internal enum EmptyComponentType
 {
     Empty,
 }
 
-public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
+internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
 {
     public void RenderEntity(
     Dictionary<EmptyComponentType, IComponent> entity,
@@ -30,9 +30,9 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     }
 }
 
-public class NullEntity : EntityBase<EmptyComponentType> { }
+internal class NullEntity : EntityBase<EmptyComponentType> { }
 
-public class WatcherSystem : System<NullWorld, EmptyComponentType>
+internal class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
     private int _remainingTicks;
     private readonly Channel<(IEvent, UInt64)> _eventChannel;
@@ -69,9 +69,9 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
 
 }
 
-public static class DebugProgram
+internal class MinimalApp : IRunnableExample
 {
-    public static void Main()
+    public void Run()
     {
         var core = new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer());
         var watcherSystem = new WatcherSystem(remainingTicks: 10);

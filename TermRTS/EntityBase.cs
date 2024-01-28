@@ -21,7 +21,7 @@ public abstract class EntityBase<TSystems> where TSystems : Enum
     /// <summary>
     /// Add a new component to this entity.
     /// </summary>
-    protected void AddComponent(TSystems systemType, IComponent component)
+    public void AddComponent(TSystems systemType, IComponent component)
     {
         Components.Add(systemType, component);
     }
