@@ -1,30 +1,46 @@
 namespace TermRTS;
 
 /// <summary>
-/// Game entity, providing facilities for registering components.
+/// Base class for simulation entities, providing facilities for registering components.
 /// </summary>
-/// <typeparam name="TComponents">
-/// Type of the Enum listing all component types.
+/// <typeparam name="TSystems">
+/// Type of the Enum listing all system types.
 /// </typeparam>
-public abstract class EntityBase<TComponents> where TComponents : Enum
+public abstract class EntityBase<TSystems> where TSystems : Enum
 {
+    /// <summary>
+    /// Property to indicate whether this entity is to be removed.
+    /// </summary>
     public bool IsMarkedForRemoval { get; set; } = false;
 
-    public Dictionary<TComponents, IComponent> Components { get; } = new();
+    /// <summary>
+    /// Storage for one component per system type.
+    /// </summary>
+    public Dictionary<TSystems, IComponent> Components { get; } = new();
 
-    protected void AddComponent(TComponents systemType, IComponent component)
+    /// <summary>
+    /// Add a new component to this entity.
+    /// </summary>
+    protected void AddComponent(TSystems systemType, IComponent component)
     {
         Components.Add(systemType, component);
     }
 
-    public void SetComponent(TComponents systemType, IComponent component)
+    /// <summary>
+    /// Add or overwrite a component of the given system type.
+    /// </summary>
+    public void SetComponent(TSystems systemType, IComponent component)
     {
         Components[systemType] = component;
     }
 
-    public bool IsCompatibleWith(TComponents[] componentTypes)
+    /// <summary>
+    /// Checks whether this entity matches all given system types.
+    /// </summary>
+    /// <param name="systemTypes"> Collection of system types to match. </param>
+    public bool IsCompatibleWith(TSystems[] systemTypes)
     {
-        return componentTypes.All(Components.ContainsKey);
+        return systemTypes.All(Components.ContainsKey);
     }
 }
 

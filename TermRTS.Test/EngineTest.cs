@@ -39,10 +39,7 @@ public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentTyp
     }
 }
 
-public class NullEntity : EntityBase<EmptyComponentType>
-{
-
-}
+public class NullEntity : EntityBase<EmptyComponentType> { }
 
 public class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
@@ -81,13 +78,13 @@ public class EngineTest
     [ClassData(typeof(EngineTestTheoryData))]
     public void TestSetup(Core<NullWorld, EmptyComponentType> core)
     {
-        Assert.True(core.IsGameRunning());
+        Assert.True(core.IsRunning());
         core.Tick(16L);
         core.Tick(16L);
         core.Tick(16L);
         core.Tick(16L);
         core.Shutdown();
-        Assert.False(core.IsGameRunning());
+        Assert.False(core.IsRunning());
     }
 
     [Theory]
@@ -103,7 +100,7 @@ public class EngineTest
         core.AddEntity(new NullEntity());
 
         // Run it
-        scheduler.GameLoop();
+        scheduler.SimulationLoop();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         UInt64 finalTime = 12 * 16;
@@ -117,10 +114,10 @@ public class EngineTest
         // Setup Scheduler
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSink(core, EventType.Shutdown);
-        scheduler.QueueEvent((new PlainEvent(EventType.Shutdown), 12 * 16));
+        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 12 * 16));
 
         // Run it
-        scheduler.GameLoop();
+        scheduler.SimulationLoop();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         UInt64 finalTime = 12 * 16;

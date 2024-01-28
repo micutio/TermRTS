@@ -30,10 +30,7 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     }
 }
 
-public class NullEntity : EntityBase<EmptyComponentType>
-{
-
-}
+public class NullEntity : EntityBase<EmptyComponentType> { }
 
 public class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
@@ -77,17 +74,19 @@ public static class DebugProgram
     public static void Main()
     {
         var core = new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer());
-        // Setup Scheduler
         var watcherSystem = new WatcherSystem(remainingTicks: 10);
-        var scheduler = new Scheduler(16, 16, core);
-        scheduler.AddEventSources(watcherSystem.EventOutput);
-        scheduler.AddEventSink(core, EventType.Shutdown);
-        // scheduler.QueueEvent((new PlainEvent(EventType.Profile), 60));
         core.AddGameSystem(watcherSystem);
         core.AddEntity(new NullEntity());
 
+        var scheduler = new Scheduler(16, 16, core);
+        scheduler.AddEventSources(watcherSystem.EventOutput);
+        scheduler.AddEventSink(core, EventType.Shutdown);
+
+        // Alternative solution: enqueue an event which fires after a given time
+        // scheduler.EnqueueEvent((new PlainEvent(EventType.Profile), 12 * 16));
+
         // Run it
-        scheduler.GameLoop();
+        scheduler.SimulationLoop();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
     }

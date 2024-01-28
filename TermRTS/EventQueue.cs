@@ -16,6 +16,10 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
 
     #region Constructor
 
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    /// <param name="comparer"> Comparer to facilitate sorting by priority. </param>
     public EventQueue(IComparer<TPriority>? comparer = default)
     {
         comparer ??= Comparer<TPriority>.Default;
@@ -29,7 +33,7 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
 
     #endregion
 
-    #region Public Methods
+    #region Properties
 
     public int Count
     {
@@ -37,6 +41,10 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
     }
 
     public bool IsSynchronized => false;
+
+    #endregion
+
+    #region Public Methods
 
     public bool TryAdd((TElement, TPriority) item)
     {

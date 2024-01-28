@@ -3,8 +3,14 @@ using System.Threading.Channels;
 
 namespace TermRTS;
 
-public class Scheduler
+/// <summary>
+/// The Scheduler has two tasks: running the gameloop with consistent timing and distributing
+/// events to the registered sinks whenever the former are due.
+/// </summary>
+public class Scheduler : IEventSink
 {
+    #region Private Fields
+
     private readonly Profiler _profiler;
     private readonly TimeSpan _msPerUpdate;
     private readonly UInt64 _timeStepSizeMs;
@@ -14,8 +20,16 @@ public class Scheduler
     private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
     private readonly ICore _core;
 
-    public UInt64 TimeMs => _timeMs;
+    #endregion
 
+    #region Constructor
+
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    /// <param name="frameTimeMs">How much time is allocated for processing each frame</param>
+    /// <param name="timeStepSizeMs">How much time is processed during one simulation tick</param>
+    /// <param name="core">Game core object, which is performing the actual simulation ticks</param>
     public Scheduler(double frameTimeMs, UInt64 timeStepSizeMs, ICore core)
     {
         _profiler = new Profiler(timeStepSizeMs);
@@ -30,6 +44,23 @@ public class Scheduler
         Console.WriteLine($"[Scheduler] ms per update: {_msPerUpdate}");
     }
 
+    #endregion
+
+    #region Properties
+
+    /// <summary>
+    /// Property for read-only access to current simulation time.
+    /// </summary>
+    public UInt64 TimeMs => _timeMs;
+
+    #endregion
+
+    #region Public Members
+
+    /// <summary>
+    /// Add a new event source to the scheduler. Using a channel the event source can send in new
+    /// events in an asynchronous fashion.
+    /// </summary>
     public void AddEventSources(params ChannelReader<(IEvent, UInt64)>[] sources)
     {
         Task.Run(async () =>
@@ -45,54 +76,46 @@ public class Scheduler
         });
     }
 
+    /// <summary>
+    /// Add a new event sink, which will receive events of the specified type.
+    /// </summary>
     public void AddEventSink(IEventSink sink, EventType type)
     {
         var isFound = _eventSinks.TryGetValue(type, out var sinks);
-        if (!isFound) sinks = new List<IEventSink>();
-
-        if (sinks == null) return;
+        if (!isFound || sinks == null) sinks = new List<IEventSink>();
 
         sinks.Add(sink);
         _eventSinks[type] = sinks;
     }
 
+    /// <summary>
+    /// Remove an event sink from the scheduler. The given sink will no longer receive any events.
+    /// </summary>
     public void RemoveEventSink(IEventSink sink, EventType type)
     {
         _eventSinks[type].Remove(sink);
     }
 
-    public void QueueEvent((IEvent, UInt64) item)
+    /// <summary>
+    /// This method offers a manual way of schedul
+    /// </summary>
+    /// <param name="item">
+    /// A tuple of the event and due-time, given as absolute timestamp in ms
+    /// </param>
+    public void EnqueueEvent((IEvent, UInt64) item)
     {
         _eventQueue.TryAdd(item);
     }
 
-    public void ProcessInput()
-    {
-        while (_eventQueue.TryPeek(out var item, out var priority) && priority <= _timeMs)
-        {
-            _eventQueue.TryTake(out var eventItem);
-
-            // TODO: makes this cleaner!
-            if (eventItem.Item1.Type() == EventType.Profile)
-            {
-                Console.WriteLine(_profiler.ToString());
-            }
-
-            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
-
-            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
-            {
-                eventSink.ProcessEvent(eventItem.Item1);
-            }
-        }
-    }
-
-    public void GameLoop()
+    /// <summary>
+    /// The core loop for advancing the simulation.
+    /// </summary>
+    public void SimulationLoop()
     {
         _stopwatch.Start();
         var lag = TimeSpan.FromMilliseconds((double)_timeStepSizeMs);
 
-        while (_core.IsGameRunning())
+        while (_core.IsRunning())
         {
             _stopwatch.Stop();
             lag += _stopwatch.Elapsed;
@@ -102,7 +125,7 @@ public class Scheduler
 
             // STEP 1: INPUT
             ProcessInput();
-            if (!_core.IsGameRunning()) break;
+            if (!_core.IsRunning()) break;
 
             // STEP 2: UPDATE
             while (lag >= _msPerUpdate)
@@ -136,4 +159,42 @@ public class Scheduler
             Thread.Sleep(sleepyTime);
         }
     }
+
+    #endregion
+
+    #region IEventSink Members
+
+    public void ProcessEvent(IEvent evt)
+    {
+        // Emit regular profiling output
+        if (evt.Type() == EventType.Profile)
+        {
+            Console.WriteLine(_profiler.ToString());
+        }
+    }
+
+    #endregion
+
+    #region Private Members
+
+    /// <summary>
+    /// Fires events that are due in the current time step by distributing them to all registered
+    /// event sinks.
+    /// </summary>
+    private void ProcessInput()
+    {
+        while (_eventQueue.TryPeek(out var item, out var priority) && priority <= _timeMs)
+        {
+            _eventQueue.TryTake(out var eventItem);
+
+            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
+
+            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
+            {
+                eventSink.ProcessEvent(eventItem.Item1);
+            }
+        }
+    }
+
+    #endregion
 }
