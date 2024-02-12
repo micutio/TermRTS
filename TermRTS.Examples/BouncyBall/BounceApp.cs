@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Threading.Channels;
 
 namespace TermRTS.Examples.BouncyBall;
@@ -14,33 +15,29 @@ internal enum BounceComponents
 
 internal class BounceBall : IComponent
 {
-
-    public float X { get; set; }
-    public float Y { get; set; }
-
-    public float DeltaX { get; set; }
-    public float DeltaY { get; set; }
+    public Vector2 Position { get; set; }
+    public Vector2 Velocity {get; set; }
 
     internal BounceBall(float x, float y, float dx, float dy)
     {
-        X = x;
-        Y = y;
-        DeltaX = dx;
-        DeltaY = dy;
+        Position = new Vector2(x, y);
+        Velocity = new Vector2(dx, dy);
     }
 
     public object Clone()
     {
-        return new BounceBall(X, Y, DeltaX, DeltaY);
+        return new BounceBall(Position.X, Position.Y, Velocity.X, Velocity.Y);
     }
 }
 
 internal class BounceEntity : EntityBase<BounceComponents> { }
 
+// Bouncing ball and other physics:
+//  - https://processing.org/examples/bouncingball.html
 internal class BouncePhysicsSystem : System<BounceWorld, BounceComponents>, IEventSink
 {
-    private float _forceX;
-    private float _forceY;
+    private readonly Vector2 _minVelocity = new Vector2(0.1f, 0.1f);
+    private Vector2 _velocity;
 
     public override Dictionary<BounceComponents, IComponent>? ProcessComponents(
             UInt64 timeStepSizeMs,
@@ -52,18 +49,11 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponents>, IEve
             return new Dictionary<BounceComponents, IComponent>();
 
         var changedBallComponent = (BounceBall)thisEntityComponents.Components[BounceComponents.Ball];
-        changedBallComponent.DeltaX += _forceX;
-        changedBallComponent.DeltaY += _forceY;
-        _forceX = 0.0f;
-        _forceY = 0.0f;
-        changedBallComponent.X += changedBallComponent.DeltaX;
-        changedBallComponent.Y += changedBallComponent.DeltaY;
-        changedBallComponent.DeltaX -= (changedBallComponent.DeltaX * 0.45f * (timeStepSizeMs / 1000.0f));
-        if (changedBallComponent.DeltaX < 0.01f)
-            changedBallComponent.DeltaX = 0.0f;
-        changedBallComponent.DeltaY -= (changedBallComponent.DeltaY * 0.45f * (timeStepSizeMs / 1000.0f));
-        if (changedBallComponent.DeltaY < 0.01f)
-            changedBallComponent.DeltaY = 0.0f;
+        changedBallComponent.Velocity += _velocity;
+        _velocity = Vector2.Zero;
+        changedBallComponent.Position += changedBallComponent.Velocity;
+        changedBallComponent.Velocity -= (changedBallComponent.Velocity * (0.45f * (timeStepSizeMs / 1000.0f)));
+        Vector2.Clamp(changedBallComponent.Position, _minVelocity, changedBallComponent.Position);
 
         return new Dictionary<BounceComponents, IComponent> { { BounceComponents.Ball, changedBallComponent } };
     }
@@ -76,16 +66,16 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponents>, IEve
             switch (keyEvent.Info.Key)
             {
                 case ConsoleKey.A:
-                    _forceX -= 1;
+                    _velocity.X -= 1;
                     break;
                 case ConsoleKey.D:
-                    _forceX += 1;
+                    _velocity.X += 1;
                     break;
                 case ConsoleKey.W:
-                    _forceY -= 1;
+                    _velocity.Y -= 1;
                     break;
                 case ConsoleKey.S:
-                    _forceY += 1;
+                    _velocity.Y += 1;
                     break;
                 default:
                     break;
