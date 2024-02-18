@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace TermRTS.Examples.BouncyBall;
 
 internal class BounceRenderer : TermRTS.IRenderer<BounceWorld, BounceComponents>
@@ -9,10 +11,10 @@ internal class BounceRenderer : TermRTS.IRenderer<BounceWorld, BounceComponents>
 
         var ball = (BounceBall)ballComponent;
 
-        if (ball is { DeltaX: 0.0f, DeltaY: 0.0f })
+        if (ball.Velocity == Vector2.Zero)
             return;
 
-        Console.WriteLine($"ball x {ball.X}, (dx {ball.DeltaX}), y {ball.Y} (dy {ball.DeltaY})");
+        Console.WriteLine($"ball pos {ball.Position}, velocity {ball.Velocity})");
     }
 
     public void RenderWorld(BounceWorld world, double howFarIntoNextFrameMs) { }
