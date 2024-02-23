@@ -16,7 +16,7 @@ internal enum BounceComponents
 internal class BounceBall : IComponent
 {
     public Vector2 Position { get; set; }
-    public Vector2 Velocity {get; set; }
+    public Vector2 Velocity { get; set; }
 
     internal BounceBall(float x, float y, float dx, float dy)
     {
@@ -48,12 +48,47 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponents>, IEve
         if (!thisEntityComponents.Components.ContainsKey(BounceComponents.Ball))
             return new Dictionary<BounceComponents, IComponent>();
 
+        var maxX = Console.BufferWidth;
+        var maxY = Console.BufferHeight;
+
+        var timeRatio = timeStepSizeMs / 1000.0f;
         var changedBallComponent = (BounceBall)thisEntityComponents.Components[BounceComponents.Ball];
-        changedBallComponent.Velocity += _velocity;
+        var ballVel = changedBallComponent.Velocity;
+        var ballPos = changedBallComponent.Position;
+        ballVel += _velocity;
         _velocity = Vector2.Zero;
-        changedBallComponent.Position += changedBallComponent.Velocity;
-        changedBallComponent.Velocity -= (changedBallComponent.Velocity * (0.45f * (timeStepSizeMs / 1000.0f)));
-        Vector2.Clamp(changedBallComponent.Position, _minVelocity, changedBallComponent.Position);
+        ballPos += ballVel;
+        ballVel = Vector2.Multiply(ballVel, 0.90f);
+
+        if (Math.Abs(ballVel.X) < 0.1f) ballVel.X = 0.0f;
+        if (Math.Abs(ballVel.Y) < 0.1f) ballVel.Y = 0.0f;
+
+        if (ballPos.X >= maxX)
+        {
+            ballPos.X = maxX - 1;
+            ballVel.X = 0.0f;
+        }
+
+        if (ballPos.X <= 0)
+        {
+            ballPos.X = 0;
+            ballVel.X = 0.0f;
+        }
+
+        if (ballPos.Y >= maxY)
+        {
+            ballPos.Y = maxY - 1;
+            ballVel.Y = 0.0f;
+        }
+
+        if (ballPos.Y <= 0)
+        {
+            ballPos.Y = 0;
+            ballVel.Y = 0.0f;
+        }
+
+        changedBallComponent.Position = ballPos;
+        changedBallComponent.Velocity = ballVel;
 
         return new Dictionary<BounceComponents, IComponent> { { BounceComponents.Ball, changedBallComponent } };
     }
