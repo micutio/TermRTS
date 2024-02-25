@@ -160,6 +160,8 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
         {
             _renderer.RenderEntity(_entities[i].Components, howFarIntoNextFrameMs);
         }
+
+        _renderer.FinalizeRender();
     }
 
     #region IEventSink Members

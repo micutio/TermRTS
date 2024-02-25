@@ -40,8 +40,6 @@ public class Scheduler : IEventSink
         _eventQueue = new EventQueue<IEvent, UInt64>();
         _eventSinks = new Dictionary<EventType, List<IEventSink>>();
         _core = core;
-
-        Console.WriteLine($"[Scheduler] ms per update: {_msPerUpdate}");
     }
 
     #endregion

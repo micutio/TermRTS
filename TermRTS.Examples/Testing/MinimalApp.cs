@@ -28,6 +28,8 @@ internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     {
         // Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
+
+    public void FinalizeRender() { }
 }
 
 internal class NullEntity : EntityBase<EmptyComponentType> { }

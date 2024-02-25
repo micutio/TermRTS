@@ -9,4 +9,6 @@ public interface IRenderer<in TWorld, TComponents> where TComponents : Enum
             Dictionary<TComponents, IComponent> entity,
             double howFarIntoNextFrameMs);
 
+    public void FinalizeRender();
+
 }

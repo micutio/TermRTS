@@ -4,6 +4,10 @@
     <ProjectReference Include="..\TermRTS\TermRTS.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ConsoleRenderer" Version="0.6.1" />
+  </ItemGroup>
+  
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
