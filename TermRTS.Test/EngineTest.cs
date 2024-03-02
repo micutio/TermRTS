@@ -29,6 +29,8 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     {
         Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
+
+    void IRenderer<NullWorld, EmptyComponentType>.FinalizeRender() { }
 }
 
 public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentType>>
