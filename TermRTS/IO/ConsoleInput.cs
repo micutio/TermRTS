@@ -2,6 +2,9 @@ using System.Threading.Channels;
 
 namespace TermRTS.IO;
 
+/// <summary>
+/// Input processing for terminal key events.
+/// </summary>
 public class ConsoleInput : IEventSink
 {
     private readonly Channel<(IEvent, UInt64)> _channel;
