@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TermRTS.Examples.BouncyBall;
+﻿using TermRTS.Examples.BouncyBall;
 using TermRTS.Examples.Testing;
 
 namespace TermRTS.Examples
@@ -27,6 +22,10 @@ namespace TermRTS.Examples
                 case "2":
                     Console.WriteLine("Running bounce app...");
                     new BounceApp().Run();
+                    break;
+                case "3":
+                    Console.WriteLine("Running Circuitry App...");
+                    new Circuitry.App().Run();
                     break;
                 default:
                     Console.WriteLine("Nothing to run...");

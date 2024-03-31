@@ -6,6 +6,7 @@ namespace TermRTS;
 public interface IWorld
 {
 
+    // TODO: Maybe rename to `Tick` or something else more sensible.
     public void ApplyChange();
 
 }

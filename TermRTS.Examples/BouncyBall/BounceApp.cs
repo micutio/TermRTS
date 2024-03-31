@@ -8,7 +8,7 @@ internal class BounceWorld : TermRTS.IWorld
     public void ApplyChange() { }
 }
 
-internal enum BounceComponents
+internal enum BounceComponentTypes
 {
     Ball,
 }
@@ -30,29 +30,29 @@ internal class BounceBall : IComponent
     }
 }
 
-internal class BounceEntity : EntityBase<BounceComponents> { }
+internal class BounceEntity : EntityBase<BounceComponentTypes> { }
 
 // Bouncing ball and other physics:
 //  - https://processing.org/examples/bouncingball.html
-internal class BouncePhysicsSystem : System<BounceWorld, BounceComponents>, IEventSink
+internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, IEventSink
 {
     private readonly Vector2 _minVelocity = new Vector2(0.1f, 0.1f);
     private Vector2 _velocity;
 
-    public override Dictionary<BounceComponents, IComponent>? ProcessComponents(
+    public override Dictionary<BounceComponentTypes, IComponent>? ProcessComponents(
             UInt64 timeStepSizeMs,
-            EntityBase<BounceComponents> thisEntityComponents,
-            List<EntityBase<BounceComponents>> otherEntityComponents,
+            EntityBase<BounceComponentTypes> thisEntityComponents,
+            List<EntityBase<BounceComponentTypes>> otherEntityComponents,
             ref BounceWorld world)
     {
-        if (!thisEntityComponents.Components.ContainsKey(BounceComponents.Ball))
-            return new Dictionary<BounceComponents, IComponent>();
+        if (!thisEntityComponents.Components.ContainsKey(BounceComponentTypes.Ball))
+            return new Dictionary<BounceComponentTypes, IComponent>();
 
         var maxX = Console.BufferWidth;
         var maxY = Console.BufferHeight;
 
         var timeRatio = timeStepSizeMs / 1000.0f;
-        var changedBallComponent = (BounceBall)thisEntityComponents.Components[BounceComponents.Ball];
+        var changedBallComponent = (BounceBall)thisEntityComponents.Components[BounceComponentTypes.Ball];
         var ballVel = changedBallComponent.Velocity;
         var ballPos = changedBallComponent.Position;
         ballVel += _velocity;
@@ -90,7 +90,7 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponents>, IEve
         changedBallComponent.Position = ballPos;
         changedBallComponent.Velocity = ballVel;
 
-        return new Dictionary<BounceComponents, IComponent> { { BounceComponents.Ball, changedBallComponent } };
+        return new Dictionary<BounceComponentTypes, IComponent> { { BounceComponentTypes.Ball, changedBallComponent } };
     }
 
     public void ProcessEvent(IEvent evt)
@@ -123,11 +123,11 @@ public class BounceApp : IRunnableExample
 {
     public void Run()
     {
-        var core = new Core<BounceWorld, BounceComponents>(new BounceWorld(), new BounceRenderer());
+        var core = new Core<BounceWorld, BounceComponentTypes>(new BounceWorld(), new BounceRenderer());
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddGameSystem(bouncePhysics);
         var bounceEntity = new BounceEntity();
-        bounceEntity.AddComponent(BounceComponents.Ball, new BounceBall(10f, 10f, 0f, 0f));
+        bounceEntity.AddComponent(BounceComponentTypes.Ball, new BounceBall(10f, 10f, 0f, 0f));
         core.AddEntity(bounceEntity);
 
         var scheduler = new Scheduler(16, 16, core);
