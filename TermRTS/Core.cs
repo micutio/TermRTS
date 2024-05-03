@@ -107,16 +107,21 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
 
     public void Tick(UInt64 timeStepSizeMs)
     {
-        // Run game logic.
-        _entities.RemoveAll(e => e.IsMarkedForRemoval);
-        _entities.AddRange(_newEntities);
-        _newEntities.Clear();
-
-        // NOTE: Try flipping the `for` and `foreach` loops to see which variant is faster.
-        for (var i = 0; i < _entities.Count; i += 1)
+        // Two-step simulation
+        // Step 1: Iterate over each system and apply it to the respective entities. The actual
+        //         changes are stored separately to avoid affecting the current iteration
+        // TODO: Ideally only iterate over those entities with components matching the system!
+        // TODO: Create option for parallelised iteration over systems and/or entities!
+        // TODO: Try flipping the `for` and `foreach` loops to see which variant is faster.
+        // TODO: Idea for more efficient iteration:
+        //       - rank components by count of occurrence in entities
+        //       - sort entities by their highest-ranked components
+        foreach (var sys in _systems)
         {
-            foreach (var sys in _systems)
+            for (var i = 0; i < _entities.Count; i += 1)
             {
+                // Create a copy of the entity list and remove this entity to not iterate over it
+                // TODO: Slices are supposedly slow because they copy data. Change to better iteration strategy! 
                 var listView = _entities[..];
                 listView.RemoveAt(i);
                 var change = sys.ProcessComponents(timeStepSizeMs, _entities[i], listView, ref _world);
@@ -127,7 +132,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
             }
         }
 
-        // Apply changes to the game world after all entities are done.
+        // Step 2: Apply changes to the game world
         for (var i = 0; i < _entities.Count; i += 1)
         {
             if (!_entitiesPendingChanges.ContainsKey(i))
@@ -142,6 +147,11 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
             }
         }
         _entitiesPendingChanges.Clear();
+
+        // Clean up operations: remove 'dead' entities and add new ones
+        _entities.RemoveAll(e => e.IsMarkedForRemoval);
+        _entities.AddRange(_newEntities);
+        _newEntities.Clear();
 
         // New game state:
         //  - all pending changes cleared
