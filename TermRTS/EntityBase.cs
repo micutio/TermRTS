@@ -6,7 +6,7 @@ namespace TermRTS;
 /// <typeparam name="TSystems">
 /// Type of the Enum listing all system types.
 /// </typeparam>
-public abstract class EntityBase<TSystems> where TSystems : Enum
+public class EntityBase<TSystems> where TSystems : Enum
 {
     /// <summary>
     /// Property to indicate whether this entity is to be removed.

@@ -1,6 +1,6 @@
 namespace TermRTS.Examples.Circuitry;
 
-public class Cp437
+public static class Cp437
 {
     public const char LightShade = '░';
     public const char MediumShade = '▒';
@@ -33,7 +33,7 @@ public class Cp437
     public const char BoxDoubleVerticalDoubleRight = '╠';
     public const char BoxDoubleHorizontal = '═';
     public const char BoxDoubleVerticalDoubleHorizontal = '╬';
-    public const char BoxUpDoubleHorizontal= '╧';
+    public const char BoxUpDoubleHorizontal = '╧';
     public const char BoxDoubleUpHorizontal = '╨';
     public const char BoxDownDoubleHorizontal = '╤';
     public const char BoxDoubleDownHorizontal = '╥';
