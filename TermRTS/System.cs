@@ -13,6 +13,8 @@ namespace TermRTS;
 public abstract class System<TWorld, TComponents> where TComponents : Enum
 {
     // NOTE: If possible, enforce that otherEs are immutable
+    // TODO: Split processing into iterating and processing strategies.
+    //       Iteration should be optional to overwrite and encapsulate the processing step
     public abstract Dictionary<TComponents, IComponent>? ProcessComponents(
             UInt64 timeStepSizeMs,
             EntityBase<TComponents> thisEntityComponents,
