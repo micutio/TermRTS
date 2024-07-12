@@ -25,7 +25,7 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
         Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
-    public void RenderWorld(NullWorld world, double howFarIntoNextFrameMs)
+    public void RenderWorld(NullWorld world, double howFarIntoNextFrameMs, double timeStepSizeMs)
     {
         Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }

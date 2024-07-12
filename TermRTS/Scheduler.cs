@@ -3,6 +3,8 @@ using System.Threading.Channels;
 
 namespace TermRTS;
 
+// TODO: Implement graceful shutdown.
+
 /// <summary>
 /// The Scheduler has two tasks: running the gameloop with consistent timing and distributing
 /// events to the registered sinks whenever the former are due.
@@ -137,7 +139,7 @@ public class Scheduler : IEventSink
             // STEP 3: RENDER
             var howFarIntoNextFrameMs = lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
             var renderWatch = Stopwatch.StartNew();
-            _core.Render(howFarIntoNextFrameMs);
+            _core.Render(howFarIntoNextFrameMs, _timeStepSizeMs);
             renderWatch.Stop();
             // Console.WriteLine($"render duration: {renderWatch.Elapsed}");
             var renderElapsed = renderWatch.Elapsed;
@@ -156,6 +158,8 @@ public class Scheduler : IEventSink
             // Console.WriteLine($"pausing game loop for {sleepyTime} ms ---------------");
             Thread.Sleep(sleepyTime);
         }
+
+        Console.WriteLine("Scheduler shut down");
     }
 
     #endregion

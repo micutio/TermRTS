@@ -10,3 +10,14 @@ A game/application engine combining event-driven realtime simulation with basic 
 ## Features for developers
 
 - comprehensible codebase
+
+## How to run the examples
+
+```sh
+dotnet run --project .\TermRTS.Examples\ <example number>
+```
+
+Available example numbers:
+ - [1] Minimal App
+ - [2] Bouncy Ball
+ - [3] Circuitry

@@ -1,5 +1,3 @@
-using System.Numerics;
-
 using ConsoleRenderer;
 
 namespace TermRTS.Examples.BouncyBall;
@@ -29,7 +27,7 @@ internal class BounceRenderer : TermRTS.IRenderer<BounceWorld, BounceComponentTy
         // Console.WriteLine($"ball pos {ball.Position}, velocity {ball.Velocity})");
     }
 
-    public void RenderWorld(BounceWorld world, double howFarIntoNextFrameMs)
+    public void RenderWorld(BounceWorld world, double howFarIntoNextFrameMs, double timeStepSizeMs)
     {
         _canvas.Clear();
         _canvas.Text(0, 0, "Bounce World!");

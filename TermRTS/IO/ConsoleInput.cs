@@ -29,13 +29,14 @@ public class ConsoleInput : IEventSink
     {
         while (_keepRunning)
         {
+            if (!Console.KeyAvailable)
+                continue;
+
             var keyInfo = Console.ReadKey(true);
             FireKeyEvent(keyInfo);
-
-            // if (keyInfo.Key == ConsoleKey.Escape)
-            //    _keepRunning = false;
         }
         _channel.Writer.Complete();
+        Console.WriteLine("ConsoleInput shut down");
     }
 
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
@@ -45,6 +46,10 @@ public class ConsoleInput : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() == EventType.Shutdown) _keepRunning = false;
+        if (evt.Type() == EventType.Shutdown)
+        {
+            _keepRunning = false;
+            _thread.Join();
+        }
     }
 }

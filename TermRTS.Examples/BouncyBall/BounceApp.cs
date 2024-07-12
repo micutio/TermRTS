@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Threading.Channels;
 
 namespace TermRTS.Examples.BouncyBall;
 
@@ -36,7 +35,6 @@ internal class BounceEntity : EntityBase<BounceComponentTypes> { }
 //  - https://processing.org/examples/bouncingball.html
 internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, IEventSink
 {
-    private readonly Vector2 _minVelocity = new Vector2(0.1f, 0.1f);
     private Vector2 _velocity;
 
     public override Dictionary<BounceComponentTypes, IComponent>? ProcessComponents(
@@ -45,23 +43,28 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
             List<EntityBase<BounceComponentTypes>> otherEntityComponents,
             ref BounceWorld world)
     {
-        if (!thisEntityComponents.Components.ContainsKey(BounceComponentTypes.Ball))
+        thisEntityComponents
+            .Components
+            .TryGetValue(BounceComponentTypes.Ball, out var changedBallComponent);
+
+        if (changedBallComponent == null)
             return new Dictionary<BounceComponentTypes, IComponent>();
 
         var maxX = Console.BufferWidth;
         var maxY = Console.BufferHeight;
 
-        var timeRatio = timeStepSizeMs / 1000.0f;
-        var changedBallComponent = (BounceBall)thisEntityComponents.Components[BounceComponentTypes.Ball];
-        var ballVel = changedBallComponent.Velocity;
-        var ballPos = changedBallComponent.Position;
+        var changedBall = (BounceBall)changedBallComponent;
+        var ballVel = changedBall.Velocity;
+        var ballPos = changedBall.Position;
         ballVel += _velocity;
         _velocity = Vector2.Zero;
         ballPos += ballVel;
         ballVel = Vector2.Multiply(ballVel, 0.90f);
 
-        if (Math.Abs(ballVel.X) < 0.1f) ballVel.X = 0.0f;
-        if (Math.Abs(ballVel.Y) < 0.1f) ballVel.Y = 0.0f;
+        if (Math.Abs(ballVel.X) < 0.1f)
+            ballVel.X = 0.0f;
+        if (Math.Abs(ballVel.Y) < 0.1f)
+            ballVel.Y = 0.0f;
 
         if (ballPos.X >= maxX)
         {
@@ -87,8 +90,8 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
             ballVel.Y = 0.0f;
         }
 
-        changedBallComponent.Position = ballPos;
-        changedBallComponent.Velocity = ballVel;
+        changedBall.Position = ballPos;
+        changedBall.Velocity = ballVel;
 
         return new Dictionary<BounceComponentTypes, IComponent> { { BounceComponentTypes.Ball, changedBallComponent } };
     }

@@ -6,7 +6,7 @@ public interface ICore : IEventSink
 {
     public bool IsRunning();
     public void Tick(UInt64 timeStepSizeMs);
-    public void Render(double howFarIntoNextFrameMs);
+    public void Render(double howFarIntoNextFrameMs, double timeStepSizeMs);
 }
 
 // Notes to self:
@@ -63,6 +63,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     public void Shutdown()
     {
         _isGameRunning = false;
+        Console.WriteLine("Core shut down");
     }
 
     /// <summary>
@@ -152,9 +153,9 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     /// <summary>
     /// Call the renderer to render all renderable objects.
     /// </summary>
-    public void Render(double howFarIntoNextFrameMs)
+    public void Render(double howFarIntoNextFrameMs, double timeStepSizeMs)
     {
-        _renderer.RenderWorld(_world, howFarIntoNextFrameMs);
+        _renderer.RenderWorld(_world, howFarIntoNextFrameMs, timeStepSizeMs);
 
         for (var i = 0; i < _entities.Count; i += 1)
         {
@@ -177,7 +178,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
             case EventType.Profile:
                 throw new NotImplementedException();
             case EventType.Shutdown:
-                _isGameRunning = false;
+                Shutdown();
                 return;
             default:
                 throw new UnreachableException();
