@@ -30,6 +30,8 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
         Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
+    public void Shutdown() { }
+
     void IRenderer<NullWorld, EmptyComponentType>.FinalizeRender() { }
 }
 

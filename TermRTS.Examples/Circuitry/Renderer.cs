@@ -110,4 +110,10 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>
         return (x >= CameraPos.X && y <= CameraSize.X - CameraPos.X)
                && (y >= CameraPos.Y && y <= CameraSize.Y - CameraPos.Y);
     }
+
+    public void Shutdown()
+    {
+        _canvas.Clear();
+        _canvas.Render();
+    }
 }

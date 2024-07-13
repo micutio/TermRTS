@@ -37,4 +37,10 @@ internal class BounceRenderer : TermRTS.IRenderer<BounceWorld, BounceComponentTy
     {
         _canvas.Render();
     }
+
+    public void Shutdown()
+    {
+        _canvas.Clear();
+        _canvas.Render();
+    }
 }

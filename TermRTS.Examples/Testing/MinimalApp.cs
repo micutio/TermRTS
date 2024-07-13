@@ -30,6 +30,8 @@ internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     }
 
     public void FinalizeRender() { }
+
+    public void Shutdown() { }
 }
 
 internal class NullEntity : EntityBase<EmptyComponentType> { }

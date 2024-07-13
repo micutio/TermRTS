@@ -105,7 +105,6 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
         _systems.Remove(system);
     }
 
-
     public void Tick(UInt64 timeStepSizeMs)
     {
         // Two-step simulation
