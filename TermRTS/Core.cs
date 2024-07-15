@@ -2,11 +2,13 @@
 
 namespace TermRTS;
 
+// TODO: Add documentation
 public interface ICore : IEventSink
 {
     public bool IsRunning();
     public void Tick(UInt64 timeStepSizeMs);
     public void Render(double howFarIntoNextFrameMs, double timeStepSizeMs);
+    public void Shutdown();
 }
 
 // Notes to self:
@@ -62,7 +64,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     /// </summary>
     public void Shutdown()
     {
-        _isGameRunning = false;
+        _renderer.Shutdown();
         Console.WriteLine("Core shut down");
     }
 
@@ -187,7 +189,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
             case EventType.Profile:
                 throw new NotImplementedException();
             case EventType.Shutdown:
-                Shutdown();
+                _isGameRunning = false;
                 return;
             default:
                 throw new UnreachableException();

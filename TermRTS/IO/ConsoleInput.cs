@@ -30,7 +30,10 @@ public class ConsoleInput : IEventSink
         while (_keepRunning)
         {
             if (!Console.KeyAvailable)
+            {
+                Thread.Sleep(250);
                 continue;
+            }
 
             var keyInfo = Console.ReadKey(true);
             FireKeyEvent(keyInfo);

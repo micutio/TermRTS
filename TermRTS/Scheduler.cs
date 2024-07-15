@@ -126,7 +126,10 @@ public class Scheduler : IEventSink
             // STEP 1: INPUT
             ProcessInput();
             if (!_core.IsRunning())
+            {
+                _core.Shutdown();
                 break;
+            }
 
             // STEP 2: UPDATE
             while (lag >= _msPerUpdate)

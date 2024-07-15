@@ -113,7 +113,6 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>
 
     public void Shutdown()
     {
-        _canvas.Clear();
-        _canvas.Render();
+        Console.ResetColor();
     }
 }
