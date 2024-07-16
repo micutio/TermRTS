@@ -3,8 +3,7 @@ using System.Numerics;
 
 namespace TermRTS.Examples.Circuitry;
 
-// TODO: Restore normal terminal colors after termination.
-internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>
+internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, IEventSink
 {
     private readonly ConsoleCanvas _canvas;
     public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
@@ -18,11 +17,13 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>
     private double _lastSecond;
     private int _fps;
     private int _lastFps;
+    private string _profileOutput;
 
     public Renderer()
     {
         Console.CursorVisible = false;
         _canvas = new ConsoleCanvas().Render();
+        _profileOutput = string.Empty;
     }
 
     public void RenderWorld(World world, double timeStepSizeMs, double howFarIntoNextFrameMs)
@@ -37,7 +38,10 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>
         }
 
         _canvas.Clear();
-        _canvas.Text(1, 1, $"Circuitry World  ~  FPS: {_lastFps}");
+        var debugStr = string.IsNullOrEmpty(_profileOutput)
+            ? ""
+            : $" ~ {_profileOutput}";
+        _canvas.Text(1, 0, $"Circuitry World  ~  FPS: {_lastFps} {debugStr}");
     }
 
     public void RenderEntity(
@@ -115,4 +119,17 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>
     {
         Console.ResetColor();
     }
+
+    #region IEventSink Members
+
+    public void ProcessEvent(IEvent evt)
+    {
+        _profileOutput = evt.Type() switch
+        {
+            EventType.Profile => ((ProfileEvent)evt).ProfileInfo,
+            _ => _profileOutput
+        };
+    }
+
+    #endregion
 }

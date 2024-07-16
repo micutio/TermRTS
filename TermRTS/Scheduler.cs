@@ -3,12 +3,6 @@ using System.Threading.Channels;
 
 namespace TermRTS;
 
-// TODO: Implement graceful shutdown.
-
-/// <summary>
-/// The Scheduler has two tasks: running the gameloop with consistent timing and distributing
-/// events to the registered sinks whenever the former are due.
-/// </summary>
 public class Scheduler : IEventSink
 {
     #region Private Fields
@@ -24,8 +18,13 @@ public class Scheduler : IEventSink
 
     #endregion
 
+    // channel for emitting events
+    // TODO: Replace `(IEvent, UInt64)` with actual type.
+    private readonly Channel<(IEvent, UInt64)> _channel;
+
     #region Constructor
 
+    // TODO: Test time step size 0
     /// <summary>
     /// Constructor.
     /// </summary>
@@ -42,6 +41,8 @@ public class Scheduler : IEventSink
         _eventQueue = new EventQueue<IEvent, UInt64>();
         _eventSinks = new Dictionary<EventType, List<IEventSink>>();
         _core = core;
+
+        _channel = Channel.CreateUnbounded<(IEvent, UInt64)>();
     }
 
     #endregion
@@ -52,6 +53,8 @@ public class Scheduler : IEventSink
     /// Property for read-only access to current simulation time.
     /// </summary>
     public UInt64 TimeMs => _timeMs;
+
+    public ChannelReader<(IEvent, UInt64)> ProfileEventReader => _channel.Reader;
 
     #endregion
 
@@ -150,6 +153,11 @@ public class Scheduler : IEventSink
             // Take a break if we're ahead of time.
             var loopTimeMs = lag + renderElapsed;
             _profiler.AddTickTimeSample((UInt64)loopTimeMs.TotalMilliseconds, (UInt64)renderElapsed.TotalMilliseconds);
+            // Push out profiling results ever 25 samples
+            if (_profiler.SampleSize % 5 == 0)
+            {
+                _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
+            }
 
             // If we spent longer than our allotted time, skip right ahead...
             // Console.WriteLine($"loop active time: {loopTimeMs.TotalMilliseconds}");
@@ -162,6 +170,7 @@ public class Scheduler : IEventSink
             Thread.Sleep(sleepyTime);
         }
 
+        _channel.Writer.Complete();
         Console.WriteLine("Scheduler shut down");
     }
 
@@ -171,6 +180,7 @@ public class Scheduler : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
+        // TODO: Grant renderer access to the profiler
         // Emit regular profiling output
         if (evt.Type() == EventType.Profile)
         {

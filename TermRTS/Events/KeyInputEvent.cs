@@ -2,11 +2,9 @@ namespace TermRTS;
 
 public class KeyInputEvent : IEvent
 {
-    private readonly ConsoleKeyInfo _info;
-
     public KeyInputEvent(ConsoleKeyInfo info)
     {
-        _info = info;
+        Info = info;
     }
 
     public EventType Type()
@@ -14,5 +12,5 @@ public class KeyInputEvent : IEvent
         return EventType.KeyInput;
     }
 
-    public ConsoleKeyInfo Info { get { return _info; } }
+    public ConsoleKeyInfo Info { get; }
 }

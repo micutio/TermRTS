@@ -1,4 +1,4 @@
-namespace TermRTS;
+﻿namespace TermRTS;
 
 /// <summary>
 /// The profiler can sample snapshots of simulation tick and render times to compile an overview
@@ -21,6 +21,11 @@ public class Profiler
     public Profiler(UInt64 timeStepSize)
     {
         _timeStepSize = timeStepSize;
+        Initialize();
+    }
+
+    private void Initialize()
+    {
         _sampleSize = 0L;
 
         _avgTickTime = 0L;
@@ -34,6 +39,16 @@ public class Profiler
 
     public void AddTickTimeSample(UInt64 tickTime, UInt64 renderTime)
     {
+        // exclude invalid samples, which should be only the first ones taken
+        if (tickTime == 0 || renderTime == 0)
+            return;
+
+        // refresh after every 5000 samples
+        if (_sampleSize == 500)
+        {
+            Initialize();
+        }
+
         _avgTickTime = (tickTime + _sampleSize * _avgTickTime) / (_sampleSize + 1);
         _minTickTime = Math.Min(_minTickTime, tickTime);
         _maxTickTime = Math.Max(_maxTickTime, tickTime);
@@ -49,12 +64,16 @@ public class Profiler
         _sampleSize += 1;
     }
 
+    public UInt64 SampleSize => _sampleSize;
+
     /// <summary>
     /// Compose a string of simulation performance information in a human-readable format.
     /// </summary>
     public override string ToString()
     {
-        return $"Average Tick timespan: {_avgTickTime}ms ({_minTickTime}, {_maxTickTime}) of which {_avgRenderTime}ms [{_minRenderTime}, {_maxRenderTime}] was spent rendering, dropped frames: {_droppedFrames}/{_sampleSize}";
+        return $"avg tick Δt : {_avgTickTime:F1}ms [{_minTickTime},{_maxTickTime}], " +
+               $"avg render Δt: {_avgRenderTime:F1}ms [{_minRenderTime}, {_maxRenderTime}], " +
+               $"frames dropped: {_droppedFrames}/{_sampleSize}";
     }
 
 }

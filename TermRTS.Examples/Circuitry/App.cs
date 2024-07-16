@@ -393,8 +393,9 @@ internal class App : IRunnableExample
                 }));
 
         var busSystem = new BusSystem();
+        var renderer = new Renderer();
 
-        var core = new Core<World, CircuitComponentTypes>(new World(), new Renderer());
+        var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
         core.AddEntity(chipEntity1);
         core.AddEntity(chipEntity2);
         core.AddEntity(busEntity1);
@@ -403,7 +404,9 @@ internal class App : IRunnableExample
         core.AddGameSystem(busSystem);
 
         var scheduler = new Scheduler(16, 16, core);
+        scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(core, EventType.Shutdown);
+        scheduler.AddEventSink(renderer, EventType.Profile);
 
         var input = new TermRTS.IO.ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);

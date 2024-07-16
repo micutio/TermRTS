@@ -10,8 +10,7 @@ namespace TermRTS.Examples
 
     internal static class ExampleRunner
     {
-
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             switch (args[0])
             {

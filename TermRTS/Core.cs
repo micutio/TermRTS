@@ -35,6 +35,8 @@ public interface ICore : IEventSink
 public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
                                                where TComponents : Enum
 {
+    #region Private Fields
+
     private bool _isGameRunning;
     private TWorld _world;
     private readonly IRenderer<TWorld, TComponents> _renderer;
@@ -42,6 +44,11 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     private readonly List<EntityBase<TComponents>> _entities;
     private readonly Dictionary<int, Dictionary<TComponents, IComponent>> _entitiesPendingChanges;
     private readonly List<EntityBase<TComponents>> _newEntities;
+
+
+    #endregion
+
+    #region Constructor
 
     /// <summary>
     /// Constructor
@@ -58,6 +65,10 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
         _newEntities = new List<EntityBase<TComponents>>();
         _systems = new List<System<TWorld, TComponents>>();
     }
+
+    #endregion
+
+    #region Public API
 
     /// <summary>
     /// Prompt the simulation to stop running.
@@ -166,7 +177,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     /// </summary>
     public void Render(double howFarIntoNextFrameMs, double timeStepSizeMs)
     {
-        _renderer.RenderWorld(_world, howFarIntoNextFrameMs, timeStepSizeMs);
+        _renderer.RenderWorld(_world, timeStepSizeMs, howFarIntoNextFrameMs);
 
         for (var i = 0; i < _entities.Count; i += 1)
         {
@@ -175,6 +186,8 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
 
         _renderer.FinalizeRender();
     }
+
+    #endregion
 
     #region IEventSink Members
 

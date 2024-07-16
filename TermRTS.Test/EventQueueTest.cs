@@ -5,8 +5,7 @@ public class EventQueueTest
     [Fact]
     public void TestEmpty()
     {
-        var eq = new EventQueue<string, int>();
-        Assert.Equal(0, eq.Count());
+        Assert.Empty(new EventQueue<string, int>());
     }
 
     [Fact]
@@ -14,11 +13,11 @@ public class EventQueueTest
     {
         var eq = new EventQueue<string, int>();
         eq.TryAdd(("foo", 0));
-        Assert.Equal(1, eq.Count());
+        Assert.Single(eq);
 
         eq.TryAdd(("bar", 1));
         eq.TryAdd(("baz", 2));
-        Assert.Equal(3, eq.Count());
+        Assert.Equal(3, eq.Count);
     }
 
     [Fact]
@@ -44,6 +43,6 @@ public class EventQueueTest
         eq.TryTake(out var c);
         Assert.Equal("baz", c.Item1);
 
-        Assert.Equal(0, eq.Count());
+        Assert.Empty(eq);
     }
 }
