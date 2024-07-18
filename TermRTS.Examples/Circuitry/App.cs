@@ -150,6 +150,7 @@ internal class App : IRunnableExample
             Outline = new List<(int, int, char)>();
             var positionCount = positions.Count;
 
+            // Generate starting terminator
             var startChar = GenerateTerminatorChar(
                 positions[0].x,
                 positions[0].y,
@@ -158,6 +159,7 @@ internal class App : IRunnableExample
             );
             Outline.Add((positions[0].x, positions[0].y, startChar));
 
+            // Generate all parts in-between
             for (var i = 1; i < positionCount - 1; ++i)
             {
                 var c = GenerateWireChar(
@@ -171,6 +173,7 @@ internal class App : IRunnableExample
                 Outline.Add((positions[i].x, positions[i].y, c));
             }
 
+            // Generate ending terminator
             var endChar = GenerateTerminatorChar(
                 positions[positionCount - 1].x,
                 positions[positionCount - 1].y,
@@ -391,6 +394,14 @@ internal class App : IRunnableExample
                             (7, 7), (7, 8), (8, 8), (8, 7)
                         })
                 }));
+
+        // TODO: Create a system for generating chips and buses:
+        //       - A class which generates everything first and hands it over to the core
+        //       - Later turn that class into a system and hand over a subset of items every x ticks
+        //       - Finally hand over items immediately after creation and generate them slowly at runtime
+        // TODO: Render world during generation
+        // TODO: Generate chips atomically and wires bit by bit
+        // TODO: How to deal with unfinished wires? Currently generated in full
 
         var busSystem = new BusSystem();
         var renderer = new Renderer();
