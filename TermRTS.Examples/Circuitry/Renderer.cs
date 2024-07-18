@@ -30,7 +30,7 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, I
     {
         _timePassed += (timeStepSizeMs + howFarIntoNextFrameMs);
         _fps += 1;
-        if (_timePassed >= _lastSecond + 1000)
+        if (_timePassed >= (_lastSecond + 1000))
         {
             _lastSecond = _timePassed;
             _lastFps = _fps;
@@ -122,6 +122,7 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, I
 
     #region IEventSink Members
 
+    /// <inheritdoc/>>
     public void ProcessEvent(IEvent evt)
     {
         _profileOutput = evt.Type() switch

@@ -1,5 +1,6 @@
 ﻿namespace TermRTS;
 
+// TODO: Create a method for setup operations, before the simulation is run
 // TODO: Create a method for cleanup operations, i.e.: clear the canvas for terminal apps.
 public interface IRenderer<in TWorld, TComponents> where TComponents : Enum
 {

@@ -180,7 +180,6 @@ public class Scheduler : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        // TODO: Grant renderer access to the profiler
         // Emit regular profiling output
         if (evt.Type() == EventType.Profile)
         {
