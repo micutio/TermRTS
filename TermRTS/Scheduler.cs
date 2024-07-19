@@ -25,6 +25,7 @@ public class Scheduler : IEventSink
     #region Constructor
 
     // TODO: Test time step size 0
+    // TODO: Add logging to file
     /// <summary>
     /// Constructor.
     /// </summary>

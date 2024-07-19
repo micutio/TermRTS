@@ -8,15 +8,39 @@ namespace TermRTS;
 /// </typeparam>
 public class EntityBase<TSystems> where TSystems : Enum
 {
-    /// <summary>
-    /// Property to indicate whether this entity is to be removed.
-    /// </summary>
-    public bool IsMarkedForRemoval { get; set; } = false;
+    #region Public Fields
 
     /// <summary>
     /// Storage for one component per system type.
     /// </summary>
     public Dictionary<TSystems, IComponent> Components { get; } = new();
+
+    #endregion
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    public EntityBase()
+    {
+        Components = new Dictionary<TSystems, IComponent>();
+    }
+
+    /// <summary>
+    /// Shorthand for instantiating an entity with a single component
+    /// </summary>
+    public EntityBase(TSystems systemType, IComponent component)
+    {
+        Components = new Dictionary<TSystems, IComponent> { { systemType, component } };
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Property to indicate whether this entity is to be removed.
+    /// </summary>
+    public bool IsMarkedForRemoval { get; set; } = false;
 
     /// <summary>
     /// Add a new component to this entity.

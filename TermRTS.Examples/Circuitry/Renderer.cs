@@ -38,10 +38,13 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, I
         }
 
         _canvas.Clear();
+
+#if DEBUG
         var debugStr = string.IsNullOrEmpty(_profileOutput)
             ? ""
             : $" ~ {_profileOutput}";
         _canvas.Text(1, 0, $"Circuitry World  ~  FPS: {_lastFps} {debugStr}");
+#endif
     }
 
     public void RenderEntity(
