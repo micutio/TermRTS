@@ -1,24 +1,88 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
+using TermRTS.IO;
 
 namespace TermRTS.Examples.Circuitry;
 
 internal class App : IRunnableExample
 {
-    internal enum CircuitComponentTypes { Chip, Bus }
+    public void Run()
+    {
+        // Add two chips and a wire to test
 
-    internal enum Direction { North, East, South, West }
+        // TODO: Create a system for generating chips and buses:
+        //       [x] A class which generates everything first and hands it over to the core
+        //       [ ] Later turn that class into a system and hand over a subset of items every x ticks
+        //       [ ] Finally hand over items immediately after creation and generate them slowly at runtime
+        // TODO: Render world during generation
+        // TODO: Generate chips atomically and wires bit by bit
+        // TODO: How to deal with unfinished wires? Currently generated in full
+
+        var busSystem = new BusSystem();
+        var renderer = new Renderer();
+
+        var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
+        foreach (var e in EntityGenerator.RandomCircuitBoard().Build())
+            //foreach (var e in EntityGenerator.BuildSmallCircuitBoard())
+            core.AddEntity(e);
+        core.AddGameSystem(busSystem);
+
+        var scheduler = new Scheduler(16, 16, core);
+        scheduler.AddEventSources(scheduler.ProfileEventReader);
+        scheduler.AddEventSink(core, EventType.Shutdown);
+        scheduler.AddEventSink(renderer, EventType.Profile);
+
+        var input = new ConsoleInput();
+        scheduler.AddEventSources(input.KeyEventReader);
+        scheduler.AddEventSink(input, EventType.Shutdown);
+        input.Run();
+
+        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
+        {
+            e.Cancel = true;
+            scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
+        };
+
+        // Run it
+        scheduler.SimulationLoop();
+
+        Console.Clear();
+        Console.WriteLine("Application Terminated!");
+    }
+
+    internal enum CircuitComponentTypes
+    {
+        Chip,
+        Bus
+    }
+
+    private enum Direction
+    {
+        North,
+        East,
+        South,
+        West
+    }
 
     internal class Chip : IComponent
     {
-        public Vector2 Position1;
-        public Vector2 Position2;
-        public List<(int, int, char)> Outline;
+        internal Vector2 Position1 { get; }
+        internal Vector2 Position2 { get; }
 
         public Chip(Vector2 position1, Vector2 position2)
         {
             Position1 = position1;
             Position2 = position2;
             Outline = GenerateOutline();
+        }
+
+        public IEnumerable<(int, int, char)> Outline { get; }
+
+        public object Clone()
+        {
+            return new Chip(
+                new Vector2(Position1.X, Position1.Y),
+                new Vector2(Position2.X, Position2.Y));
         }
 
         public bool IsIntersecting(Chip other)
@@ -36,11 +100,31 @@ internal class App : IRunnableExample
             return new Vector2(newX, newY);
         }
 
-        public object Clone()
+        // TODO: Does it make sense to implement the wall getters are extension methods because they're only used in one place?
+
+        public IEnumerable<(int, int, char)> UpperWall()
         {
-            return new Chip(
-                new Vector2(Position1.X, Position1.Y),
-                new Vector2(Position2.X, Position2.Y));
+            return Outline.Skip(4).Take((int)(Position2.X - Position1.X));
+        }
+
+        public IEnumerable<(int, int, char)> LowerWall()
+        {
+            var width = (int)(Position2.X - Position1.X);
+            return Outline.Skip(4 + width).Take(width);
+        }
+
+        public IEnumerable<(int, int, char)> LeftWall()
+        {
+            var width = (int)(Position2.X - Position1.X);
+            var height = (int)(Position2.Y - Position1.Y);
+            return Outline.Skip(4 + width + width).Take(height);
+        }
+
+        public IEnumerable<(int, int, char)> RightWall()
+        {
+            var width = (int)(Position2.X - Position1.X);
+            var height = (int)(Position2.Y - Position1.Y);
+            return Outline.Skip(4 + width + width + height).Take(height);
         }
 
         private List<(int, int, char)> GenerateOutline()
@@ -63,29 +147,31 @@ internal class App : IRunnableExample
             // right lower corner
             outline.Add((x2, y2, Cp437.BoxDoubleUpDoubleLeft));
 
-            // upper and lower wall
+            // lower wall
             for (var i = x1 + 1; i < x2; i += 1)
-            {
                 outline.Add((i, y1, Cp437.BoxDoubleHorizontal));
-                outline.Add((i, y2, Cp437.BoxDoubleHorizontal));
-            }
 
-            // left and right wall
+            // upper wall
+            for (var i = x1 + 1; i < x2; i += 1)
+                outline.Add((i, y2, Cp437.BoxDoubleHorizontal));
+
+            // left wall
             for (var i = y1 + 1; i < y2; i += 1)
-            {
                 outline.Add((x1, i, Cp437.BoxDoubleVertical));
+
+            // right wall
+            for (var i = y1 + 1; i < y2; i += 1)
                 outline.Add((x2, i, Cp437.BoxDoubleVertical));
-            }
+
             return outline;
         }
     }
 
     internal class Bus : IComponent
     {
-        public List<Wire> Connections;
-
         public const float Velocity = 25.5f; // in [m/s]
         private float _progress; // in [%]
+        public List<Wire> Connections;
 
         public Bus(List<Wire> connections)
         {
@@ -94,17 +180,9 @@ internal class App : IRunnableExample
             IsForward = true;
         }
 
-        public bool IsActive
-        {
-            get;
-            set;
-        }
+        public bool IsActive { get; set; }
 
-        public bool IsForward
-        {
-            get;
-            set;
-        }
+        public bool IsForward { get; set; }
 
         public int AvgWireLength
         {
@@ -183,48 +261,45 @@ internal class App : IRunnableExample
             Outline.Add((positions[positionCount - 1].x, positions[positionCount - 1].y, endChar));
         }
 
+        public object Clone()
+        {
+            var outline = Outline.Select(item => (item.Item1, item.Item2)).ToList();
+            return new Wire(outline);
+        }
+
         private static char GenerateTerminatorChar(int thisX, int thisY, int nextX, int nextY)
         {
             if (thisX != nextX)
-            {
                 return thisX > nextX
                     ? Cp437.BoxDoubleVerticalLeft
                     : Cp437.BoxDoubleVerticalRight;
-            }
             return thisY > nextY
                 ? Cp437.BoxUpDoubleHorizontal
                 : Cp437.BoxDownDoubleHorizontal;
         }
 
-        private static char GenerateWireChar(int thisX, int thisY, int prevX, int prevY, int nextX, int nextY)
+        private static char GenerateWireChar(int thisX, int thisY, int prevX, int prevY, int nextX,
+            int nextY)
         {
             Direction incoming;
             if (thisX != prevX)
-            {
                 incoming = thisX > prevX
                     ? Direction.West
                     : Direction.East;
-            }
             else
-            {
                 incoming = thisY > prevY
                     ? Direction.North
                     : Direction.South;
-            }
 
             Direction outgoing;
             if (thisX != nextX)
-            {
                 outgoing = thisX > nextX
                     ? Direction.West
                     : Direction.East;
-            }
             else
-            {
                 outgoing = thisY > nextY
                     ? Direction.North
                     : Direction.South;
-            }
 
             return (incoming, outgoing) switch
             {
@@ -242,12 +317,6 @@ internal class App : IRunnableExample
                     (Direction.East, Direction.South) => Cp437.BoxDownRight,
                 _ => '?'
             };
-        }
-
-        public object Clone()
-        {
-            var outline = Outline.Select(item => (item.Item1, item.Item2)).ToList();
-            return new Wire(outline);
         }
     }
 
@@ -288,61 +357,18 @@ internal class App : IRunnableExample
                 {
                     _timeSinceLastAttempt += timeStepSizeMs;
                 }
-                return new Dictionary<CircuitComponentTypes, IComponent> { { CircuitComponentTypes.Bus, bus } };
+
+                return new Dictionary<CircuitComponentTypes, IComponent>
+                    { { CircuitComponentTypes.Bus, bus } };
             }
 
             //  If already active, then take speed, divide by time step size and advance progress
             var progressInM = bus.AvgWireLength * bus.Progress;
-            var deltaDistInM = (Bus.Velocity / 1000.0f) * timeStepSizeMs;
+            var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
             bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
 
-            return new Dictionary<CircuitComponentTypes, IComponent> { { CircuitComponentTypes.Bus, bus } };
+            return new Dictionary<CircuitComponentTypes, IComponent>
+                { { CircuitComponentTypes.Bus, bus } };
         }
-    }
-
-    public void Run()
-    {
-        // Add two chips and a wire to test
-
-        // TODO: Create a system for generating chips and buses:
-        //       [x] A class which generates everything first and hands it over to the core
-        //       [ ] Later turn that class into a system and hand over a subset of items every x ticks
-        //       [ ] Finally hand over items immediately after creation and generate them slowly at runtime
-        // TODO: Render world during generation
-        // TODO: Generate chips atomically and wires bit by bit
-        // TODO: How to deal with unfinished wires? Currently generated in full
-
-        var busSystem = new BusSystem();
-        var renderer = new Renderer();
-
-        var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
-        foreach (var e in EntityGenerator.RandomCircuitBoard().Build())
-        //foreach (var e in EntityGenerator.BuildSmallCircuitBoard())
-        {
-            core.AddEntity(e);
-        }
-        core.AddGameSystem(busSystem);
-
-        var scheduler = new Scheduler(16, 16, core);
-        scheduler.AddEventSources(scheduler.ProfileEventReader);
-        scheduler.AddEventSink(core, EventType.Shutdown);
-        scheduler.AddEventSink(renderer, EventType.Profile);
-
-        var input = new TermRTS.IO.ConsoleInput();
-        scheduler.AddEventSources(input.KeyEventReader);
-        scheduler.AddEventSink(input, EventType.Shutdown);
-        input.Run();
-
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
-        {
-            e.Cancel = true;
-            scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
-        };
-
-        // Run it
-        scheduler.SimulationLoop();
-
-        Console.Clear();
-        Console.WriteLine("Application Terminated!");
     }
 }
