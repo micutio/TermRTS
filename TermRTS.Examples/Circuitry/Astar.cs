@@ -1,10 +1,6 @@
-﻿namespace TermRTS.Examples.Circuitry;
+﻿using System.Numerics;
 
-internal readonly struct Location(int x, int y)
-{
-    internal int X { get; } = x;
-    internal int Y { get; } = y;
-}
+namespace TermRTS.Examples.Circuitry;
 
 /// <summary>
 /// Implementation of the A* path finding algorithm for 2d-grids.
@@ -13,29 +9,37 @@ internal class AStar
 {
     private readonly int _worldWidth;
     private readonly int _worldHeight;
-    private readonly Location _goal;
-    private readonly PriorityQueue<Location, float> _openSet;
-    // Track which elements are contained in the _openSet.
-    private readonly HashSet<Location> _isInOpenSet;
-    private readonly Dictionary<Location, Location> _cameFrom;
-    // Cheapest path from start to n, currently known, defaults to infinity
-    private readonly Dictionary<Location, float> _gScore;
-    // Heuristic function
-    private readonly Func<Location, float> _h;
-    // Current best guess for how cheap a path from start to finish through n would be.
-    // Defaults to infinity.
+    private readonly Vector2 _goal;
 
-    internal AStar(int worldWidth, int worldHeight, Location start, Location goal, Func<Location, float> h)
+    private readonly PriorityQueue<Vector2, float> _openSet;
+
+    // Track which elements are contained in the _openSet.
+    private readonly HashSet<Vector2> _isInOpenSet;
+
+    private readonly Dictionary<Vector2, Vector2> _cameFrom;
+
+    // Cheapest path from start to n, currently known, defaults to infinity
+    private readonly Dictionary<Vector2, float> _gScore;
+
+    // Heuristic function
+    private readonly Func<Vector2, float> _h;
+
+    internal AStar(
+        int worldWidth,
+        int worldHeight,
+        Vector2 start,
+        Vector2 goal,
+        Func<Vector2, float> h)
     {
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
         _goal = goal;
-        _openSet = new PriorityQueue<Location, float>(
+        _openSet = new PriorityQueue<Vector2, float>(
             Comparer<float>.Create((x, y) => Comparer<float>.Default.Compare(x, y)));
         _openSet.Enqueue(start, 0.0f);
-        _isInOpenSet = new HashSet<Location> { start };
-        _cameFrom = new Dictionary<Location, Location>();
-        _gScore = new Dictionary<Location, float>
+        _isInOpenSet = new HashSet<Vector2> { start };
+        _cameFrom = new Dictionary<Vector2, Vector2>();
+        _gScore = new Dictionary<Vector2, float>
         {
             [start] = 0.0f
         };
@@ -43,17 +47,14 @@ internal class AStar
     }
 
     // TODO: Maybe conflate this function and the constructor
-    internal IEnumerable<Location>? ComputePath()
+    internal IEnumerable<Vector2>? ComputePath()
     {
         while (_openSet.Count > 0)
         {
             var currentLoc = _openSet.Dequeue();
             _isInOpenSet.Remove(currentLoc);
 
-            if (currentLoc.Equals(_goal))
-            {
-                return ReconstructPath(currentLoc);
-            }
+            if (currentLoc.Equals(_goal)) return ReconstructPath(currentLoc);
 
             foreach (var neighbor in Neighborhood(currentLoc))
             {
@@ -71,6 +72,9 @@ internal class AStar
                 // This path to neighbor is better than any previous one. Record it!
                 _cameFrom[neighbor] = currentLoc;
                 _gScore[neighbor] = tentativeScore;
+
+                // Current best guess for how cheap a path from start to finish through n would be.
+                // Defaults to infinity.
                 var fScore = tentativeScore + _h(neighbor);
 
                 if (_isInOpenSet.Contains(neighbor))
@@ -80,36 +84,37 @@ internal class AStar
                 _isInOpenSet.Add(neighbor);
             }
         }
+
         // open set is empty, but goal was never reached
         return null;
     }
 
-    internal IEnumerable<Location> ReconstructPath(Location endLocation)
+    private IEnumerable<Vector2> ReconstructPath(Vector2 endLocation)
     {
-        var path = new List<Location> { endLocation };
+        var path = new List<Vector2> { endLocation };
         var current = endLocation;
         while (_cameFrom.ContainsKey(current))
         {
             current = _cameFrom[current];
             path.Add(current);
         }
+
         return path;
     }
 
-    internal static Location[] Neighborhood(Location loc)
+    private static Vector2[] Neighborhood(Vector2 loc)
     {
         return
         [
-            new Location(loc.X - 1, loc.Y),
-            new Location(loc.X, loc.Y - 1),
-            new Location(loc.X + 1, loc.Y),
-            new Location(loc.X, loc.Y + 1)
+            new Vector2(loc.X - 1, loc.Y),
+            new Vector2(loc.X, loc.Y - 1),
+            new Vector2(loc.X + 1, loc.Y),
+            new Vector2(loc.X, loc.Y + 1)
         ];
     }
 
-    internal float Weight(Location loc, Location neighbor)
+    private float Weight(Vector2 loc, Vector2 neighbor)
     {
-        return 1.0f;
+        return Vector2.Distance(loc, neighbor);
     }
 }
-

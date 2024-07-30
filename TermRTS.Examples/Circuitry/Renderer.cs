@@ -3,7 +3,7 @@ using System.Numerics;
 
 namespace TermRTS.Examples.Circuitry;
 
-internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, IEventSink
+internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSink
 {
     private readonly ConsoleCanvas _canvas;
     public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
@@ -28,9 +28,9 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, I
 
     public void RenderWorld(World world, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        _timePassed += (timeStepSizeMs + howFarIntoNextFrameMs);
+        _timePassed += timeStepSizeMs + howFarIntoNextFrameMs;
         _fps += 1;
-        if (_timePassed >= (_lastSecond + 1000))
+        if (_timePassed >= _lastSecond + 1000)
         {
             _lastSecond = _timePassed;
             _lastFps = _fps;
@@ -67,43 +67,37 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, I
             .ForEach(wire => RenderWire(wire.Outline, bus.IsActive, progress));
     }
 
-    private void RenderOutline(IEnumerable<(int, int, char)> outline)
+    private void RenderOutline(App.Cell[] outline)
     {
-        foreach ((int x, int y, char c) tuple in outline.Where(o => IsInCamera(o.Item1, o.Item2)))
-        {
+        foreach (var cell in outline.Where(c => IsInCamera(c.X, c.Y)))
             _canvas.Set(
-                (int)(tuple.x - CameraPos.X),
-                (int)(tuple.y - CameraPos.Y),
-                tuple.c,
+                (int)(cell.X - CameraPos.X),
+                (int)(cell.Y - CameraPos.Y),
+                cell.C,
                 ConsoleColor.Black);
-        }
     }
 
-    private void RenderWire(IReadOnlyList<(int, int, char)> outline, bool isActive, float progress)
+    private void RenderWire(App.Cell[] outline, bool isActive, float progress)
     {
-        var sparkIdx = (int)(outline.Count * progress);
-        for (var i = 0; i < outline.Count; i++)
+        var sparkIdx = (int)(outline.Length * progress);
+        for (var i = 0; i < outline.Length; i++)
         {
             var (x, y, c) = outline[i];
 
             if (isActive && i == sparkIdx)
-            {
                 _canvas.Set(
                     (int)(x - CameraPos.X),
                     (int)(y - CameraPos.Y),
                     c,
-                    ConsoleColor.Cyan,
+                    ConsoleColor.Blue,
                     DefaultBg);
-            }
             else
-            {
                 _canvas.Set(
                     (int)(x - CameraPos.X),
                     (int)(y - CameraPos.Y),
                     c,
                     ConsoleColor.Black,
                     DefaultBg);
-            }
         }
     }
 
@@ -114,8 +108,8 @@ internal class Renderer : TermRTS.IRenderer<World, App.CircuitComponentTypes>, I
 
     private bool IsInCamera(float x, float y)
     {
-        return (x >= CameraPos.X && y <= CameraSize.X - CameraPos.X)
-               && (y >= CameraPos.Y && y <= CameraSize.Y - CameraPos.Y);
+        return x >= CameraPos.X && y <= CameraSize.X - CameraPos.X
+                                && y >= CameraPos.Y && y <= CameraSize.Y - CameraPos.Y;
     }
 
     public void Shutdown()

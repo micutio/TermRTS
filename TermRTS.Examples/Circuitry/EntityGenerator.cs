@@ -146,7 +146,7 @@ internal class EntityGenerator
         _maxChipSize = 6;
         _busCount = 10;
         _minBusWidth = 1;
-        _maxBusWidth = 3;
+        _maxBusWidth = 1;
 
         _rng = new Random();
     }
@@ -218,8 +218,8 @@ internal class EntityGenerator
                 continue;
 
             chips.Add(newChip);
-            foreach ((int x, int y, char _) tuple in newChip.Outline)
-                isOccupied[tuple.y, tuple.x] = true;
+            foreach (var cell in newChip.Outline)
+                isOccupied[cell.Y, cell.X] = true;
         }
 
         // TODO: Connect each chip to the nearest unconnected one.
@@ -227,100 +227,172 @@ internal class EntityGenerator
         // TODO: For each chip, keep track of which sides are already occupied with buses.
 
         var connectedChips = new List<App.Chip>();
-        foreach (var chip in chips)
-        {
-            var availableChips =
-                chips.FindAll(c => !connectedChips.Contains(c) && !Equals(c)).ToList();
-            if (availableChips.Count == 0)
-                availableChips = connectedChips;
+        var buses = new List<App.Bus>();
 
-            var nearestChip =
-                availableChips.MinBy(c => Vector2.Distance(chip.Center(), c.Center()));
-            connectedChips.Add(nearestChip);
-
-            // TODO: Connect both chips
-            int vertical;
-            if (chip.Position1.Y > nearestChip.Position2.Y) vertical = 1; // above
-            else if (chip.Position2.Y < nearestChip.Position1.Y) vertical = -1; // below
-            else vertical = 0; // about same height
-
-            int horizontal;
-            if (chip.Position1.X > nearestChip.Position2.X) horizontal = 1; // to the right
-            else if (chip.Position2.X < nearestChip.Position1.X) horizontal = -1; // to the left
-            else horizontal = 0;
-
-            // TODO: For each combination of horizontal and vertical find wire placements.
-            // idea: rank chip walls by horizontal and vertical parameters and choose the best ones that have space for wires
-            var startWalls = new PriorityQueue<IEnumerable<(int, int, char)>, int>(4);
-            // TODO: Change to (int, int, bool, char) to indicate whether it's occupied
-            var endWalls = new PriorityQueue<IEnumerable<(int, int, char)>, int>(4);
-
-            startWalls.Enqueue(chip.LowerWall(), vertical);
-            startWalls.Enqueue(chip.UpperWall(), vertical * -1);
-            startWalls.Enqueue(chip.LeftWall(), horizontal);
-            startWalls.Enqueue(chip.RightWall(), horizontal * -1);
-
-            endWalls.Enqueue(chip.LowerWall(), vertical * -1);
-            endWalls.Enqueue(chip.UpperWall(), vertical);
-            endWalls.Enqueue(chip.LeftWall(), horizontal * -1);
-            endWalls.Enqueue(chip.RightWall(), horizontal);
-
-            var isDone = false;
-            while (!isDone && startWalls.Count > 0 && endWalls.Count > 0)
+        var currentBusCount = 0;
+        while (currentBusCount < _busCount)
+            foreach (var chip in chips)
             {
-                var startWall = startWalls.Dequeue();
-                var width = 1; // TODO: Change to rng!
-                var a = 0;
-                var b = 1;
-                var foundSpace = false;
-                while (!foundSpace)
-                {
-                    // step 1: find a start point
-                    while ( /* startWall[a].IsOccupied */ )
-                    {
-                        a += 1;
-                    }
-                    if (a == startWall.Count()) break;
+                var availableChips =
+                    chips.FindAll(c => !connectedChips.Contains(c) && !Equals(c)).ToList();
+                if (availableChips.Count == 0)
+                    availableChips = connectedChips;
 
-                    // step 2: try set end point at <width>
-                    b = a;
-                    while ( /* startWall[b].IsNotOccupied  && */ b < a + width && b < startWall.Count())
-                    {
-                        b += 1;
-                    }
+                var nearestChip =
+                    availableChips.MinBy(c => Vector2.Distance(chip.Center(), c.Center()));
+                if (nearestChip == null) continue;
 
-                    if (b - a + 1 == width)
-                    {
-                        // check whether we have enough space
-                        foundSpace = true;
-                    }
-                    else
-                    {
-                        b += 1;
-                        a = b;
-                    }
-                }
+                connectedChips.Add(nearestChip);
 
-                if (foundSpace)
-                {
-                    // TODO: Assign
-                    for (int i = a; i <= b; i += 1)
-                    {
-                        // startWall[i].SetOccupied();
-                        // TODO: put into function and return startWall, to generate wires together with endWall
-                    }
-                    isDone = true;
-                }
+                // TODO: Connect both chips
+                int vertical;
+                if (chip.Position1.Y > nearestChip.Position2.Y) vertical = 1; // above
+                else if (chip.Position2.Y < nearestChip.Position1.Y) vertical = -1; // below
+                else vertical = 0; // about same height
+
+                int horizontal;
+                if (chip.Position1.X > nearestChip.Position2.X) horizontal = 1; // to the right
+                else if (chip.Position2.X < nearestChip.Position1.X) horizontal = -1; // to the left
+                else horizontal = 0;
+
+                // TODO: For each combination of horizontal and vertical find wire placements.
+                // idea: rank chip walls by horizontal and vertical parameters and choose the best ones that have space for wires
+                var startWalls = new PriorityQueue<ArraySegment<App.Cell>, int>(4);
+                // TODO: Change to (int, int, bool, char) to indicate whether it's occupied
+                var endWalls = new PriorityQueue<ArraySegment<App.Cell>, int>(4);
+
+                startWalls.Enqueue(chip.LowerWall(), vertical);
+                startWalls.Enqueue(chip.UpperWall(), vertical * -1);
+                startWalls.Enqueue(chip.LeftWall(), horizontal);
+                startWalls.Enqueue(chip.RightWall(), horizontal * -1);
+
+                endWalls.Enqueue(chip.LowerWall(), vertical * -1);
+                endWalls.Enqueue(chip.UpperWall(), vertical);
+                endWalls.Enqueue(chip.LeftWall(), horizontal * -1);
+                endWalls.Enqueue(chip.RightWall(), horizontal);
+
+                var width = _rng.Next(_minBusWidth, _maxBusWidth);
+
+                var busStart = CreateBusTerminator(width, startWalls, ref isOccupied);
+                var busEnd = CreateBusTerminator(width, endWalls, ref isOccupied);
+
+                if (busStart.Count == 0 || busEnd.Count == 0) continue;
+
+                var bus = CreateBusConnection(width, isOccupied, busStart, busEnd);
+                if (bus == null) continue;
+
+                buses.Add(bus);
+                currentBusCount += 1;
+                if (currentBusCount == _busCount) break;
             }
-        }
 
         var entities = new List<EntityBase<App.CircuitComponentTypes>>();
+
         chips
             .ConvertAll(c =>
                 new EntityBase<App.CircuitComponentTypes>(App.CircuitComponentTypes.Chip, c))
             .ForEach(entities.Add);
+        buses
+            .ConvertAll(b =>
+                new EntityBase<App.CircuitComponentTypes>(App.CircuitComponentTypes.Bus, b))
+            .ForEach(entities.Add);
 
         return entities;
+    }
+
+    private App.Bus? CreateBusConnection(
+        int width,
+        bool[,] isOccupied,
+        IList<(int, int)> busStart,
+        IList<(int, int)> busEnd)
+    {
+        var wires = new List<App.Wire>();
+        for (var i = 0; i < width; i += 1)
+        {
+            var origin = new Vector2(busStart[i].Item1, busStart[i].Item2);
+            var goal = new Vector2(busEnd[i].Item1, busEnd[i].Item2);
+            var aStar = new AStar(
+                _worldWidth,
+                _worldHeight,
+                origin,
+                goal,
+                (n) =>
+                {
+                    var occupation = isOccupied[(int)n.X, (int)n.Y] ? float.PositiveInfinity : 0;
+                    return Vector2.Distance(n, goal) + occupation;
+                });
+            var path = aStar.ComputePath();
+            if (path != null)
+                wires.Add(new App.Wire(path.ToList().ConvertAll(vec => ((int)vec.X, (int)vec.Y))));
+        }
+
+        return wires.Count == 0 ? null : new App.Bus(wires);
+    }
+
+    private static List<(int, int)> CreateBusTerminator(
+        int width,
+        in PriorityQueue<ArraySegment<App.Cell>, int> cellWalls,
+        ref bool[,] isOccupied)
+    {
+        // Idea:
+        // - take a start wall from the queue
+        // - use two indices, a and b, to find a fitting unoccupied gap in the wall
+        // - set all cells of that gap to occupied and create a list of coordinates
+        // - do the same for end walls
+        // - initialise a new set of wires with the given coordinate sets
+        // - create a bus from all the wires and return
+
+        var isDone = false;
+        var busEndCells = new List<(int, int)>();
+        while (!isDone && cellWalls.Count > 0)
+        {
+            var cellWall = cellWalls.Dequeue();
+            var wallLength = cellWall.Count;
+            var a = 0;
+            var b = 1;
+            var foundSpace = false;
+            while (!foundSpace)
+            {
+                // step 1: find a start point
+                while (!isOccupied[cellWall[a].X, cellWall[a].Y]
+                       && a < wallLength)
+                    a += 1;
+
+                if (a == wallLength) break;
+
+                // step 2: try set end point at <width>
+                b = a;
+                while (!isOccupied[cellWall[b].X, cellWall[b].Y]
+                       && b < wallLength
+                       && b < a + width)
+                    b += 1;
+
+                if (b == wallLength) break; // reached the end of the wall
+
+                if (b - a != width) // current gap in the wall is too small, try next one
+                {
+                    b += 1;
+                    a = b;
+                    continue;
+                }
+
+                // check whether we have enough space
+                foundSpace = true;
+            }
+
+            if (!foundSpace) continue; // this wall did not have enough space, try the next one
+            // TODO: Assign
+            for (var i = a; i < b; i += 1)
+            {
+                var wallCell = cellWall[i];
+                isOccupied[wallCell.X, wallCell.Y] = true;
+                busEndCells.Add((wallCell.X, wallCell.Y));
+                // TODO: put into function and return startWall, to generate wires together with endWall
+                isDone = true;
+            }
+        }
+
+        return busEndCells;
     }
 
     #endregion

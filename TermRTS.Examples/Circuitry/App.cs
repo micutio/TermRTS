@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using TermRTS.IO;
 
@@ -64,6 +63,10 @@ internal class App : IRunnableExample
         West
     }
 
+    internal readonly record struct Cell(int X, int Y, char C)
+    {
+    }
+
     internal class Chip : IComponent
     {
         internal Vector2 Position1 { get; }
@@ -76,7 +79,7 @@ internal class App : IRunnableExample
             Outline = GenerateOutline();
         }
 
-        public IEnumerable<(int, int, char)> Outline { get; }
+        public Cell[] Outline { get; }
 
         public object Clone()
         {
@@ -101,95 +104,93 @@ internal class App : IRunnableExample
         }
 
         // TODO: Does it make sense to implement the wall getters are extension methods because they're only used in one place?
+        // TODO: Change outline into array and wall segment function return types to ArraySegments;
 
-        public IEnumerable<(int, int, char)> UpperWall()
+        public ArraySegment<Cell> UpperWall()
         {
-            return Outline.Skip(4).Take((int)(Position2.X - Position1.X));
+            //return Outline.Skip(4).Take((int)(Position2.X - Position1.X)).ToList();
+            return new ArraySegment<Cell>(Outline, 4, (int)(Position2.X - Position1.X));
         }
 
-        public IEnumerable<(int, int, char)> LowerWall()
-        {
-            var width = (int)(Position2.X - Position1.X);
-            return Outline.Skip(4 + width).Take(width);
-        }
-
-        public IEnumerable<(int, int, char)> LeftWall()
+        public ArraySegment<Cell> LowerWall()
         {
             var width = (int)(Position2.X - Position1.X);
-            var height = (int)(Position2.Y - Position1.Y);
-            return Outline.Skip(4 + width + width).Take(height);
+            // return Outline.Skip(4 + width).Take(width).ToList();
+            return new ArraySegment<Cell>(Outline, 4 + width, width);
         }
 
-        public IEnumerable<(int, int, char)> RightWall()
+        public ArraySegment<Cell> LeftWall()
         {
             var width = (int)(Position2.X - Position1.X);
             var height = (int)(Position2.Y - Position1.Y);
-            return Outline.Skip(4 + width + width + height).Take(height);
+            // return Outline.Skip(4 + width + width).Take(height).ToList();
+            return new ArraySegment<Cell>(Outline, 4 + width + width, height);
         }
 
-        private List<(int, int, char)> GenerateOutline()
+        public ArraySegment<Cell> RightWall()
         {
-            var outline = new List<(int, int, char)>();
+            var width = (int)(Position2.X - Position1.X);
+            var height = (int)(Position2.Y - Position1.Y);
+            // return Outline.Skip(4 + width + width + height).Take(height).ToList();
+            return new ArraySegment<Cell>(Outline, 4 + width + width + height, height);
+        }
+
+        private Cell[] GenerateOutline()
+        {
+            var outline = new List<Cell>();
             var x1 = (int)Position1.X;
             var x2 = (int)Position2.X;
             var y1 = (int)Position1.Y;
             var y2 = (int)Position2.Y;
 
             // left upper corner
-            outline.Add((x1, y1, Cp437.BoxDoubleDownDoubleRight));
+            outline.Add(new Cell(x1, y1, Cp437.BoxDoubleDownDoubleRight));
 
             // left lower corner
-            outline.Add((x1, y2, Cp437.BoxDoubleUpDoubleRight));
+            outline.Add(new Cell(x1, y2, Cp437.BoxDoubleUpDoubleRight));
 
             // right upper corner
-            outline.Add((x2, y1, Cp437.BoxDoubleDownDoubleLeft));
+            outline.Add(new Cell(x2, y1, Cp437.BoxDoubleDownDoubleLeft));
 
             // right lower corner
-            outline.Add((x2, y2, Cp437.BoxDoubleUpDoubleLeft));
+            outline.Add(new Cell(x2, y2, Cp437.BoxDoubleUpDoubleLeft));
 
             // lower wall
             for (var i = x1 + 1; i < x2; i += 1)
-                outline.Add((i, y1, Cp437.BoxDoubleHorizontal));
+                outline.Add(new Cell(i, y1, Cp437.BoxDoubleHorizontal));
 
             // upper wall
             for (var i = x1 + 1; i < x2; i += 1)
-                outline.Add((i, y2, Cp437.BoxDoubleHorizontal));
+                outline.Add(new Cell(i, y2, Cp437.BoxDoubleHorizontal));
 
             // left wall
             for (var i = y1 + 1; i < y2; i += 1)
-                outline.Add((x1, i, Cp437.BoxDoubleVertical));
+                outline.Add(new Cell(x1, i, Cp437.BoxDoubleVertical));
 
             // right wall
             for (var i = y1 + 1; i < y2; i += 1)
-                outline.Add((x2, i, Cp437.BoxDoubleVertical));
+                outline.Add(new Cell(x2, i, Cp437.BoxDoubleVertical));
 
-            return outline;
+            return outline.ToArray();
         }
     }
 
-    internal class Bus : IComponent
+    internal class Bus(List<Wire> connections) : IComponent
     {
         public const float Velocity = 25.5f; // in [m/s]
         private float _progress; // in [%]
-        public List<Wire> Connections;
+        public readonly List<Wire> Connections = connections;
 
-        public Bus(List<Wire> connections)
-        {
-            Connections = connections;
-            IsActive = false;
-            IsForward = true;
-        }
+        public bool IsActive { get; set; } // defaults to `false`
 
-        public bool IsActive { get; set; }
-
-        public bool IsForward { get; set; }
+        public bool IsForward { get; set; } = true;
 
         public int AvgWireLength
         {
             get
             {
                 var sumOfLengths = Connections
-                    .ConvertAll(c => c.Outline.Count)
+                    .ConvertAll(c => c.Outline.Length)
                     .Sum();
                 return sumOfLengths / Connections.Count;
             }
@@ -214,18 +215,18 @@ internal class App : IRunnableExample
 
         public object Clone()
         {
-            return new Bus(new List<Wire>(Connections));
+            return new Bus([..Connections]);
         }
     }
 
     internal class Wire : IComponent
     {
         // x,y coordinates and visual representation
-        public List<(int, int, char)> Outline;
+        public readonly Cell[] Outline;
 
-        public Wire(IReadOnlyList<(int x, int y)> positions)
+        public Wire(IList<(int x, int y)> positions)
         {
-            Outline = new List<(int, int, char)>();
+            Outline = new Cell[positions.Count];
             var positionCount = positions.Count;
 
             // Generate starting terminator
@@ -235,7 +236,7 @@ internal class App : IRunnableExample
                 positions[1].x,
                 positions[1].y
             );
-            Outline.Add((positions[0].x, positions[0].y, startChar));
+            Outline[0] = new Cell(positions[0].x, positions[0].y, startChar);
 
             // Generate all parts in-between
             for (var i = 1; i < positionCount - 1; ++i)
@@ -248,7 +249,7 @@ internal class App : IRunnableExample
                     positions[i + 1].x,
                     positions[i + 1].y
                 );
-                Outline.Add((positions[i].x, positions[i].y, c));
+                Outline[i] = new Cell(positions[i].x, positions[i].y, c);
             }
 
             // Generate ending terminator
@@ -258,12 +259,13 @@ internal class App : IRunnableExample
                 positions[positionCount - 2].x,
                 positions[positionCount - 2].y
             );
-            Outline.Add((positions[positionCount - 1].x, positions[positionCount - 1].y, endChar));
+            Outline[positionCount - 1] = new Cell(positions[positionCount - 1].x,
+                positions[positionCount - 1].y, endChar);
         }
 
         public object Clone()
         {
-            var outline = Outline.Select(item => (item.Item1, item.Item2)).ToList();
+            var outline = Outline.Select<Cell, (int, int)>(cell => (cell.X, cell.Y)).ToList();
             return new Wire(outline);
         }
 
@@ -320,12 +322,12 @@ internal class App : IRunnableExample
         }
     }
 
-    public class BusSystem : System<World, CircuitComponentTypes>
+    private class BusSystem : System<World, CircuitComponentTypes>
     {
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
 
-        public override Dictionary<CircuitComponentTypes, IComponent>? ProcessComponents(
+        public override Dictionary<CircuitComponentTypes, IComponent> ProcessComponents(
             ulong timeStepSizeMs,
             EntityBase<CircuitComponentTypes> thisEntityComponents,
             List<EntityBase<CircuitComponentTypes>> otherEntityComponents,
@@ -346,12 +348,13 @@ internal class App : IRunnableExample
                 if (_timeSinceLastAttempt >= 1000L)
                 {
                     _timeSinceLastAttempt = 0L;
-                    if (_rng.NextSingle() < 0.5)
-                    {
-                        bus.IsActive = true;
-                        bus.IsForward = _rng.Next() % 2 == 0;
-                        bus.Progress = 0.0f;
-                    }
+                    if (!(_rng.NextSingle() < 0.5))
+                        return new Dictionary<CircuitComponentTypes, IComponent>
+                            { { CircuitComponentTypes.Bus, bus } };
+
+                    bus.IsActive = true;
+                    bus.IsForward = _rng.Next() % 2 == 0;
+                    bus.Progress = 0.0f;
                 }
                 else
                 {
