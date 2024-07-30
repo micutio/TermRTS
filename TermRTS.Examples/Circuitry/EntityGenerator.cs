@@ -316,7 +316,7 @@ internal class EntityGenerator
                 _worldHeight,
                 origin,
                 goal,
-                (n) =>
+                n =>
                 {
                     var occupation = isOccupied[(int)n.X, (int)n.Y] ? float.PositiveInfinity : 0;
                     return Vector2.Distance(n, goal) + occupation;

@@ -3,21 +3,30 @@ using System.Threading.Channels;
 namespace TermRTS.IO;
 
 /// <summary>
-/// Input processing for terminal key events.
+///     Input processing for terminal key events.
 /// </summary>
 public class ConsoleInput : IEventSink
 {
-    private readonly Channel<(IEvent, UInt64)> _channel;
+    private readonly Channel<(IEvent, ulong)> _channel;
     private readonly Thread _thread;
     private bool _keepRunning;
 
     public ConsoleInput()
     {
-        _channel = Channel.CreateUnbounded<(IEvent, UInt64)>();
+        _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
         _thread = new Thread(ListenForKeyInput);
     }
 
-    public ChannelReader<(IEvent, UInt64)> KeyEventReader => _channel.Reader;
+    public ChannelReader<(IEvent, ulong)> KeyEventReader => _channel.Reader;
+
+    public void ProcessEvent(IEvent evt)
+    {
+        if (evt.Type() == EventType.Shutdown)
+        {
+            _keepRunning = false;
+            _thread.Join();
+        }
+    }
 
     public void Run()
     {
@@ -38,6 +47,7 @@ public class ConsoleInput : IEventSink
             var keyInfo = Console.ReadKey(true);
             FireKeyEvent(keyInfo);
         }
+
         _channel.Writer.Complete();
         Console.WriteLine("ConsoleInput shut down");
     }
@@ -45,14 +55,5 @@ public class ConsoleInput : IEventSink
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
     {
         _channel.Writer.TryWrite((new KeyInputEvent(keyInfo), 0L));
-    }
-
-    public void ProcessEvent(IEvent evt)
-    {
-        if (evt.Type() == EventType.Shutdown)
-        {
-            _keepRunning = false;
-            _thread.Join();
-        }
     }
 }

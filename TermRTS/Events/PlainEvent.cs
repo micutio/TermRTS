@@ -2,7 +2,7 @@
 
 public class PlainEvent : IEvent
 {
-    private EventType _type;
+    private readonly EventType _type;
 
     public PlainEvent(EventType typ)
     {

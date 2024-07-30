@@ -7,10 +7,10 @@ public class KeyInputEvent : IEvent
         Info = info;
     }
 
+    public ConsoleKeyInfo Info { get; }
+
     public EventType Type()
     {
         return EventType.KeyInput;
     }
-
-    public ConsoleKeyInfo Info { get; }
 }

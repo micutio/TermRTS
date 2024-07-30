@@ -3,26 +3,25 @@
 namespace TermRTS.Examples.Circuitry;
 
 /// <summary>
-/// Implementation of the A* path finding algorithm for 2d-grids.
+///     Implementation of the A* path finding algorithm for 2d-grids.
 /// </summary>
 internal class AStar
 {
-    private readonly int _worldWidth;
-    private readonly int _worldHeight;
-    private readonly Vector2 _goal;
-
-    private readonly PriorityQueue<Vector2, float> _openSet;
-
-    // Track which elements are contained in the _openSet.
-    private readonly HashSet<Vector2> _isInOpenSet;
-
     private readonly Dictionary<Vector2, Vector2> _cameFrom;
+    private readonly Vector2 _goal;
 
     // Cheapest path from start to n, currently known, defaults to infinity
     private readonly Dictionary<Vector2, float> _gScore;
 
     // Heuristic function
     private readonly Func<Vector2, float> _h;
+
+    // Track which elements are contained in the _openSet.
+    private readonly HashSet<Vector2> _isInOpenSet;
+
+    private readonly PriorityQueue<Vector2, float> _openSet;
+    private readonly int _worldHeight;
+    private readonly int _worldWidth;
 
     internal AStar(
         int worldWidth,

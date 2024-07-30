@@ -1,3 +1,5 @@
 namespace TermRTS;
 
-public interface IComponent : ICloneable { }
+public interface IComponent : ICloneable
+{
+}

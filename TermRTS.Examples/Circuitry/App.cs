@@ -69,15 +69,15 @@ internal class App : IRunnableExample
 
     internal class Chip : IComponent
     {
-        internal Vector2 Position1 { get; }
-        internal Vector2 Position2 { get; }
-
         public Chip(Vector2 position1, Vector2 position2)
         {
             Position1 = position1;
             Position2 = position2;
             Outline = GenerateOutline();
         }
+
+        internal Vector2 Position1 { get; }
+        internal Vector2 Position2 { get; }
 
         public Cell[] Outline { get; }
 
@@ -178,8 +178,8 @@ internal class App : IRunnableExample
     internal class Bus(List<Wire> connections) : IComponent
     {
         public const float Velocity = 25.5f; // in [m/s]
-        private float _progress; // in [%]
         public readonly List<Wire> Connections = connections;
+        private float _progress; // in [%]
 
         public bool IsActive { get; set; } // defaults to `false`
 

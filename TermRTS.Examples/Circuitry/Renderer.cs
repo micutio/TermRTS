@@ -1,23 +1,22 @@
-﻿using ConsoleRenderer;
-using System.Numerics;
+﻿using System.Numerics;
+using ConsoleRenderer;
 
 namespace TermRTS.Examples.Circuitry;
 
 internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSink
 {
-    private readonly ConsoleCanvas _canvas;
-    public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
-    public Vector2 CameraPos = new(0, 0);
-    public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
-
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-
-    private double _timePassed;
-    private double _lastSecond;
+    private readonly ConsoleCanvas _canvas;
     private int _fps;
     private int _lastFps;
+    private double _lastSecond;
     private string _profileOutput;
+
+    private double _timePassed;
+    public Vector2 CameraPos = new(0, 0);
+    public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
+    public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
 
     public Renderer()
     {
@@ -25,6 +24,21 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
         _canvas = new ConsoleCanvas().Render();
         _profileOutput = string.Empty;
     }
+
+    #region IEventSink Members
+
+    /// <inheritdoc />
+    /// >
+    public void ProcessEvent(IEvent evt)
+    {
+        _profileOutput = evt.Type() switch
+        {
+            EventType.Profile => ((ProfileEvent)evt).ProfileInfo,
+            _ => _profileOutput
+        };
+    }
+
+    #endregion
 
     public void RenderWorld(World world, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
@@ -67,6 +81,16 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
             .ForEach(wire => RenderWire(wire.Outline, bus.IsActive, progress));
     }
 
+    public void FinalizeRender()
+    {
+        _canvas.Render();
+    }
+
+    public void Shutdown()
+    {
+        Console.ResetColor();
+    }
+
     private void RenderOutline(App.Cell[] outline)
     {
         foreach (var cell in outline.Where(c => IsInCamera(c.X, c.Y)))
@@ -101,33 +125,9 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
         }
     }
 
-    public void FinalizeRender()
-    {
-        _canvas.Render();
-    }
-
     private bool IsInCamera(float x, float y)
     {
         return x >= CameraPos.X && y <= CameraSize.X - CameraPos.X
                                 && y >= CameraPos.Y && y <= CameraSize.Y - CameraPos.Y;
     }
-
-    public void Shutdown()
-    {
-        Console.ResetColor();
-    }
-
-    #region IEventSink Members
-
-    /// <inheritdoc/>>
-    public void ProcessEvent(IEvent evt)
-    {
-        _profileOutput = evt.Type() switch
-        {
-            EventType.Profile => ((ProfileEvent)evt).ProfileInfo,
-            _ => _profileOutput
-        };
-    }
-
-    #endregion
 }

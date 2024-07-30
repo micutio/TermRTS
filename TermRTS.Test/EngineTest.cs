@@ -1,4 +1,3 @@
-
 using System.Threading.Channels;
 
 namespace TermRTS.Test;
@@ -13,14 +12,14 @@ public class NullWorld : IWorld
 
 public enum EmptyComponentType
 {
-    Empty,
+    Empty
 }
 
 public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
 {
     public void RenderEntity(
-            Dictionary<EmptyComponentType, IComponent> entity,
-            double howFarIntoNextFrameMs)
+        Dictionary<EmptyComponentType, IComponent> entity,
+        double howFarIntoNextFrameMs)
     {
         Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }
@@ -30,9 +29,13 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
         Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
-    public void Shutdown() { }
+    public void Shutdown()
+    {
+    }
 
-    void IRenderer<NullWorld, EmptyComponentType>.FinalizeRender() { }
+    void IRenderer<NullWorld, EmptyComponentType>.FinalizeRender()
+    {
+    }
 }
 
 public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentType>>
@@ -43,37 +46,36 @@ public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentTyp
     }
 }
 
-public class NullEntity : EntityBase<EmptyComponentType> { }
+public class NullEntity : EntityBase<EmptyComponentType>
+{
+}
 
 public class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
+    private readonly Channel<(IEvent, ulong)> _eventChannel;
     private int _remainingTicks;
-    private Channel<(IEvent, UInt64)> _eventChannel;
-    public ChannelReader<(IEvent, UInt64)> EventOutput;
+    public ChannelReader<(IEvent, ulong)> EventOutput;
 
     public WatcherSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<(IEvent, UInt64)>();
+        _eventChannel = Channel.CreateUnbounded<(IEvent, ulong)>();
         EventOutput = _eventChannel.Reader;
     }
 
     public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
-            UInt64 timeStepSize,
-            EntityBase<EmptyComponentType> thisEntityComponents,
-            List<EntityBase<EmptyComponentType>> otherEntityComponents,
-            ref NullWorld world)
+        ulong timeStepSize,
+        EntityBase<EmptyComponentType> thisEntityComponents,
+        List<EntityBase<EmptyComponentType>> otherEntityComponents,
+        ref NullWorld world)
     {
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-        {
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
-        }
 
         return new Dictionary<EmptyComponentType, IComponent>();
     }
-
 }
 
 public class EngineTest
@@ -96,7 +98,7 @@ public class EngineTest
     public void TestSchedulerSetup(Core<NullWorld, EmptyComponentType> core)
     {
         // Setup Scheduler
-        var watcherSystem = new WatcherSystem(remainingTicks: 12);
+        var watcherSystem = new WatcherSystem(12);
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
         scheduler.AddEventSink(core, EventType.Shutdown);
@@ -107,7 +109,7 @@ public class EngineTest
         scheduler.SimulationLoop();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
-        UInt64 finalTime = 12 * 16;
+        ulong finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);
     }
 
@@ -124,7 +126,7 @@ public class EngineTest
         scheduler.SimulationLoop();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
-        UInt64 finalTime = 12 * 16;
+        ulong finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);
     }
 }

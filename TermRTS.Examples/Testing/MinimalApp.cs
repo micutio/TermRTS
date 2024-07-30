@@ -2,7 +2,7 @@
 
 namespace TermRTS.Examples.Testing;
 
-internal class NullWorld : TermRTS.IWorld
+internal class NullWorld : IWorld
 {
     public void ApplyChange()
     {
@@ -12,14 +12,14 @@ internal class NullWorld : TermRTS.IWorld
 
 internal enum EmptyComponentType
 {
-    Empty,
+    Empty
 }
 
 internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
 {
     public void RenderEntity(
-    Dictionary<EmptyComponentType, IComponent> entity,
-    double howFarIntoNextFrameMs)
+        Dictionary<EmptyComponentType, IComponent> entity,
+        double howFarIntoNextFrameMs)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }
@@ -29,48 +29,49 @@ internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
         // Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
-    public void FinalizeRender() { }
+    public void FinalizeRender()
+    {
+    }
 
-    public void Shutdown() { }
+    public void Shutdown()
+    {
+    }
 }
 
-internal class NullEntity : EntityBase<EmptyComponentType> { }
+internal class NullEntity : EntityBase<EmptyComponentType>
+{
+}
 
 internal class WatcherSystem : System<NullWorld, EmptyComponentType>
 {
+    private readonly Channel<(IEvent, ulong)> _eventChannel;
+    public readonly ChannelReader<(IEvent, ulong)> EventOutput;
     private int _remainingTicks;
-    private readonly Channel<(IEvent, UInt64)> _eventChannel;
-    public readonly ChannelReader<(IEvent, UInt64)> EventOutput;
 
     public WatcherSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<(IEvent, UInt64)>();
+        _eventChannel = Channel.CreateUnbounded<(IEvent, ulong)>();
         EventOutput = _eventChannel.Reader;
     }
 
     public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
-            UInt64 timeStepSizeMs,
-            EntityBase<EmptyComponentType> thisEntityComponents,
-            List<EntityBase<EmptyComponentType>> otherEntityComponents,
-            ref NullWorld world)
+        ulong timeStepSizeMs,
+        EntityBase<EmptyComponentType> thisEntityComponents,
+        List<EntityBase<EmptyComponentType>> otherEntityComponents,
+        ref NullWorld world)
     {
         _remainingTicks -= 1;
         // Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
-        {
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
-        }
 
         if (_remainingTicks % 60 == 0)
-        {
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Profile), 60));
-        }
 
         return new Dictionary<EmptyComponentType, IComponent>();
     }
-
 }
 
 internal class MinimalApp : IRunnableExample
@@ -78,7 +79,7 @@ internal class MinimalApp : IRunnableExample
     public void Run()
     {
         var core = new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer());
-        var watcherSystem = new WatcherSystem(remainingTicks: 10);
+        var watcherSystem = new WatcherSystem(10);
         core.AddGameSystem(watcherSystem);
         core.AddEntity(new NullEntity());
 

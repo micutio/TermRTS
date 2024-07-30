@@ -5,82 +5,110 @@ namespace TermRTS;
 
 public class Scheduler : IEventSink
 {
-    #region Private Fields
-
-    private readonly Profiler _profiler;
-    private readonly TimeSpan _msPerUpdate;
-    private readonly UInt64 _timeStepSizeMs;
-    private UInt64 _timeMs;
-    private readonly Stopwatch _stopwatch;
-    private readonly EventQueue<IEvent, UInt64> _eventQueue;
-    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
-    private readonly ICore _core;
-
-    #endregion
-
     // channel for emitting events
     // TODO: Replace `(IEvent, UInt64)` with actual type.
-    private readonly Channel<(IEvent, UInt64)> _channel;
+    private readonly Channel<(IEvent, ulong)> _channel;
 
     #region Constructor
 
     // TODO: Test time step size 0
     // TODO: Add logging to file
     /// <summary>
-    /// Constructor.
+    ///     Constructor.
     /// </summary>
     /// <param name="frameTimeMs">How much time is allocated for processing each frame</param>
     /// <param name="timeStepSizeMs">How much time is processed during one simulation tick</param>
     /// <param name="core">Game core object, which is performing the actual simulation ticks</param>
-    public Scheduler(double frameTimeMs, UInt64 timeStepSizeMs, ICore core)
+    public Scheduler(double frameTimeMs, ulong timeStepSizeMs, ICore core)
     {
         _profiler = new Profiler(timeStepSizeMs);
         _msPerUpdate = TimeSpan.FromMilliseconds(frameTimeMs);
         _timeStepSizeMs = timeStepSizeMs;
-        _timeMs = 0L;
+        TimeMs = 0L;
         _stopwatch = new Stopwatch();
-        _eventQueue = new EventQueue<IEvent, UInt64>();
+        _eventQueue = new EventQueue<IEvent, ulong>();
         _eventSinks = new Dictionary<EventType, List<IEventSink>>();
         _core = core;
 
-        _channel = Channel.CreateUnbounded<(IEvent, UInt64)>();
+        _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
     }
+
+    #endregion
+
+    #region IEventSink Members
+
+    public void ProcessEvent(IEvent evt)
+    {
+        // Emit regular profiling output
+        if (evt.Type() == EventType.Profile) Console.WriteLine(_profiler.ToString());
+    }
+
+    #endregion
+
+    #region Private Members
+
+    /// <summary>
+    ///     Fires events that are due in the current time step by distributing them to all registered
+    ///     event sinks.
+    /// </summary>
+    private void ProcessInput()
+    {
+        while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
+        {
+            _eventQueue.TryTake(out var eventItem);
+
+            if (!_eventSinks.ContainsKey(eventItem.Item1.Type()))
+                continue;
+
+            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
+                eventSink.ProcessEvent(eventItem.Item1);
+        }
+    }
+
+    #endregion
+
+    #region Private Fields
+
+    private readonly Profiler _profiler;
+    private readonly TimeSpan _msPerUpdate;
+    private readonly ulong _timeStepSizeMs;
+    private readonly Stopwatch _stopwatch;
+    private readonly EventQueue<IEvent, ulong> _eventQueue;
+    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
+    private readonly ICore _core;
 
     #endregion
 
     #region Properties
 
     /// <summary>
-    /// Property for read-only access to current simulation time.
+    ///     Property for read-only access to current simulation time.
     /// </summary>
-    public UInt64 TimeMs => _timeMs;
+    public ulong TimeMs { get; private set; }
 
-    public ChannelReader<(IEvent, UInt64)> ProfileEventReader => _channel.Reader;
+    public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
 
     #endregion
 
     #region Public Members
 
     /// <summary>
-    /// Add a new event source to the scheduler. Using a channel the event source can send in new
-    /// events in an asynchronous fashion.
+    ///     Add a new event source to the scheduler. Using a channel the event source can send in new
+    ///     events in an asynchronous fashion.
     /// </summary>
-    public void AddEventSources(params ChannelReader<(IEvent, UInt64)>[] sources)
+    public void AddEventSources(params ChannelReader<(IEvent, ulong)>[] sources)
     {
-        Task.Run(async () =>
-        {
-            await Task.WhenAll(sources.Select(Redirect).ToArray());
-        });
+        Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
     }
 
-    private async Task Redirect(ChannelReader<(IEvent, UInt64)> input)
+    private async Task Redirect(ChannelReader<(IEvent, ulong)> input)
     {
         await foreach (var item in input.ReadAllAsync())
             _eventQueue.TryAdd(item);
     }
 
     /// <summary>
-    /// Add a new event sink, which will receive events of the specified type.
+    ///     Add a new event sink, which will receive events of the specified type.
     /// </summary>
     public void AddEventSink(IEventSink sink, EventType type)
     {
@@ -93,7 +121,7 @@ public class Scheduler : IEventSink
     }
 
     /// <summary>
-    /// Remove an event sink from the scheduler. The given sink will no longer receive any events.
+    ///     Remove an event sink from the scheduler. The given sink will no longer receive any events.
     /// </summary>
     public void RemoveEventSink(IEventSink sink, EventType type)
     {
@@ -101,18 +129,18 @@ public class Scheduler : IEventSink
     }
 
     /// <summary>
-    /// This method offers a manual way of schedul
+    ///     This method offers a manual way of schedul
     /// </summary>
     /// <param name="item">
-    /// A tuple of the event and due-time, given as absolute timestamp in ms
+    ///     A tuple of the event and due-time, given as absolute timestamp in ms
     /// </param>
-    public void EnqueueEvent((IEvent, UInt64) item)
+    public void EnqueueEvent((IEvent, ulong) item)
     {
         _eventQueue.TryAdd(item);
     }
 
     /// <summary>
-    /// The core loop for advancing the simulation.
+    ///     The core loop for advancing the simulation.
     /// </summary>
     public void SimulationLoop()
     {
@@ -139,7 +167,7 @@ public class Scheduler : IEventSink
             while (lag >= _msPerUpdate)
             {
                 _core.Tick(_timeStepSizeMs);
-                _timeMs += _timeStepSizeMs;
+                TimeMs += _timeStepSizeMs;
                 lag -= _msPerUpdate;
             }
 
@@ -153,12 +181,11 @@ public class Scheduler : IEventSink
 
             // Take a break if we're ahead of time.
             var loopTimeMs = lag + renderElapsed;
-            _profiler.AddTickTimeSample((UInt64)loopTimeMs.TotalMilliseconds, (UInt64)renderElapsed.TotalMilliseconds);
+            _profiler.AddTickTimeSample((ulong)loopTimeMs.TotalMilliseconds,
+                (ulong)renderElapsed.TotalMilliseconds);
             // Push out profiling results ever 25 samples
             if (_profiler.SampleSize % 5 == 0)
-            {
                 _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
-            }
 
             // If we spent longer than our allotted time, skip right ahead...
             // Console.WriteLine($"loop active time: {loopTimeMs.TotalMilliseconds}");
@@ -166,50 +193,14 @@ public class Scheduler : IEventSink
                 continue;
 
             // ...otherwise wait until the next frame is due.
-            var sleepyTime = (int)Math.Round((_msPerUpdate - loopTimeMs).TotalMilliseconds, 0, MidpointRounding.ToPositiveInfinity);
+            var sleepyTime = (int)Math.Round((_msPerUpdate - loopTimeMs).TotalMilliseconds, 0,
+                MidpointRounding.ToPositiveInfinity);
             // Console.WriteLine($"pausing game loop for {sleepyTime} ms ---------------");
             Thread.Sleep(sleepyTime);
         }
 
         _channel.Writer.Complete();
         Console.WriteLine("Scheduler shut down");
-    }
-
-    #endregion
-
-    #region IEventSink Members
-
-    public void ProcessEvent(IEvent evt)
-    {
-        // Emit regular profiling output
-        if (evt.Type() == EventType.Profile)
-        {
-            Console.WriteLine(_profiler.ToString());
-        }
-    }
-
-    #endregion
-
-    #region Private Members
-
-    /// <summary>
-    /// Fires events that are due in the current time step by distributing them to all registered
-    /// event sinks.
-    /// </summary>
-    private void ProcessInput()
-    {
-        while (_eventQueue.TryPeek(out _, out var priority) && priority <= _timeMs)
-        {
-            _eventQueue.TryTake(out var eventItem);
-
-            if (!_eventSinks.ContainsKey(eventItem.Item1.Type()))
-                continue;
-
-            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
-            {
-                eventSink.ProcessEvent(eventItem.Item1);
-            }
-        }
     }
 
     #endregion

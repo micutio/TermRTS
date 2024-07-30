@@ -1,27 +1,30 @@
 using System.Numerics;
+using TermRTS.IO;
 
 namespace TermRTS.Examples.BouncyBall;
 
-internal class BounceWorld : TermRTS.IWorld
+internal class BounceWorld : IWorld
 {
-    public void ApplyChange() { }
+    public void ApplyChange()
+    {
+    }
 }
 
 internal enum BounceComponentTypes
 {
-    Ball,
+    Ball
 }
 
 internal class BounceBall : IComponent
 {
-    public Vector2 Position { get; set; }
-    public Vector2 Velocity { get; set; }
-
     internal BounceBall(float x, float y, float dx, float dy)
     {
         Position = new Vector2(x, y);
         Velocity = new Vector2(dx, dy);
     }
+
+    public Vector2 Position { get; set; }
+    public Vector2 Velocity { get; set; }
 
     public object Clone()
     {
@@ -29,7 +32,9 @@ internal class BounceBall : IComponent
     }
 }
 
-internal class BounceEntity : EntityBase<BounceComponentTypes> { }
+internal class BounceEntity : EntityBase<BounceComponentTypes>
+{
+}
 
 // Bouncing ball and other physics:
 //  - https://processing.org/examples/bouncingball.html
@@ -37,11 +42,34 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
 {
     private Vector2 _velocity;
 
+    public void ProcessEvent(IEvent evt)
+    {
+        if (evt.Type() == EventType.KeyInput)
+        {
+            var keyEvent = (KeyInputEvent)evt;
+            switch (keyEvent.Info.Key)
+            {
+                case ConsoleKey.A:
+                    _velocity.X -= 1;
+                    break;
+                case ConsoleKey.D:
+                    _velocity.X += 1;
+                    break;
+                case ConsoleKey.W:
+                    _velocity.Y -= 1;
+                    break;
+                case ConsoleKey.S:
+                    _velocity.Y += 1;
+                    break;
+            }
+        }
+    }
+
     public override Dictionary<BounceComponentTypes, IComponent>? ProcessComponents(
-            UInt64 timeStepSizeMs,
-            EntityBase<BounceComponentTypes> thisEntityComponents,
-            List<EntityBase<BounceComponentTypes>> otherEntityComponents,
-            ref BounceWorld world)
+        ulong timeStepSizeMs,
+        EntityBase<BounceComponentTypes> thisEntityComponents,
+        List<EntityBase<BounceComponentTypes>> otherEntityComponents,
+        ref BounceWorld world)
     {
         thisEntityComponents
             .Components
@@ -93,32 +121,8 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
         changedBall.Position = ballPos;
         changedBall.Velocity = ballVel;
 
-        return new Dictionary<BounceComponentTypes, IComponent> { { BounceComponentTypes.Ball, changedBallComponent } };
-    }
-
-    public void ProcessEvent(IEvent evt)
-    {
-        if (evt.Type() == EventType.KeyInput)
-        {
-            var keyEvent = (KeyInputEvent)evt;
-            switch (keyEvent.Info.Key)
-            {
-                case ConsoleKey.A:
-                    _velocity.X -= 1;
-                    break;
-                case ConsoleKey.D:
-                    _velocity.X += 1;
-                    break;
-                case ConsoleKey.W:
-                    _velocity.Y -= 1;
-                    break;
-                case ConsoleKey.S:
-                    _velocity.Y += 1;
-                    break;
-                default:
-                    break;
-            }
-        }
+        return new Dictionary<BounceComponentTypes, IComponent>
+            { { BounceComponentTypes.Ball, changedBallComponent } };
     }
 }
 
@@ -126,7 +130,8 @@ public class BounceApp : IRunnableExample
 {
     public void Run()
     {
-        var core = new Core<BounceWorld, BounceComponentTypes>(new BounceWorld(), new BounceRenderer());
+        var core =
+            new Core<BounceWorld, BounceComponentTypes>(new BounceWorld(), new BounceRenderer());
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddGameSystem(bouncePhysics);
         var bounceEntity = new BounceEntity();
@@ -137,7 +142,7 @@ public class BounceApp : IRunnableExample
         scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.AddEventSink(bouncePhysics, EventType.KeyInput);
 
-        var input = new TermRTS.IO.ConsoleInput();
+        var input = new ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);
         input.Run();
 

@@ -1,5 +1,3 @@
-// https://stackoverflow.com/questions/23470196/concurrent-collection-with-priority
-
 using System.Collections;
 using System.Collections.Concurrent;
 
@@ -7,6 +5,26 @@ namespace TermRTS;
 
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
+    #region Constructor
+
+    /// <summary>
+    ///     Constructor.
+    /// </summary>
+    /// <param name="comparer"> Comparer to facilitate sorting by priority. </param>
+    public EventQueue(IComparer<TPriority>? comparer = default)
+    {
+        comparer ??= Comparer<TPriority>.Default;
+        _queue = new PriorityQueue<TElement, (TPriority, long)>(Comparer<(TPriority, long)>.Create(
+            (x, y) =>
+            {
+                var result = comparer.Compare(x.Item1, y.Item1);
+                if (result == 0) result = x.Item2.CompareTo(y.Item2);
+                return result;
+            }));
+    }
+
+    #endregion
+
     #region Private Fields
 
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
@@ -14,30 +32,17 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
 
     #endregion
 
-    #region Constructor
-
-    /// <summary>
-    /// Constructor.
-    /// </summary>
-    /// <param name="comparer"> Comparer to facilitate sorting by priority. </param>
-    public EventQueue(IComparer<TPriority>? comparer = default)
-    {
-        comparer ??= Comparer<TPriority>.Default;
-        _queue = new PriorityQueue<TElement, (TPriority, long)>(Comparer<(TPriority, long)>.Create((x, y) =>
-        {
-            var result = comparer.Compare(x.Item1, y.Item1);
-            if (result == 0) result = x.Item2.CompareTo(y.Item2);
-            return result;
-        }));
-    }
-
-    #endregion
-
     #region Properties
 
     public int Count
     {
-        get { lock (_queue) return _queue.Count; }
+        get
+        {
+            lock (_queue)
+            {
+                return _queue.Count;
+            }
+        }
     }
 
     public bool IsSynchronized => false;
@@ -48,7 +53,11 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
 
     public bool TryAdd((TElement, TPriority) item)
     {
-        lock (_queue) _queue.Enqueue(item.Item1, (item.Item2, ++_index));
+        lock (_queue)
+        {
+            _queue.Enqueue(item.Item1, (item.Item2, ++_index));
+        }
+
         return true;
     }
 
@@ -61,6 +70,7 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
                 item = (element, priority.Item1);
                 return true;
             }
+
             item = default;
             return false;
         }
@@ -99,7 +109,10 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         throw new NotSupportedException();
     }
 
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
 
     #endregion
 }

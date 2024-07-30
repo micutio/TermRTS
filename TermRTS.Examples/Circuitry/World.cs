@@ -1,9 +1,8 @@
-using System.Numerics;
-
 namespace TermRTS.Examples.Circuitry;
 
-internal class World : TermRTS.IWorld
+internal class World : IWorld
 {
-    public void ApplyChange() { }
+    public void ApplyChange()
+    {
+    }
 }
-

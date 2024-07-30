@@ -1,4 +1,5 @@
 ﻿namespace TermRTS;
+
 public class ProfileEvent : IEvent
 {
     public ProfileEvent(string profileInfo)
