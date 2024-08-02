@@ -122,6 +122,16 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     }
 
     /// <summary>
+    ///     Schedule a range of new entities to be added to the simulation at the beginning of the
+    ///     next tick.
+    /// </summary>
+    /// <param name="entity"> Entity object to be added. </param>
+    public void AddAllEntities(IEnumerable<EntityBase<TComponents>> entities)
+    {
+        _newEntities.AddRange(entities);
+    }
+
+    /// <summary>
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be added </param>

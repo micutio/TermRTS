@@ -18,12 +18,16 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
     public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
     public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
 
+    #region Constructor
+
     public Renderer()
     {
         Console.CursorVisible = false;
         _canvas = new ConsoleCanvas().Render();
         _profileOutput = string.Empty;
     }
+
+    #endregion
 
     #region IEventSink Members
 
@@ -39,6 +43,8 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
     }
 
     #endregion
+
+    #region Public Methods
 
     public void RenderWorld(World world, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
@@ -91,6 +97,8 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
         Console.ResetColor();
     }
 
+    #endregion
+
     private void RenderOutline(App.Cell[] outline)
     {
         foreach (var cell in outline.Where(c => IsInCamera(c.X, c.Y)))
@@ -107,27 +115,21 @@ internal class Renderer : IRenderer<World, App.CircuitComponentTypes>, IEventSin
         for (var i = 0; i < outline.Length; i++)
         {
             var (x, y, c) = outline[i];
+            var deltaX = (int)(x - CameraPos.X);
+            var deltaY = (int)(y - CameraPos.Y);
 
             if (isActive && i == sparkIdx)
-                _canvas.Set(
-                    (int)(x - CameraPos.X),
-                    (int)(y - CameraPos.Y),
-                    c,
-                    ConsoleColor.Blue,
-                    DefaultBg);
+                _canvas.Set(deltaX, deltaY, c, ConsoleColor.Blue, DefaultBg);
             else
-                _canvas.Set(
-                    (int)(x - CameraPos.X),
-                    (int)(y - CameraPos.Y),
-                    c,
-                    ConsoleColor.Black,
-                    DefaultBg);
+                _canvas.Set(deltaX, deltaY, c, ConsoleColor.Black, DefaultBg);
         }
     }
 
     private bool IsInCamera(float x, float y)
     {
-        return x >= CameraPos.X && y <= CameraSize.X - CameraPos.X
-                                && y >= CameraPos.Y && y <= CameraSize.Y - CameraPos.Y;
+        return x >= CameraPos.X
+               && y <= CameraSize.X - CameraPos.X
+               && y >= CameraPos.Y
+               && y <= CameraSize.Y - CameraPos.Y;
     }
 }

@@ -24,11 +24,12 @@ internal class App : IRunnableExample
         var worldHeight = Console.WindowHeight;
 
         var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
-        foreach (var e in EntityGenerator.RandomCircuitBoard()
-                     .WithChipCount(2)
-                     .WithWorldDimensions(worldWidth, worldHeight).Build())
-            //foreach (var e in EntityGenerator.BuildSmallCircuitBoard())
-            core.AddEntity(e);
+        // var entities = EntityGenerator.BuildSmallCircuitBoard();
+        var entities = EntityGenerator.RandomCircuitBoard()
+            .WithChipCount(2)
+            .WithWorldDimensions(worldWidth, worldHeight)
+            .Build();
+        core.AddAllEntities(entities);
         core.AddGameSystem(busSystem);
 
         var scheduler = new Scheduler(16, 16, core);
