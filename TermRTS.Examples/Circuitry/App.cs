@@ -20,8 +20,13 @@ internal class App : IRunnableExample
         var busSystem = new BusSystem();
         var renderer = new Renderer();
 
+        var worldWidth = Console.WindowWidth;
+        var worldHeight = Console.WindowHeight;
+
         var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
-        foreach (var e in EntityGenerator.RandomCircuitBoard().Build())
+        foreach (var e in EntityGenerator.RandomCircuitBoard()
+                     .WithChipCount(2)
+                     .WithWorldDimensions(worldWidth, worldHeight).Build())
             //foreach (var e in EntityGenerator.BuildSmallCircuitBoard())
             core.AddEntity(e);
         core.AddGameSystem(busSystem);
@@ -109,28 +114,28 @@ internal class App : IRunnableExample
         public ArraySegment<Cell> UpperWall()
         {
             //return Outline.Skip(4).Take((int)(Position2.X - Position1.X)).ToList();
-            return new ArraySegment<Cell>(Outline, 4, (int)(Position2.X - Position1.X));
+            return new ArraySegment<Cell>(Outline, 4, (int)(Position2.X - Position1.X) - 1);
         }
 
         public ArraySegment<Cell> LowerWall()
         {
-            var width = (int)(Position2.X - Position1.X);
+            var width = (int)(Position2.X - Position1.X) - 1;
             // return Outline.Skip(4 + width).Take(width).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width, width);
         }
 
         public ArraySegment<Cell> LeftWall()
         {
-            var width = (int)(Position2.X - Position1.X);
-            var height = (int)(Position2.Y - Position1.Y);
+            var width = (int)(Position2.X - Position1.X) - 1;
+            var height = (int)(Position2.Y - Position1.Y) - 1;
             // return Outline.Skip(4 + width + width).Take(height).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width + width, height);
         }
 
         public ArraySegment<Cell> RightWall()
         {
-            var width = (int)(Position2.X - Position1.X);
-            var height = (int)(Position2.Y - Position1.Y);
+            var width = (int)(Position2.X - Position1.X) - 1;
+            var height = (int)(Position2.Y - Position1.Y) - 1;
             // return Outline.Skip(4 + width + width + height).Take(height).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width + width + height, height);
         }

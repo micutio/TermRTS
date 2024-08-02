@@ -45,7 +45,6 @@ internal class AStar
         _h = h;
     }
 
-    // TODO: Maybe conflate this function and the constructor
     internal IEnumerable<Vector2>? ComputePath()
     {
         while (_openSet.Count > 0)
@@ -88,7 +87,7 @@ internal class AStar
         return null;
     }
 
-    private IEnumerable<Vector2> ReconstructPath(Vector2 endLocation)
+    private List<Vector2> ReconstructPath(Vector2 endLocation)
     {
         var path = new List<Vector2> { endLocation };
         var current = endLocation;
@@ -112,8 +111,13 @@ internal class AStar
         ];
     }
 
+    // TODO: Refactor into constructor parameter
     private float Weight(Vector2 loc, Vector2 neighbor)
     {
-        return Vector2.Distance(loc, neighbor);
+        // return Vector2.Distance(loc, neighbor);
+        var v = _cameFrom.GetValueOrDefault(loc, loc);
+        // Penalise turning corners
+        var factor = Math.Abs(v.X - neighbor.X) < 0.5 || Math.Abs(v.Y - neighbor.Y) < 0.5 ? 1 : 2;
+        return Vector2.Distance(v, neighbor) * factor;
     }
 }
