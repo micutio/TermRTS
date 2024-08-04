@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Threading.Channels;
 
 namespace TermRTS;
@@ -129,7 +129,7 @@ public class Scheduler : IEventSink
     }
 
     /// <summary>
-    ///     This method offers a manual way of schedul
+    ///     This method offers a manual way of schedule
     /// </summary>
     /// <param name="item">
     ///     A tuple of the event and due-time, given as absolute timestamp in ms
