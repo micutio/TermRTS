@@ -71,7 +71,7 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
     {
         _remainingTicks -= 1;
 
-        if (_remainingTicks == 0)
+        if (_remainingTicks == 1)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
 
         return new Dictionary<EmptyComponentType, IComponent>();
@@ -89,7 +89,7 @@ public class EngineTest
         core.Tick(16L);
         core.Tick(16L);
         core.Tick(16L);
-        core.Shutdown();
+        core.ProcessEvent(new PlainEvent(EventType.Shutdown));
         Assert.False(core.IsRunning());
     }
 

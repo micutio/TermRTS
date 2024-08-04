@@ -5,7 +5,8 @@ public class EventQueueTest
     [Fact]
     public void TestEmpty()
     {
-        Assert.Empty(new EventQueue<string, int>());
+        Assert.Equal(0, new EventQueue<string, int>().Count);
+        // Assert.Empty(new EventQueue<string, int>());
     }
 
     [Fact]
@@ -13,7 +14,8 @@ public class EventQueueTest
     {
         var eq = new EventQueue<string, int>();
         eq.TryAdd(("foo", 0));
-        Assert.Single(eq);
+        // Do not use Assert.Single(), because our PQ implementation doesn't support enumerators
+        Assert.Equal(1, eq.Count);
 
         eq.TryAdd(("bar", 1));
         eq.TryAdd(("baz", 2));
@@ -43,6 +45,6 @@ public class EventQueueTest
         eq.TryTake(out var c);
         Assert.Equal("baz", c.Item1);
 
-        Assert.Empty(eq);
+        Assert.Equal(0, eq.Count);
     }
 }
