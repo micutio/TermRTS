@@ -114,6 +114,8 @@ internal class AStar
     // TODO: Refactor into constructor parameter
     private float Weight(Vector2 loc, Vector2 neighbor)
     {
+        //if (_h(neighbor).Equals(float.PositiveInfinity)) return float.PositiveInfinity;
+
         // return Vector2.Distance(loc, neighbor);
         var v = _cameFrom.GetValueOrDefault(loc, loc);
         // Penalise turning corners
