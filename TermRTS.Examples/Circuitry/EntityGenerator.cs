@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 namespace TermRTS.Examples.Circuitry;
 
@@ -215,23 +215,21 @@ internal class EntityGenerator
             chips.Add(newChip);
 
             for (var j = (int)newChip.Position1.Y; j <= newChip.Position2.Y; j += 1)
-            for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
-                Occupy(i, j);
+                for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
+                    Occupy(i, j);
         }
 
         // Connect each chip to the nearest unconnected one.
         // TODO: Make number of buses configurable
-        var connectedChips = new List<App.Chip>();
         var buses = new List<App.Bus>();
+        var connectionMap = new Dictionary<App.Chip, App.Chip>();
 
         foreach (var chip in chips)
         {
-            if (connectedChips.Contains(chip)) continue;
-
             var availableChips =
-                chips.FindAll(c => !connectedChips.Contains(c) && !chip.Equals(c)).ToList();
-            if (availableChips.Count == 0)
-                availableChips = connectedChips;
+                chips.FindAll(c => !chip.Equals(c) && !IsIndirectlyConnected(chip, c, ref connectionMap)).ToList();
+            // if (availableChips.Count == 0)
+            //     availableChips = connectedChips;
 
             var nearestChip =
                 availableChips.MinBy(c =>
@@ -240,7 +238,8 @@ internal class EntityGenerator
                         : Vector2.Distance(chip.Center(), c.Center()));
             if (nearestChip == null) continue;
 
-            connectedChips.Add(nearestChip);
+            // connectedChips.Add(nearestChip);
+            connectionMap[nearestChip] = chip;
 
             int vertical;
             if (chip.Position1.Y > nearestChip.Position2.Y) vertical = 1; // above
@@ -297,6 +296,19 @@ internal class EntityGenerator
     #endregion
 
     #region Private Methods
+
+    private bool IsIndirectlyConnected(
+            App.Chip startChip, App.Chip goalChip, ref Dictionary<App.Chip, App.Chip> connectionMap)
+    {
+        var nextChip = startChip;
+        while (!nextChip.Equals(goalChip))
+        {
+            if (!connectionMap.TryGetValue(nextChip, out var value)) return false;
+
+            nextChip = value;
+        }
+        return true;
+    }
 
     private void Occupy(int x, int y)
     {

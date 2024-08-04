@@ -26,7 +26,7 @@ internal class App : IRunnableExample
         var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         var entities = EntityGenerator.RandomCircuitBoard()
-            .WithChipCount(2)
+            .WithChipCount(10)
             .WithWorldDimensions(worldWidth, worldHeight)
             .Build();
         core.AddAllEntities(entities);
@@ -42,7 +42,7 @@ internal class App : IRunnableExample
         scheduler.AddEventSink(input, EventType.Shutdown);
         input.Run();
 
-        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
@@ -221,7 +221,7 @@ internal class App : IRunnableExample
 
         public object Clone()
         {
-            return new Bus([..Connections]);
+            return new Bus([.. Connections]);
         }
     }
 
