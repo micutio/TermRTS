@@ -26,7 +26,7 @@ internal class App : IRunnableExample
         var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         var entities = EntityGenerator.RandomCircuitBoard()
-            .WithChipCount(10)
+            .WithChipCount(30)
             .WithWorldDimensions(worldWidth, worldHeight)
             .Build();
         core.AddAllEntities(entities);
@@ -42,7 +42,7 @@ internal class App : IRunnableExample
         scheduler.AddEventSink(input, EventType.Shutdown);
         input.Run();
 
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
@@ -104,9 +104,10 @@ internal class App : IRunnableExample
 
         public Vector2 Center()
         {
-            var newX = (int)((Position1.X + Position2.X) / 2);
-            var newY = (int)((Position1.X + Position2.X) / 2);
+            var newX = (Position1.X + Position2.X) / 2.0f;
+            var newY = (Position1.Y + Position2.Y) / 2.0f;
             return new Vector2(newX, newY);
+            //return Vector2.Lerp(Position1, Position2, 0.5f);
         }
 
         // TODO: Does it make sense to implement the wall getters are extension methods because they're only used in one place?

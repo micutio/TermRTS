@@ -122,16 +122,18 @@ internal class EntityGenerator
 
     #region Private Fields
 
+    // world generation parameters
     private int _worldWidth;
     private int _worldHeight;
     private int _chipCount;
     private int _minChipSize;
     private int _maxChipSize;
-    private int _busCount;
     private int _minBusWidth;
     private int _maxBusWidth;
-    private byte[,] _occupation;
 
+    // utilities and internal state
+    private byte[,] _occupation;
+    private Dictionary<App.Chip, ISet<App.Chip>> _adjacency;
     private readonly Random _rng;
 
     #endregion
@@ -145,12 +147,12 @@ internal class EntityGenerator
         _chipCount = 5;
         _minChipSize = 3;
         _maxChipSize = 6;
-        _busCount = 10;
         _minBusWidth = 1;
         _maxBusWidth = 1;
-        _occupation = new byte[_worldWidth, _worldHeight];
 
-        _rng = new Random();
+        _occupation = new byte[_worldWidth, _worldHeight];
+        _adjacency = new Dictionary<App.Chip, ISet<App.Chip>>();
+        _rng = new Random(0);
     }
 
     internal EntityGenerator WithWorldDimensions(int worldWidth, int worldHeight)
@@ -170,12 +172,6 @@ internal class EntityGenerator
     {
         _minChipSize = minChipSize;
         _maxChipSize = maxChipSize;
-        return this;
-    }
-
-    internal EntityGenerator WithBusCount(int busCount)
-    {
-        _busCount = busCount;
         return this;
     }
 
@@ -215,51 +211,44 @@ internal class EntityGenerator
             chips.Add(newChip);
 
             for (var j = (int)newChip.Position1.Y; j <= newChip.Position2.Y; j += 1)
-                for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
-                    Occupy(i, j);
+            for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
+                Occupy(i, j);
         }
 
         // Connect each chip to the nearest unconnected one.
-        // TODO: Make number of buses configurable
         var buses = new List<App.Bus>();
-        var connectionMap = new Dictionary<App.Chip, App.Chip>();
+        // TODO: Turn into class member
 
-        foreach (var chip in chips)
+        foreach (var thisChip in chips)
         {
             var availableChips =
-                chips.FindAll(c => !chip.Equals(c) && !IsIndirectlyConnected(chip, c, ref connectionMap)).ToList();
+                chips.FindAll(c =>
+                    !thisChip.Equals(c) && !IsConnected(thisChip, c)).ToList();
             // if (availableChips.Count == 0)
             //     availableChips = connectedChips;
 
             var nearestChip =
                 availableChips.MinBy(c =>
-                    chip.Equals(c)
+                    thisChip.Equals(c)
                         ? float.PositiveInfinity
-                        : Vector2.Distance(chip.Center(), c.Center()));
+                        : Vector2.Distance(thisChip.Center(), c.Center()));
             if (nearestChip == null) continue;
 
             // connectedChips.Add(nearestChip);
-            connectionMap[nearestChip] = chip;
-
-            int vertical;
-            if (chip.Position1.Y > nearestChip.Position2.Y) vertical = 1; // above
-            else if (chip.Position2.Y < nearestChip.Position1.Y) vertical = -1; // below
-            else vertical = 0; // about same height
-
-            int horizontal;
-            if (chip.Position1.X > nearestChip.Position2.X) horizontal = -1; // to the right
-            else if (chip.Position2.X < nearestChip.Position1.X) horizontal = 1; // to the left
-            else horizontal = 0;
+            var chipCenter = thisChip.Center();
+            var nearestCenter = nearestChip.Center();
+            var vertical = chipCenter.Y - nearestCenter.Y;
+            var horizontal = nearestCenter.X - chipCenter.X;
 
             // Rank chip walls by horizontal and vertical parameters and choose the best ones that
             // have space for wires.
-            var startWalls = new PriorityQueue<ArraySegment<App.Cell>, int>(4);
-            var endWalls = new PriorityQueue<ArraySegment<App.Cell>, int>(4);
+            var startWalls = new PriorityQueue<ArraySegment<App.Cell>, float>(4);
+            var endWalls = new PriorityQueue<ArraySegment<App.Cell>, float>(4);
 
-            startWalls.Enqueue(chip.LowerWall(), vertical);
-            startWalls.Enqueue(chip.UpperWall(), vertical * -1);
-            startWalls.Enqueue(chip.LeftWall(), horizontal);
-            startWalls.Enqueue(chip.RightWall(), horizontal * -1);
+            startWalls.Enqueue(thisChip.LowerWall(), vertical);
+            startWalls.Enqueue(thisChip.UpperWall(), vertical * -1);
+            startWalls.Enqueue(thisChip.LeftWall(), horizontal);
+            startWalls.Enqueue(thisChip.RightWall(), horizontal * -1);
 
             endWalls.Enqueue(nearestChip.LowerWall(), vertical * -1);
             endWalls.Enqueue(nearestChip.UpperWall(), vertical);
@@ -275,6 +264,15 @@ internal class EntityGenerator
 
             var bus = CreateBusConnection(width, busStart, busEnd);
             if (bus == null) continue;
+
+            if (!_adjacency.TryGetValue(thisChip, out var connectedToThisChip))
+                connectedToThisChip = new HashSet<App.Chip>();
+            connectedToThisChip.Add(nearestChip);
+            _adjacency[thisChip] = connectedToThisChip;
+            if (!_adjacency.TryGetValue(nearestChip, out var connectedToNearestChip))
+                connectedToNearestChip = new HashSet<App.Chip>();
+            connectedToNearestChip.Add(thisChip);
+            _adjacency[nearestChip] = connectedToNearestChip;
 
             buses.Add(bus);
         }
@@ -297,17 +295,33 @@ internal class EntityGenerator
 
     #region Private Methods
 
-    private bool IsIndirectlyConnected(
-            App.Chip startChip, App.Chip goalChip, ref Dictionary<App.Chip, App.Chip> connectionMap)
+    // TODO: Fix this, it only tracks directed connections for now.
+    private bool IsConnected(
+        App.Chip startChip, App.Chip goalChip)
     {
-        var nextChip = startChip;
-        while (!nextChip.Equals(goalChip))
-        {
-            if (!connectionMap.TryGetValue(nextChip, out var value)) return false;
+        var toExplore = new Queue<App.Chip>();
+        var explored = new HashSet<App.Chip>();
 
-            nextChip = value;
+        toExplore.Enqueue(startChip);
+        while (toExplore.Count > 0)
+        {
+            var nextChip = toExplore.Dequeue();
+            if (nextChip.Equals(goalChip)) return true;
+
+            if (explored.Contains(nextChip)
+                || !_adjacency.TryGetValue(nextChip, out var connectedChips)) continue;
+
+            foreach (var c in connectedChips)
+            {
+                if (explored.Contains(c)) continue;
+
+                toExplore.Enqueue(c);
+            }
+
+            explored.Add(nextChip);
         }
-        return true;
+
+        return false;
     }
 
     private void Occupy(int x, int y)
@@ -339,17 +353,47 @@ internal class EntityGenerator
                 _worldWidth,
                 _worldHeight,
                 origin,
-                goal,
-                n =>
+                goal)
+            {
+                Heuristic = loc =>
                 {
-                    var isOccupied = IsOccupied((int)n.X, (int)n.Y);
-                    var isEndPoint = n.Equals(origin) || n.Equals(goal);
+                    var isOccupied = IsOccupied((int)loc.X, (int)loc.Y);
+                    var isEndPoint = loc.Equals(origin) || loc.Equals(goal);
                     var penalty = isOccupied && !isEndPoint ? float.PositiveInfinity : 0;
-                    return Vector2.Distance(n, goal) + penalty;
-                });
+                    return Vector2.Distance(loc, goal) + penalty;
+                }
+            };
+
+            aStar.Weight = (loc, neighbor) =>
+            {
+                // penalise occupied locations
+                var isOccupied = IsOccupied((int)neighbor.X, (int)neighbor.Y);
+                var isNeighborEndPoint = neighbor.Equals(origin) || neighbor.Equals(goal);
+                var occupationPenalty = isOccupied && !isNeighborEndPoint
+                    ? float.PositiveInfinity
+                    : 0;
+                // penalise turning corners
+                var prev = aStar.CameFrom(loc);
+                var isTurning = Math.Abs(prev.X - neighbor.X) > 0.5 &&
+                                Math.Abs(prev.Y - neighbor.Y) > 0.5;
+                var turningPenalty = isTurning ? 2.0f : 1.0f;
+                // Create a weight that is biased towards cheaper cost in the middle of the path.
+                // This causes the path finding to avoid making turns near the start and end
+                // points, which in turn creates more space for the ending of other nearby paths.
+                var avgMidPoint = Vector2.Distance(origin, goal) / 2.0f;
+                var distToMid = Math.Abs(avgMidPoint - Vector2.Distance(origin, neighbor));
+                var weight = distToMid * turningPenalty + occupationPenalty;
+                return weight;
+            };
+
             var path = aStar.ComputePath();
             if (path != null)
-                wires.Add(new App.Wire(path.ToList().ConvertAll(vec => ((int)vec.X, (int)vec.Y))));
+            {
+                var wire =
+                    new App.Wire(path.ToList().ConvertAll(vec => ((int)vec.X, (int)vec.Y)));
+                foreach (var (x, y, _) in wire.Outline) Occupy(x, y);
+                wires.Add(wire);
+            }
         }
 
         return wires.Count == 0 ? null : new App.Bus(wires);
@@ -357,7 +401,7 @@ internal class EntityGenerator
 
     private List<(int, int)> CreateBusTerminator(
         int width,
-        in PriorityQueue<ArraySegment<App.Cell>, int> cellWalls)
+        in PriorityQueue<ArraySegment<App.Cell>, float> cellWalls)
     {
         // Idea:
         // - take a start wall from the queue
