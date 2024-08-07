@@ -26,7 +26,10 @@ internal class App : IRunnableExample
         var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         var entities = EntityGenerator.RandomCircuitBoard()
-            .WithChipCount(30)
+            .WithRandomSeed(666)
+            .WithChipCount(10)
+            .WithChipDimensions(5, 15)
+            .WithBusDimensions(1, 8)
             .WithWorldDimensions(worldWidth, worldHeight)
             .Build();
         core.AddAllEntities(entities);
