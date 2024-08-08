@@ -48,8 +48,8 @@ public class Scheduler : IEventSink
     #region Private Members
 
     /// <summary>
-    ///     Fires events that are due in the current time step by distributing them to all registered
-    ///     event sinks.
+    ///     Fires events that are due in the current time step by distributing them to all event
+    ///     sinks registered to these event types.
     /// </summary>
     private void ProcessInput()
     {
@@ -57,8 +57,7 @@ public class Scheduler : IEventSink
         {
             _eventQueue.TryTake(out var eventItem);
 
-            if (!_eventSinks.ContainsKey(eventItem.Item1.Type()))
-                continue;
+            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
 
             foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
                 eventSink.ProcessEvent(eventItem.Item1);

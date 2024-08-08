@@ -10,21 +10,21 @@ internal class EntityGenerator
     ///     Static method for building a pre-fab circuit board
     /// </summary>
     /// <returns>A small complete set of chips and wires</returns>
-    internal static IReadOnlyList<EntityBase<App.CircuitComponentTypes>> BuildSmallCircuitBoard()
+    internal static IReadOnlyList<EntityBase<App.CircuitComponents>> BuildSmallCircuitBoard()
     {
-        var chipEntity1 = new EntityBase<App.CircuitComponentTypes>();
+        var chipEntity1 = new EntityBase<App.CircuitComponents>();
         chipEntity1.AddComponent(
-            App.CircuitComponentTypes.Chip,
+            App.CircuitComponents.Chip,
             new App.Chip(new Vector2(10, 10), new Vector2(15, 15)));
 
-        var chipEntity2 = new EntityBase<App.CircuitComponentTypes>();
+        var chipEntity2 = new EntityBase<App.CircuitComponents>();
         chipEntity2.AddComponent(
-            App.CircuitComponentTypes.Chip,
+            App.CircuitComponents.Chip,
             new App.Chip(new Vector2(20, 20), new Vector2(30, 30)));
 
-        var busEntity1 = new EntityBase<App.CircuitComponentTypes>();
+        var busEntity1 = new EntityBase<App.CircuitComponents>();
         busEntity1.AddComponent(
-            App.CircuitComponentTypes.Bus,
+            App.CircuitComponents.Bus,
             new App.Bus(
             [
                 new App.Wire(
@@ -75,9 +75,9 @@ internal class EntityGenerator
                     })
             ]));
 
-        var busEntity2 = new EntityBase<App.CircuitComponentTypes>();
+        var busEntity2 = new EntityBase<App.CircuitComponents>();
         busEntity2.AddComponent(
-            App.CircuitComponentTypes.Bus,
+            App.CircuitComponents.Bus,
             new App.Bus(
             [
                 new App.Wire(new List<(int x, int y)>
@@ -93,9 +93,9 @@ internal class EntityGenerator
                 })
             ]));
 
-        var busEntity3 = new EntityBase<App.CircuitComponentTypes>();
+        var busEntity3 = new EntityBase<App.CircuitComponents>();
         busEntity3.AddComponent(
-            App.CircuitComponentTypes.Bus,
+            App.CircuitComponents.Bus,
             new App.Bus(
             [
                 new App.Wire(
@@ -105,7 +105,7 @@ internal class EntityGenerator
                     })
             ]));
 
-        return new List<EntityBase<App.CircuitComponentTypes>>
+        return new List<EntityBase<App.CircuitComponents>>
         {
             chipEntity1, chipEntity2, busEntity1, busEntity2, busEntity3
         };
@@ -198,7 +198,7 @@ internal class EntityGenerator
         return this;
     }
 
-    internal IReadOnlyList<EntityBase<App.CircuitComponentTypes>> Build()
+    internal IReadOnlyList<EntityBase<App.CircuitComponents>> Build()
     {
         _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
@@ -206,15 +206,15 @@ internal class EntityGenerator
         GenerateChips();
         GenerateBuses();
 
-        var entities = new List<EntityBase<App.CircuitComponentTypes>>();
+        var entities = new List<EntityBase<App.CircuitComponents>>();
 
         _generatedChips
             .ConvertAll(c =>
-                new EntityBase<App.CircuitComponentTypes>(App.CircuitComponentTypes.Chip, c))
+                new EntityBase<App.CircuitComponents>(App.CircuitComponents.Chip, c))
             .ForEach(entities.Add);
         _generatedBuses
             .ConvertAll(b =>
-                new EntityBase<App.CircuitComponentTypes>(App.CircuitComponentTypes.Bus, b))
+                new EntityBase<App.CircuitComponents>(App.CircuitComponents.Bus, b))
             .ForEach(entities.Add);
 
         return entities;

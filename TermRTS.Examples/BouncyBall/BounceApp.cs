@@ -68,7 +68,7 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
     public override Dictionary<BounceComponentTypes, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
         EntityBase<BounceComponentTypes> thisEntityComponents,
-        List<EntityBase<BounceComponentTypes>> otherEntityComponents,
+        IEnumerable<EntityBase<BounceComponentTypes>> otherEntityComponents,
         ref BounceWorld world)
     {
         thisEntityComponents

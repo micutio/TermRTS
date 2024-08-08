@@ -5,6 +5,9 @@ namespace TermRTS.Examples.Circuitry;
 
 internal class App : IRunnableExample
 {
+    /// <summary>
+    ///     Main method of the app.
+    /// </summary>
     public void Run()
     {
         // Add two chips and a wire to test
@@ -17,23 +20,18 @@ internal class App : IRunnableExample
         // TODO: Generate chips atomically and wires bit by bit
         // TODO: How to deal with unfinished wires? Currently generated in full
 
-        var busSystem = new BusSystem();
         var renderer = new Renderer();
-
-        var worldWidth = Console.WindowWidth;
-        var worldHeight = Console.WindowHeight;
-
-        var core = new Core<World, CircuitComponentTypes>(new World(), renderer);
+        var core = new Core<World, CircuitComponents>(new World(), renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         var entities = EntityGenerator.RandomCircuitBoard()
             .WithRandomSeed(666)
             .WithChipCount(10)
             .WithChipDimensions(5, 15)
             .WithBusDimensions(1, 8)
-            .WithWorldDimensions(worldWidth, worldHeight)
+            .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build();
         core.AddAllEntities(entities);
-        core.AddGameSystem(busSystem);
+        core.AddGameSystem(new BusSystem());
 
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
@@ -45,6 +43,7 @@ internal class App : IRunnableExample
         scheduler.AddEventSink(input, EventType.Shutdown);
         input.Run();
 
+        // Graceful shutdown on canceling via CTRL+C
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
@@ -54,11 +53,13 @@ internal class App : IRunnableExample
         // Run it
         scheduler.SimulationLoop();
 
+        // After the app is terminated, clear the console.
         Console.Clear();
-        Console.WriteLine("Application Terminated!");
     }
 
-    internal enum CircuitComponentTypes
+    #region Internal Types
+
+    internal enum CircuitComponents
     {
         Chip,
         Bus
@@ -113,19 +114,16 @@ internal class App : IRunnableExample
             //return Vector2.Lerp(Position1, Position2, 0.5f);
         }
 
-        // TODO: Does it make sense to implement the wall getters are extension methods because they're only used in one place?
-        // TODO: Change outline into array and wall segment function return types to ArraySegments;
+        // TODO: Does it make sense to implement the wall getters as extension methods because they're only used in one place?
 
         public ArraySegment<Cell> UpperWall()
         {
-            //return Outline.Skip(4).Take((int)(Position2.X - Position1.X)).ToList();
             return new ArraySegment<Cell>(Outline, 4, (int)(Position2.X - Position1.X) - 1);
         }
 
         public ArraySegment<Cell> LowerWall()
         {
             var width = (int)(Position2.X - Position1.X) - 1;
-            // return Outline.Skip(4 + width).Take(width).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width, width);
         }
 
@@ -225,7 +223,12 @@ internal class App : IRunnableExample
 
         public object Clone()
         {
-            return new Bus([.. Connections]);
+            return new Bus(Connections.ConvertAll(c => (Wire)c.Clone()))
+            {
+                Progress = Progress,
+                IsActive = IsActive,
+                IsForward = IsForward
+            };
         }
     }
 
@@ -332,25 +335,25 @@ internal class App : IRunnableExample
         }
     }
 
-    private class BusSystem : System<World, CircuitComponentTypes>
+    private class BusSystem : System<World, CircuitComponents>
     {
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
 
-        public override Dictionary<CircuitComponentTypes, IComponent> ProcessComponents(
+        public override Dictionary<CircuitComponents, IComponent> ProcessComponents(
             ulong timeStepSizeMs,
-            EntityBase<CircuitComponentTypes> thisEntityComponents,
-            List<EntityBase<CircuitComponentTypes>> otherEntityComponents,
+            EntityBase<CircuitComponents> thisEntityComponents,
+            IEnumerable<EntityBase<CircuitComponents>> otherEntityComponents,
             ref World world)
         {
             thisEntityComponents
                 .Components
-                .TryGetValue(CircuitComponentTypes.Bus, out var busComponent);
+                .TryGetValue(CircuitComponents.Bus, out var busComponent);
 
             if (busComponent == null)
-                return new Dictionary<CircuitComponentTypes, IComponent>();
+                return new Dictionary<CircuitComponents, IComponent>();
 
-            var bus = (Bus)busComponent;
+            var bus = (Bus)busComponent.Clone();
 
             // If not active, then randomly determine whether to activate.
             if (!bus.IsActive)
@@ -359,8 +362,8 @@ internal class App : IRunnableExample
                 {
                     _timeSinceLastAttempt = 0L;
                     if (!(_rng.NextSingle() < 0.5))
-                        return new Dictionary<CircuitComponentTypes, IComponent>
-                            { { CircuitComponentTypes.Bus, bus } };
+                        return new Dictionary<CircuitComponents, IComponent>
+                            { { CircuitComponents.Bus, bus } };
 
                     bus.IsActive = true;
                     bus.IsForward = _rng.Next() % 2 == 0;
@@ -371,8 +374,8 @@ internal class App : IRunnableExample
                     _timeSinceLastAttempt += timeStepSizeMs;
                 }
 
-                return new Dictionary<CircuitComponentTypes, IComponent>
-                    { { CircuitComponentTypes.Bus, bus } };
+                return new Dictionary<CircuitComponents, IComponent>
+                    { { CircuitComponents.Bus, bus } };
             }
 
             //  If already active, then take speed, divide by time step size and advance progress
@@ -380,8 +383,10 @@ internal class App : IRunnableExample
             var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
             bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
 
-            return new Dictionary<CircuitComponentTypes, IComponent>
-                { { CircuitComponentTypes.Bus, bus } };
+            return new Dictionary<CircuitComponents, IComponent>
+                { { CircuitComponents.Bus, bus } };
         }
     }
+
+    #endregion
 }

@@ -125,7 +125,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     ///     Schedule a range of new entities to be added to the simulation at the beginning of the
     ///     next tick.
     /// </summary>
-    /// <param name="entity"> Entity object to be added. </param>
+    /// <param name="entities"> Entity objects to be added. </param>
     public void AddAllEntities(IEnumerable<EntityBase<TComponents>> entities)
     {
         _newEntities.AddRange(entities);
@@ -165,10 +165,10 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
             {
                 // Create a copy of the entity list and remove this entity to not iterate over it
                 // TODO: Slices are supposedly slow because they copy data. Change to better iteration strategy! 
-                var listView = _entities[..];
-                listView.RemoveAt(i);
+                var thisEntity = _entities[i];
+                var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
                 var change =
-                    sys.ProcessComponents(timeStepSizeMs, _entities[i], listView, ref _world);
+                    sys.ProcessComponents(timeStepSizeMs, thisEntity, otherEntities, ref _world);
                 if (change != null) _entitiesPendingChanges[i] = change;
             }
 

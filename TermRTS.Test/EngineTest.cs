@@ -66,7 +66,7 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
     public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
         ulong timeStepSize,
         EntityBase<EmptyComponentType> thisEntityComponents,
-        List<EntityBase<EmptyComponentType>> otherEntityComponents,
+        IEnumerable<EntityBase<EmptyComponentType>> otherEntityComponents,
         ref NullWorld world)
     {
         _remainingTicks -= 1;
@@ -74,7 +74,7 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
         if (_remainingTicks == 1)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
 
-        return new Dictionary<EmptyComponentType, IComponent>();
+        return null;
     }
 }
 
