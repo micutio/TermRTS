@@ -10,21 +10,18 @@ internal class EntityGenerator
     ///     Static method for building a pre-fab circuit board
     /// </summary>
     /// <returns>A small complete set of chips and wires</returns>
-    internal static IReadOnlyList<EntityBase<App.CircuitComponents>> BuildSmallCircuitBoard()
+    internal static IReadOnlyList<EntityBase> BuildSmallCircuitBoard()
     {
-        var chipEntity1 = new EntityBase<App.CircuitComponents>();
+        var chipEntity1 = new EntityBase();
         chipEntity1.AddComponent(
-            App.CircuitComponents.Chip,
             new App.Chip(new Vector2(10, 10), new Vector2(15, 15)));
 
-        var chipEntity2 = new EntityBase<App.CircuitComponents>();
+        var chipEntity2 = new EntityBase();
         chipEntity2.AddComponent(
-            App.CircuitComponents.Chip,
             new App.Chip(new Vector2(20, 20), new Vector2(30, 30)));
 
-        var busEntity1 = new EntityBase<App.CircuitComponents>();
+        var busEntity1 = new EntityBase();
         busEntity1.AddComponent(
-            App.CircuitComponents.Bus,
             new App.Bus(
             [
                 new App.Wire(
@@ -75,9 +72,8 @@ internal class EntityGenerator
                     })
             ]));
 
-        var busEntity2 = new EntityBase<App.CircuitComponents>();
+        var busEntity2 = new EntityBase();
         busEntity2.AddComponent(
-            App.CircuitComponents.Bus,
             new App.Bus(
             [
                 new App.Wire(new List<(int x, int y)>
@@ -93,9 +89,8 @@ internal class EntityGenerator
                 })
             ]));
 
-        var busEntity3 = new EntityBase<App.CircuitComponents>();
+        var busEntity3 = new EntityBase();
         busEntity3.AddComponent(
-            App.CircuitComponents.Bus,
             new App.Bus(
             [
                 new App.Wire(
@@ -105,7 +100,7 @@ internal class EntityGenerator
                     })
             ]));
 
-        return new List<EntityBase<App.CircuitComponents>>
+        return new List<EntityBase>
         {
             chipEntity1, chipEntity2, busEntity1, busEntity2, busEntity3
         };
@@ -198,7 +193,7 @@ internal class EntityGenerator
         return this;
     }
 
-    internal IReadOnlyList<EntityBase<App.CircuitComponents>> Build()
+    internal IReadOnlyList<EntityBase> Build()
     {
         _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
@@ -206,15 +201,13 @@ internal class EntityGenerator
         GenerateChips();
         GenerateBuses();
 
-        var entities = new List<EntityBase<App.CircuitComponents>>();
+        var entities = new List<EntityBase>();
 
         _generatedChips
-            .ConvertAll(c =>
-                new EntityBase<App.CircuitComponents>(App.CircuitComponents.Chip, c))
+            .ConvertAll(c => new EntityBase(c))
             .ForEach(entities.Add);
         _generatedBuses
-            .ConvertAll(b =>
-                new EntityBase<App.CircuitComponents>(App.CircuitComponents.Bus, b))
+            .ConvertAll(b => new EntityBase(b))
             .ForEach(entities.Add);
 
         return entities;
@@ -296,7 +289,7 @@ internal class EntityGenerator
             connectedToNearestChip.Add(thisChip);
             _adjacency[nearestChip] = connectedToNearestChip;
 
-            var dist = -1 * Vector2.Distance(thisChip.Center(), nearestChip.Center());
+            // var dist = -1 * Vector2.Distance(thisChip.Center(), nearestChip.Center());
             var weight = Math.Min(
                 Math.Abs(thisChip.Center().X - nearestChip.Center().X),
                 Math.Abs(thisChip.Center().Y - nearestChip.Center().Y)

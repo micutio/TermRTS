@@ -6,14 +6,14 @@ namespace TermRTS;
 /// <typeparam name="TSystems">
 ///     Type of the Enum listing all system types.
 /// </typeparam>
-public class EntityBase<TSystems> where TSystems : Enum
+public class EntityBase
 {
     #region Public Fields
 
     /// <summary>
     ///     Storage for one component per system type.
     /// </summary>
-    public Dictionary<TSystems, IComponent> Components { get; } = new();
+    public Dictionary<Type, IComponent> Components { get; } = new();
 
     #endregion
 
@@ -25,24 +25,24 @@ public class EntityBase<TSystems> where TSystems : Enum
     /// <summary>
     ///     Add a new component to this entity.
     /// </summary>
-    public void AddComponent(TSystems systemType, IComponent component)
+    public void AddComponent(IComponent component)
     {
-        Components.Add(systemType, component);
+        Components.Add(component.GetType(), component);
     }
 
     /// <summary>
     ///     Add or overwrite a component of the given system type.
     /// </summary>
-    public void SetComponent(TSystems systemType, IComponent component)
+    public void SetComponent(IComponent component)
     {
-        Components[systemType] = component;
+        Components[component.GetType()] = component;
     }
 
     /// <summary>
     ///     Checks whether this entity matches all given system types.
     /// </summary>
     /// <param name="systemTypes"> Collection of system types to match. </param>
-    public bool IsCompatibleWith(TSystems[] systemTypes)
+    public bool IsCompatibleWith(Type[] systemTypes)
     {
         return systemTypes.All(Components.ContainsKey);
     }
@@ -54,15 +54,15 @@ public class EntityBase<TSystems> where TSystems : Enum
     /// </summary>
     public EntityBase()
     {
-        Components = new Dictionary<TSystems, IComponent>();
+        Components = new Dictionary<Type, IComponent>();
     }
 
     /// <summary>
     ///     Shorthand for instantiating an entity with a single component
     /// </summary>
-    public EntityBase(TSystems systemType, IComponent component)
+    public EntityBase(IComponent component)
     {
-        Components = new Dictionary<TSystems, IComponent> { { systemType, component } };
+        Components = new Dictionary<Type, IComponent> { { component.GetType(), component } };
     }
 
     #endregion

@@ -1,7 +1,7 @@
 ﻿namespace TermRTS;
 
 // TODO: Create a method for setup operations, before the simulation is run
-public interface IRenderer<in TWorld, TComponents> where TComponents : Enum
+public interface IRenderer<in TWorld>
 {
     /// <summary>
     ///     Render the given world object, called every tick.
@@ -23,7 +23,7 @@ public interface IRenderer<in TWorld, TComponents> where TComponents : Enum
     ///     How much extra time was needed for the last simulation tick.
     /// </param>
     public void RenderEntity(
-        Dictionary<TComponents, IComponent> entity,
+        Dictionary<Type, IComponent> entity,
         double howFarIntoNextFrameMs);
 
     /// <summary>

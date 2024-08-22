@@ -3,7 +3,7 @@ using ConsoleRenderer;
 
 namespace TermRTS.Examples.Circuitry;
 
-internal class Renderer : IRenderer<World, App.CircuitComponents>, IEventSink
+internal class Renderer : IRenderer<World>, IEventSink
 {
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
@@ -68,16 +68,16 @@ internal class Renderer : IRenderer<World, App.CircuitComponents>, IEventSink
     }
 
     public void RenderEntity(
-        Dictionary<App.CircuitComponents, IComponent> entity,
+        Dictionary<Type, IComponent> entity,
         double howFarIntoNextFrameMs)
     {
-        if (entity.TryGetValue(App.CircuitComponents.Chip, out var chipComponent))
+        if (entity.TryGetValue(typeof(App.Chip), out var chipComponent))
         {
             RenderOutline(((App.Chip)chipComponent).Outline);
             return;
         }
 
-        if (!entity.TryGetValue(App.CircuitComponents.Bus, out var busComponent))
+        if (!entity.TryGetValue(typeof(App.Bus), out var busComponent))
             return;
 
         var bus = (App.Bus)busComponent;

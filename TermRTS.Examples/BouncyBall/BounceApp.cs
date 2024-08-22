@@ -32,13 +32,9 @@ internal class BounceBall : IComponent
     }
 }
 
-internal class BounceEntity : EntityBase<BounceComponentTypes>
-{
-}
-
 // Bouncing ball and other physics:
 //  - https://processing.org/examples/bouncingball.html
-internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, IEventSink
+internal class BouncePhysicsSystem : System<BounceWorld>, IEventSink
 {
     private Vector2 _velocity;
 
@@ -65,18 +61,18 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
         }
     }
 
-    public override Dictionary<BounceComponentTypes, IComponent>? ProcessComponents(
+    public override Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
-        EntityBase<BounceComponentTypes> thisEntityComponents,
-        IEnumerable<EntityBase<BounceComponentTypes>> otherEntityComponents,
+        EntityBase thisEntityComponents,
+        IEnumerable<EntityBase> otherEntityComponents,
         ref BounceWorld world)
     {
         thisEntityComponents
             .Components
-            .TryGetValue(BounceComponentTypes.Ball, out var changedBallComponent);
+            .TryGetValue(typeof(BounceBall), out var changedBallComponent);
 
         if (changedBallComponent == null)
-            return new Dictionary<BounceComponentTypes, IComponent>();
+            return null;
 
         var maxX = Console.BufferWidth;
         var maxY = Console.BufferHeight;
@@ -121,8 +117,8 @@ internal class BouncePhysicsSystem : System<BounceWorld, BounceComponentTypes>, 
         changedBall.Position = ballPos;
         changedBall.Velocity = ballVel;
 
-        return new Dictionary<BounceComponentTypes, IComponent>
-            { { BounceComponentTypes.Ball, changedBallComponent } };
+        return new Dictionary<Type, IComponent>
+            { { typeof(BounceBall), changedBallComponent } };
     }
 }
 
@@ -131,11 +127,11 @@ public class BounceApp : IRunnableExample
     public void Run()
     {
         var core =
-            new Core<BounceWorld, BounceComponentTypes>(new BounceWorld(), new BounceRenderer());
+            new Core<BounceWorld>(new BounceWorld(), new BounceRenderer());
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddGameSystem(bouncePhysics);
-        var bounceEntity = new BounceEntity();
-        bounceEntity.AddComponent(BounceComponentTypes.Ball, new BounceBall(10f, 10f, 0f, 0f));
+        var bounceEntity = new EntityBase();
+        bounceEntity.AddComponent(new BounceBall(10f, 10f, 0f, 0f));
         core.AddEntity(bounceEntity);
 
         var scheduler = new Scheduler(16, 16, core);

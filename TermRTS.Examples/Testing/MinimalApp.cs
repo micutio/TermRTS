@@ -15,10 +15,10 @@ internal enum EmptyComponentType
     Empty
 }
 
-internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
+internal class NullRenderer : IRenderer<NullWorld>
 {
     public void RenderEntity(
-        Dictionary<EmptyComponentType, IComponent> entity,
+        Dictionary<Type, IComponent> entity,
         double howFarIntoNextFrameMs)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
@@ -38,11 +38,7 @@ internal class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     }
 }
 
-internal class NullEntity : EntityBase<EmptyComponentType>
-{
-}
-
-internal class WatcherSystem : System<NullWorld, EmptyComponentType>
+internal class WatcherSystem : System<NullWorld>
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     public readonly ChannelReader<(IEvent, ulong)> EventOutput;
@@ -55,10 +51,10 @@ internal class WatcherSystem : System<NullWorld, EmptyComponentType>
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
+    public override Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
-        EntityBase<EmptyComponentType> thisEntityComponents,
-        IEnumerable<EntityBase<EmptyComponentType>> otherEntityComponents,
+        EntityBase thisEntityComponents,
+        IEnumerable<EntityBase> otherEntityComponents,
         ref NullWorld world)
     {
         _remainingTicks -= 1;
@@ -78,10 +74,10 @@ internal class MinimalApp : IRunnableExample
 {
     public void Run()
     {
-        var core = new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer());
+        var core = new Core<NullWorld>(new NullWorld(), new NullRenderer());
         var watcherSystem = new WatcherSystem(10);
         core.AddGameSystem(watcherSystem);
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new EntityBase());
 
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(watcherSystem.EventOutput);

@@ -21,7 +21,7 @@ internal class App : IRunnableExample
         // TODO: How to deal with unfinished wires? Currently generated in full
 
         var renderer = new Renderer();
-        var core = new Core<World, CircuitComponents>(new World(), renderer);
+        var core = new Core<World>(new World(), renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         var entities = EntityGenerator.RandomCircuitBoard()
             .WithRandomSeed(666)
@@ -58,12 +58,6 @@ internal class App : IRunnableExample
     }
 
     #region Internal Types
-
-    internal enum CircuitComponents
-    {
-        Chip,
-        Bus
-    }
 
     private enum Direction
     {
@@ -335,23 +329,23 @@ internal class App : IRunnableExample
         }
     }
 
-    private class BusSystem : System<World, CircuitComponents>
+    private class BusSystem : System<World>
     {
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
 
-        public override Dictionary<CircuitComponents, IComponent> ProcessComponents(
+        public override Dictionary<Type, IComponent> ProcessComponents(
             ulong timeStepSizeMs,
-            EntityBase<CircuitComponents> thisEntityComponents,
-            IEnumerable<EntityBase<CircuitComponents>> otherEntityComponents,
+            EntityBase thisEntityComponents,
+            IEnumerable<EntityBase> otherEntityComponents,
             ref World world)
         {
             thisEntityComponents
                 .Components
-                .TryGetValue(CircuitComponents.Bus, out var busComponent);
+                .TryGetValue(typeof(Bus), out var busComponent);
 
             if (busComponent == null)
-                return new Dictionary<CircuitComponents, IComponent>();
+                return new Dictionary<Type, IComponent>();
 
             var bus = (Bus)busComponent.Clone();
 
@@ -362,8 +356,8 @@ internal class App : IRunnableExample
                 {
                     _timeSinceLastAttempt = 0L;
                     if (!(_rng.NextSingle() < 0.5))
-                        return new Dictionary<CircuitComponents, IComponent>
-                            { { CircuitComponents.Bus, bus } };
+                        return new Dictionary<Type, IComponent>
+                            { { typeof(Bus), bus } };
 
                     bus.IsActive = true;
                     bus.IsForward = _rng.Next() % 2 == 0;
@@ -374,8 +368,8 @@ internal class App : IRunnableExample
                     _timeSinceLastAttempt += timeStepSizeMs;
                 }
 
-                return new Dictionary<CircuitComponents, IComponent>
-                    { { CircuitComponents.Bus, bus } };
+                return new Dictionary<Type, IComponent>
+                    { { typeof(Bus), bus } };
             }
 
             //  If already active, then take speed, divide by time step size and advance progress
@@ -383,8 +377,8 @@ internal class App : IRunnableExample
             var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
             bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
 
-            return new Dictionary<CircuitComponents, IComponent>
-                { { CircuitComponents.Bus, bus } };
+            return new Dictionary<Type, IComponent>
+                { { typeof(Bus), bus } };
         }
     }
 

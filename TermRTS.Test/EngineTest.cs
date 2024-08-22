@@ -10,15 +10,10 @@ public class NullWorld : IWorld
     }
 }
 
-public enum EmptyComponentType
-{
-    Empty
-}
-
-public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
+public class NullRenderer : IRenderer<NullWorld>
 {
     public void RenderEntity(
-        Dictionary<EmptyComponentType, IComponent> entity,
+        Dictionary<Type, IComponent> entity,
         double howFarIntoNextFrameMs)
     {
         Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
@@ -33,24 +28,24 @@ public class NullRenderer : IRenderer<NullWorld, EmptyComponentType>
     {
     }
 
-    void IRenderer<NullWorld, EmptyComponentType>.FinalizeRender()
+    void IRenderer<NullWorld>.FinalizeRender()
     {
     }
 }
 
-public class EngineTestTheoryData : TheoryData<Core<NullWorld, EmptyComponentType>>
+public class EngineTestTheoryData : TheoryData<Core<NullWorld>>
 {
     public EngineTestTheoryData()
     {
-        Add(new Core<NullWorld, EmptyComponentType>(new NullWorld(), new NullRenderer()));
+        Add(new Core<NullWorld>(new NullWorld(), new NullRenderer()));
     }
 }
 
-public class NullEntity : EntityBase<EmptyComponentType>
+public class NullEntity : EntityBase
 {
 }
 
-public class WatcherSystem : System<NullWorld, EmptyComponentType>
+public class WatcherSystem : System<NullWorld>
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     private int _remainingTicks;
@@ -63,10 +58,10 @@ public class WatcherSystem : System<NullWorld, EmptyComponentType>
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<EmptyComponentType, IComponent>? ProcessComponents(
+    public override Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSize,
-        EntityBase<EmptyComponentType> thisEntityComponents,
-        IEnumerable<EntityBase<EmptyComponentType>> otherEntityComponents,
+        EntityBase thisEntityComponents,
+        IEnumerable<EntityBase> otherEntityComponents,
         ref NullWorld world)
     {
         _remainingTicks -= 1;
@@ -82,7 +77,7 @@ public class EngineTest
 {
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestSetup(Core<NullWorld, EmptyComponentType> core)
+    public void TestSetup(Core<NullWorld> core)
     {
         Assert.True(core.IsRunning());
         core.Tick(16L);
@@ -95,7 +90,7 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestSchedulerSetup(Core<NullWorld, EmptyComponentType> core)
+    public void TestSchedulerSetup(Core<NullWorld> core)
     {
         // Setup Scheduler
         var watcherSystem = new WatcherSystem(12);
@@ -115,7 +110,7 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestScheduledEvent(Core<NullWorld, EmptyComponentType> core)
+    public void TestScheduledEvent(Core<NullWorld> core)
     {
         // Setup Scheduler
         var scheduler = new Scheduler(16, 16, core);

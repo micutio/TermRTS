@@ -7,10 +7,7 @@ namespace TermRTS;
 /// <typeparam name="TWorld">
 ///     Type of the game world class.
 /// </typeparam>
-/// <typeparam name="TComponents">
-///     Type of the enum listing all component types.
-/// </typeparam>
-public abstract class System<TWorld, TComponents> where TComponents : Enum
+public abstract class System<TWorld>
 {
     // NOTE: If possible, enforce that otherEs are immutable.
     // TODO: Use `in` keyword for entity list.
@@ -18,9 +15,9 @@ public abstract class System<TWorld, TComponents> where TComponents : Enum
     // TODO: Iteration should be optional to overwrite and encapsulate the processing step
     // Alternative:
     // TODO: Encapsulate entities in handler class which allows different methods of iteration
-    public abstract Dictionary<TComponents, IComponent>? ProcessComponents(
+    public abstract Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
-        EntityBase<TComponents> thisEntityComponents,
-        IEnumerable<EntityBase<TComponents>> otherEntityComponents,
+        EntityBase thisEntityComponents,
+        IEnumerable<EntityBase> otherEntityComponents,
         ref TWorld world);
 }

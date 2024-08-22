@@ -2,7 +2,7 @@ using ConsoleRenderer;
 
 namespace TermRTS.Examples.BouncyBall;
 
-internal class BounceRenderer : IRenderer<BounceWorld, BounceComponentTypes>
+internal class BounceRenderer : IRenderer<BounceWorld>
 {
     private readonly ConsoleCanvas _canvas;
 
@@ -12,10 +12,10 @@ internal class BounceRenderer : IRenderer<BounceWorld, BounceComponentTypes>
         Console.CursorVisible = false;
     }
 
-    public void RenderEntity(Dictionary<BounceComponentTypes, IComponent> entity,
+    public void RenderEntity(Dictionary<Type, IComponent> entity,
         double howFarIntoNextFrameMs)
     {
-        if (!entity.TryGetValue(BounceComponentTypes.Ball, out var ballComponent))
+        if (!entity.TryGetValue(typeof(BounceBall), out var ballComponent))
             return;
 
         var ball = (BounceBall)ballComponent;

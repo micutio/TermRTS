@@ -32,8 +32,7 @@ public interface ICore : IEventSink
 /// <typeparam name="TComponents">
 ///     Type of the enum listing all component types.
 /// </typeparam>
-public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
-    where TComponents : Enum
+public class Core<TWorld> : ICore where TWorld : IWorld
 {
     #region Constructor
 
@@ -42,15 +41,15 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     /// </summary>
     /// <param name="world"> An object representing the simulation world. </param>
     /// <param name="renderer"> An object representing the renderer. </param>
-    public Core(TWorld world, IRenderer<TWorld, TComponents> renderer)
+    public Core(TWorld world, IRenderer<TWorld> renderer)
     {
         _isGameRunning = true;
         _world = world;
         _renderer = renderer;
-        _entities = new List<EntityBase<TComponents>>();
-        _entitiesPendingChanges = new Dictionary<int, Dictionary<TComponents, IComponent>>();
-        _newEntities = new List<EntityBase<TComponents>>();
-        _systems = new List<System<TWorld, TComponents>>();
+        _entities = new List<EntityBase>();
+        _entitiesPendingChanges = new Dictionary<int, Dictionary<Type, IComponent>>();
+        _newEntities = new List<EntityBase>();
+        _systems = new List<System<TWorld>>();
     }
 
     #endregion
@@ -81,11 +80,11 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
 
     private bool _isGameRunning;
     private TWorld _world;
-    private readonly IRenderer<TWorld, TComponents> _renderer;
-    private readonly List<System<TWorld, TComponents>> _systems;
-    private readonly List<EntityBase<TComponents>> _entities;
-    private readonly Dictionary<int, Dictionary<TComponents, IComponent>> _entitiesPendingChanges;
-    private readonly List<EntityBase<TComponents>> _newEntities;
+    private readonly IRenderer<TWorld> _renderer;
+    private readonly List<System<TWorld>> _systems;
+    private readonly List<EntityBase> _entities;
+    private readonly Dictionary<int, Dictionary<Type, IComponent>> _entitiesPendingChanges;
+    private readonly List<EntityBase> _newEntities;
 
     #endregion
 
@@ -116,7 +115,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.
     /// </summary>
     /// <param name="entity"> Entity object to be added. </param>
-    public void AddEntity(EntityBase<TComponents> entity)
+    public void AddEntity(EntityBase entity)
     {
         _newEntities.Add(entity);
     }
@@ -126,7 +125,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     ///     next tick.
     /// </summary>
     /// <param name="entities"> Entity objects to be added. </param>
-    public void AddAllEntities(IEnumerable<EntityBase<TComponents>> entities)
+    public void AddAllEntities(IEnumerable<EntityBase> entities)
     {
         _newEntities.AddRange(entities);
     }
@@ -135,7 +134,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be added </param>
-    public void AddGameSystem(System<TWorld, TComponents> system)
+    public void AddGameSystem(System<TWorld> system)
     {
         _systems.Add(system);
     }
@@ -144,7 +143,7 @@ public class Core<TWorld, TComponents> : ICore where TWorld : IWorld
     ///     Remove system from the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be removed </param>
-    public void RemoveGameSystem(System<TWorld, TComponents> system)
+    public void RemoveGameSystem(System<TWorld> system)
     {
         _systems.Remove(system);
     }
