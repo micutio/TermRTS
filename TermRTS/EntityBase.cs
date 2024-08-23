@@ -3,24 +3,52 @@ namespace TermRTS;
 /// <summary>
 ///     Base class for simulation entities, providing facilities for registering components.
 /// </summary>
-/// <typeparam name="TSystems">
-///     Type of the Enum listing all system types.
-/// </typeparam>
 public class EntityBase
 {
-    #region Public Fields
+    #region Fields
+
+    private static int _runningId;
+
+    #endregion
+
+    #region Constructors
+
+    /// <summary>
+    ///     Constructor
+    /// </summary>
+    public EntityBase()
+    {
+        Components = new Dictionary<Type, IComponent>();
+    }
+
+    /// <summary>
+    ///     Shorthand for instantiating an entity with a single component
+    /// </summary>
+    public EntityBase(IComponent component)
+    {
+        Id = Interlocked.Increment(ref _runningId);
+        Components = new Dictionary<Type, IComponent> { { component.GetType(), component } };
+    }
+
+    #endregion
+
+    #region Properties
+
+    public int Id { get; }
 
     /// <summary>
     ///     Storage for one component per system type.
     /// </summary>
-    public Dictionary<Type, IComponent> Components { get; } = new();
-
-    #endregion
+    public Dictionary<Type, IComponent> Components { get; }
 
     /// <summary>
     ///     Property to indicate whether this entity is to be removed.
     /// </summary>
     public bool IsMarkedForRemoval { get; set; } = false;
+
+    #endregion
+
+    #region Public Methods
 
     /// <summary>
     ///     Add a new component to this entity.
@@ -45,24 +73,6 @@ public class EntityBase
     public bool IsCompatibleWith(Type[] systemTypes)
     {
         return systemTypes.All(Components.ContainsKey);
-    }
-
-    #region Constructors
-
-    /// <summary>
-    ///     Constructor
-    /// </summary>
-    public EntityBase()
-    {
-        Components = new Dictionary<Type, IComponent>();
-    }
-
-    /// <summary>
-    ///     Shorthand for instantiating an entity with a single component
-    /// </summary>
-    public EntityBase(IComponent component)
-    {
-        Components = new Dictionary<Type, IComponent> { { component.GetType(), component } };
     }
 
     #endregion
