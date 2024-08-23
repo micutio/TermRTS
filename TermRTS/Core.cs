@@ -87,6 +87,12 @@ public class Core<TWorld> : ICore where TWorld : IWorld
     private readonly Dictionary<int, Dictionary<Type, IComponent>> _entitiesPendingChanges;
     private readonly List<EntityBase> _newEntities;
 
+    // map types to id -> component maps
+    // component = components[type][id]
+    // private readonly Dictionary<Type, Dictionary<int, IComponent>> components;
+    // OR
+    // private readonly Dictionary<Type, List<IComponent {int id; } >> components;
+
     #endregion
 
     #region Public API
