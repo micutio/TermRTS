@@ -23,14 +23,15 @@ public interface ICore : IEventSink
 // Site for converting normal text into ASCII art:
 //      - https://www.patorjk.com/software/taag/
 
+// TODO: [ECS] Rework association of components with entities
+// TODO: [SIM] Rework system iteration over entities
+// TODO: [SIM] Rework application of component state changes
+
 /// <summary>
 ///     The core of the engine performs the actual tick logic and is controlled by the scheduler.
 /// </summary>
 /// <typeparam name="TWorld">
 ///     Type of the world class.
-/// </typeparam>
-/// <typeparam name="TComponents">
-///     Type of the enum listing all component types.
 /// </typeparam>
 public class Core<TWorld> : ICore where TWorld : IWorld
 {
