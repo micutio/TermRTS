@@ -1,6 +1,4 @@
 using System.Numerics;
-using System.Reflection.Metadata;
-using System.Runtime.InteropServices.JavaScript;
 
 namespace TermRTS.Examples.Circuitry;
 
@@ -242,8 +240,8 @@ internal class EntityGenerator
             _generatedChips.Add(newChip);
 
             for (var j = (int)newChip.Position1.Y; j <= newChip.Position2.Y; j += 1)
-            for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
-                Occupy(i, j);
+                for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
+                    Occupy(i, j);
         }
 
         // order chips by size, largest first

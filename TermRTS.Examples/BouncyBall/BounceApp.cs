@@ -34,7 +34,7 @@ internal class BounceBall : IComponent
 
 // Bouncing ball and other physics:
 //  - https://processing.org/examples/bouncingball.html
-internal class BouncePhysicsSystem : System<BounceWorld>, IEventSink
+internal class BouncePhysicsSystem : SimSystem, IEventSink
 {
     private Vector2 _velocity;
 
@@ -64,8 +64,7 @@ internal class BouncePhysicsSystem : System<BounceWorld>, IEventSink
     public override Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
         EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents,
-        ref BounceWorld world)
+        IEnumerable<EntityBase> otherEntityComponents)
     {
         thisEntityComponents
             .Components
@@ -126,10 +125,9 @@ public class BounceApp : IRunnableExample
 {
     public void Run()
     {
-        var core =
-            new Core<BounceWorld>(new BounceWorld(), new BounceRenderer());
+        var core = new Core(new BounceRenderer());
         var bouncePhysics = new BouncePhysicsSystem();
-        core.AddGameSystem(bouncePhysics);
+        core.AddSimSystem(bouncePhysics);
         var bounceEntity = new EntityBase();
         bounceEntity.AddComponent(new BounceBall(10f, 10f, 0f, 0f));
         core.AddEntity(bounceEntity);

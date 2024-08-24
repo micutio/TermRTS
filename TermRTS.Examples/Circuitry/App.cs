@@ -21,7 +21,7 @@ internal class App : IRunnableExample
         // TODO: How to deal with unfinished wires? Currently generated in full
 
         var renderer = new Renderer();
-        var core = new Core<World>(new World(), renderer);
+        var core = new Core(renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         var entities = EntityGenerator.RandomCircuitBoard()
             .WithRandomSeed(666)
@@ -31,7 +31,7 @@ internal class App : IRunnableExample
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build();
         core.AddAllEntities(entities);
-        core.AddGameSystem(new BusSystem());
+        core.AddSimSystem(new BusSystem());
 
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
@@ -44,7 +44,7 @@ internal class App : IRunnableExample
         input.Run();
 
         // Graceful shutdown on canceling via CTRL+C
-        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
@@ -329,7 +329,7 @@ internal class App : IRunnableExample
         }
     }
 
-    private class BusSystem : System<World>
+    private class BusSystem : SimSystem
     {
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
@@ -337,8 +337,7 @@ internal class App : IRunnableExample
         public override Dictionary<Type, IComponent> ProcessComponents(
             ulong timeStepSizeMs,
             EntityBase thisEntityComponents,
-            IEnumerable<EntityBase> otherEntityComponents,
-            ref World world)
+            IEnumerable<EntityBase> otherEntityComponents)
         {
             thisEntityComponents
                 .Components

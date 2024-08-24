@@ -10,11 +10,9 @@ public class NullWorld : IWorld
     }
 }
 
-public class NullRenderer : IRenderer<NullWorld>
+public class NullRenderer : IRenderer
 {
-    public void RenderEntity(
-        Dictionary<Type, IComponent> entity,
-        double howFarIntoNextFrameMs)
+    public void RenderEntity(Dictionary<Type, IComponent> entity, double howFarIntoNextFrameMs)
     {
         Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }
@@ -28,16 +26,16 @@ public class NullRenderer : IRenderer<NullWorld>
     {
     }
 
-    void IRenderer<NullWorld>.FinalizeRender()
+    void IRenderer.FinalizeRender()
     {
     }
 }
 
-public class EngineTestTheoryData : TheoryData<Core<NullWorld>>
+public class EngineTestTheoryData : TheoryData<Core>
 {
     public EngineTestTheoryData()
     {
-        Add(new Core<NullWorld>(new NullWorld(), new NullRenderer()));
+        Add(new Core(new NullRenderer()));
     }
 }
 
@@ -45,7 +43,7 @@ public class NullEntity : EntityBase
 {
 }
 
-public class WatcherSystem : System<NullWorld>
+public class WatcherSystem : SimSystem
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     private int _remainingTicks;
@@ -61,8 +59,7 @@ public class WatcherSystem : System<NullWorld>
     public override Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSize,
         EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents,
-        ref NullWorld world)
+        IEnumerable<EntityBase> otherEntityComponents)
     {
         _remainingTicks -= 1;
 
@@ -77,7 +74,7 @@ public class EngineTest
 {
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestSetup(Core<NullWorld> core)
+    public void TestSetup(Core core)
     {
         Assert.True(core.IsRunning());
         core.Tick(16L);
@@ -90,14 +87,14 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestSchedulerSetup(Core<NullWorld> core)
+    public void TestSchedulerSetup(Core core)
     {
         // Setup Scheduler
         var watcherSystem = new WatcherSystem(12);
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
         scheduler.AddEventSink(core, EventType.Shutdown);
-        core.AddGameSystem(watcherSystem);
+        core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
 
         // Run it
@@ -110,7 +107,7 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
-    public void TestScheduledEvent(Core<NullWorld> core)
+    public void TestScheduledEvent(Core core)
     {
         // Setup Scheduler
         var scheduler = new Scheduler(16, 16, core);

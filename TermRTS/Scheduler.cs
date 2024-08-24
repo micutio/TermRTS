@@ -45,27 +45,6 @@ public class Scheduler : IEventSink
 
     #endregion
 
-    #region Private Members
-
-    /// <summary>
-    ///     Fires events that are due in the current time step by distributing them to all event
-    ///     sinks registered to these event types.
-    /// </summary>
-    private void ProcessInput()
-    {
-        while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
-        {
-            _eventQueue.TryTake(out var eventItem);
-
-            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
-
-            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
-                eventSink.ProcessEvent(eventItem.Item1);
-        }
-    }
-
-    #endregion
-
     #region Private Fields
 
     private readonly Profiler _profiler;
@@ -200,6 +179,27 @@ public class Scheduler : IEventSink
 
         _channel.Writer.Complete();
         Console.WriteLine("Scheduler shut down");
+    }
+
+    #endregion
+
+    #region Private Members
+
+    /// <summary>
+    ///     Fires events that are due in the current time step by distributing them to all event
+    ///     sinks registered to these event types.
+    /// </summary>
+    private void ProcessInput()
+    {
+        while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
+        {
+            _eventQueue.TryTake(out var eventItem);
+
+            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
+
+            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
+                eventSink.ProcessEvent(eventItem.Item1);
+        }
     }
 
     #endregion

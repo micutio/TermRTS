@@ -1,9 +1,9 @@
-﻿using System.Numerics;
+using System.Numerics;
 using ConsoleRenderer;
 
 namespace TermRTS.Examples.Circuitry;
 
-internal class Renderer : IRenderer<World>, IEventSink
+internal class Renderer : IRenderer, IEventSink
 {
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
@@ -67,9 +67,7 @@ internal class Renderer : IRenderer<World>, IEventSink
 #endif
     }
 
-    public void RenderEntity(
-        Dictionary<Type, IComponent> entity,
-        double howFarIntoNextFrameMs)
+    public void RenderEntity(Dictionary<Type, IComponent> entity, double howFarIntoNextFrameMs)
     {
         if (entity.TryGetValue(typeof(App.Chip), out var chipComponent))
         {

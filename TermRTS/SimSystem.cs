@@ -4,10 +4,7 @@ namespace TermRTS;
 ///     A System defines one or multiple required components and processes <c>Entity</c>s which
 ///     provide all of these.
 /// </summary>
-/// <typeparam name="TWorld">
-///     Type of the game world class.
-/// </typeparam>
-public abstract class System<TWorld>
+public abstract class SimSystem
 {
     // NOTE: If possible, enforce that otherEs are immutable.
     // TODO: Use `in` keyword for entity list.
@@ -18,6 +15,5 @@ public abstract class System<TWorld>
     public abstract Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
         EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents,
-        ref TWorld world);
+        IEnumerable<EntityBase> otherEntityComponents);
 }

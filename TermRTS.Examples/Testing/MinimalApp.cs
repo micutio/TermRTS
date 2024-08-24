@@ -1,21 +1,13 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 
 namespace TermRTS.Examples.Testing;
-
-internal class NullWorld : IWorld
-{
-    public void ApplyChange()
-    {
-        // Console.WriteLine("World changed.");
-    }
-}
 
 internal enum EmptyComponentType
 {
     Empty
 }
 
-internal class NullRenderer : IRenderer<NullWorld>
+internal class NullRenderer : IRenderer
 {
     public void RenderEntity(
         Dictionary<Type, IComponent> entity,
@@ -24,7 +16,7 @@ internal class NullRenderer : IRenderer<NullWorld>
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
-    public void RenderWorld(NullWorld world, double howFarIntoNextFrameMs, double timeStepSizeMs)
+    public void RenderWorld(double howFarIntoNextFrameMs, double timeStepSizeMs)
     {
         // Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
@@ -38,7 +30,7 @@ internal class NullRenderer : IRenderer<NullWorld>
     }
 }
 
-internal class WatcherSystem : System<NullWorld>
+internal class WatcherSystem : SimSystem
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     public readonly ChannelReader<(IEvent, ulong)> EventOutput;
@@ -54,8 +46,7 @@ internal class WatcherSystem : System<NullWorld>
     public override Dictionary<Type, IComponent>? ProcessComponents(
         ulong timeStepSizeMs,
         EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents,
-        ref NullWorld world)
+        IEnumerable<EntityBase> otherEntityComponents)
     {
         _remainingTicks -= 1;
         // Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
@@ -74,9 +65,9 @@ internal class MinimalApp : IRunnableExample
 {
     public void Run()
     {
-        var core = new Core<NullWorld>(new NullWorld(), new NullRenderer());
+        var core = new Core(new NullRenderer());
         var watcherSystem = new WatcherSystem(10);
-        core.AddGameSystem(watcherSystem);
+        core.AddSimSystem(watcherSystem);
         core.AddEntity(new EntityBase());
 
         var scheduler = new Scheduler(16, 16, core);

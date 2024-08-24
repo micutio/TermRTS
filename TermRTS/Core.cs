@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace TermRTS;
 
@@ -33,7 +33,7 @@ public interface ICore : IEventSink
 /// <typeparam name="TWorld">
 ///     Type of the world class.
 /// </typeparam>
-public class Core<TWorld> : ICore where TWorld : IWorld
+public class Core : ICore
 {
     #region Constructor
 
@@ -42,15 +42,14 @@ public class Core<TWorld> : ICore where TWorld : IWorld
     /// </summary>
     /// <param name="world"> An object representing the simulation world. </param>
     /// <param name="renderer"> An object representing the renderer. </param>
-    public Core(TWorld world, IRenderer<TWorld> renderer)
+    public Core(IRenderer renderer)
     {
         _isGameRunning = true;
-        _world = world;
         _renderer = renderer;
         _entities = new List<EntityBase>();
         _entitiesPendingChanges = new Dictionary<int, Dictionary<Type, IComponent>>();
         _newEntities = new List<EntityBase>();
-        _systems = new List<System<TWorld>>();
+        _systems = new List<SimSystem>();
     }
 
     #endregion
@@ -80,9 +79,8 @@ public class Core<TWorld> : ICore where TWorld : IWorld
     #region Private Fields
 
     private bool _isGameRunning;
-    private TWorld _world;
-    private readonly IRenderer<TWorld> _renderer;
-    private readonly List<System<TWorld>> _systems;
+    private readonly IRenderer _renderer;
+    private readonly List<SimSystem> _systems;
     private readonly List<EntityBase> _entities;
     private readonly Dictionary<int, Dictionary<Type, IComponent>> _entitiesPendingChanges;
     private readonly List<EntityBase> _newEntities;
@@ -141,7 +139,7 @@ public class Core<TWorld> : ICore where TWorld : IWorld
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be added </param>
-    public void AddGameSystem(System<TWorld> system)
+    public void AddSimSystem(SimSystem system)
     {
         _systems.Add(system);
     }
@@ -150,7 +148,7 @@ public class Core<TWorld> : ICore where TWorld : IWorld
     ///     Remove system from the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be removed </param>
-    public void RemoveGameSystem(System<TWorld> system)
+    public void RemoveSimSystem(SimSystem system)
     {
         _systems.Remove(system);
     }
@@ -174,7 +172,7 @@ public class Core<TWorld> : ICore where TWorld : IWorld
                 var thisEntity = _entities[i];
                 var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
                 var change =
-                    sys.ProcessComponents(timeStepSizeMs, thisEntity, otherEntities, ref _world);
+                    sys.ProcessComponents(timeStepSizeMs, thisEntity, otherEntities);
                 if (change != null) _entitiesPendingChanges[i] = change;
             }
 
@@ -208,8 +206,6 @@ public class Core<TWorld> : ICore where TWorld : IWorld
     /// </summary>
     public void Render(double howFarIntoNextFrameMs, double timeStepSizeMs)
     {
-        _renderer.RenderWorld(_world, timeStepSizeMs, howFarIntoNextFrameMs);
-
         for (var i = 0; i < _entities.Count; i += 1)
             _renderer.RenderEntity(_entities[i].Components, howFarIntoNextFrameMs);
 
