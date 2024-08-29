@@ -164,6 +164,7 @@ public class Core : ICore
         // TODO: Idea for more efficient iteration:
         //       - rank components by count of occurrence in entities
         //       - sort entities by their highest-ranked components
+        // TODO: Create a read-only copy of the game state and use it for game update & rendering.
         foreach (var sys in _systems)
             for (var i = 0; i < _entities.Count; i += 1)
             {
