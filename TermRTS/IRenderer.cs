@@ -11,7 +11,7 @@ public interface IRenderer
     ///     How much extra time was needed for the last simulation tick.
     /// </param>
     public void RenderEntity(
-        Dictionary<Type, IComponent> entity,
+        Dictionary<Type, ComponentBase> entity,
         double howFarIntoNextFrameMs);
 
     /// <summary>

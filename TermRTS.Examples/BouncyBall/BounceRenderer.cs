@@ -12,7 +12,7 @@ internal class BounceRenderer : IRenderer
         Console.CursorVisible = false;
     }
 
-    public void RenderEntity(Dictionary<Type, IComponent> entity,
+    public void RenderEntity(Dictionary<Type, ComponentBase> entity,
         double howFarIntoNextFrameMs)
     {
         if (!entity.TryGetValue(typeof(BounceBall), out var ballComponent))

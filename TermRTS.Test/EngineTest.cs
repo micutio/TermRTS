@@ -12,7 +12,7 @@ public class NullWorld : IWorld
 
 public class NullRenderer : IRenderer
 {
-    public void RenderEntity(Dictionary<Type, IComponent> entity, double howFarIntoNextFrameMs)
+    public void RenderEntity(Dictionary<Type, ComponentBase> entity, double howFarIntoNextFrameMs)
     {
         Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }
@@ -56,7 +56,7 @@ public class WatcherSystem : SimSystem
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<Type, IComponent>? ProcessComponents(
+    public override Dictionary<Type, ComponentBase>? ProcessComponents(
         ulong timeStepSize,
         EntityBase thisEntityComponents,
         IEnumerable<EntityBase> otherEntityComponents)

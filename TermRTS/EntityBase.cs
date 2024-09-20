@@ -18,16 +18,16 @@ public class EntityBase
     /// </summary>
     public EntityBase()
     {
-        Components = new Dictionary<Type, IComponent>();
+        Components = new Dictionary<Type, ComponentBase>();
     }
 
     /// <summary>
     ///     Shorthand for instantiating an entity with a single component
     /// </summary>
-    public EntityBase(IComponent component)
+    public EntityBase(ComponentBase component)
     {
         Id = Interlocked.Increment(ref _runningId);
-        Components = new Dictionary<Type, IComponent> { { component.GetType(), component } };
+        Components = new Dictionary<Type, ComponentBase> { { component.GetType(), component } };
     }
 
     #endregion
@@ -39,7 +39,7 @@ public class EntityBase
     /// <summary>
     ///     Storage for one component per system type.
     /// </summary>
-    public Dictionary<Type, IComponent> Components { get; }
+    public Dictionary<Type, ComponentBase> Components { get; }
 
     /// <summary>
     ///     Property to indicate whether this entity is to be removed.
@@ -53,7 +53,7 @@ public class EntityBase
     /// <summary>
     ///     Add a new component to this entity.
     /// </summary>
-    public void AddComponent(IComponent component)
+    public void AddComponent(ComponentBase component)
     {
         Components.Add(component.GetType(), component);
     }
@@ -61,7 +61,7 @@ public class EntityBase
     /// <summary>
     ///     Add or overwrite a component of the given system type.
     /// </summary>
-    public void SetComponent(IComponent component)
+    public void SetComponent(ComponentBase component)
     {
         Components[component.GetType()] = component;
     }

@@ -71,7 +71,7 @@ internal class App : IRunnableExample
     {
     }
 
-    internal class Chip : IComponent
+    internal class Chip : ComponentBase
     {
         public Chip(Vector2 position1, Vector2 position2)
         {
@@ -177,7 +177,7 @@ internal class App : IRunnableExample
         }
     }
 
-    internal class Bus(List<Wire> connections) : IComponent
+    internal class Bus(List<Wire> connections) : ComponentBase
     {
         public const float Velocity = 25.5f; // in [m/s]
         public readonly List<Wire> Connections = connections;
@@ -226,7 +226,7 @@ internal class App : IRunnableExample
         }
     }
 
-    internal class Wire : IComponent
+    internal class Wire : ComponentBase
     {
         // x,y coordinates and visual representation
         public readonly Cell[] Outline;
@@ -334,7 +334,7 @@ internal class App : IRunnableExample
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
 
-        public override Dictionary<Type, IComponent> ProcessComponents(
+        public override Dictionary<Type, ComponentBase> ProcessComponents(
             ulong timeStepSizeMs,
             EntityBase thisEntityComponents,
             IEnumerable<EntityBase> otherEntityComponents)
@@ -344,7 +344,7 @@ internal class App : IRunnableExample
                 .TryGetValue(typeof(Bus), out var busComponent);
 
             if (busComponent == null)
-                return new Dictionary<Type, IComponent>();
+                return new Dictionary<Type, ComponentBase>();
 
             var bus = (Bus)busComponent.Clone();
 
@@ -355,7 +355,7 @@ internal class App : IRunnableExample
                 {
                     _timeSinceLastAttempt = 0L;
                     if (!(_rng.NextSingle() < 0.5))
-                        return new Dictionary<Type, IComponent>
+                        return new Dictionary<Type, ComponentBase>
                             { { typeof(Bus), bus } };
 
                     bus.IsActive = true;
@@ -367,7 +367,7 @@ internal class App : IRunnableExample
                     _timeSinceLastAttempt += timeStepSizeMs;
                 }
 
-                return new Dictionary<Type, IComponent>
+                return new Dictionary<Type, ComponentBase>
                     { { typeof(Bus), bus } };
             }
 
@@ -376,7 +376,7 @@ internal class App : IRunnableExample
             var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
             bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
 
-            return new Dictionary<Type, IComponent>
+            return new Dictionary<Type, ComponentBase>
                 { { typeof(Bus), bus } };
         }
     }

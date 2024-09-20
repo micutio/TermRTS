@@ -1,6 +1,8 @@
 namespace TermRTS;
 
-public interface IComponent : ICloneable
+// TODO: support for double-buffered thread-safe properties
+
+public abstract class ComponentBase(int entityId)
 {
-    int EntityId { get; }
+    public int EntityId { get; } = entityId;
 }

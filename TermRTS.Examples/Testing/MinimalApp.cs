@@ -10,7 +10,7 @@ internal enum EmptyComponentType
 internal class NullRenderer : IRenderer
 {
     public void RenderEntity(
-        Dictionary<Type, IComponent> entity,
+        Dictionary<Type, ComponentBase> entity,
         double howFarIntoNextFrameMs)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
@@ -43,7 +43,7 @@ internal class WatcherSystem : SimSystem
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<Type, IComponent>? ProcessComponents(
+    public override Dictionary<Type, ComponentBase>? ProcessComponents(
         ulong timeStepSizeMs,
         EntityBase thisEntityComponents,
         IEnumerable<EntityBase> otherEntityComponents)

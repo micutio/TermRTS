@@ -15,7 +15,7 @@ internal enum BounceComponentTypes
     Ball
 }
 
-internal class BounceBall : IComponent
+internal class BounceBall : ComponentBase
 {
     internal BounceBall(float x, float y, float dx, float dy)
     {
@@ -61,7 +61,7 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
         }
     }
 
-    public override Dictionary<Type, IComponent>? ProcessComponents(
+    public override Dictionary<Type, ComponentBase>? ProcessComponents(
         ulong timeStepSizeMs,
         EntityBase thisEntityComponents,
         IEnumerable<EntityBase> otherEntityComponents)
@@ -116,7 +116,7 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
         changedBall.Position = ballPos;
         changedBall.Velocity = ballVel;
 
-        return new Dictionary<Type, IComponent>
+        return new Dictionary<Type, ComponentBase>
             { { typeof(BounceBall), changedBallComponent } };
     }
 }

@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace TermRTS;
 
-using EntityComponents = Dictionary<int, IList<IComponent>>;
+using EntityComponents = Dictionary<int, IList<ComponentBase>>;
 
 // TODO: Handle efficient generating and applying of component changes.
 // TODO: ID generation
@@ -17,9 +17,9 @@ using EntityComponents = Dictionary<int, IList<IComponent>>;
 /// </summary>
 public interface IStorage
 {
-    public void AddComponent(IComponent component);
+    public void AddComponent(ComponentBase component);
 
-    public void AddComponents(IComponent[] components);
+    public void AddComponents(ComponentBase[] components);
 
     public void RemoveComponents(int entityId, Type type);
 
@@ -27,11 +27,11 @@ public interface IStorage
 
     public void RemoveComponents(Type type);
 
-    public IEnumerable<IComponent> GetForEntity(int entityId);
+    public IEnumerable<ComponentBase> GetForEntity(int entityId);
 
-    public IEnumerable<IComponent> GetForType(Type type);
+    public IEnumerable<ComponentBase> GetForType(Type type);
 
-    public IEnumerable<IComponent> GetForEntityAndType(int entityId, Type type);
+    public IEnumerable<ComponentBase> GetForEntityAndType(int entityId, Type type);
 }
 
 #endregion
@@ -44,10 +44,10 @@ public interface IStorage
 /// </summary>
 public class MappedCollectionStorage : IStorage
 {
-    // private Dictionary<Type, IComponentStore> componentStores;
+    // private Dictionary<Type, ComponentBaseStore> componentStores;
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
 
-    public void AddComponent(IComponent component)
+    public void AddComponent(ComponentBase component)
     {
         if (!_componentStores.ContainsKey(component.GetType()))
             _componentStores.Add(component.GetType(), new EntityComponents());
@@ -56,7 +56,7 @@ public class MappedCollectionStorage : IStorage
         // componentsDict.Add(component.EntityId, component);
     }
 
-    public void AddComponents(IComponent[] components)
+    public void AddComponents(ComponentBase[] components)
     {
         foreach (var component in components) AddComponent(component);
     }
@@ -79,7 +79,7 @@ public class MappedCollectionStorage : IStorage
         _componentStores.Remove(type);
     }
 
-    public IEnumerable<IComponent> GetForEntity(int entityId)
+    public IEnumerable<ComponentBase> GetForEntity(int entityId)
     {
         return _componentStores
             .Values
@@ -88,14 +88,14 @@ public class MappedCollectionStorage : IStorage
             .Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
     }
 
-    public IEnumerable<IComponent> GetForType(Type type)
+    public IEnumerable<ComponentBase> GetForType(Type type)
     {
         return _componentStores[type]
             .Values
             .Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
     }
 
-    public IEnumerable<IComponent> GetForEntityAndType(int entityId, Type type)
+    public IEnumerable<ComponentBase> GetForEntityAndType(int entityId, Type type)
     {
         return _componentStores[type][entityId];
     }

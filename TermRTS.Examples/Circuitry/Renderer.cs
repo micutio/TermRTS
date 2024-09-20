@@ -67,7 +67,7 @@ internal class Renderer : IRenderer, IEventSink
 #endif
     }
 
-    public void RenderEntity(Dictionary<Type, IComponent> entity, double howFarIntoNextFrameMs)
+    public void RenderEntity(Dictionary<Type, ComponentBase> entity, double howFarIntoNextFrameMs)
     {
         if (entity.TryGetValue(typeof(App.Chip), out var chipComponent))
         {

@@ -47,7 +47,7 @@ public class Core : ICore
         _isGameRunning = true;
         _renderer = renderer;
         _entities = new List<EntityBase>();
-        _entitiesPendingChanges = new Dictionary<int, Dictionary<Type, IComponent>>();
+        _entitiesPendingChanges = new Dictionary<int, Dictionary<Type, ComponentBase>>();
         _newEntities = new List<EntityBase>();
         _systems = new List<SimSystem>();
     }
@@ -82,14 +82,14 @@ public class Core : ICore
     private readonly IRenderer _renderer;
     private readonly List<SimSystem> _systems;
     private readonly List<EntityBase> _entities;
-    private readonly Dictionary<int, Dictionary<Type, IComponent>> _entitiesPendingChanges;
+    private readonly Dictionary<int, Dictionary<Type, ComponentBase>> _entitiesPendingChanges;
     private readonly List<EntityBase> _newEntities;
 
     // map types to id -> component maps
     // component = components[type][id]
-    // private readonly Dictionary<Type, Dictionary<int, IComponent>> components;
+    // private readonly Dictionary<Type, Dictionary<int, ComponentBase>> components;
     // OR
-    // private readonly Dictionary<Type, List<IComponent {int id; } >> components;
+    // private readonly Dictionary<Type, List<ComponentBase {int id; } >> components;
 
     #endregion
 
