@@ -12,15 +12,16 @@ internal class EntityGenerator
     {
         var chipEntity1 = new EntityBase();
         chipEntity1.AddComponent(
-            new App.Chip(new Vector2(10, 10), new Vector2(15, 15)));
+            new App.Chip(chipEntity1.Id, new Vector2(10, 10), new Vector2(15, 15)));
 
         var chipEntity2 = new EntityBase();
         chipEntity2.AddComponent(
-            new App.Chip(new Vector2(20, 20), new Vector2(30, 30)));
+            new App.Chip(chipEntity2.Id, new Vector2(20, 20), new Vector2(30, 30)));
 
         var busEntity1 = new EntityBase();
         busEntity1.AddComponent(
             new App.Bus(
+                busEntity1.Id,
             [
                 new App.Wire(
                     new List<(int, int)>
@@ -73,6 +74,7 @@ internal class EntityGenerator
         var busEntity2 = new EntityBase();
         busEntity2.AddComponent(
             new App.Bus(
+                busEntity2.Id,
             [
                 new App.Wire(new List<(int x, int y)>
                 {
@@ -90,6 +92,7 @@ internal class EntityGenerator
         var busEntity3 = new EntityBase();
         busEntity3.AddComponent(
             new App.Bus(
+                busEntity3.Id,
             [
                 new App.Wire(
                     new List<(int x, int y)>
@@ -119,8 +122,10 @@ internal class EntityGenerator
 
     // readonly utilities and internal state
     private readonly Dictionary<App.Chip, ISet<App.Chip>> _adjacency;
-    private readonly List<App.Chip> _generatedChips;
-    private readonly List<App.Bus> _generatedBuses;
+    private readonly List<EntityBase> _chipEntities;
+    private readonly List<EntityBase> _busEntities;
+    private readonly List<App.Chip> _generatedChipComponents;
+    private readonly List<App.Bus> _generatedBusComponents;
 
     // world generation parameters
     private int _worldWidth;
@@ -152,8 +157,10 @@ internal class EntityGenerator
         _maxBusWidth = 1;
 
         _adjacency = new Dictionary<App.Chip, ISet<App.Chip>>();
-        _generatedChips = new List<App.Chip>();
-        _generatedBuses = new List<App.Bus>();
+        _generatedChipComponents = new List<App.Chip>();
+        _generatedBusComponents = new List<App.Bus>();
+        _chipEntities = new List<EntityBase>();
+        _busEntities = new List<EntityBase>();
         _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
     }
@@ -191,7 +198,7 @@ internal class EntityGenerator
         return this;
     }
 
-    internal IReadOnlyList<EntityBase> Build()
+    internal void Build(out List<EntityBase> entities, out List<ComponentBase> components)
     {
         _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
@@ -199,16 +206,10 @@ internal class EntityGenerator
         GenerateChips();
         GenerateBuses();
 
-        var entities = new List<EntityBase>();
-
-        _generatedChips
-            .ConvertAll(c => new EntityBase(c))
-            .ForEach(entities.Add);
-        _generatedBuses
-            .ConvertAll(b => new EntityBase(b))
-            .ForEach(entities.Add);
-
-        return entities;
+        entities = new List<EntityBase>(_chipEntities);
+        entities.AddRange(_busEntities);
+        components = new List<ComponentBase>(_generatedChipComponents);
+        components.AddRange(_generatedBusComponents);
     }
 
     #endregion
@@ -217,6 +218,9 @@ internal class EntityGenerator
 
     private void GenerateChips()
     {
+        _chipEntities.Clear();
+        _generatedChipComponents.Clear();
+
         for (var chipIdx = 0; chipIdx < _chipCount; chipIdx += 1)
         {
             var w = _rng.Next(_minChipSize, _maxChipSize);
@@ -226,18 +230,20 @@ internal class EntityGenerator
 
             var tries = 0;
             var isInvalid = true;
+            EntityBase chipEntity = new EntityBase();
             App.Chip? newChip = null;
             while (isInvalid && tries < 10)
             {
-                newChip = new App.Chip(new Vector2(x, y), new Vector2(x + w, y + h));
-                isInvalid = _generatedChips.Exists(newChip.IsIntersecting);
+                newChip = new App.Chip(chipEntity.Id, new Vector2(x, y), new Vector2(x + w, y + h));
+                isInvalid = _generatedChipComponents.Exists(c => newChip.IsIntersecting((App.Chip)c));
                 tries += 1;
             }
 
             if (isInvalid || newChip == null)
                 continue;
 
-            _generatedChips.Add(newChip);
+            _generatedChipComponents.Add(newChip);
+            _chipEntities.Add(chipEntity);
 
             for (var j = (int)newChip.Position1.Y; j <= newChip.Position2.Y; j += 1)
                 for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
@@ -245,7 +251,7 @@ internal class EntityGenerator
         }
 
         // order chips by size, largest first
-        _generatedChips.Sort(Comparer<App.Chip>.Create((a, b) =>
+        _generatedChipComponents.Sort(Comparer<App.Chip>.Create((a, b) =>
         {
             // var aArea = Math.Abs(a.Position2.X - a.Position1.X) *
             //             Math.Abs(a.Position2.Y - a.Position2.Y);
@@ -265,10 +271,11 @@ internal class EntityGenerator
     {
         var pairedChips = new PriorityQueue<(App.Chip, App.Chip), float>();
         // Connect each chip to the nearest unconnected one.
-        foreach (var thisChip in _generatedChips)
+        foreach (var thisChip in _generatedChipComponents)
         {
             var availableChips =
-                _generatedChips.FindAll(c =>
+                _generatedChipComponents
+                    .FindAll(c =>
                     !thisChip.Equals(c) && !IsConnected(thisChip, c)).ToList();
 
             var nearestChip =
@@ -302,8 +309,7 @@ internal class EntityGenerator
         }
     }
 
-    private bool IsConnected(
-        App.Chip startChip, App.Chip goalChip)
+    private bool IsConnected(App.Chip startChip, App.Chip goalChip)
     {
         var toExplore = new Queue<App.Chip>();
         var explored = new HashSet<App.Chip>();
@@ -359,14 +365,10 @@ internal class EntityGenerator
 
         if (busStart.Count == 0 || busEnd.Count == 0) return;
 
-        var bus = CreateBus(width, busStart, busEnd);
-
-        if (bus == null) return;
-
-        _generatedBuses.Add(bus);
+        CreateBus(width, busStart, busEnd);
     }
 
-    private App.Bus? CreateBus(
+    private void CreateBus(
         int width,
         IList<(int, int)> busStart,
         IList<(int, int)> busEnd)
@@ -423,7 +425,14 @@ internal class EntityGenerator
             wires.Add(wire);
         }
 
-        return wires.Count == 0 ? null : new App.Bus(wires);
+        //return wires.Count == 0 ? null : new App.Bus(wires);
+        if (wires.Count > 0)
+        {
+            var busEntity = new EntityBase();
+            var busComponent = new App.Bus(busEntity.Id, wires);
+            _generatedBusComponents.Add(busComponent);
+            _busEntities.Add(busEntity);
+        }
     }
 
     private List<(int, int)> CreateBusTerminator(

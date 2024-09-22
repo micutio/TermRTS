@@ -73,7 +73,7 @@ internal class App : IRunnableExample
 
     internal class Chip : ComponentBase
     {
-        public Chip(Vector2 position1, Vector2 position2)
+        public Chip(int entityId, Vector2 position1, Vector2 position2) : base(entityId)
         {
             Position1 = position1;
             Position2 = position2;
@@ -88,6 +88,7 @@ internal class App : IRunnableExample
         public object Clone()
         {
             return new Chip(
+                EntityId,
                 new Vector2(Position1.X, Position1.Y),
                 new Vector2(Position2.X, Position2.Y));
         }
@@ -177,7 +178,7 @@ internal class App : IRunnableExample
         }
     }
 
-    internal class Bus(List<Wire> connections) : ComponentBase
+    internal class Bus(int eid, List<Wire> connections) : ComponentBase(eid)
     {
         public const float Velocity = 25.5f; // in [m/s]
         public readonly List<Wire> Connections = connections;
@@ -217,7 +218,7 @@ internal class App : IRunnableExample
 
         public object Clone()
         {
-            return new Bus(Connections.ConvertAll(c => (Wire)c.Clone()))
+            return new Bus(EntityId, Connections.ConvertAll(c => (Wire)c.Clone()))
             {
                 Progress = Progress,
                 IsActive = IsActive,
@@ -226,7 +227,7 @@ internal class App : IRunnableExample
         }
     }
 
-    internal class Wire : ComponentBase
+    internal class Wire
     {
         // x,y coordinates and visual representation
         public readonly Cell[] Outline;

@@ -18,6 +18,7 @@ public class EntityBase
     /// </summary>
     public EntityBase()
     {
+        Id = Interlocked.Increment(ref _runningId);
         Components = new Dictionary<Type, ComponentBase>();
     }
 
