@@ -23,13 +23,13 @@ internal class App : IRunnableExample
         var renderer = new Renderer();
         var core = new Core(renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
-        var entities = EntityGenerator.RandomCircuitBoard()
+        EntityGenerator.RandomCircuitBoard()
             .WithRandomSeed(666)
             .WithChipCount(10)
             .WithChipDimensions(5, 15)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
-            .Build();
+            .Build(out var entities, out var components);
         core.AddAllEntities(entities);
         core.AddSimSystem(new BusSystem());
 

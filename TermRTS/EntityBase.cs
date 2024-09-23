@@ -78,3 +78,8 @@ public class EntityBase
 
     #endregion
 }
+
+public class DoubleBuffered<T>
+{
+    
+}
