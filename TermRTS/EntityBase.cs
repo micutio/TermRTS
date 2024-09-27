@@ -79,7 +79,30 @@ public class EntityBase
     #endregion
 }
 
-public class DoubleBuffered<T>
+/// <summary>
+/// Implementation of a property with decoupled read and write operations.
+/// The property can be reassigned a new value while still exposing the old value publicly.
+/// Only the <see cref="Apply"/> method updates the readable value.
+/// </summary>
+/// <param name="value">Value of the property</param>
+/// <typeparam name="T">Type of the property</typeparam>
+public class DoubleBuffered<T> (T value)
 {
+    private T _value = value;
+    private T _buffer = value;
     
+    public void Set(T value)
+    {
+        _value = value;
+    }
+    
+    public T Get()
+    {
+        return _buffer;
+    }
+    
+    public void Apply()
+    {
+        _buffer = _value;
+    }
 }
