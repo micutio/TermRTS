@@ -32,6 +32,9 @@ public interface IStorage
     public IEnumerable<ComponentBase> GetForType(Type type);
 
     public IEnumerable<ComponentBase> GetForEntityAndType(int entityId, Type type);
+    
+    //public IEnumerable<ComponentBase> All();
+    public void SwapBuffers();
 }
 
 #endregion
@@ -85,19 +88,37 @@ public class MappedCollectionStorage : IStorage
             .Values
             .Where(v => v.ContainsKey(entityId))
             .Select(v => v[entityId])
-            .Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
+            .SelectMany(v => v);
+        //.Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
     }
 
     public IEnumerable<ComponentBase> GetForType(Type type)
     {
         return _componentStores[type]
             .Values
-            .Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
+            .SelectMany(v => v);
+        //.Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
     }
 
     public IEnumerable<ComponentBase> GetForEntityAndType(int entityId, Type type)
     {
         return _componentStores[type][entityId];
+    }
+    
+    
+    public void SwapBuffers()
+    {
+        // foreach (var component in _componentStores.SelectMany(store => store.Value.Values.SelectMany(l => l)))
+        foreach (var component in All())
+        {
+            component.SwapBuffers();
+        }
+    }
+    
+    private IEnumerable<ComponentBase> All()
+    {
+        return _componentStores
+            .SelectMany(store => store.Value.Values.SelectMany(l => l));
     }
 }
 

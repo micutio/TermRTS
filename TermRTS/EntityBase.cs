@@ -8,6 +8,7 @@ public class EntityBase
     #region Fields
 
     private static int _runningId;
+    
 
     #endregion
 
@@ -50,7 +51,7 @@ public class EntityBase
     #endregion
 
     #region Public Methods
-
+    
     /// <summary>
     ///     Add a new component to this entity.
     /// </summary>
@@ -80,13 +81,21 @@ public class EntityBase
 }
 
 /// <summary>
+/// Interface to allow hiding types
+/// </summary>
+public interface IDoubleBufferedProperty
+{
+    public void SwitchBuffer();
+}
+
+/// <summary>
 /// Implementation of a property with decoupled read and write operations.
 /// The property can be reassigned a new value while still exposing the old value publicly.
 /// Only the <see cref="Apply"/> method updates the readable value.
 /// </summary>
 /// <param name="value">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>
-public class DoubleBuffered<T> (T value)
+public class DoubleBuffered<T> (T value): IDoubleBufferedProperty
 {
     private T _value = value;
     private T _buffer = value;
@@ -101,7 +110,7 @@ public class DoubleBuffered<T> (T value)
         return _buffer;
     }
     
-    public void Apply()
+    public void SwitchBuffer()
     {
         _buffer = _value;
     }
