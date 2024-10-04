@@ -16,4 +16,6 @@ public abstract class SimSystem
         ulong timeStepSizeMs,
         EntityBase thisEntityComponents,
         IEnumerable<EntityBase> otherEntityComponents);
+    
+    public abstract void ProcessComponents(ulong timeStepSize, ref IStorage storage);
 }
