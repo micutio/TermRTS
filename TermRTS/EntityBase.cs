@@ -8,7 +8,7 @@ public class EntityBase
     #region Fields
 
     private static int _runningId;
-    
+
 
     #endregion
 
@@ -51,7 +51,7 @@ public class EntityBase
     #endregion
 
     #region Public Methods
-    
+
     /// <summary>
     ///     Add a new component to this entity.
     /// </summary>
@@ -95,21 +95,21 @@ public interface IDoubleBufferedProperty
 /// </summary>
 /// <param name="value">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>
-public class DoubleBuffered<T> (T value): IDoubleBufferedProperty
+public class DoubleBuffered<T>(T value) : IDoubleBufferedProperty
 {
     private T _value = value;
     private T _buffer = value;
-    
+
     public void Set(T value)
     {
         _value = value;
     }
-    
+
     public T Get()
     {
         return _buffer;
     }
-    
+
     public void SwitchBuffer()
     {
         _buffer = _value;

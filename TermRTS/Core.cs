@@ -195,6 +195,7 @@ public class Core : ICore
         //}
         //
         //_entitiesPendingChanges.Clear();
+        _components.SwapBuffers();
 
         // Clean up operations: remove 'dead' entities and add new ones
         var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
@@ -216,9 +217,8 @@ public class Core : ICore
             {
                 _components.AddComponent(c);
             }
+            _newComponents.Clear();
         }
-
-        _components.SwapBuffers();
 
         // New game state:
         //  - all pending changes cleared

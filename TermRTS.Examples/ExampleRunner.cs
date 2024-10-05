@@ -14,6 +14,8 @@ internal static class ExampleRunner
     private static int Main(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
+        new BounceApp().Run();
+        return 0;
         switch (args[0])
         {
             case "1":

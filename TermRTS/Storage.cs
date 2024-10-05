@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-
 namespace TermRTS;
 
 using EntityComponents = Dictionary<int, IList<ComponentBase>>;
@@ -54,6 +52,10 @@ public class MappedCollectionStorage : IStorage
     {
         if (!_componentStores.ContainsKey(component.GetType()))
             _componentStores.Add(component.GetType(), new EntityComponents());
+
+        var entityComponents = _componentStores[component.GetType()];
+        if (!entityComponents.ContainsKey(component.EntityId))
+            entityComponents.Add(component.EntityId, new List<ComponentBase>());
 
         _componentStores[component.GetType()][component.EntityId].Add(component);
         // componentsDict.Add(component.EntityId, component);

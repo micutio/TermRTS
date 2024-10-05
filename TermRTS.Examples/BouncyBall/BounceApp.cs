@@ -131,8 +131,9 @@ public class BounceApp : IRunnableExample
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddSimSystem(bouncePhysics);
         var bounceEntity = new EntityBase();
-        bounceEntity.AddComponent(new BounceBall(bounceEntity.Id, 10f, 10f, 0f, 0f));
+        var bounceBall = new BounceBall(bounceEntity.Id, 10f, 10f, 0f, 0f);
         core.AddEntity(bounceEntity);
+        core.AddComponent(bounceBall);
 
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSink(core, EventType.Shutdown);
