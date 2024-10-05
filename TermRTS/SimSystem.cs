@@ -12,10 +12,10 @@ public abstract class SimSystem
     // TODO: Iteration should be optional to overwrite and encapsulate the processing step
     // Alternative:
     // TODO: Encapsulate entities in handler class which allows different methods of iteration
-    public abstract Dictionary<Type, ComponentBase>? ProcessComponents(
-        ulong timeStepSizeMs,
-        EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents);
-    
-    public abstract void ProcessComponents(ulong timeStepSize, ref IStorage storage);
+    //public abstract Dictionary<Type, ComponentBase>? ProcessComponents(
+    //    ulong timeStepSizeMs,
+    //    EntityBase thisEntityComponents,
+    //    IEnumerable<EntityBase> otherEntityComponents);
+
+    public abstract void ProcessComponents(ulong timeStepSize, in IStorage storage);
 }

@@ -47,8 +47,9 @@ public class Core : ICore
         _isGameRunning = true;
         _renderer = renderer;
         _entities = new List<EntityBase>();
-        _entitiesPendingChanges = new Dictionary<int, Dictionary<Type, ComponentBase>>();
+        _components = new MappedCollectionStorage();
         _newEntities = new List<EntityBase>();
+        _newComponents = new List<ComponentBase>();
         _systems = new List<SimSystem>();
     }
 
@@ -82,8 +83,9 @@ public class Core : ICore
     private readonly IRenderer _renderer;
     private readonly List<SimSystem> _systems;
     private readonly List<EntityBase> _entities;
-    private readonly Dictionary<int, Dictionary<Type, ComponentBase>> _entitiesPendingChanges;
+    private readonly IStorage _components;
     private readonly List<EntityBase> _newEntities;
+    private readonly List<ComponentBase> _newComponents;
 
     // map types to id -> component maps
     // component = components[type][id]
@@ -123,6 +125,11 @@ public class Core : ICore
     public void AddEntity(EntityBase entity)
     {
         _newEntities.Add(entity);
+    }
+
+    public void AddComponent(ComponentBase component)
+    {
+        _newComponents.Add(component);
     }
 
     /// <summary>
@@ -172,29 +179,46 @@ public class Core : ICore
                 // TODO: Slices are supposedly slow because they copy data. Change to better iteration strategy! 
                 var thisEntity = _entities[i];
                 var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
-                var change =
-                    sys.ProcessComponents(timeStepSizeMs, thisEntity, otherEntities);
-                if (change != null) _entitiesPendingChanges[i] = change;
+                sys.ProcessComponents(timeStepSizeMs, in _components);
             }
 
         // Step 2: Apply changes to the game world
-        for (var i = 0; i < _entities.Count; i += 1)
-        {
-            if (!_entitiesPendingChanges.ContainsKey(i))
-                continue;
-
-            var entity = _entities[i];
-            var change = _entitiesPendingChanges[i];
-
-            foreach (var item in change) entity.Components[item.Key] = item.Value;
-        }
-
-        _entitiesPendingChanges.Clear();
+        //for (var i = 0; i < _entities.Count; i += 1)
+        //{
+        //    if (!_entitiesPendingChanges.ContainsKey(i))
+        //        continue;
+        //
+        //    var entity = _entities[i];
+        //    var change = _entitiesPendingChanges[i];
+        //
+        //    foreach (var item in change) entity.Components[item.Key] = item.Value;
+        //}
+        //
+        //_entitiesPendingChanges.Clear();
 
         // Clean up operations: remove 'dead' entities and add new ones
+        var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
+        foreach (var id in entityIdsToRemove)
+        {
+            _components.RemoveComponents(id);
+        }
         _entities.RemoveAll(e => e.IsMarkedForRemoval);
-        _entities.AddRange(_newEntities);
-        _newEntities.Clear();
+
+        if (_newEntities.Count > 0)
+        {
+            _entities.AddRange(_newEntities);
+            _newEntities.Clear();
+        }
+
+        if (_newComponents.Count > 0)
+        {
+            foreach (var c in _newComponents)
+            {
+                _components.AddComponent(c);
+            }
+        }
+
+        _components.SwapBuffers();
 
         // New game state:
         //  - all pending changes cleared
@@ -205,10 +229,10 @@ public class Core : ICore
     /// <summary>
     ///     Call the renderer to render all renderable objects.
     /// </summary>
-    public void Render(double howFarIntoNextFrameMs, double timeStepSizeMs)
+    public void Render(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
         for (var i = 0; i < _entities.Count; i += 1)
-            _renderer.RenderEntity(_entities[i].Components, howFarIntoNextFrameMs);
+            _renderer.RenderComponents(in _components, timeStepSizeMs, howFarIntoNextFrameMs);
 
         _renderer.FinalizeRender();
     }

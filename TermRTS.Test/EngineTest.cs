@@ -12,14 +12,9 @@ public class NullWorld : IWorld
 
 public class NullRenderer : IRenderer
 {
-    public void RenderEntity(Dictionary<Type, ComponentBase> entity, double howFarIntoNextFrameMs)
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
-    }
-
-    public void RenderWorld(NullWorld world, double howFarIntoNextFrameMs, double timeStepSizeMs)
-    {
-        Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
+        Console.WriteLine($"Rendering components at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
     public void Shutdown()
@@ -56,17 +51,12 @@ public class WatcherSystem : SimSystem
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<Type, ComponentBase>? ProcessComponents(
-        ulong timeStepSize,
-        EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents)
+    public override void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         _remainingTicks -= 1;
 
         if (_remainingTicks == 1)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
-
-        return null;
     }
 }
 

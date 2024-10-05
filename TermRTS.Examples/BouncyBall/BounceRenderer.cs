@@ -12,15 +12,16 @@ internal class BounceRenderer : IRenderer
         Console.CursorVisible = false;
     }
 
-    public void RenderEntity(Dictionary<Type, ComponentBase> entity,
-        double howFarIntoNextFrameMs)
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        if (!entity.TryGetValue(typeof(BounceBall), out var ballComponent))
-            return;
+        var ballComponents = storage.GetForType(typeof(BounceBall));
 
-        var ball = (BounceBall)ballComponent;
+        foreach (var ballComponent in ballComponents)
+        {
+            var ball = (BounceBall)ballComponent;
 
-        _canvas.Set((int)ball.Position.X, (int)ball.Position.Y);
+            _canvas.Set((int)ball.Position.X, (int)ball.Position.Y);
+        }
 
         // if (ball.Velocity == Vector2.Zero)
         //    return;

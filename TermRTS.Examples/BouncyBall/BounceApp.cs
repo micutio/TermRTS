@@ -3,13 +3,6 @@ using TermRTS.IO;
 
 namespace TermRTS.Examples.BouncyBall;
 
-internal class BounceWorld : IWorld
-{
-    public void ApplyChange()
-    {
-    }
-}
-
 internal enum BounceComponentTypes
 {
     Ball
@@ -17,18 +10,27 @@ internal enum BounceComponentTypes
 
 internal class BounceBall : ComponentBase
 {
-    internal BounceBall(float x, float y, float dx, float dy)
+    internal BounceBall(int id, float x, float y, float dx, float dy) : base(id)
     {
-        Position = new Vector2(x, y);
-        Velocity = new Vector2(dx, dy);
+        _position = new DoubleBuffered<Vector2>(new Vector2(x, y));
+        _velocity = new DoubleBuffered<Vector2>(new Vector2(dx, dy));
+
+        RegisterDoubleBufferedProperty(_position);
+        RegisterDoubleBufferedProperty(_velocity);
     }
 
-    public Vector2 Position { get; set; }
-    public Vector2 Velocity { get; set; }
+    private DoubleBuffered<Vector2> _position;
+    private DoubleBuffered<Vector2> _velocity;
 
-    public object Clone()
+    public Vector2 Position
     {
-        return new BounceBall(Position.X, Position.Y, Velocity.X, Velocity.Y);
+        get { return _position.Get(); }
+        set { _position.Set(value); }
+    }
+    public Vector2 Velocity
+    {
+        get { return _velocity.Get(); }
+        set { _velocity.Set(value); }
     }
 }
 
@@ -61,63 +63,63 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
         }
     }
 
-    public override Dictionary<Type, ComponentBase>? ProcessComponents(
-        ulong timeStepSizeMs,
-        EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents)
+    public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
-        thisEntityComponents
-            .Components
-            .TryGetValue(typeof(BounceBall), out var changedBallComponent);
+        var ballComponents = storage.GetForType(typeof(BounceBall));
 
-        if (changedBallComponent == null)
-            return null;
-
-        var maxX = Console.BufferWidth;
-        var maxY = Console.BufferHeight;
-
-        var changedBall = (BounceBall)changedBallComponent;
-        var ballVel = changedBall.Velocity;
-        var ballPos = changedBall.Position;
-        ballVel += _velocity;
-        _velocity = Vector2.Zero;
-        ballPos += ballVel;
-        ballVel = Vector2.Multiply(ballVel, 0.90f);
-
-        if (Math.Abs(ballVel.X) < 0.1f)
-            ballVel.X = 0.0f;
-        if (Math.Abs(ballVel.Y) < 0.1f)
-            ballVel.Y = 0.0f;
-
-        if (ballPos.X >= maxX)
+        foreach (var ballComponent in ballComponents)
         {
-            ballPos.X = maxX - 1;
-            ballVel.X = 0.0f;
+            var ball = (BounceBall)ballComponent;
+
+            //thisEntityComponents
+            //    .Components
+            //    .TryGetValue(typeof(BounceBall), out var changedBallComponent);
+            //if (changedBallComponent == null)
+            //    return null;
+            //var changedBall = (BounceBall)changedBallComponent;
+
+            var maxX = Console.BufferWidth;
+            var maxY = Console.BufferHeight;
+
+            var ballVel = ball.Velocity;
+            var ballPos = ball.Position;
+            ballVel += _velocity;
+            _velocity = Vector2.Zero;
+            ballPos += ballVel;
+            ballVel = Vector2.Multiply(ballVel, 0.90f);
+
+            if (Math.Abs(ballVel.X) < 0.1f)
+                ballVel.X = 0.0f;
+            if (Math.Abs(ballVel.Y) < 0.1f)
+                ballVel.Y = 0.0f;
+
+            if (ballPos.X >= maxX)
+            {
+                ballPos.X = maxX - 1;
+                ballVel.X = 0.0f;
+            }
+
+            if (ballPos.X <= 0)
+            {
+                ballPos.X = 0;
+                ballVel.X = 0.0f;
+            }
+
+            if (ballPos.Y >= maxY)
+            {
+                ballPos.Y = maxY - 1;
+                ballVel.Y = 0.0f;
+            }
+
+            if (ballPos.Y <= 0)
+            {
+                ballPos.Y = 0;
+                ballVel.Y = 0.0f;
+            }
+
+            ball.Position = ballPos;
+            ball.Velocity = ballVel;
         }
-
-        if (ballPos.X <= 0)
-        {
-            ballPos.X = 0;
-            ballVel.X = 0.0f;
-        }
-
-        if (ballPos.Y >= maxY)
-        {
-            ballPos.Y = maxY - 1;
-            ballVel.Y = 0.0f;
-        }
-
-        if (ballPos.Y <= 0)
-        {
-            ballPos.Y = 0;
-            ballVel.Y = 0.0f;
-        }
-
-        changedBall.Position = ballPos;
-        changedBall.Velocity = ballVel;
-
-        return new Dictionary<Type, ComponentBase>
-            { { typeof(BounceBall), changedBallComponent } };
     }
 }
 
@@ -129,7 +131,7 @@ public class BounceApp : IRunnableExample
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddSimSystem(bouncePhysics);
         var bounceEntity = new EntityBase();
-        bounceEntity.AddComponent(new BounceBall(10f, 10f, 0f, 0f));
+        bounceEntity.AddComponent(new BounceBall(bounceEntity.Id, 10f, 10f, 0f, 0f));
         core.AddEntity(bounceEntity);
 
         var scheduler = new Scheduler(16, 16, core);

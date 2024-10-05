@@ -10,9 +10,11 @@ public interface IRenderer
     /// <param name="howFarIntoNextFrameMs">
     ///     How much extra time was needed for the last simulation tick.
     /// </param>
-    public void RenderEntity(
-        Dictionary<Type, ComponentBase> entity,
-        double howFarIntoNextFrameMs);
+    //public void RenderEntity(
+    //    Dictionary<Type, ComponentBase> entity,
+    //    double howFarIntoNextFrameMs);
+
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs);
 
     /// <summary>
     ///     Called at the end of the rendering step each simulation tick. This allows to apply the

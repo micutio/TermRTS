@@ -46,7 +46,38 @@ internal class Renderer : IRenderer, IEventSink
 
     #region Public Methods
 
-    public void RenderWorld(World world, double timeStepSizeMs, double howFarIntoNextFrameMs)
+
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
+    {
+        RenderInfo(timeStepSizeMs, howFarIntoNextFrameMs);
+
+        foreach (var chip in storage.GetForType(typeof(App.Chip)).Cast<App.Chip>())
+        {
+            RenderOutline(chip.Outline);
+        }
+
+        foreach (var bus in storage.GetForType(typeof(App.Bus)).Cast<App.Bus>())
+        {
+            var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
+            bus
+                .Connections
+                .ForEach(wire => RenderWire(wire.Outline, bus.IsActive, progress));
+        }
+    }
+
+    public void FinalizeRender()
+    {
+        _canvas.Render();
+    }
+
+    public void Shutdown()
+    {
+        Console.ResetColor();
+    }
+
+    #endregion
+
+    private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
         _timePassed += timeStepSizeMs + howFarIntoNextFrameMs;
         _fps += 1;
@@ -66,36 +97,6 @@ internal class Renderer : IRenderer, IEventSink
         _canvas.Text(1, 0, $"Circuitry World  ~  FPS: {_lastFps} {debugStr}");
 #endif
     }
-
-    public void RenderEntity(Dictionary<Type, ComponentBase> entity, double howFarIntoNextFrameMs)
-    {
-        if (entity.TryGetValue(typeof(App.Chip), out var chipComponent))
-        {
-            RenderOutline(((App.Chip)chipComponent).Outline);
-            return;
-        }
-
-        if (!entity.TryGetValue(typeof(App.Bus), out var busComponent))
-            return;
-
-        var bus = (App.Bus)busComponent;
-        var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
-        bus
-            .Connections
-            .ForEach(wire => RenderWire(wire.Outline, bus.IsActive, progress));
-    }
-
-    public void FinalizeRender()
-    {
-        _canvas.Render();
-    }
-
-    public void Shutdown()
-    {
-        Console.ResetColor();
-    }
-
-    #endregion
 
     private void RenderOutline(App.Cell[] outline)
     {

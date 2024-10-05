@@ -32,7 +32,7 @@ public interface IStorage
     public IEnumerable<ComponentBase> GetForType(Type type);
 
     public IEnumerable<ComponentBase> GetForEntityAndType(int entityId, Type type);
-    
+
     //public IEnumerable<ComponentBase> All();
     public void SwapBuffers();
 }
@@ -59,6 +59,7 @@ public class MappedCollectionStorage : IStorage
         // componentsDict.Add(component.EntityId, component);
     }
 
+    // TODO: Maybe replace with Enumerable<ComponentBase>
     public void AddComponents(ComponentBase[] components)
     {
         foreach (var component in components) AddComponent(component);
@@ -104,8 +105,8 @@ public class MappedCollectionStorage : IStorage
     {
         return _componentStores[type][entityId];
     }
-    
-    
+
+
     public void SwapBuffers()
     {
         // foreach (var component in _componentStores.SelectMany(store => store.Value.Values.SelectMany(l => l)))
@@ -114,7 +115,7 @@ public class MappedCollectionStorage : IStorage
             component.SwapBuffers();
         }
     }
-    
+
     private IEnumerable<ComponentBase> All()
     {
         return _componentStores

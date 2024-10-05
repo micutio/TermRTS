@@ -9,16 +9,9 @@ internal enum EmptyComponentType
 
 internal class NullRenderer : IRenderer
 {
-    public void RenderEntity(
-        Dictionary<Type, ComponentBase> entity,
-        double howFarIntoNextFrameMs)
+    public void RenderComponents(in IStorage components, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
-    }
-
-    public void RenderWorld(double howFarIntoNextFrameMs, double timeStepSizeMs)
-    {
-        // Console.WriteLine($"Rendering null-world at {howFarIntoNextFrameMs} ms into next frame.");
     }
 
     public void FinalizeRender()
@@ -43,10 +36,7 @@ internal class WatcherSystem : SimSystem
         EventOutput = _eventChannel.Reader;
     }
 
-    public override Dictionary<Type, ComponentBase>? ProcessComponents(
-        ulong timeStepSizeMs,
-        EntityBase thisEntityComponents,
-        IEnumerable<EntityBase> otherEntityComponents)
+    public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         _remainingTicks -= 1;
         // Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
@@ -56,8 +46,6 @@ internal class WatcherSystem : SimSystem
 
         if (_remainingTicks % 60 == 0)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Profile), 60));
-
-        return null;
     }
 }
 

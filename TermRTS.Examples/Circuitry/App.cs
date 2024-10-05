@@ -85,14 +85,6 @@ internal class App : IRunnableExample
 
         public Cell[] Outline { get; }
 
-        public object Clone()
-        {
-            return new Chip(
-                EntityId,
-                new Vector2(Position1.X, Position1.Y),
-                new Vector2(Position2.X, Position2.Y));
-        }
-
         public bool IsIntersecting(Chip other)
         {
             return Position1.X <= other.Position2.X
@@ -182,7 +174,8 @@ internal class App : IRunnableExample
     {
         public const float Velocity = 25.5f; // in [m/s]
         public readonly List<Wire> Connections = connections;
-        private float _progress; // in [%]
+
+        private DoubleBuffered<float> _progress = new DoubleBuffered<float>(0); // in [%]
 
         public bool IsActive { get; set; } // defaults to `false`
 
@@ -201,29 +194,19 @@ internal class App : IRunnableExample
 
         public float Progress
         {
-            get => _progress;
+            get => _progress.Get();
             set
             {
-                if (_progress > 1.0f)
+                if (_progress.Get() > 1.0f)
                 {
                     IsActive = false;
-                    _progress = 0.0f;
+                    _progress.Set(0.0f);
                 }
                 else
                 {
-                    _progress = value;
+                    _progress.Set(value);
                 }
             }
-        }
-
-        public object Clone()
-        {
-            return new Bus(EntityId, Connections.ConvertAll(c => (Wire)c.Clone()))
-            {
-                Progress = Progress,
-                IsActive = IsActive,
-                IsForward = IsForward
-            };
         }
     }
 
@@ -269,12 +252,6 @@ internal class App : IRunnableExample
             );
             Outline[positionCount - 1] = new Cell(positions[positionCount - 1].x,
                 positions[positionCount - 1].y, endChar);
-        }
-
-        public object Clone()
-        {
-            var outline = Outline.Select<Cell, (int, int)>(cell => (cell.X, cell.Y)).ToList();
-            return new Wire(outline);
         }
 
         private static char GenerateTerminatorChar(int thisX, int thisY, int nextX, int nextY)
@@ -335,50 +312,37 @@ internal class App : IRunnableExample
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
 
-        public override Dictionary<Type, ComponentBase> ProcessComponents(
-            ulong timeStepSizeMs,
-            EntityBase thisEntityComponents,
-            IEnumerable<EntityBase> otherEntityComponents)
+        public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
-            thisEntityComponents
-                .Components
-                .TryGetValue(typeof(Bus), out var busComponent);
-
-            if (busComponent == null)
-                return new Dictionary<Type, ComponentBase>();
-
-            var bus = (Bus)busComponent.Clone();
-
-            // If not active, then randomly determine whether to activate.
-            if (!bus.IsActive)
+            var busComponents = storage.GetForType(typeof(Bus));
+            foreach (var busComponent in busComponents)
             {
-                if (_timeSinceLastAttempt >= 1000L)
-                {
-                    _timeSinceLastAttempt = 0L;
-                    if (!(_rng.NextSingle() < 0.5))
-                        return new Dictionary<Type, ComponentBase>
-                            { { typeof(Bus), bus } };
+                var bus = (Bus)busComponent;
 
-                    bus.IsActive = true;
-                    bus.IsForward = _rng.Next() % 2 == 0;
-                    bus.Progress = 0.0f;
-                }
-                else
+                // If not active, then randomly determine whether to activate.
+                if (!bus.IsActive)
                 {
-                    _timeSinceLastAttempt += timeStepSizeMs;
+                    if (_timeSinceLastAttempt >= 1000L)
+                    {
+                        _timeSinceLastAttempt = 0L;
+                        if (!(_rng.NextSingle() < 0.5)) return;
+
+                        bus.IsActive = true;
+                        bus.IsForward = _rng.Next() % 2 == 0;
+                        bus.Progress = 0.0f;
+                    }
+                    else
+                    {
+                        _timeSinceLastAttempt += timeStepSizeMs;
+                    }
+                    return;
                 }
 
-                return new Dictionary<Type, ComponentBase>
-                    { { typeof(Bus), bus } };
+                //  If already active, then take speed, divide by time step size and advance progress
+                var progressInM = bus.AvgWireLength * bus.Progress;
+                var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
+                bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
             }
-
-            //  If already active, then take speed, divide by time step size and advance progress
-            var progressInM = bus.AvgWireLength * bus.Progress;
-            var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
-            bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
-
-            return new Dictionary<Type, ComponentBase>
-                { { typeof(Bus), bus } };
         }
     }
 

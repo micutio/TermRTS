@@ -368,10 +368,7 @@ internal class EntityGenerator
         CreateBus(width, busStart, busEnd);
     }
 
-    private void CreateBus(
-        int width,
-        IList<(int, int)> busStart,
-        IList<(int, int)> busEnd)
+    private void CreateBus(int width, IList<(int, int)> busStart, IList<(int, int)> busEnd)
     {
         var wires = new List<App.Wire>();
         for (var i = 0; i < width; i += 1)
