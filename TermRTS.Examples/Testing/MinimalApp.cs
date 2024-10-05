@@ -39,7 +39,7 @@ internal class WatcherSystem : SimSystem
     public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         _remainingTicks -= 1;
-        // Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
+        Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
