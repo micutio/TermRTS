@@ -79,12 +79,6 @@ public class Scheduler : IEventSink
         Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
     }
 
-    private async Task Redirect(ChannelReader<(IEvent, ulong)> input)
-    {
-        await foreach (var item in input.ReadAllAsync())
-            _eventQueue.TryAdd(item);
-    }
-
     /// <summary>
     ///     Add a new event sink, which will receive events of the specified type.
     /// </summary>
@@ -200,6 +194,12 @@ public class Scheduler : IEventSink
             foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
                 eventSink.ProcessEvent(eventItem.Item1);
         }
+    }
+
+    private async Task Redirect(ChannelReader<(IEvent, ulong)> input)
+    {
+        await foreach (var item in input.ReadAllAsync())
+            _eventQueue.TryAdd(item);
     }
 
     #endregion

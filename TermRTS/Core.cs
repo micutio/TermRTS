@@ -245,8 +245,7 @@ public class Core : ICore
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        for (var i = 0; i < _entities.Count; i += 1)
-            _renderer.RenderComponents(in _components, timeStepSizeMs, howFarIntoNextFrameMs);
+        _renderer.RenderComponents(in _components, timeStepSizeMs, howFarIntoNextFrameMs);
 
         _renderer.FinalizeRender();
     }
