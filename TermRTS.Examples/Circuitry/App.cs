@@ -24,13 +24,14 @@ internal class App : IRunnableExample
         var core = new Core(renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         EntityGenerator.RandomCircuitBoard()
-            .WithRandomSeed(666)
+            //.WithRandomSeed(666)
             .WithChipCount(10)
             .WithChipDimensions(5, 15)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build(out var entities, out var components);
         core.AddAllEntities(entities);
+        core.AddAllComponents(components);
         core.AddSimSystem(new BusSystem());
 
         var scheduler = new Scheduler(16, 16, core);
@@ -170,26 +171,24 @@ internal class App : IRunnableExample
         }
     }
 
-    internal class Bus(int eid, List<Wire> connections) : ComponentBase(eid)
+    internal class Bus : ComponentBase
     {
         public const float Velocity = 25.5f; // in [m/s]
-        public readonly List<Wire> Connections = connections;
+        public readonly List<Wire> Connections;
 
-        private DoubleBuffered<float> _progress = new DoubleBuffered<float>(0); // in [%]
+        private DoubleBuffered<float> _progress;
+        private DoubleBuffered<bool> _isActive;
+        private DoubleBuffered<bool> _isForward;
 
-        public bool IsActive { get; set; } // defaults to `false`
-
-        public bool IsForward { get; set; } = true;
-
-        public int AvgWireLength
+        public Bus(int eid, List<Wire> connections) : base(eid)
         {
-            get
-            {
-                var sumOfLengths = Connections
-                    .ConvertAll(c => c.Outline.Length)
-                    .Sum();
-                return sumOfLengths / Connections.Count;
-            }
+            Connections = connections;
+            _progress = new DoubleBuffered<float>(0); // in [%]
+            _isActive = new DoubleBuffered<bool>(false);
+            _isForward = new DoubleBuffered<bool>(true);
+            RegisterDoubleBufferedProperty(_progress);
+            RegisterDoubleBufferedProperty(_isActive);
+            RegisterDoubleBufferedProperty(_isForward);
         }
 
         public float Progress
@@ -206,6 +205,29 @@ internal class App : IRunnableExample
                 {
                     _progress.Set(value);
                 }
+            }
+        }
+
+        public bool IsActive
+        {
+            get { return _isActive.Get(); }
+            set { _isActive.Set(value); }
+        }
+
+        public bool IsForward
+        {
+            get { return _isForward.Get(); }
+            set { _isForward.Set(value); }
+        }
+
+        public int AvgWireLength
+        {
+            get
+            {
+                var sumOfLengths = Connections
+                    .ConvertAll(c => c.Outline.Length)
+                    .Sum();
+                return sumOfLengths / Connections.Count;
             }
         }
     }

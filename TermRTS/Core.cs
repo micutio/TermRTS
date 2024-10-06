@@ -127,11 +127,6 @@ public class Core : ICore
         _newEntities.Add(entity);
     }
 
-    public void AddComponent(ComponentBase component)
-    {
-        _newComponents.Add(component);
-    }
-
     /// <summary>
     ///     Schedule a range of new entities to be added to the simulation at the beginning of the
     ///     next tick.
@@ -140,6 +135,25 @@ public class Core : ICore
     public void AddAllEntities(IEnumerable<EntityBase> entities)
     {
         _newEntities.AddRange(entities);
+    }
+
+    /// <summary>
+    ///     Schedule a new component to be added to the simulation at the beginning of the next tick.
+    /// </summary>
+    /// <param name="component"> Component object to be added. </param>
+    public void AddComponent(ComponentBase component)
+    {
+        _newComponents.Add(component);
+    }
+
+    /// <summary>
+    ///     Schedule a range of new components to be added to the simulation at the beginning of the
+    ///     next tick.
+    /// </summary>
+    /// <param name="components"> Entity objects to be added. </param>
+    public void AddAllComponents(IEnumerable<ComponentBase> components)
+    {
+        _newComponents.AddRange(components);
     }
 
     /// <summary>
