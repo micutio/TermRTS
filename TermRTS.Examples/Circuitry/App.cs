@@ -24,8 +24,8 @@ internal class App : IRunnableExample
         var core = new Core(renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         EntityGenerator.RandomCircuitBoard()
-            //.WithRandomSeed(666)
-            .WithChipCount(10)
+            //.WithRandomSeed(0)
+            .WithChipCount(50)
             .WithChipDimensions(5, 15)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
@@ -336,10 +336,9 @@ internal class App : IRunnableExample
 
         public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
-            var busComponents = storage.GetForType(typeof(Bus));
-            foreach (var busComponent in busComponents)
+            foreach (var b in storage.GetForType(typeof(Bus)))
             {
-                var bus = (Bus)busComponent;
+                var bus = (Bus)b;
 
                 // If not active, then randomly determine whether to activate.
                 if (!bus.IsActive)
@@ -347,7 +346,7 @@ internal class App : IRunnableExample
                     if (_timeSinceLastAttempt >= 1000L)
                     {
                         _timeSinceLastAttempt = 0L;
-                        if (!(_rng.NextSingle() < 0.5)) return;
+                        if (_rng.NextSingle() > 0.5) return;
 
                         bus.IsActive = true;
                         bus.IsForward = _rng.Next() % 2 == 0;
