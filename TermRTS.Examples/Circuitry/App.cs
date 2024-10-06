@@ -25,8 +25,8 @@ internal class App : IRunnableExample
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         EntityGenerator.RandomCircuitBoard()
             //.WithRandomSeed(0)
-            .WithChipCount(50)
-            .WithChipDimensions(5, 15)
+            .WithChipCount(20)
+            .WithChipDimensions(5, 55)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build(out var entities, out var components);
@@ -346,7 +346,7 @@ internal class App : IRunnableExample
                     if (_timeSinceLastAttempt >= 1000L)
                     {
                         _timeSinceLastAttempt = 0L;
-                        if (_rng.NextSingle() > 0.5) return;
+                        if (_rng.NextSingle() > 0.02) continue;
 
                         bus.IsActive = true;
                         bus.IsForward = _rng.Next() % 2 == 0;
@@ -356,7 +356,7 @@ internal class App : IRunnableExample
                     {
                         _timeSinceLastAttempt += timeStepSizeMs;
                     }
-                    return;
+                    continue;
                 }
 
                 //  If already active, then take speed, divide by time step size and advance progress

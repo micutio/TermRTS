@@ -95,10 +95,10 @@ public interface IDoubleBufferedProperty
 /// </summary>
 /// <param name="value">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>
-public class DoubleBuffered<T>(T value) : IDoubleBufferedProperty
+public class DoubleBuffered<T>(T val) : IDoubleBufferedProperty
 {
-    private T _value = value;
-    private T _buffer = value;
+    private T _value = val;
+    private T _buffer = val;
 
     public void Set(T value)
     {
