@@ -13,7 +13,7 @@ internal class Renderer : IRenderer, IEventSink
     private double _lastSecond;
     private string _profileOutput;
 
-    private double _timePassed;
+    private double _timePassedMs;
     public Vector2 CameraPos = new(0, 0);
     public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
     public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
@@ -79,11 +79,11 @@ internal class Renderer : IRenderer, IEventSink
 
     private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        _timePassed += timeStepSizeMs + howFarIntoNextFrameMs;
+        _timePassedMs += timeStepSizeMs + howFarIntoNextFrameMs;
         _fps += 1;
-        if (_timePassed >= _lastSecond + 1000)
+        if (_timePassedMs >= _lastSecond + 1000)
         {
-            _lastSecond = _timePassed;
+            _lastSecond = _timePassedMs;
             _lastFps = _fps;
             _fps = 1;
         }
@@ -91,10 +91,11 @@ internal class Renderer : IRenderer, IEventSink
         _canvas.Clear();
 
 #if DEBUG
-        var debugStr = string.IsNullOrEmpty(_profileOutput)
-            ? ""
-            : $" ~ {_profileOutput}";
-        _canvas.Text(1, 0, $"Circuitry World  ~  FPS: {_lastFps} {debugStr}");
+        var debugStr = string.IsNullOrEmpty(_profileOutput) ? "" : $" ~ {_profileOutput}";
+        var sec = (int)Math.Floor(_timePassedMs / 1000);
+        var min = (int)Math.Floor(_timePassedMs / (1000 * 60));
+        var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60));
+        _canvas.Text(1, 0, $"Circuitry World ~ {hr}:{min}:{sec} ~ FPS: {_lastFps} {debugStr}");
 #endif
     }
 
