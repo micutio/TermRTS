@@ -30,9 +30,6 @@ public interface ICore : IEventSink
 /// <summary>
 ///     The core of the engine performs the actual tick logic and is controlled by the scheduler.
 /// </summary>
-/// <typeparam name="TWorld">
-///     Type of the world class.
-/// </typeparam>
 public class Core : ICore
 {
     #region Constructor
@@ -40,7 +37,6 @@ public class Core : ICore
     /// <summary>
     ///     Constructor
     /// </summary>
-    /// <param name="world"> An object representing the simulation world. </param>
     /// <param name="renderer"> An object representing the renderer. </param>
     public Core(IRenderer renderer)
     {
@@ -83,7 +79,7 @@ public class Core : ICore
     private readonly IRenderer _renderer;
     private readonly List<SimSystem> _systems;
     private readonly List<EntityBase> _entities;
-    private readonly IStorage _components;
+    private readonly MappedCollectionStorage _components;
     private readonly List<EntityBase> _newEntities;
     private readonly List<ComponentBase> _newComponents;
 
@@ -191,24 +187,11 @@ public class Core : ICore
             {
                 // Create a copy of the entity list and remove this entity to not iterate over it
                 // TODO: Slices are supposedly slow because they copy data. Change to better iteration strategy! 
-                var thisEntity = _entities[i];
-                var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
-                sys.ProcessComponents(timeStepSizeMs, in _components);
+                // var thisEntity = _entities[i];
+                // var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
+                sys.ProcessComponents(timeStepSizeMs, _components);
             }
 
-        // Step 2: Apply changes to the game world
-        //for (var i = 0; i < _entities.Count; i += 1)
-        //{
-        //    if (!_entitiesPendingChanges.ContainsKey(i))
-        //        continue;
-        //
-        //    var entity = _entities[i];
-        //    var change = _entitiesPendingChanges[i];
-        //
-        //    foreach (var item in change) entity.Components[item.Key] = item.Value;
-        //}
-        //
-        //_entitiesPendingChanges.Clear();
         _components.SwapBuffers();
 
         // Clean up operations: remove 'dead' entities and add new ones
@@ -219,13 +202,13 @@ public class Core : ICore
         }
         _entities.RemoveAll(e => e.IsMarkedForRemoval);
 
-        if (_newEntities.Count > 0)
+        if (_newEntities.Count != 0)
         {
             _entities.AddRange(_newEntities);
             _newEntities.Clear();
         }
 
-        if (_newComponents.Count > 0)
+        if (_newComponents.Count != 0)
         {
             foreach (var c in _newComponents)
             {
@@ -245,7 +228,7 @@ public class Core : ICore
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        _renderer.RenderComponents(in _components, timeStepSizeMs, howFarIntoNextFrameMs);
+        _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFrameMs);
 
         _renderer.FinalizeRender();
     }

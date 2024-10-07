@@ -34,6 +34,7 @@ public class ConsoleInput : IEventSink
         _thread.Start();
     }
 
+    // TODO: Reduce input checking frequency if there hasn't been any input for a long time.
     private void ListenForKeyInput()
     {
         while (_keepRunning)

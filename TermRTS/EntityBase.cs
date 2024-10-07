@@ -9,7 +9,6 @@ public class EntityBase
 
     private static int _runningId;
 
-
     #endregion
 
     #region Constructors
@@ -20,7 +19,6 @@ public class EntityBase
     public EntityBase()
     {
         Id = Interlocked.Increment(ref _runningId);
-        Components = new Dictionary<Type, ComponentBase>();
     }
 
     /// <summary>
@@ -29,7 +27,6 @@ public class EntityBase
     public EntityBase(ComponentBase component)
     {
         Id = Interlocked.Increment(ref _runningId);
-        Components = new Dictionary<Type, ComponentBase> { { component.GetType(), component } };
     }
 
     #endregion
@@ -39,43 +36,9 @@ public class EntityBase
     public int Id { get; }
 
     /// <summary>
-    ///     Storage for one component per system type.
-    /// </summary>
-    public Dictionary<Type, ComponentBase> Components { get; }
-
-    /// <summary>
     ///     Property to indicate whether this entity is to be removed.
     /// </summary>
     public bool IsMarkedForRemoval { get; set; } = false;
-
-    #endregion
-
-    #region Public Methods
-
-    /// <summary>
-    ///     Add a new component to this entity.
-    /// </summary>
-    public void AddComponent(ComponentBase component)
-    {
-        Components.Add(component.GetType(), component);
-    }
-
-    /// <summary>
-    ///     Add or overwrite a component of the given system type.
-    /// </summary>
-    public void SetComponent(ComponentBase component)
-    {
-        Components[component.GetType()] = component;
-    }
-
-    /// <summary>
-    ///     Checks whether this entity matches all given system types.
-    /// </summary>
-    /// <param name="systemTypes"> Collection of system types to match. </param>
-    public bool IsCompatibleWith(Type[] systemTypes)
-    {
-        return systemTypes.All(Components.ContainsKey);
-    }
 
     #endregion
 }
@@ -91,9 +54,9 @@ public interface IDoubleBufferedProperty
 /// <summary>
 /// Implementation of a property with decoupled read and write operations.
 /// The property can be reassigned a new value while still exposing the old value publicly.
-/// Only the <see cref="Apply"/> method updates the readable value.
+/// Only the <see cref="SwitchBuffer"/> method updates the readable value.
 /// </summary>
-/// <param name="value">Value of the property</param>
+/// <param name="val">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>
 public class DoubleBuffered<T>(T val) : IDoubleBufferedProperty
 {

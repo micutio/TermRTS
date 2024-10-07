@@ -5,109 +5,6 @@ namespace TermRTS.Examples.Circuitry;
 internal class EntityGenerator
 {
     /// <summary>
-    ///     Static method for building a pre-fab circuit board
-    /// </summary>
-    /// <returns>A small complete set of chips and wires</returns>
-    internal static IReadOnlyList<EntityBase> BuildSmallCircuitBoard()
-    {
-        var chipEntity1 = new EntityBase();
-        chipEntity1.AddComponent(
-            new App.Chip(chipEntity1.Id, new Vector2(10, 10), new Vector2(15, 15)));
-
-        var chipEntity2 = new EntityBase();
-        chipEntity2.AddComponent(
-            new App.Chip(chipEntity2.Id, new Vector2(20, 20), new Vector2(30, 30)));
-
-        var busEntity1 = new EntityBase();
-        busEntity1.AddComponent(
-            new App.Bus(
-                busEntity1.Id,
-            [
-                new App.Wire(
-                    new List<(int, int)>
-                    {
-                        // from the lower chip, first go left
-                        (20, 25), (19, 25), (18, 25), (17, 25), (16, 25), (15, 25), (14, 25),
-                        (13, 25),
-                        // then go up
-                        (13, 24), (13, 23), (13, 22), (13, 21), (13, 20), (13, 19), (13, 18),
-                        (13, 17),
-                        // now go right
-                        (14, 17), (15, 17), (16, 17), (17, 17), (18, 17),
-                        // go up again
-                        (18, 16), (18, 15), (18, 14),
-                        // finally, go left and connect to the smaller chip
-                        (17, 14), (16, 14), (15, 14)
-                    }),
-
-                new App.Wire(
-                    new List<(int, int)>
-                    {
-                        // from the lower chip, first go left
-                        (20, 24), (19, 24), (18, 24), (17, 24), (16, 24), (15, 24), (14, 24),
-                        // then go up
-                        (14, 23), (14, 22), (14, 21), (14, 20), (14, 19), (14, 18),
-                        // now go right
-                        (15, 18), (16, 18), (17, 18), (18, 18), (19, 18),
-                        // go up again
-                        (19, 17), (19, 16), (19, 15), (19, 14), (19, 13),
-                        // finally, go left and connect to the smaller chip
-                        (18, 13), (17, 13), (16, 13), (15, 13)
-                    }),
-
-                new App.Wire(
-                    new List<(int, int)>
-                    {
-                        // from the lower chip, first go left
-                        (20, 23), (19, 23), (18, 23), (17, 23), (16, 23), (15, 23),
-                        // then go up
-                        (15, 22), (15, 21), (15, 20), (15, 19),
-                        // now go right
-                        (16, 19), (17, 19), (18, 19), (19, 19), (20, 19),
-                        // go up again
-                        (20, 18), (20, 17), (20, 16), (20, 15), (20, 14), (20, 13), (20, 12),
-                        // finally, go left and connect to the smaller chip
-                        (19, 12), (18, 12), (17, 12), (16, 12), (15, 12)
-                    })
-            ]));
-
-        var busEntity2 = new EntityBase();
-        busEntity2.AddComponent(
-            new App.Bus(
-                busEntity2.Id,
-            [
-                new App.Wire(new List<(int x, int y)>
-                {
-                    // from the upper chip, first go up
-                    (14, 10), (14, 9),
-                    // then turn right
-                    (15, 9), (16, 9), (17, 9), (18, 9), (19, 9), (20, 9), (21, 9),
-                    (22, 9), (23, 9), (24, 9), (25, 9), (26, 9), (27, 9), (28, 9),
-                    // then turn downwards
-                    (28, 10), (28, 11), (28, 12), (28, 13), (28, 14), (28, 15),
-                    (28, 16), (28, 17), (28, 18), (28, 19), (28, 20)
-                })
-            ]));
-
-        var busEntity3 = new EntityBase();
-        busEntity3.AddComponent(
-            new App.Bus(
-                busEntity3.Id,
-            [
-                new App.Wire(
-                    new List<(int x, int y)>
-                    {
-                        (7, 7), (7, 8), (8, 8), (8, 7)
-                    })
-            ]));
-
-        return new List<EntityBase>
-        {
-            chipEntity1, chipEntity2, busEntity1, busEntity2, busEntity3
-        };
-    }
-
-    /// <summary>
     ///     Static method for starting a random circuit board creation using Builder Pattern.
     ///     The returned <see cref="EntityGenerator" /> instance comes with default values for all its
     ///     parameters, but can be customised using the builder pattern.
@@ -206,9 +103,9 @@ internal class EntityGenerator
         GenerateChips();
         GenerateBuses();
 
-        entities = new List<EntityBase>(_chipEntities);
+        entities = [.._chipEntities];
         entities.AddRange(_busEntities);
-        components = new List<ComponentBase>(_generatedChipComponents);
+        components = [.._generatedChipComponents];
         components.AddRange(_generatedBusComponents);
     }
 
@@ -230,12 +127,12 @@ internal class EntityGenerator
 
             var tries = 0;
             var isInvalid = true;
-            EntityBase chipEntity = new EntityBase();
+            var chipEntity = new EntityBase();
             App.Chip? newChip = null;
             while (isInvalid && tries < 10)
             {
                 newChip = new App.Chip(chipEntity.Id, new Vector2(x, y), new Vector2(x + w, y + h));
-                isInvalid = _generatedChipComponents.Exists(c => newChip.IsIntersecting((App.Chip)c));
+                isInvalid = _generatedChipComponents.Exists(c => newChip.IsIntersecting(c));
                 tries += 1;
             }
 

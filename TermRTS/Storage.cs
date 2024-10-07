@@ -1,6 +1,6 @@
 namespace TermRTS;
 
-using EntityComponents = Dictionary<int, IList<ComponentBase>>;
+using EntityComponents = Dictionary<int, List<ComponentBase>>;
 
 // TODO: Handle efficient generating and applying of component changes.
 // TODO: ID generation
@@ -17,7 +17,7 @@ public interface IStorage
 {
     public void AddComponent(ComponentBase component);
 
-    public void AddComponents(ComponentBase[] components);
+    public void AddComponents(IEnumerable<ComponentBase> components);
 
     public void RemoveComponents(int entityId, Type type);
 
@@ -55,14 +55,13 @@ public class MappedCollectionStorage : IStorage
 
         var entityComponents = _componentStores[component.GetType()];
         if (!entityComponents.ContainsKey(component.EntityId))
-            entityComponents.Add(component.EntityId, new List<ComponentBase>());
+            entityComponents.Add(component.EntityId, []);
 
         _componentStores[component.GetType()][component.EntityId].Add(component);
         // componentsDict.Add(component.EntityId, component);
     }
 
-    // TODO: Maybe replace with Enumerable<ComponentBase>
-    public void AddComponents(ComponentBase[] components)
+    public void AddComponents(IEnumerable<ComponentBase> components)
     {
         foreach (var component in components) AddComponent(component);
     }
@@ -91,7 +90,8 @@ public class MappedCollectionStorage : IStorage
             .Values
             .Where(v => v.ContainsKey(entityId))
             .Select(v => v[entityId])
-            .SelectMany(v => v);
+            .SelectMany(v => v)
+            .AsEnumerable();
         //.Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
     }
 
@@ -99,7 +99,7 @@ public class MappedCollectionStorage : IStorage
     {
         return _componentStores[type]
             .Values
-            .SelectMany(v => v);
+            .SelectMany(v => v).AsEnumerable();
         //.Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
     }
 
@@ -121,7 +121,8 @@ public class MappedCollectionStorage : IStorage
     private IEnumerable<ComponentBase> All()
     {
         return _componentStores
-            .SelectMany(store => store.Value.Values.SelectMany(l => l));
+            .SelectMany(store => store.Value.Values.SelectMany(l => l))
+            .AsEnumerable();
     }
 }
 

@@ -24,9 +24,9 @@ internal class App : IRunnableExample
         var core = new Core(renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
         EntityGenerator.RandomCircuitBoard()
-            //.WithRandomSeed(0)
+            .WithRandomSeed(0)
             .WithChipCount(20)
-            .WithChipDimensions(5, 55)
+            .WithChipDimensions(5, Console.WindowHeight - 5)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build(out var entities, out var components);
@@ -51,6 +51,9 @@ internal class App : IRunnableExample
             scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
         };
 
+        // Shutdown after one hour
+        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 60));
+        
         // Run it
         scheduler.SimulationLoop();
 
@@ -176,9 +179,9 @@ internal class App : IRunnableExample
         public const float Velocity = 25.5f; // in [m/s]
         public readonly List<Wire> Connections;
 
-        private DoubleBuffered<float> _progress;
-        private DoubleBuffered<bool> _isActive;
-        private DoubleBuffered<bool> _isForward;
+        private readonly DoubleBuffered<float> _progress;
+        private readonly DoubleBuffered<bool> _isActive;
+        private readonly DoubleBuffered<bool> _isForward;
 
         public Bus(int eid, List<Wire> connections) : base(eid)
         {
@@ -210,14 +213,14 @@ internal class App : IRunnableExample
 
         public bool IsActive
         {
-            get { return _isActive.Get(); }
-            set { _isActive.Set(value); }
+            get => _isActive.Get();
+            set => _isActive.Set(value);
         }
 
         public bool IsForward
         {
-            get { return _isForward.Get(); }
-            set { _isForward.Set(value); }
+            get => _isForward.Get();
+            set => _isForward.Set(value);
         }
 
         public int AvgWireLength
