@@ -1,13 +1,8 @@
 namespace TermRTS;
 
-public class KeyInputEvent : IEvent
+public class KeyInputEvent(ConsoleKeyInfo info) : IEvent
 {
-    public KeyInputEvent(ConsoleKeyInfo info)
-    {
-        Info = info;
-    }
-    
-    public ConsoleKeyInfo Info { get; }
+    public ConsoleKeyInfo Info { get; } = info;
     
     public EventType Type()
     {
