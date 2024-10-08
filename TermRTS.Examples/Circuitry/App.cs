@@ -11,7 +11,7 @@ internal class App : IRunnableExample
     public void Run()
     {
         // Add two chips and a wire to test
-
+        
         // TODO: Create a system for generating chips and buses:
         //       [x] A class which generates everything first and hands it over to the core
         //       [ ] Later turn that class into a system and hand over a subset of items every x ticks
@@ -19,7 +19,7 @@ internal class App : IRunnableExample
         // TODO: Render world during generation
         // TODO: Generate chips atomically and wires bit by bit
         // TODO: How to deal with unfinished wires? Currently generated in full
-
+        
         var renderer = new Renderer();
         var core = new Core(renderer);
         // var entities = EntityGenerator.BuildSmallCircuitBoard();
@@ -33,36 +33,36 @@ internal class App : IRunnableExample
         core.AddAllEntities(entities);
         core.AddAllComponents(components);
         core.AddSimSystem(new BusSystem());
-
+        
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.AddEventSink(renderer, EventType.Profile);
-
+        
         var input = new ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);
         scheduler.AddEventSink(input, EventType.Shutdown);
         input.Run();
-
+        
         // Graceful shutdown on canceling via CTRL+C
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
         };
-
+        
         // Shutdown after one hour
         scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 60));
         
         // Run it
         scheduler.SimulationLoop();
-
+        
         // After the app is terminated, clear the console.
         Console.Clear();
     }
-
+    
     #region Internal Types
-
+    
     private enum Direction
     {
         North,
@@ -70,11 +70,11 @@ internal class App : IRunnableExample
         South,
         West
     }
-
+    
     internal readonly record struct Cell(int X, int Y, char C)
     {
     }
-
+    
     internal class Chip : ComponentBase
     {
         public Chip(int entityId, Vector2 position1, Vector2 position2) : base(entityId)
@@ -83,12 +83,12 @@ internal class App : IRunnableExample
             Position2 = position2;
             Outline = GenerateOutline();
         }
-
+        
         internal Vector2 Position1 { get; }
         internal Vector2 Position2 { get; }
-
+        
         public Cell[] Outline { get; }
-
+        
         public bool IsIntersecting(Chip other)
         {
             return Position1.X <= other.Position2.X
@@ -96,7 +96,7 @@ internal class App : IRunnableExample
                    && Position1.Y <= other.Position2.Y
                    && Position2.Y >= other.Position1.Y;
         }
-
+        
         public Vector2 Center()
         {
             var newX = (Position1.X + Position2.X) / 2.0f;
@@ -104,20 +104,20 @@ internal class App : IRunnableExample
             return new Vector2(newX, newY);
             //return Vector2.Lerp(Position1, Position2, 0.5f);
         }
-
+        
         // TODO: Does it make sense to implement the wall getters as extension methods because they're only used in one place?
-
+        
         public ArraySegment<Cell> UpperWall()
         {
             return new ArraySegment<Cell>(Outline, 4, (int)(Position2.X - Position1.X) - 1);
         }
-
+        
         public ArraySegment<Cell> LowerWall()
         {
             var width = (int)(Position2.X - Position1.X) - 1;
             return new ArraySegment<Cell>(Outline, 4 + width, width);
         }
-
+        
         public ArraySegment<Cell> LeftWall()
         {
             var width = (int)(Position2.X - Position1.X) - 1;
@@ -125,7 +125,7 @@ internal class App : IRunnableExample
             // return Outline.Skip(4 + width + width).Take(height).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width + width, height);
         }
-
+        
         public ArraySegment<Cell> RightWall()
         {
             var width = (int)(Position2.X - Position1.X) - 1;
@@ -133,7 +133,7 @@ internal class App : IRunnableExample
             // return Outline.Skip(4 + width + width + height).Take(height).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width + width + height, height);
         }
-
+        
         private Cell[] GenerateOutline()
         {
             var outline = new List<Cell>();
@@ -141,48 +141,48 @@ internal class App : IRunnableExample
             var x2 = (int)Position2.X;
             var y1 = (int)Position1.Y;
             var y2 = (int)Position2.Y;
-
+            
             // left upper corner
             outline.Add(new Cell(x1, y1, Cp437.BoxDoubleDownDoubleRight));
-
+            
             // left lower corner
             outline.Add(new Cell(x1, y2, Cp437.BoxDoubleUpDoubleRight));
-
+            
             // right upper corner
             outline.Add(new Cell(x2, y1, Cp437.BoxDoubleDownDoubleLeft));
-
+            
             // right lower corner
             outline.Add(new Cell(x2, y2, Cp437.BoxDoubleUpDoubleLeft));
-
+            
             // lower wall
             for (var i = x1 + 1; i < x2; i += 1)
                 outline.Add(new Cell(i, y1, Cp437.BoxDoubleHorizontal));
-
+            
             // upper wall
             for (var i = x1 + 1; i < x2; i += 1)
                 outline.Add(new Cell(i, y2, Cp437.BoxDoubleHorizontal));
-
+            
             // left wall
             for (var i = y1 + 1; i < y2; i += 1)
                 outline.Add(new Cell(x1, i, Cp437.BoxDoubleVertical));
-
+            
             // right wall
             for (var i = y1 + 1; i < y2; i += 1)
                 outline.Add(new Cell(x2, i, Cp437.BoxDoubleVertical));
-
+            
             return outline.ToArray();
         }
     }
-
+    
     internal class Bus : ComponentBase
     {
         public const float Velocity = 25.5f; // in [m/s]
-        public readonly List<Wire> Connections;
-
-        private readonly DoubleBuffered<float> _progress;
         private readonly DoubleBuffered<bool> _isActive;
         private readonly DoubleBuffered<bool> _isForward;
-
+        
+        private readonly DoubleBuffered<float> _progress;
+        public readonly List<Wire> Connections;
+        
         public Bus(int eid, List<Wire> connections) : base(eid)
         {
             Connections = connections;
@@ -193,7 +193,7 @@ internal class App : IRunnableExample
             RegisterDoubleBufferedProperty(_isActive);
             RegisterDoubleBufferedProperty(_isForward);
         }
-
+        
         public float Progress
         {
             get => _progress.Get();
@@ -210,19 +210,19 @@ internal class App : IRunnableExample
                 }
             }
         }
-
+        
         public bool IsActive
         {
             get => _isActive.Get();
             set => _isActive.Set(value);
         }
-
+        
         public bool IsForward
         {
             get => _isForward.Get();
             set => _isForward.Set(value);
         }
-
+        
         public int AvgWireLength
         {
             get
@@ -234,17 +234,17 @@ internal class App : IRunnableExample
             }
         }
     }
-
+    
     internal class Wire
     {
         // x,y coordinates and visual representation
         public readonly Cell[] Outline;
-
+        
         public Wire(IList<(int x, int y)> positions)
         {
             Outline = new Cell[positions.Count];
             var positionCount = positions.Count;
-
+            
             // Generate starting terminator
             var startChar = GenerateTerminatorChar(
                 positions[0].x,
@@ -253,7 +253,7 @@ internal class App : IRunnableExample
                 positions[1].y
             );
             Outline[0] = new Cell(positions[0].x, positions[0].y, startChar);
-
+            
             // Generate all parts in-between
             for (var i = 1; i < positionCount - 1; ++i)
             {
@@ -267,7 +267,7 @@ internal class App : IRunnableExample
                 );
                 Outline[i] = new Cell(positions[i].x, positions[i].y, c);
             }
-
+            
             // Generate ending terminator
             var endChar = GenerateTerminatorChar(
                 positions[positionCount - 1].x,
@@ -278,7 +278,7 @@ internal class App : IRunnableExample
             Outline[positionCount - 1] = new Cell(positions[positionCount - 1].x,
                 positions[positionCount - 1].y, endChar);
         }
-
+        
         private static char GenerateTerminatorChar(int thisX, int thisY, int nextX, int nextY)
         {
             if (thisX != nextX)
@@ -289,7 +289,7 @@ internal class App : IRunnableExample
                 ? Cp437.BoxUpDoubleHorizontal
                 : Cp437.BoxDownDoubleHorizontal;
         }
-
+        
         private static char GenerateWireChar(int thisX, int thisY, int prevX, int prevY, int nextX,
             int nextY)
         {
@@ -302,7 +302,7 @@ internal class App : IRunnableExample
                 incoming = thisY > prevY
                     ? Direction.North
                     : Direction.South;
-
+            
             Direction outgoing;
             if (thisX != nextX)
                 outgoing = thisX > nextX
@@ -312,7 +312,7 @@ internal class App : IRunnableExample
                 outgoing = thisY > nextY
                     ? Direction.North
                     : Direction.South;
-
+            
             return (incoming, outgoing) switch
             {
                 (Direction.North, Direction.East) or
@@ -331,18 +331,18 @@ internal class App : IRunnableExample
             };
         }
     }
-
+    
     private class BusSystem : SimSystem
     {
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
-
+        
         public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
             foreach (var b in storage.GetForType(typeof(Bus)))
             {
                 var bus = (Bus)b;
-
+                
                 // If not active, then randomly determine whether to activate.
                 if (!bus.IsActive)
                 {
@@ -350,7 +350,7 @@ internal class App : IRunnableExample
                     {
                         _timeSinceLastAttempt = 0L;
                         if (_rng.NextSingle() > 0.02) continue;
-
+                        
                         bus.IsActive = true;
                         bus.IsForward = _rng.Next() % 2 == 0;
                         bus.Progress = 0.0f;
@@ -359,9 +359,10 @@ internal class App : IRunnableExample
                     {
                         _timeSinceLastAttempt += timeStepSizeMs;
                     }
+                    
                     continue;
                 }
-
+                
                 //  If already active, then take speed, divide by time step size and advance progress
                 var progressInM = bus.AvgWireLength * bus.Progress;
                 var deltaDistInM = Bus.Velocity / 1000.0f * timeStepSizeMs;
@@ -369,6 +370,6 @@ internal class App : IRunnableExample
             }
         }
     }
-
+    
     #endregion
 }

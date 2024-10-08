@@ -1,3 +1,4 @@
+using System.Text;
 using TermRTS.Examples.BouncyBall;
 using TermRTS.Examples.Circuitry;
 using TermRTS.Examples.Testing;
@@ -13,7 +14,7 @@ internal static class ExampleRunner
 {
     private static int Main(string[] args)
     {
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.OutputEncoding = Encoding.UTF8;
         switch (args[0])
         {
             case "1":
@@ -32,7 +33,7 @@ internal static class ExampleRunner
                 Console.WriteLine("Nothing to run...");
                 return 1;
         }
-
+        
         Console.WriteLine("done.");
         return 0;
     }

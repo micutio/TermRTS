@@ -7,28 +7,8 @@ namespace TermRTS.Examples.Circuitry;
 /// </summary>
 internal class AStar
 {
-    #region Private Fields
-
-    // Location of the goal.
-    private readonly Vector2 _goal;
-
-    // Mapping of locations to predecessor locations, for path reconstruction.
-    private readonly Dictionary<Vector2, Vector2> _cameFrom;
-
-    // Cheapest path from start to n, currently known, defaults to infinity.
-    private readonly Dictionary<Vector2, float> _gScore;
-
-    // Track which elements are contained in the _openSet.
-    private readonly HashSet<Vector2> _isInOpenSet;
-
-    private readonly PriorityQueue<Vector2, float> _openSet;
-    private readonly int _worldHeight;
-    private readonly int _worldWidth;
-
-    #endregion
-
     #region Constructor
-
+    
     internal AStar(
         int worldWidth,
         int worldHeight,
@@ -47,60 +27,80 @@ internal class AStar
         {
             [start] = 0.0f
         };
-
+        
         // Default to euclidean distance to goal
         Heuristic = v => Vector2.Distance(v, goal);
         // Default the weight to a constant
         Weight = (_, _) => 1.0f;
     }
-
+    
     #endregion
-
+    
+    #region Private Fields
+    
+    // Location of the goal.
+    private readonly Vector2 _goal;
+    
+    // Mapping of locations to predecessor locations, for path reconstruction.
+    private readonly Dictionary<Vector2, Vector2> _cameFrom;
+    
+    // Cheapest path from start to n, currently known, defaults to infinity.
+    private readonly Dictionary<Vector2, float> _gScore;
+    
+    // Track which elements are contained in the _openSet.
+    private readonly HashSet<Vector2> _isInOpenSet;
+    
+    private readonly PriorityQueue<Vector2, float> _openSet;
+    private readonly int _worldHeight;
+    private readonly int _worldWidth;
+    
+    #endregion
+    
     #region Properties
-
+    
     /// <summary>
     ///     Determine the weight of the edge between the two given points
     /// </summary>
     internal Func<Vector2, Vector2, float> Weight { get; set; }
-
+    
     /// <summary>
     ///     Heuristic function, estimates the cost to get from a given location to the goal.
     /// </summary>
     internal Func<Vector2, float> Heuristic { get; set; }
-
+    
     #endregion
-
+    
     #region Public API
-
+    
     internal IEnumerable<Vector2>? ComputePath()
     {
         while (_openSet.Count > 0)
         {
             var currentLoc = _openSet.Dequeue();
             _isInOpenSet.Remove(currentLoc);
-
+            
             if (currentLoc.Equals(_goal)) return ReconstructPath(currentLoc);
-
+            
             foreach (var neighbor in Neighborhood(currentLoc))
             {
                 // Ensure the neighbor is within the world bounds.
                 if (neighbor.X < 0 || neighbor.X >= _worldWidth ||
                     neighbor.Y < 0 || neighbor.Y >= _worldHeight)
                     continue;
-
+                
                 // Tentative score is the distance from start to neighbor through current.
                 var tentativeScore = _gScore[currentLoc] + Weight(currentLoc, neighbor);
-
+                
                 if (tentativeScore >= _gScore.GetValueOrDefault(neighbor, float.PositiveInfinity))
                     continue;
-
+                
                 // This path to neighbor is better than any previous one. Record it!
                 _cameFrom[neighbor] = currentLoc;
                 _gScore[neighbor] = tentativeScore;
-
+                
                 if (_isInOpenSet.Contains(neighbor))
                     continue;
-
+                
                 // Current best guess for how cheap a path from start to finish through n would be.
                 // Defaults to infinity.
                 var fScore = tentativeScore + Heuristic(neighbor);
@@ -108,20 +108,20 @@ internal class AStar
                 _isInOpenSet.Add(neighbor);
             }
         }
-
+        
         // open set is empty, but goal was never reached
         return null;
     }
-
+    
     internal Vector2 CameFrom(Vector2 loc)
     {
         return _cameFrom.GetValueOrDefault(loc, loc);
     }
-
+    
     #endregion
-
+    
     #region Private Methods
-
+    
     private List<Vector2> ReconstructPath(Vector2 endLocation)
     {
         var path = new List<Vector2> { endLocation };
@@ -131,10 +131,10 @@ internal class AStar
             current = _cameFrom[current];
             path.Add(current);
         }
-
+        
         return path;
     }
-
+    
     private static Vector2[] Neighborhood(Vector2 loc)
     {
         return
@@ -145,6 +145,6 @@ internal class AStar
             new Vector2(loc.X, loc.Y + 1)
         ];
     }
-
+    
     #endregion
 }

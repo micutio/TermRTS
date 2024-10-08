@@ -10,27 +10,28 @@ internal enum BounceComponentTypes
 
 internal class BounceBall : ComponentBase
 {
+    private readonly DoubleBuffered<Vector2> _position;
+    private readonly DoubleBuffered<Vector2> _velocity;
+    
     internal BounceBall(int id, float x, float y, float dx, float dy) : base(id)
     {
         _position = new DoubleBuffered<Vector2>(new Vector2(x, y));
         _velocity = new DoubleBuffered<Vector2>(new Vector2(dx, dy));
-
+        
         RegisterDoubleBufferedProperty(_position);
         RegisterDoubleBufferedProperty(_velocity);
     }
-
-    private DoubleBuffered<Vector2> _position;
-    private DoubleBuffered<Vector2> _velocity;
-
+    
     public Vector2 Position
     {
-        get { return _position.Get(); }
-        set { _position.Set(value); }
+        get => _position.Get();
+        set => _position.Set(value);
     }
+    
     public Vector2 Velocity
     {
-        get { return _velocity.Get(); }
-        set { _velocity.Set(value); }
+        get => _velocity.Get();
+        set => _velocity.Set(value);
     }
 }
 
@@ -39,7 +40,7 @@ internal class BounceBall : ComponentBase
 internal class BouncePhysicsSystem : SimSystem, IEventSink
 {
     private Vector2 _velocity;
-
+    
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() == EventType.KeyInput)
@@ -62,61 +63,61 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
             }
         }
     }
-
+    
     public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         var ballComponents = storage.GetForType(typeof(BounceBall));
-
+        
         foreach (var ballComponent in ballComponents)
         {
             var ball = (BounceBall)ballComponent;
-
+            
             //thisEntityComponents
             //    .Components
             //    .TryGetValue(typeof(BounceBall), out var changedBallComponent);
             //if (changedBallComponent == null)
             //    return null;
             //var changedBall = (BounceBall)changedBallComponent;
-
+            
             var maxX = Console.BufferWidth;
             var maxY = Console.BufferHeight;
-
+            
             var ballVel = ball.Velocity;
             var ballPos = ball.Position;
             ballVel += _velocity;
             _velocity = Vector2.Zero;
             ballPos += ballVel;
             ballVel = Vector2.Multiply(ballVel, 0.90f);
-
+            
             if (Math.Abs(ballVel.X) < 0.1f)
                 ballVel.X = 0.0f;
             if (Math.Abs(ballVel.Y) < 0.1f)
                 ballVel.Y = 0.0f;
-
+            
             if (ballPos.X >= maxX)
             {
                 ballPos.X = maxX - 1;
                 ballVel.X = 0.0f;
             }
-
+            
             if (ballPos.X <= 0)
             {
                 ballPos.X = 0;
                 ballVel.X = 0.0f;
             }
-
+            
             if (ballPos.Y >= maxY)
             {
                 ballPos.Y = maxY - 1;
                 ballVel.Y = 0.0f;
             }
-
+            
             if (ballPos.Y <= 0)
             {
                 ballPos.Y = 0;
                 ballVel.Y = 0.0f;
             }
-
+            
             ball.Position = ballPos;
             ball.Velocity = ballVel;
         }
@@ -134,18 +135,18 @@ public class BounceApp : IRunnableExample
         var bounceBall = new BounceBall(bounceEntity.Id, 10f, 10f, 0f, 0f);
         core.AddEntity(bounceEntity);
         core.AddComponent(bounceBall);
-
+        
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.AddEventSink(bouncePhysics, EventType.KeyInput);
-
+        
         var input = new ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);
         input.Run();
-
+        
         // Run it
         scheduler.SimulationLoop();
-
+        
         // It should terminate after 12 ticks of 16ms simulated time each.
     }
 }
