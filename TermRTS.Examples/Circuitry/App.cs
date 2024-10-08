@@ -52,7 +52,7 @@ internal class App : IRunnableExample
         };
         
         // Shutdown after one hour
-        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 60));
+        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 15));
         
         // Run it
         scheduler.SimulationLoop();
