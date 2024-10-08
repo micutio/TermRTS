@@ -2,11 +2,6 @@ using System.Threading.Channels;
 
 namespace TermRTS.Examples.Testing;
 
-internal enum EmptyComponentType
-{
-    Empty
-}
-
 internal class NullRenderer : IRenderer
 {
     public void RenderComponents(in IStorage components, double timeStepSizeMs, double howFarIntoNextFrameMs)
@@ -54,7 +49,7 @@ internal class MinimalApp : IRunnableExample
     public void Run()
     {
         var core = new Core(new NullRenderer());
-        var watcherSystem = new WatcherSystem(10);
+        var watcherSystem = new WatcherSystem(12);
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new EntityBase());
         

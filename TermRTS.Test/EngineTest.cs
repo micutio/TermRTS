@@ -2,14 +2,6 @@ using System.Threading.Channels;
 
 namespace TermRTS.Test;
 
-public class NullWorld : IWorld
-{
-    public void ApplyChange()
-    {
-        Console.WriteLine("World changed.");
-    }
-}
-
 public class NullRenderer : IRenderer
 {
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
@@ -55,7 +47,7 @@ public class WatcherSystem : SimSystem
     {
         _remainingTicks -= 1;
         
-        if (_remainingTicks == 1)
+        if (_remainingTicks == 0)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
     }
 }
@@ -91,7 +83,7 @@ public class EngineTest
         scheduler.SimulationLoop();
         
         // It should terminate after 12 ticks of 16ms simulated time each.
-        ulong finalTime = 12 * 16;
+        const ulong finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);
     }
     
