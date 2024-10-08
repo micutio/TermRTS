@@ -1,13 +1,8 @@
 ﻿namespace TermRTS;
 
-public class ProfileEvent : IEvent
+public class ProfileEvent(string profileInfo) : IEvent
 {
-    public ProfileEvent(string profileInfo)
-    {
-        ProfileInfo = profileInfo;
-    }
-    
-    public string ProfileInfo { get; private set; }
+    public string ProfileInfo { get; } = profileInfo;
     
     public EventType Type()
     {

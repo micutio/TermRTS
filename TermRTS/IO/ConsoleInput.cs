@@ -21,11 +21,10 @@ public class ConsoleInput : IEventSink
     
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() == EventType.Shutdown)
-        {
-            _keepRunning = false;
-            _thread.Join();
-        }
+        if (evt.Type() != EventType.Shutdown) return;
+        
+        _keepRunning = false;
+        _thread.Join();
     }
     
     public void Run()

@@ -2,10 +2,6 @@ namespace TermRTS;
 
 using EntityComponents = Dictionary<int, List<ComponentBase>>;
 
-// TODO: Handle efficient generating and applying of component changes.
-// TODO: ID generation
-// TODO: Make query results read-only and changes write-only
-
 #region IStorage Interface
 
 /// <summary>

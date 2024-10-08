@@ -23,10 +23,6 @@ public interface ICore : IEventSink
 // Site for converting normal text into ASCII art:
 //      - https://www.patorjk.com/software/taag/
 
-// TODO: [ECS] Rework association of components with entities
-// TODO: [SIM] Rework system iteration over entities
-// TODO: [SIM] Rework application of component state changes
-
 /// <summary>
 ///     The core of the engine performs the actual tick logic and is controlled by the scheduler.
 /// </summary>
@@ -82,12 +78,6 @@ public class Core : ICore
     private readonly MappedCollectionStorage _components;
     private readonly List<EntityBase> _newEntities;
     private readonly List<ComponentBase> _newComponents;
-    
-    // map types to id -> component maps
-    // component = components[type][id]
-    // private readonly Dictionary<Type, Dictionary<int, ComponentBase>> components;
-    // OR
-    // private readonly Dictionary<Type, List<ComponentBase {int id; } >> components;
     
     #endregion
     
@@ -175,20 +165,12 @@ public class Core : ICore
         // Two-step simulation
         // Step 1: Iterate over each system and apply it to the respective entities. The actual
         //         changes are stored separately to avoid affecting the current iteration
-        // TODO: Ideally only iterate over those entities with components matching the system!
-        // TODO: Create option for parallelised iteration over systems and/or entities!
-        // TODO: Try flipping the `for` and `foreach` loops to see which variant is faster.
-        // TODO: Idea for more efficient iteration:
-        //       - rank components by count of occurrence in entities
-        //       - sort entities by their highest-ranked components
-        // TODO: Create a read-only copy of the game state and use it for game update & rendering.
-        foreach (var sys in _systems)
-            for (var i = 0; i < _entities.Count; i += 1)
-                // Create a copy of the entity list and remove this entity to not iterate over it
-                // TODO: Slices are supposedly slow because they copy data. Change to better iteration strategy! 
-                // var thisEntity = _entities[i];
-                // var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
-                sys.ProcessComponents(timeStepSizeMs, _components);
+        
+        // TODO: Make parallelised iteration over systems and/or entities configurable:
+        //      - on/off
+        //      - thread count
+        foreach (var sys in _systems.AsParallel())
+            sys.ProcessComponents(timeStepSizeMs, _components);
         
         _components.SwapBuffers();
         
@@ -209,7 +191,7 @@ public class Core : ICore
             _newComponents.Clear();
         }
         
-        // New game state:
+        // New game state should look like this:
         //  - all pending changes cleared
         //  - all pending new entities added
         //  - all to-be-removed entities removed

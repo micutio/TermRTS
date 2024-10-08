@@ -1,7 +1,5 @@
 namespace TermRTS;
 
-// TODO: support for double-buffered thread-safe properties
-
 public abstract class ComponentBase(int entityId)
 {
     private readonly List<IDoubleBufferedProperty> _doubleBufferedProperties = [];
