@@ -33,7 +33,7 @@ public interface ICore : IEventSink
 public class Core : ICore
 {
     #region Constructor
-
+    
     /// <summary>
     ///     Constructor
     /// </summary>
@@ -48,11 +48,11 @@ public class Core : ICore
         _newComponents = new List<ComponentBase>();
         _systems = new List<SimSystem>();
     }
-
+    
     #endregion
-
+    
     #region IEventSink Members
-
+    
     public void ProcessEvent(IEvent evt)
     {
         switch (evt.Type())
@@ -70,11 +70,11 @@ public class Core : ICore
                 throw new UnreachableException();
         }
     }
-
+    
     #endregion
-
+    
     #region Private Fields
-
+    
     private bool _isGameRunning;
     private readonly IRenderer _renderer;
     private readonly List<SimSystem> _systems;
@@ -82,17 +82,17 @@ public class Core : ICore
     private readonly MappedCollectionStorage _components;
     private readonly List<EntityBase> _newEntities;
     private readonly List<ComponentBase> _newComponents;
-
+    
     // map types to id -> component maps
     // component = components[type][id]
     // private readonly Dictionary<Type, Dictionary<int, ComponentBase>> components;
     // OR
     // private readonly Dictionary<Type, List<ComponentBase {int id; } >> components;
-
+    
     #endregion
-
+    
     #region Public API
-
+    
     /// <summary>
     ///     Prompt the simulation to stop running.
     /// </summary>
@@ -101,7 +101,7 @@ public class Core : ICore
         _renderer.Shutdown();
         Console.WriteLine("Core shut down");
     }
-
+    
     /// <summary>
     ///     A method to check whether the simulation is still running.
     /// </summary>
@@ -113,7 +113,7 @@ public class Core : ICore
     {
         return _isGameRunning;
     }
-
+    
     /// <summary>
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.
     /// </summary>
@@ -122,7 +122,7 @@ public class Core : ICore
     {
         _newEntities.Add(entity);
     }
-
+    
     /// <summary>
     ///     Schedule a range of new entities to be added to the simulation at the beginning of the
     ///     next tick.
@@ -132,7 +132,7 @@ public class Core : ICore
     {
         _newEntities.AddRange(entities);
     }
-
+    
     /// <summary>
     ///     Schedule a new component to be added to the simulation at the beginning of the next tick.
     /// </summary>
@@ -141,7 +141,7 @@ public class Core : ICore
     {
         _newComponents.Add(component);
     }
-
+    
     /// <summary>
     ///     Schedule a range of new components to be added to the simulation at the beginning of the
     ///     next tick.
@@ -151,7 +151,7 @@ public class Core : ICore
     {
         _newComponents.AddRange(components);
     }
-
+    
     /// <summary>
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
@@ -160,7 +160,7 @@ public class Core : ICore
     {
         _systems.Add(system);
     }
-
+    
     /// <summary>
     ///     Remove system from the simulation, effective immediately.
     /// </summary>
@@ -169,7 +169,7 @@ public class Core : ICore
     {
         _systems.Remove(system);
     }
-
+    
     public void Tick(ulong timeStepSizeMs)
     {
         // Two-step simulation
@@ -184,54 +184,46 @@ public class Core : ICore
         // TODO: Create a read-only copy of the game state and use it for game update & rendering.
         foreach (var sys in _systems)
             for (var i = 0; i < _entities.Count; i += 1)
-            {
                 // Create a copy of the entity list and remove this entity to not iterate over it
                 // TODO: Slices are supposedly slow because they copy data. Change to better iteration strategy! 
                 // var thisEntity = _entities[i];
                 // var otherEntities = _entities.Take(i).Skip(1).Take(_entities.Count - i - 1);
                 sys.ProcessComponents(timeStepSizeMs, _components);
-            }
-
+        
         _components.SwapBuffers();
-
+        
         // Clean up operations: remove 'dead' entities and add new ones
         var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
-        foreach (var id in entityIdsToRemove)
-        {
-            _components.RemoveComponents(id);
-        }
+        foreach (var id in entityIdsToRemove) _components.RemoveComponents(id);
         _entities.RemoveAll(e => e.IsMarkedForRemoval);
-
+        
         if (_newEntities.Count != 0)
         {
             _entities.AddRange(_newEntities);
             _newEntities.Clear();
         }
-
+        
         if (_newComponents.Count != 0)
         {
-            foreach (var c in _newComponents)
-            {
-                _components.AddComponent(c);
-            }
+            foreach (var c in _newComponents) _components.AddComponent(c);
             _newComponents.Clear();
         }
-
+        
         // New game state:
         //  - all pending changes cleared
         //  - all pending new entities added
         //  - all to-be-removed entities removed
     }
-
+    
     /// <summary>
     ///     Call the renderer to render all renderable objects.
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
         _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFrameMs);
-
+        
         _renderer.FinalizeRender();
     }
-
+    
     #endregion
 }

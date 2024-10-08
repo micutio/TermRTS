@@ -13,15 +13,14 @@ public interface IRenderer
     //public void RenderEntity(
     //    Dictionary<Type, ComponentBase> entity,
     //    double howFarIntoNextFrameMs);
-
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs);
-
+    
     /// <summary>
     ///     Called at the end of the rendering step each simulation tick. This allows to apply the
     ///     effects of any intermediate operations.
     /// </summary>
     public void FinalizeRender();
-
+    
     /// <summary>
     ///     Called upon engine shutdown. Allow the renderer to perform clean up operations.
     /// </summary>

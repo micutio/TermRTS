@@ -6,9 +6,9 @@ public class ProfileEvent : IEvent
     {
         ProfileInfo = profileInfo;
     }
-
+    
     public string ProfileInfo { get; private set; }
-
+    
     public EventType Type()
     {
         return EventType.Profile;

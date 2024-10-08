@@ -6,7 +6,7 @@ namespace TermRTS;
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
     #region Constructor
-
+    
     /// <summary>
     ///     Constructor.
     /// </summary>
@@ -22,18 +22,18 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
                 return result;
             }));
     }
-
+    
     #endregion
-
+    
     #region Private Fields
-
+    
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
     private long _index;
-
+    
     #endregion
-
+    
     #region Properties
-
+    
     public int Count
     {
         get
@@ -44,23 +44,23 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
             }
         }
     }
-
+    
     public bool IsSynchronized => false;
-
+    
     #endregion
-
+    
     #region Public Methods
-
+    
     public bool TryAdd((TElement, TPriority) item)
     {
         lock (_queue)
         {
             _queue.Enqueue(item.Item1, (item.Item2, ++_index));
         }
-
+        
         return true;
     }
-
+    
     public bool TryTake(out (TElement, TPriority) item)
     {
         lock (_queue)
@@ -70,12 +70,12 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
                 item = (element, priority.Item1);
                 return true;
             }
-
+            
             item = default;
             return false;
         }
     }
-
+    
     public bool TryPeek(out TElement? element, out TPriority? priority)
     {
         lock (_queue)
@@ -86,33 +86,33 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
             return value;
         }
     }
-
+    
     public object SyncRoot => throw new NotSupportedException();
-
+    
     public void CopyTo((TElement, TPriority)[] array, int index)
     {
         throw new NotSupportedException();
     }
-
+    
     public void CopyTo(Array array, int index)
     {
         throw new NotSupportedException();
     }
-
+    
     public IEnumerator<(TElement, TPriority)> GetEnumerator()
     {
         throw new NotSupportedException();
     }
-
+    
     public (TElement, TPriority)[] ToArray()
     {
         throw new NotSupportedException();
     }
-
+    
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
     }
-
+    
     #endregion
 }
