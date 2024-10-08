@@ -22,9 +22,8 @@ internal class App : IRunnableExample
         
         var renderer = new Renderer();
         var core = new Core(renderer);
-        // var entities = EntityGenerator.BuildSmallCircuitBoard();
         EntityGenerator.RandomCircuitBoard()
-            .WithRandomSeed(0)
+            //.WithRandomSeed(0)
             .WithChipCount(20)
             .WithChipDimensions(5, Console.WindowHeight - 5)
             .WithBusDimensions(1, 8)

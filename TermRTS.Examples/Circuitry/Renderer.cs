@@ -66,7 +66,7 @@ internal class Renderer : IRenderer, IEventSink
 #endif
     }
     
-    private void RenderOutline(App.Cell[] outline)
+    private void RenderOutline(IEnumerable<App.Cell> outline)
     {
         foreach (var cell in outline.Where(c => IsInCamera(c.X, c.Y)))
             _canvas.Set(
@@ -76,10 +76,10 @@ internal class Renderer : IRenderer, IEventSink
                 ConsoleColor.Black);
     }
     
-    private void RenderWire(App.Cell[] outline, bool isActive, float progress)
+    private void RenderWire(IReadOnlyList<App.Cell> outline, bool isActive, float progress)
     {
-        var sparkIdx = (int)(outline.Length * progress);
-        for (var i = 0; i < outline.Length; i++)
+        var sparkIdx = (int)(outline.Count * progress);
+        for (var i = 0; i < outline.Count; i++)
         {
             var (x, y, c) = outline[i];
             var deltaX = (int)(x - CameraPos.X);

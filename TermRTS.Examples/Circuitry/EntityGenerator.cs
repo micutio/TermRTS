@@ -34,7 +34,7 @@ internal class EntityGenerator
     private int _maxBusWidth;
     
     // utilities and internal state
-    // TODO: These fields can be readonly if we convert it to a factory
+    // These fields can be readonly if we convert it to a factory
     private int? _rngSeed;
     private Random _rng;
     private byte[,] _occupation;

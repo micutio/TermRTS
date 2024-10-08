@@ -3,11 +3,6 @@ using TermRTS.IO;
 
 namespace TermRTS.Examples.BouncyBall;
 
-internal enum BounceComponentTypes
-{
-    Ball
-}
-
 internal class BounceBall : ComponentBase
 {
     private readonly DoubleBuffered<Vector2> _position;
@@ -43,24 +38,23 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
     
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() == EventType.KeyInput)
+        if (evt.Type() != EventType.KeyInput) return;
+        
+        var keyEvent = (KeyInputEvent)evt;
+        switch (keyEvent.Info.Key)
         {
-            var keyEvent = (KeyInputEvent)evt;
-            switch (keyEvent.Info.Key)
-            {
-                case ConsoleKey.A:
-                    _velocity.X -= 1;
-                    break;
-                case ConsoleKey.D:
-                    _velocity.X += 1;
-                    break;
-                case ConsoleKey.W:
-                    _velocity.Y -= 1;
-                    break;
-                case ConsoleKey.S:
-                    _velocity.Y += 1;
-                    break;
-            }
+            case ConsoleKey.A:
+                _velocity.X -= 1;
+                break;
+            case ConsoleKey.D:
+                _velocity.X += 1;
+                break;
+            case ConsoleKey.W:
+                _velocity.Y -= 1;
+                break;
+            case ConsoleKey.S:
+                _velocity.Y += 1;
+                break;
         }
     }
     
@@ -71,13 +65,6 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
         foreach (var ballComponent in ballComponents)
         {
             var ball = (BounceBall)ballComponent;
-            
-            //thisEntityComponents
-            //    .Components
-            //    .TryGetValue(typeof(BounceBall), out var changedBallComponent);
-            //if (changedBallComponent == null)
-            //    return null;
-            //var changedBall = (BounceBall)changedBallComponent;
             
             var maxX = Console.BufferWidth;
             var maxY = Console.BufferHeight;
@@ -144,9 +131,6 @@ public class BounceApp : IRunnableExample
         scheduler.AddEventSources(input.KeyEventReader);
         input.Run();
         
-        // Run it
         scheduler.SimulationLoop();
-        
-        // It should terminate after 12 ticks of 16ms simulated time each.
     }
 }

@@ -72,7 +72,7 @@ internal class AStar
     
     #region Public API
     
-    internal IEnumerable<Vector2>? ComputePath()
+    internal List<Vector2>? ComputePath()
     {
         while (_openSet.Count > 0)
         {
