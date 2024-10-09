@@ -66,14 +66,26 @@ internal class Renderer : IRenderer, IEventSink
 #endif
     }
     
-    private void RenderOutline(IEnumerable<App.Cell> outline)
+    private void RenderOutline(IReadOnlyList<App.Cell> outline)
     {
+        /*
         foreach (var cell in outline.Where(c => IsInCamera(c.X, c.Y)))
             _canvas.Set(
                 (int)(cell.X - CameraPos.X),
                 (int)(cell.Y - CameraPos.Y),
                 cell.C,
                 ConsoleColor.Black);
+                */
+        for (var i = 0; i < outline.Count; i += 1)
+        {
+            var (x, y, c) = outline[i];
+            if (!IsInCamera(x, y)) continue;
+            _canvas.Set(
+                (int)(x - CameraPos.X),
+                (int)(y - CameraPos.Y),
+                c,
+                ConsoleColor.Black);
+        }
     }
     
     private void RenderWire(IReadOnlyList<App.Cell> outline, bool isActive, float progress)
@@ -106,14 +118,17 @@ internal class Renderer : IRenderer, IEventSink
     {
         RenderInfo(timeStepSizeMs, howFarIntoNextFrameMs);
         
-        foreach (var chip in storage.GetForType(typeof(App.Chip)).Cast<App.Chip>()) RenderOutline(chip.Outline);
+        foreach (var chip in storage.GetForType(typeof(App.Chip))) RenderOutline(((App.Chip)chip).Outline);
         
         foreach (var bus in storage.GetForType(typeof(App.Bus)).Cast<App.Bus>())
         {
             var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
+            /*
             bus
                 .Connections
                 .ForEach(wire => RenderWire(wire.Outline, bus.IsActive, progress));
+                */
+            foreach (var wire in bus.Connections) RenderWire(wire.Outline, bus.IsActive, progress);
         }
     }
     

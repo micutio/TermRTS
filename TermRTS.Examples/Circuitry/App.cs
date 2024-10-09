@@ -23,9 +23,9 @@ internal class App : IRunnableExample
         var renderer = new Renderer();
         var core = new Core(renderer);
         EntityGenerator.RandomCircuitBoard()
-            //.WithRandomSeed(0)
+            .WithRandomSeed(0)
             .WithChipCount(20)
-            .WithChipDimensions(5, Console.WindowHeight - 5)
+            .WithChipDimensions(5, 25)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build(out var entities, out var components);
@@ -51,7 +51,7 @@ internal class App : IRunnableExample
         };
         
         // Shutdown after one hour
-        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 15));
+        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 60));
         
         // Run it
         scheduler.SimulationLoop();
@@ -237,7 +237,7 @@ internal class App : IRunnableExample
     internal class Wire
     {
         // x,y coordinates and visual representation
-        public readonly Cell[] Outline;
+        public Cell[] Outline { get; }
         
         public Wire(IList<(int x, int y)> positions)
         {

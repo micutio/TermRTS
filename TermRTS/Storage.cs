@@ -93,7 +93,10 @@ public class MappedCollectionStorage : IStorage
     
     public IEnumerable<ComponentBase> GetForType(Type type)
     {
-        return _componentStores[type]
+        if (!_componentStores.TryGetValue(type, out var components))
+            return Enumerable.Empty<ComponentBase>();
+        
+        return components
             .Values
             .SelectMany(v => v).AsEnumerable();
         //.Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
@@ -107,14 +110,24 @@ public class MappedCollectionStorage : IStorage
     
     public void SwapBuffers()
     {
-        // foreach (var component in _componentStores.SelectMany(store => store.Value.Values.SelectMany(l => l)))
-        foreach (var component in All()) component.SwapBuffers();
+        // foreach (var component in All()) component.SwapBuffers();
+        /*
+        foreach (var component in
+                 from componentByEntity in _componentStores.Values
+                 from componentList in componentByEntity.Values
+                 from component in componentList
+                 select component)
+        */
+        foreach (var componentByEntity in _componentStores.Values)
+        foreach (var componentList in componentByEntity.Values)
+        foreach (var component in componentList)
+            component.SwapBuffers();
     }
     
     private IEnumerable<ComponentBase> All()
     {
         return _componentStores
-            .SelectMany(store => store.Value.Values.SelectMany(l => l))
+            .SelectMany(store => store.Value.Values.SelectMany(l => l).AsEnumerable())
             .AsEnumerable();
     }
 }
