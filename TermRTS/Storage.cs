@@ -110,7 +110,7 @@ public class MappedCollectionStorage : IStorage
     
     public void SwapBuffers()
     {
-        // foreach (var component in All()) component.SwapBuffers();
+        foreach (var component in All()) component.SwapBuffers();
         /*
         foreach (var component in
                  from componentByEntity in _componentStores.Values
@@ -118,10 +118,13 @@ public class MappedCollectionStorage : IStorage
                  from component in componentList
                  select component)
         */
+        
+        /*
         foreach (var componentByEntity in _componentStores.Values)
         foreach (var componentList in componentByEntity.Values)
         foreach (var component in componentList)
             component.SwapBuffers();
+        */
     }
     
     private IEnumerable<ComponentBase> All()
