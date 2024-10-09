@@ -236,9 +236,6 @@ internal class App : IRunnableExample
     
     internal class Wire
     {
-        // x,y coordinates and visual representation
-        public Cell[] Outline { get; }
-        
         public Wire(IList<(int x, int y)> positions)
         {
             Outline = new Cell[positions.Count];
@@ -277,6 +274,9 @@ internal class App : IRunnableExample
             Outline[positionCount - 1] = new Cell(positions[positionCount - 1].x,
                 positions[positionCount - 1].y, endChar);
         }
+        
+        // x,y coordinates and visual representation
+        public Cell[] Outline { get; }
         
         private static char GenerateTerminatorChar(int thisX, int thisY, int nextX, int nextY)
         {
