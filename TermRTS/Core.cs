@@ -189,6 +189,7 @@ public class Core : ICore
         {
             foreach (var c in _newComponents) _components.AddComponent(c);
             _newComponents.Clear();
+            _components.ClearCachedQueries();
         }
         
         // New game state should look like this:

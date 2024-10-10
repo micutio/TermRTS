@@ -1,3 +1,5 @@
+using TermRTS.Data;
+
 namespace TermRTS;
 
 using EntityComponents = Dictionary<int, List<ComponentBase>>;
@@ -29,6 +31,8 @@ public interface IStorage
     
     //public IEnumerable<ComponentBase> All();
     public void SwapBuffers();
+    
+    public void ClearCachedQueries();
 }
 
 #endregion
@@ -43,6 +47,7 @@ public class MappedCollectionStorage : IStorage
 {
     // private Dictionary<Type, ComponentBaseStore> componentStores;
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
+    private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
     
     public void AddComponent(ComponentBase component)
     {
@@ -93,13 +98,17 @@ public class MappedCollectionStorage : IStorage
     
     public IEnumerable<ComponentBase> GetForType(Type type)
     {
+        if (_cachedGetForTypeQueries.TryGetValue(type, out var cachedQuery))
+            return cachedQuery;
+        
         if (!_componentStores.TryGetValue(type, out var components))
             return Enumerable.Empty<ComponentBase>();
         
-        return components
+        var query = components
             .Values
-            .SelectMany(v => v).AsEnumerable();
-        //.Aggregate((v1, v2) => v1.Union(v2).ToImmutableList());
+            .SelectMany(v => v).ToCachedEnumerable<ComponentBase>();
+        _cachedGetForTypeQueries.Add(type, query);
+        return query;
     }
     
     public IEnumerable<ComponentBase> GetForEntityAndType(int entityId, Type type)
@@ -110,7 +119,7 @@ public class MappedCollectionStorage : IStorage
     
     public void SwapBuffers()
     {
-        foreach (var component in All()) component.SwapBuffers();
+        //foreach (var component in All()) component.SwapBuffers();
         /*
         foreach (var component in
                  from componentByEntity in _componentStores.Values
@@ -119,12 +128,15 @@ public class MappedCollectionStorage : IStorage
                  select component)
         */
         
-        /*
         foreach (var componentByEntity in _componentStores.Values)
         foreach (var componentList in componentByEntity.Values)
         foreach (var component in componentList)
             component.SwapBuffers();
-        */
+    }
+    
+    public void ClearCachedQueries()
+    {
+        _cachedGetForTypeQueries.Clear();
     }
     
     private IEnumerable<ComponentBase> All()

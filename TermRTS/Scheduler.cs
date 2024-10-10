@@ -40,7 +40,7 @@ public class Scheduler : IEventSink
     public void ProcessEvent(IEvent evt)
     {
         // Emit regular profiling output
-        if (evt.Type() == EventType.Profile) Console.WriteLine(_profiler.ToString());
+        //if (evt.Type() == EventType.Profile) Console.WriteLine(_profiler.ToString());
     }
     
     #endregion
@@ -155,8 +155,8 @@ public class Scheduler : IEventSink
             var loopTimeMs = lag + renderElapsed;
             _profiler.AddTickTimeSample((ulong)loopTimeMs.TotalMilliseconds,
                 (ulong)renderElapsed.TotalMilliseconds);
-            // Push out profiling results ever 25 samples
-            if (_profiler.SampleSize % 5 == 0)
+            // Push out profiling results ever 10 samples
+            if (_profiler.SampleSize % 10 == 0)
                 _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
             
             // If we spent longer than our allotted time, skip right ahead...

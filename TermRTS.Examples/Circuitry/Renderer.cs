@@ -58,24 +58,16 @@ internal class Renderer : IRenderer, IEventSink
         _canvas.Clear();
         
 #if DEBUG
-        var debugStr = string.IsNullOrEmpty(_profileOutput) ? "" : $" ~ {_profileOutput}";
-        var sec = (int)Math.Floor(_timePassedMs / 1000);
-        var min = (int)Math.Floor(_timePassedMs / (1000 * 60));
-        var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60));
-        _canvas.Text(1, 0, $"Circuitry World ~ {hr}:{min}:{sec} ~ FPS: {_lastFps} {debugStr}");
+        var debugStr = string.IsNullOrEmpty(_profileOutput) ? "" : $"| {_profileOutput}";
+        var sec = (int)Math.Floor(_timePassedMs / 1000) % 60;
+        var min = (int)Math.Floor(_timePassedMs / (1000 * 60)) % 60;
+        var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
+        _canvas.Text(1, 0, $"Circuitry World | T {hr:D2}:{min:D2}:{sec:D2} | FPS {_lastFps:D3} {debugStr}");
 #endif
     }
     
     private void RenderOutline(IReadOnlyList<App.Cell> outline)
     {
-        /*
-        foreach (var cell in outline.Where(c => IsInCamera(c.X, c.Y)))
-            _canvas.Set(
-                (int)(cell.X - CameraPos.X),
-                (int)(cell.Y - CameraPos.Y),
-                cell.C,
-                ConsoleColor.Black);
-                */
         for (var i = 0; i < outline.Count; i += 1)
         {
             var (x, y, c) = outline[i];
@@ -123,11 +115,6 @@ internal class Renderer : IRenderer, IEventSink
         foreach (var bus in storage.GetForType(typeof(App.Bus)).Cast<App.Bus>())
         {
             var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
-            /*
-            bus
-                .Connections
-                .ForEach(wire => RenderWire(wire.Outline, bus.IsActive, progress));
-                */
             foreach (var wire in bus.Connections) RenderWire(wire.Outline, bus.IsActive, progress);
         }
     }
