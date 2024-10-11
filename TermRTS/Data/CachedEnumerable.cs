@@ -11,7 +11,7 @@ internal static class CachedEnumerable
     
     private static IEnumerable<T> ToCachedEnumerableHelper<T>(IEnumerator<T> enumerator, List<T> cache)
     {
-        for (var i = 0; true; i++)
+        for (var i = 0;; i++)
             if (i < cache.Count)
             {
                 yield return cache[i];

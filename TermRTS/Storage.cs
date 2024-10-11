@@ -2,6 +2,7 @@ using TermRTS.Data;
 
 namespace TermRTS;
 
+// TODO: Create unit tests for storage methods
 using EntityComponents = Dictionary<int, List<ComponentBase>>;
 
 #region IStorage Interface
@@ -45,9 +46,10 @@ public interface IStorage
 /// </summary>
 public class MappedCollectionStorage : IStorage
 {
+    private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
+    
     // private Dictionary<Type, ComponentBaseStore> componentStores;
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
-    private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
     
     public void AddComponent(ComponentBase component)
     {
@@ -106,7 +108,7 @@ public class MappedCollectionStorage : IStorage
         
         var query = components
             .Values
-            .SelectMany(v => v).ToCachedEnumerable<ComponentBase>();
+            .SelectMany(v => v).ToCachedEnumerable();
         _cachedGetForTypeQueries.Add(type, query);
         return query;
     }
@@ -119,7 +121,15 @@ public class MappedCollectionStorage : IStorage
     
     public void SwapBuffers()
     {
-        //foreach (var component in All()) component.SwapBuffers();
+        foreach (var componentByEntity in _componentStores.Values)
+        foreach (var componentList in componentByEntity.Values)
+        foreach (var component in componentList)
+            component.SwapBuffers();
+        
+        // Alternative iteration strategies:
+        
+        // foreach (var component in All()) component.SwapBuffers();
+        
         /*
         foreach (var component in
                  from componentByEntity in _componentStores.Values
@@ -127,11 +137,6 @@ public class MappedCollectionStorage : IStorage
                  from component in componentList
                  select component)
         */
-        
-        foreach (var componentByEntity in _componentStores.Values)
-        foreach (var componentList in componentByEntity.Values)
-        foreach (var component in componentList)
-            component.SwapBuffers();
     }
     
     public void ClearCachedQueries()

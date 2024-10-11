@@ -9,11 +9,7 @@ internal class AStar
 {
     #region Constructor
     
-    internal AStar(
-        int worldWidth,
-        int worldHeight,
-        Vector2 start,
-        Vector2 goal)
+    internal AStar(int worldWidth, int worldHeight, Vector2 start, Vector2 goal)
     {
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
