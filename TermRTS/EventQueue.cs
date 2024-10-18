@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 
 namespace TermRTS;
 
+// TODO: Implement missing enumerator API!
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
     #region Constructor
