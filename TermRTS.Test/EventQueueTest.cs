@@ -5,7 +5,9 @@ public class EventQueueTest
     [Fact]
     public void TestEmpty()
     {
+#pragma warning disable xUnit2013
         Assert.Equal(0, new EventQueue<string, int>().Count);
+#pragma warning restore xUnit2013
         // Assert.Empty(new EventQueue<string, int>());
     }
     
@@ -15,7 +17,9 @@ public class EventQueueTest
         var eq = new EventQueue<string, int>();
         eq.TryAdd(("foo", 0));
         // Do not use Assert.Single(), because our PQ implementation doesn't support enumerators
+#pragma warning disable xUnit2013
         Assert.Equal(1, eq.Count);
+#pragma warning restore xUnit2013
         
         eq.TryAdd(("bar", 1));
         eq.TryAdd(("baz", 2));
@@ -45,6 +49,8 @@ public class EventQueueTest
         eq.TryTake(out var c);
         Assert.Equal("baz", c.Item1);
         
+#pragma warning disable xUnit2013
         Assert.Equal(0, eq.Count);
+#pragma warning restore xUnit2013
     }
 }

@@ -176,7 +176,7 @@ public class Core : ICore
         
         // Clean up operations: remove 'dead' entities and add new ones
         var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
-        foreach (var id in entityIdsToRemove) _components.RemoveComponents(id);
+        foreach (var id in entityIdsToRemove) _components.RemoveComponentsByEntity(id);
         _entities.RemoveAll(e => e.IsMarkedForRemoval);
         
         if (_newEntities.Count != 0)
@@ -189,7 +189,6 @@ public class Core : ICore
         {
             foreach (var c in _newComponents) _components.AddComponent(c);
             _newComponents.Clear();
-            _components.ClearCachedQueries();
         }
         
         // New game state should look like this:

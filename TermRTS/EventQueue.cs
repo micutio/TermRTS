@@ -6,6 +6,13 @@ namespace TermRTS;
 // TODO: Implement missing enumerator API!
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
+    #region Private Fields
+    
+    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
+    private long _index;
+    
+    #endregion
+    
     #region Constructor
     
     /// <summary>
@@ -14,6 +21,7 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
     /// <param name="comparer"> Comparer to facilitate sorting by priority. </param>
     public EventQueue(IComparer<TPriority>? comparer = default)
     {
+        SyncRoot = new object();
         comparer ??= Comparer<TPriority>.Default;
         _queue = new PriorityQueue<TElement, (TPriority, long)>(Comparer<(TPriority, long)>.Create(
             (x, y) =>
@@ -26,35 +34,31 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
     
     #endregion
     
-    #region Private Fields
-    
-    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
-    private long _index;
-    
-    #endregion
-    
     #region Properties
     
+    /// <inheritdoc />
     public int Count
     {
         get
         {
-            lock (_queue)
+            lock (SyncRoot)
             {
                 return _queue.Count;
             }
         }
     }
     
-    public bool IsSynchronized => false;
+    /// <inheritdoc />
+    public bool IsSynchronized => true; // use to be `false`, not sure whether true is correct
     
     #endregion
     
     #region Public Methods
     
+    /// <inheritdoc />
     public bool TryAdd((TElement, TPriority) item)
     {
-        lock (_queue)
+        lock (SyncRoot)
         {
             _queue.Enqueue(item.Item1, (item.Item2, ++_index));
         }
@@ -62,9 +66,10 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         return true;
     }
     
+    /// <inheritdoc />
     public bool TryTake(out (TElement, TPriority) item)
     {
-        lock (_queue)
+        lock (SyncRoot)
         {
             if (_queue.TryDequeue(out var element, out var priority))
             {
@@ -79,7 +84,7 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
     
     public bool TryPeek(out TElement? element, out TPriority? priority)
     {
-        lock (_queue)
+        lock (SyncRoot)
         {
             var value = _queue.TryPeek(out var element1, out var priority1);
             element = element1;
@@ -88,28 +93,58 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         }
     }
     
-    public object SyncRoot => throw new NotSupportedException();
+    /// <inheritdoc />
+    public object SyncRoot { get; }
     
+    /// <inheritdoc />
     public void CopyTo((TElement, TPriority)[] array, int index)
     {
         throw new NotSupportedException();
+        
+        /*
+        ArgumentNullException.ThrowIfNull(array);
+        
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        
+        var count = Count;
+        if (array.Length - index < count)
+            throw new ArgumentException("Not enough elements after index in the destination array.");
+        
+        lock (SyncRoot)
+        {
+            for (var i = 0; i < count; ++i)
+                array[i + index] = _queue[i];
+        }
+        */
     }
     
+    /// <inheritdoc />
     public void CopyTo(Array array, int index)
     {
         throw new NotSupportedException();
+        /*
+        ArgumentNullException.ThrowIfNull(array);
+        
+        if (array is not (TElement, TPriority)[] pArray)
+            throw new ArgumentException("Cannot convert to priority array", nameof(array));
+        
+        CopyTo(pArray, index);
+        */
     }
     
+    /// <inheritdoc />
     public IEnumerator<(TElement, TPriority)> GetEnumerator()
     {
         throw new NotSupportedException();
     }
     
+    /// <inheritdoc />
     public (TElement, TPriority)[] ToArray()
     {
         throw new NotSupportedException();
     }
     
+    /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
