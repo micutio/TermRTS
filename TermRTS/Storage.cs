@@ -42,6 +42,7 @@ public interface IStorage
 ///     Storage of components, associating by component type and entity id.
 ///     NOTE: Only supports one component per type per ID!
 /// </summary>
+// TODO: Make implementation thread-safe
 public class MappedCollectionStorage : IStorage
 {
     private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
