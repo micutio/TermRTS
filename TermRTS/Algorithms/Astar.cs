@@ -1,15 +1,15 @@
 using System.Numerics;
 
-namespace TermRTS.Examples.Circuitry;
+namespace TermRTS.Algorithms;
 
 /// <summary>
 ///     Implementation of the A* path finding algorithm for 2d-grids.
 /// </summary>
-internal class AStar
+public class AStar
 {
     #region Constructor
     
-    internal AStar(int worldWidth, int worldHeight, Vector2 start, Vector2 goal)
+    public AStar(int worldWidth, int worldHeight, Vector2 start, Vector2 goal)
     {
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
@@ -57,18 +57,18 @@ internal class AStar
     /// <summary>
     ///     Determine the weight of the edge between the two given points
     /// </summary>
-    internal Func<Vector2, Vector2, float> Weight { get; set; }
+    public Func<Vector2, Vector2, float> Weight { get; set; }
     
     /// <summary>
     ///     Heuristic function, estimates the cost to get from a given location to the goal.
     /// </summary>
-    internal Func<Vector2, float> Heuristic { get; set; }
+    public Func<Vector2, float> Heuristic { get; set; }
     
     #endregion
     
     #region Public API
     
-    internal List<Vector2>? ComputePath()
+    public List<Vector2>? ComputePath()
     {
         while (_openSet.Count > 0)
         {
@@ -109,7 +109,7 @@ internal class AStar
         return null;
     }
     
-    internal Vector2 CameFrom(Vector2 loc)
+    public Vector2 CameFrom(Vector2 loc)
     {
         return _cameFrom.GetValueOrDefault(loc, loc);
     }

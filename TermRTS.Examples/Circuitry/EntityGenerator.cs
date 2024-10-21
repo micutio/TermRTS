@@ -272,7 +272,7 @@ internal class EntityGenerator
         {
             var origin = new Vector2(busStart[i].Item1, busStart[i].Item2);
             var goal = new Vector2(busEnd[i].Item1, busEnd[i].Item2);
-            var aStar = new AStar(
+            var aStar = new Algorithms.AStar(
                 _worldWidth,
                 _worldHeight,
                 origin,
