@@ -1,5 +1,6 @@
 using System.Numerics;
 using ConsoleRenderer;
+using log4net;
 
 namespace TermRTS.Examples.Circuitry;
 
@@ -8,6 +9,7 @@ internal class Renderer : IRenderer, IEventSink
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
     private readonly ConsoleCanvas _canvas;
+    private readonly ILog _log;
     private int _fps;
     private int _lastFps;
     private double _lastSecond;
@@ -23,6 +25,7 @@ internal class Renderer : IRenderer, IEventSink
     {
         Console.CursorVisible = false;
         _canvas = new ConsoleCanvas().Render();
+        _log = LogManager.GetLogger(GetType());
         _profileOutput = string.Empty;
     }
     
@@ -91,6 +94,8 @@ internal class Renderer : IRenderer, IEventSink
         var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
         _canvas.Text(1, 0, $"Circuitry World | T {hr:D2}:{min:D2}:{sec:D2} | FPS {_lastFps:D3} {debugStr}");
 //#endif
+        if (_timePassedMs >= _lastSecond + 1000)
+            _log.Debug($"Circuitry World | T {hr:D2}:{min:D2}:{sec:D2} | FPS {_lastFps:D3} {debugStr}");
     }
     
     private void RenderOutline(IReadOnlyList<App.Cell> outline)

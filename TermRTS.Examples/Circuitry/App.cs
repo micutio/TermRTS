@@ -1,10 +1,18 @@
 using System.Numerics;
+using log4net;
 using TermRTS.IO;
 
 namespace TermRTS.Examples.Circuitry;
 
 internal class App : IRunnableExample
 {
+    private readonly ILog _log;
+    
+    public App()
+    {
+        _log = LogManager.GetLogger(GetType());
+    }
+    
     /// <summary>
     ///     Main method of the app.
     /// </summary>
@@ -20,12 +28,14 @@ internal class App : IRunnableExample
         // TODO: Generate chips atomically and wires bit by bit
         // TODO: How to deal with unfinished wires? Currently generated in full
         
+        _log.Info("Launching Circuitry example!");
+        
         var renderer = new Renderer();
         var core = new Core(renderer);
         EntityGenerator.RandomCircuitBoard()
             .WithRandomSeed(0)
             .WithChipCount(20)
-            .WithChipDimensions(5, 25)
+            .WithChipDimensions(5, 15)
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build(out var entities, out var components);
@@ -58,6 +68,8 @@ internal class App : IRunnableExample
         
         // After the app is terminated, clear the console.
         Console.Clear();
+        
+        _log.Info("Shutting down Circuitry example!");
     }
     
     #region Internal Types
