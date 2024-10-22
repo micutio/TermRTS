@@ -94,8 +94,6 @@ internal class Renderer : IRenderer, IEventSink
         var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
         _canvas.Text(1, 0, $"Circuitry World | T {hr:D2}:{min:D2}:{sec:D2} | FPS {_lastFps:D3} {debugStr}");
 //#endif
-        if (_timePassedMs >= _lastSecond + 1000)
-            _log.Debug($"Circuitry World | T {hr:D2}:{min:D2}:{sec:D2} | FPS {_lastFps:D3} {debugStr}");
     }
     
     private void RenderOutline(IReadOnlyList<App.Cell> outline)
