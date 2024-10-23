@@ -1,4 +1,5 @@
 ﻿using log4net;
+using TermRTS.IO;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -13,11 +14,37 @@ public class Greenery : IRunnableExample
     
     public void Run()
     {
-        Console.Out.WriteLine("Greenery logging attempts:");
-        _log.Info("Greenery app start");
-        _log.Debug("Greenery app debug message");
-        _log.Error("Greenery app error message");
-        _log.Fatal("Greenery app fatal message");
-        _log.Info("Greenery app shutdown");
+        _log.Info("~ Greenery ~");
+        
+        // Set up engine
+        var renderer = new Renderer();
+        var core = new Core(renderer);
+        var scheduler = new Scheduler(16, 16, core);
+        scheduler.AddEventSources(scheduler.ProfileEventReader);
+        scheduler.AddEventSink(renderer, EventType.Profile);
+        
+        // Init input
+        var input = new ConsoleInput();
+        scheduler.AddEventSources(input.KeyEventReader);
+        scheduler.AddEventSink(input, EventType.Shutdown);
+        input.Run();
+        
+        // Graceful shutdown on canceling via CTRL+C.
+        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
+        {
+            e.Cancel = true;
+            scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
+        };
+        
+        // Automatically shut down after 10 minutes.
+        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 10));
+        
+        // Run it
+        scheduler.SimulationLoop();
+        
+        // After the app is terminated, clear the console.
+        Console.Clear();
+        
+        _log.Info("~ Greenery app shutdown ~");
     }
 }

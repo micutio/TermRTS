@@ -45,7 +45,6 @@ internal class Circuitry : IRunnableExample
         
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
-        scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.AddEventSink(renderer, EventType.Profile);
         
         var input = new ConsoleInput();

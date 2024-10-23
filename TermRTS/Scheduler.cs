@@ -31,6 +31,8 @@ public class Scheduler : IEventSink
         _core = core;
         
         _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+        
+        AddEventSink(_core, EventType.Shutdown);
     }
     
     #endregion
