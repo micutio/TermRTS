@@ -4,11 +4,11 @@ using TermRTS.IO;
 
 namespace TermRTS.Examples.Circuitry;
 
-internal class App : IRunnableExample
+internal class Circuitry : IRunnableExample
 {
     private readonly ILog _log;
     
-    public App()
+    public Circuitry()
     {
         _log = LogManager.GetLogger(GetType());
     }

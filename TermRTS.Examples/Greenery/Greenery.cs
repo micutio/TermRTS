@@ -2,11 +2,11 @@
 
 namespace TermRTS.Examples.Greenery;
 
-public class App : IRunnableExample
+public class Greenery : IRunnableExample
 {
     private readonly ILog _log;
     
-    public App()
+    public Greenery()
     {
         _log = LogManager.GetLogger(GetType());
     }

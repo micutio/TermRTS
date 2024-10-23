@@ -51,9 +51,10 @@ internal class Renderer : IRenderer, IEventSink
     {
         RenderInfo(timeStepSizeMs, howFarIntoNextFrameMs);
         
-        foreach (var chip in storage.GetForType(typeof(App.Chip))) RenderOutline(((App.Chip)chip).Outline);
+        foreach (var chip in storage.GetForType(typeof(Circuitry.Chip)))
+            RenderOutline(((Circuitry.Chip)chip).Outline);
         
-        foreach (var bus in storage.GetForType(typeof(App.Bus)).Cast<App.Bus>())
+        foreach (var bus in storage.GetForType(typeof(Circuitry.Bus)).Cast<Circuitry.Bus>())
         {
             var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
             foreach (var wire in bus.Connections) RenderWire(wire.Outline, bus.IsActive, progress);
@@ -96,7 +97,7 @@ internal class Renderer : IRenderer, IEventSink
 //#endif
     }
     
-    private void RenderOutline(IReadOnlyList<App.Cell> outline)
+    private void RenderOutline(IReadOnlyList<Circuitry.Cell> outline)
     {
         for (var i = 0; i < outline.Count; i += 1)
         {
@@ -110,7 +111,7 @@ internal class Renderer : IRenderer, IEventSink
         }
     }
     
-    private void RenderWire(IReadOnlyList<App.Cell> outline, bool isActive, float progress)
+    private void RenderWire(IReadOnlyList<Circuitry.Cell> outline, bool isActive, float progress)
     {
         var sparkIdx = (int)(outline.Count * progress);
         for (var i = 0; i < outline.Count; i++)

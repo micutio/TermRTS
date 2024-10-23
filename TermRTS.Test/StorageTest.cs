@@ -23,11 +23,11 @@ public class StorageTestData : TheoryData<IStorage>
 }
 
 /// <summary>
-/// Tests for storage:
-/// - insert and retrieve by type/id
-/// - insert some more and check Count() results for enumerators.
-/// - delete and check whether is not existing
-/// - cached queries
+///     Tests for storage:
+///     - insert and retrieve by type/id
+///     - insert some more and check Count() results for enumerators.
+///     - delete and check whether is not existing
+///     - cached queries
 /// </summary>
 public class StorageTest
 {

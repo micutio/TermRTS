@@ -1,4 +1,5 @@
 using System.Numerics;
+using TermRTS.Algorithms;
 
 namespace TermRTS.Examples.Circuitry;
 
@@ -18,11 +19,11 @@ internal class EntityGenerator
     #region Private Fields
     
     // readonly utilities and internal state
-    private readonly Dictionary<App.Chip, ISet<App.Chip>> _adjacency;
+    private readonly Dictionary<Circuitry.Chip, ISet<Circuitry.Chip>> _adjacency;
     private readonly List<EntityBase> _chipEntities;
     private readonly List<EntityBase> _busEntities;
-    private readonly List<App.Chip> _generatedChipComponents;
-    private readonly List<App.Bus> _generatedBusComponents;
+    private readonly List<Circuitry.Chip> _generatedChipComponents;
+    private readonly List<Circuitry.Bus> _generatedBusComponents;
     
     // world generation parameters
     private int _worldWidth;
@@ -53,9 +54,9 @@ internal class EntityGenerator
         _minBusWidth = 1;
         _maxBusWidth = 1;
         
-        _adjacency = new Dictionary<App.Chip, ISet<App.Chip>>();
-        _generatedChipComponents = new List<App.Chip>();
-        _generatedBusComponents = new List<App.Bus>();
+        _adjacency = new Dictionary<Circuitry.Chip, ISet<Circuitry.Chip>>();
+        _generatedChipComponents = new List<Circuitry.Chip>();
+        _generatedBusComponents = new List<Circuitry.Bus>();
         _chipEntities = new List<EntityBase>();
         _busEntities = new List<EntityBase>();
         _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
@@ -128,10 +129,10 @@ internal class EntityGenerator
             var tries = 0;
             var isInvalid = true;
             var chipEntity = new EntityBase();
-            App.Chip? newChip = null;
+            Circuitry.Chip? newChip = null;
             while (isInvalid && tries < 10)
             {
-                newChip = new App.Chip(chipEntity.Id, new Vector2(x, y), new Vector2(x + w, y + h));
+                newChip = new Circuitry.Chip(chipEntity.Id, new Vector2(x, y), new Vector2(x + w, y + h));
                 isInvalid = _generatedChipComponents.Exists(c => newChip.IsIntersecting(c));
                 tries += 1;
             }
@@ -148,7 +149,7 @@ internal class EntityGenerator
         }
         
         // order chips by size, largest first
-        _generatedChipComponents.Sort(Comparer<App.Chip>.Create((a, b) =>
+        _generatedChipComponents.Sort(Comparer<Circuitry.Chip>.Create((a, b) =>
         {
             // var aArea = Math.Abs(a.Position2.X - a.Position1.X) *
             //             Math.Abs(a.Position2.Y - a.Position2.Y);
@@ -166,7 +167,7 @@ internal class EntityGenerator
     
     private void GenerateBuses()
     {
-        var pairedChips = new PriorityQueue<(App.Chip, App.Chip), float>();
+        var pairedChips = new PriorityQueue<(Circuitry.Chip, Circuitry.Chip), float>();
         // Connect each chip to the nearest unconnected one.
         foreach (var thisChip in _generatedChipComponents)
         {
@@ -183,11 +184,11 @@ internal class EntityGenerator
             if (nearestChip == null) continue;
             
             if (!_adjacency.TryGetValue(thisChip, out var connectedToThisChip))
-                connectedToThisChip = new HashSet<App.Chip>();
+                connectedToThisChip = new HashSet<Circuitry.Chip>();
             connectedToThisChip.Add(nearestChip);
             _adjacency[thisChip] = connectedToThisChip;
             if (!_adjacency.TryGetValue(nearestChip, out var connectedToNearestChip))
-                connectedToNearestChip = new HashSet<App.Chip>();
+                connectedToNearestChip = new HashSet<Circuitry.Chip>();
             connectedToNearestChip.Add(thisChip);
             _adjacency[nearestChip] = connectedToNearestChip;
             
@@ -206,10 +207,10 @@ internal class EntityGenerator
         }
     }
     
-    private bool IsConnected(App.Chip startChip, App.Chip goalChip)
+    private bool IsConnected(Circuitry.Chip startChip, Circuitry.Chip goalChip)
     {
-        var toExplore = new Queue<App.Chip>();
-        var explored = new HashSet<App.Chip>();
+        var toExplore = new Queue<Circuitry.Chip>();
+        var explored = new HashSet<Circuitry.Chip>();
         
         toExplore.Enqueue(startChip);
         while (toExplore.Count > 0)
@@ -233,7 +234,7 @@ internal class EntityGenerator
         return false;
     }
     
-    private void ConnectChips(App.Chip thisChip, App.Chip otherChip)
+    private void ConnectChips(Circuitry.Chip thisChip, Circuitry.Chip otherChip)
     {
         // connectedChips.Add(nearestChip);
         var chipCenter = thisChip.Center();
@@ -243,8 +244,8 @@ internal class EntityGenerator
         
         // Rank chip walls by horizontal and vertical parameters and choose the best ones that
         // have space for wires.
-        var startWalls = new PriorityQueue<ArraySegment<App.Cell>, float>(4);
-        var endWalls = new PriorityQueue<ArraySegment<App.Cell>, float>(4);
+        var startWalls = new PriorityQueue<ArraySegment<Circuitry.Cell>, float>(4);
+        var endWalls = new PriorityQueue<ArraySegment<Circuitry.Cell>, float>(4);
         
         startWalls.Enqueue(thisChip.LowerWall(), vertical);
         startWalls.Enqueue(thisChip.UpperWall(), vertical * -1);
@@ -267,12 +268,12 @@ internal class EntityGenerator
     
     private void CreateBus(int width, IList<(int, int)> busStart, IList<(int, int)> busEnd)
     {
-        var wires = new List<App.Wire>();
+        var wires = new List<Circuitry.Wire>();
         for (var i = 0; i < width; i += 1)
         {
             var origin = new Vector2(busStart[i].Item1, busStart[i].Item2);
             var goal = new Vector2(busEnd[i].Item1, busEnd[i].Item2);
-            var aStar = new Algorithms.AStar(
+            var aStar = new AStar(
                 _worldWidth,
                 _worldHeight,
                 origin,
@@ -314,7 +315,7 @@ internal class EntityGenerator
             if (path == null) continue;
             
             var wire =
-                new App.Wire(path.ToList().ConvertAll(vec => ((int)vec.X, (int)vec.Y)));
+                new Circuitry.Wire(path.ToList().ConvertAll(vec => ((int)vec.X, (int)vec.Y)));
             foreach (var (x, y, _) in wire.Outline) Occupy(x, y);
             wires.Add(wire);
         }
@@ -323,7 +324,7 @@ internal class EntityGenerator
         if (wires.Count > 0)
         {
             var busEntity = new EntityBase();
-            var busComponent = new App.Bus(busEntity.Id, wires);
+            var busComponent = new Circuitry.Bus(busEntity.Id, wires);
             _generatedBusComponents.Add(busComponent);
             _busEntities.Add(busEntity);
         }
@@ -331,7 +332,7 @@ internal class EntityGenerator
     
     private List<(int, int)> CreateBusTerminator(
         int width,
-        in PriorityQueue<ArraySegment<App.Cell>, float> cellWalls)
+        in PriorityQueue<ArraySegment<Circuitry.Cell>, float> cellWalls)
     {
         // Idea:
         // - take a start wall from the queue

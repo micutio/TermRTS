@@ -1,4 +1,5 @@
 using System.Text;
+using log4net.Config;
 using TermRTS.Examples.BouncyBall;
 using TermRTS.Examples.Testing;
 
@@ -14,7 +15,7 @@ internal static class ExampleRunner
     private static int Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
-        log4net.Config.XmlConfigurator.Configure();
+        XmlConfigurator.Configure();
         switch (args[0])
         {
             case "1":
@@ -27,11 +28,11 @@ internal static class ExampleRunner
                 break;
             case "3":
                 Console.WriteLine("Running Circuitry App...");
-                new Circuitry.App().Run();
+                new Circuitry.Circuitry().Run();
                 break;
             case "4":
                 Console.WriteLine("Running Greenery App...");
-                new Greenery.App().Run();
+                new Greenery.Greenery().Run();
                 break;
             default:
                 Console.WriteLine("Nothing to run...");

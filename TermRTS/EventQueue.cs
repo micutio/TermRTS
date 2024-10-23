@@ -5,13 +5,6 @@ namespace TermRTS;
 
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
-    #region Private Fields
-    
-    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
-    private long _index;
-    
-    #endregion
-    
     #region Constructor
     
     /// <summary>
@@ -30,6 +23,13 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
                 return result;
             }));
     }
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
+    private long _index;
     
     #endregion
     
