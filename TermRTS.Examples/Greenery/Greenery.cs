@@ -21,6 +21,7 @@ public class Greenery : IRunnableExample
         var core = new Core(renderer);
 
         // TODO: Move entity generation elsewhere.
+        // TODO: Add 'enter text' component.
         var worldEntity = new EntityBase();
         var worldComponent =
             new WorldComponent(worldEntity.Id, Console.WindowWidth, Console.WindowHeight);
