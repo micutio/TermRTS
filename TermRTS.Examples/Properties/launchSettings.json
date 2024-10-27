@@ -2,7 +2,7 @@
   "profiles": {
     "TermRTS.Examples": {
       "commandName": "Project",
-      "commandLineArgs": "3",
+      "commandLineArgs": "4",
       "remoteDebugEnabled": true
     }
   }

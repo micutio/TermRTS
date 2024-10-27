@@ -1,0 +1,7 @@
+﻿<Solution>
+  <Project Path="TermRTS.Examples\TermRTS.Examples.csproj" Type="Classic C#">
+    <BuildDependency Project="TermRTS\TermRTS.csproj" />
+  </Project>
+  <Project Path="TermRTS.Test\TermRTS.Test.csproj" />
+  <Project Path="TermRTS\TermRTS.csproj" />
+</Solution>
