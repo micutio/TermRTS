@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 
 namespace TermRTS.IO;
@@ -9,12 +10,15 @@ public class ConsoleInput : IEventSink
 {
     private readonly Channel<(IEvent, ulong)> _channel;
     private readonly Thread _thread;
+    private readonly Stopwatch _timer;
     private bool _keepRunning;
+    private int _sleepMs = 16;
     
     public ConsoleInput()
     {
         _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
         _thread = new Thread(ListenForKeyInput);
+        _timer = new Stopwatch();
     }
     
     public ChannelReader<(IEvent, ulong)> KeyEventReader => _channel.Reader;
@@ -36,14 +40,23 @@ public class ConsoleInput : IEventSink
     // TODO: Reduce input checking frequency if there hasn't been any input for a long time.
     private void ListenForKeyInput()
     {
+        _timer.Start();
         while (_keepRunning)
         {
             if (!Console.KeyAvailable)
             {
-                Thread.Sleep(250);
+                // Check how long we have been waiting so far.
+                // If there are longer periods of waiting, then adjust to check less frequently.
+                _timer.Stop();
+                var elapsedMs = _timer.ElapsedMilliseconds;
+                AdjustWaitingTimeForIntput(elapsedMs);
+                _timer.Start(); // Resume without resetting.
+                
+                Thread.Sleep(_sleepMs);
                 continue;
             }
             
+            _timer.Restart(); // Reset waiting timer.
             var keyInfo = Console.ReadKey(true);
             FireKeyEvent(keyInfo);
         }
@@ -55,5 +68,21 @@ public class ConsoleInput : IEventSink
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
     {
         _channel.Writer.TryWrite((new KeyInputEvent(keyInfo), 0L));
+    }
+    
+    private void AdjustWaitingTimeForIntput(long lastWaitInMs)
+    {
+        switch (lastWaitInMs)
+        {
+            case < 1000:
+                _sleepMs = 16;
+                return;
+            case < 1000 * 60:
+                _sleepMs = 250;
+                return;
+            default:
+                _sleepMs = 1000;
+                return;
+        }
     }
 }
