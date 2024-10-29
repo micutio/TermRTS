@@ -7,44 +7,69 @@ namespace TermRTS.Examples.Greenery;
 public class Renderer : IRenderer, IEventSink
 {
     #region Public Fields
-
-    public Vector2 CameraPos = new(0, 0);
-    public Vector2 ViewportSize = new(Console.WindowWidth, Console.WindowHeight);
-    public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
-
+    
+    private readonly Vector2 _viewportSize;
+    private readonly Vector2 _worldSize;
+    
+    private Vector2 _cameraPos = new(0, 0);
+    
     #endregion
-
+    
     #region Private Fields
-
+    
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
     private readonly ConsoleCanvas _canvas;
     private readonly ILog _log;
-
+    
     #endregion
-
+    
     #region Constructor
-
-    public Renderer()
+    
+    public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight)
     {
         _canvas = new ConsoleCanvas().Render();
         _log = LogManager.GetLogger(GetType());
+        _viewportSize.X = viewportWidth;
+        _viewportSize.Y = viewportHeight;
+        _worldSize.X = worldWidth;
+        _worldSize.Y = worldHeight;
         Console.CursorVisible = false;
     }
-
+    
     #endregion
-
+    
     #region IEventSink Members
-
+    
     public void ProcessEvent(IEvent evt)
     {
+        if (evt.Type() != EventType.KeyInput) return;
+        
+        var keyEvent = (KeyInputEvent)evt;
+        switch (keyEvent.Info.Key)
+        {
+            case ConsoleKey.UpArrow:
+                MoveCameraUp();
+                break;
+            case ConsoleKey.DownArrow:
+                MoveCameraDown();
+                break;
+            case ConsoleKey.LeftArrow:
+                MoveCameraLeft();
+                break;
+            case ConsoleKey.RightArrow:
+                MoveCameraRight();
+                break;
+        }
     }
-
+    
     #endregion
-
+    
     #region IRenderer Members
-
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs,
+    
+    public void RenderComponents(
+        in IStorage storage,
+        double timeStepSizeMs,
         double howFarIntoNextFrameMs)
     {
         var worldComponent = storage
@@ -52,49 +77,70 @@ public class Renderer : IRenderer, IEventSink
             .First();
         if (worldComponent is WorldComponent world) RenderWorld(world);
     }
-
+    
     private void RenderWorld(WorldComponent world)
     {
         // TODO: Only update whenever CameraPos changes.
-        var minX = (int)Math.Max(0, CameraPos.X - ViewportSize.X);
-        var minY = (int)Math.Max(0, CameraPos.Y - ViewportSize.Y);
-        var maxX = (int)(minX + ViewportSize.X);
-        var maxY = (int)(minY + ViewportSize.Y);
-
+        var minX = (int)_cameraPos.X;
+        var minY = (int)_cameraPos.Y;
+        var maxX = (int)Math.Min(_cameraPos.X + _viewportSize.X, _worldSize.X);
+        var maxY = (int)Math.Min(_cameraPos.Y + _viewportSize.Y, _worldSize.Y);
+        
         for (var y = minY; y < maxY; y++)
         for (var x = minX; x < maxX; x++)
         {
-            var c = world.Cells[x, y] % 2 == 0 ? 'X' : '_';
+            // var c = world.Cells[x, y] % 2 == 0 ? 'X' : '_';
+            var c = Convert.ToString(world.Cells[x, y])[0];
             var colBg = DefaultBg;
             const ConsoleColor colFg = ConsoleColor.Green;
-            _canvas.Set(x, y, c, colFg, colBg);
+            _canvas.Set(x - minX, y - minY, c, colFg, colBg);
         }
-
+        
         //throw new NotImplementedException();
     }
-
+    
     public void FinalizeRender()
     {
         _canvas.Render();
     }
-
+    
     public void Shutdown()
     {
         Console.ResetColor();
         _log.Info("Shutting down renderer.");
     }
-
+    
     #endregion
-
+    
     #region Private Members
-
+    
+    private void MoveCameraUp()
+    {
+        _cameraPos.Y = Math.Max(_cameraPos.Y - 1, 0);
+    }
+    
+    private void MoveCameraDown()
+    {
+        _cameraPos.Y = Math.Min(_cameraPos.Y + 1, _worldSize.Y - _viewportSize.Y);
+    }
+    
+    private void MoveCameraLeft()
+    {
+        _cameraPos.X = Math.Max(_cameraPos.X - 1, 0);
+    }
+    
+    private void MoveCameraRight()
+    {
+        _cameraPos.X = Math.Min(_cameraPos.X + 1, _worldSize.X - _viewportSize.X);
+    }
+    
     private bool IsInCamera(float x, float y)
     {
-        return x >= CameraPos.X
-               && y <= ViewportSize.X - CameraPos.X
-               && y >= CameraPos.Y
-               && y <= ViewportSize.Y - CameraPos.Y;
+        return x >= _cameraPos.X
+               && y <= _cameraPos.X + _viewportSize.X
+               && y >= _cameraPos.Y
+               && y <= _cameraPos.Y + _viewportSize.Y;
     }
-
+    
     #endregion
 }
