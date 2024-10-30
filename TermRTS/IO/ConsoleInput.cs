@@ -23,6 +23,8 @@ public class ConsoleInput : IEventSink
     
     public ChannelReader<(IEvent, ulong)> KeyEventReader => _channel.Reader;
     
+    #region IEventSink Members
+    
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() != EventType.Shutdown) return;
@@ -30,6 +32,8 @@ public class ConsoleInput : IEventSink
         _keepRunning = false;
         _thread.Join();
     }
+    
+    #endregion
     
     public void Run()
     {

@@ -22,6 +22,9 @@ public class Renderer : IRenderer, IEventSink
     private readonly ConsoleCanvas _canvas;
     private readonly ILog _log;
     
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+    
     #endregion
     
     #region Constructor
@@ -30,6 +33,7 @@ public class Renderer : IRenderer, IEventSink
     {
         _canvas = new ConsoleCanvas().Render();
         _log = LogManager.GetLogger(GetType());
+        _textbox = new TextBox();
         _viewportSize.X = viewportWidth;
         _viewportSize.Y = viewportHeight;
         _worldSize.X = worldWidth;
@@ -50,17 +54,19 @@ public class Renderer : IRenderer, IEventSink
         {
             case ConsoleKey.UpArrow:
                 MoveCameraUp();
-                break;
+                return;
             case ConsoleKey.DownArrow:
                 MoveCameraDown();
-                break;
+                return;
             case ConsoleKey.LeftArrow:
                 MoveCameraLeft();
-                break;
+                return;
             case ConsoleKey.RightArrow:
                 MoveCameraRight();
-                break;
+                return;
         }
+        
+        _textbox.ProcessEvent(evt);
     }
     
     #endregion
@@ -76,6 +82,26 @@ public class Renderer : IRenderer, IEventSink
             .GetForType(typeof(WorldComponent))
             .First();
         if (worldComponent is WorldComponent world) RenderWorld(world);
+        
+        if (!_textbox.IsOngoingInput) return;
+        
+        var x = (int)_viewportSize.X;
+        var y = (int)_viewportSize.Y - 1;
+        var fg = DefaultFg;
+        var bg = DefaultBg;
+        
+        for (var i = 0; i < x; i += 1)
+            _canvas.Set(i, y, ' ', bg, fg);
+        
+        _canvas.Set(0, y, '>', bg, fg);
+        _canvas.Set(1, y, ' ', bg, fg);
+        
+        var input = _textbox.GetCurrentInput();
+        for (var i = 0; i < input.Count; i += 1)
+        {
+            var c = input[i];
+            _canvas.Set(2 + i, y, c, bg, fg);
+        }
     }
     
     private void RenderWorld(WorldComponent world)
