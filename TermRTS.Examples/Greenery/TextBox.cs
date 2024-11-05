@@ -34,6 +34,8 @@ public class TextBox : IEventSink
                 default: break;
             }
         
+        if (!IsOngoingInput) return;
+        
         var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
         switch (keyEvent.Info.Key)
         {
