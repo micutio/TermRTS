@@ -118,7 +118,21 @@ public class Renderer : IRenderer, IEventSink
             // var c = world.Cells[x, y] % 2 == 0 ? 'X' : '_';
             var c = Convert.ToString(world.Cells[x, y])[0];
             var colBg = DefaultBg;
-            const ConsoleColor colFg = ConsoleColor.Green;
+            // const ConsoleColor colFg = ConsoleColor.Green;
+            var colFg = c switch
+            {
+                '0' => ConsoleColor.DarkBlue,
+                '1' => ConsoleColor.Blue,
+                '2' => ConsoleColor.DarkCyan,
+                '3' => ConsoleColor.Cyan,
+                '4' => ConsoleColor.Yellow,
+                '5' => ConsoleColor.DarkGreen,
+                '6' => ConsoleColor.Green,
+                '7' => ConsoleColor.DarkYellow,
+                '8' => ConsoleColor.Gray,
+                _ => ConsoleColor.DarkGray
+            };
+            
             _canvas.Set(x - minX, y - minY, c, colFg, colBg);
         }
         
