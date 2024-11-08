@@ -167,8 +167,8 @@ public class Scheduler : IEventSink
                 continue;
             
             // ...otherwise wait until the next frame is due.
-            var sleepyTime = (int)Math.Round((_msPerUpdate - loopTimeMs).TotalMilliseconds, 0,
-                MidpointRounding.ToPositiveInfinity);
+            var sleepyTime = Convert.ToInt32(Math.Round((_msPerUpdate - loopTimeMs).TotalMilliseconds, 0,
+                MidpointRounding.ToPositiveInfinity));
             // Console.WriteLine($"pausing game loop for {sleepyTime} ms ---------------");
             Thread.Sleep(sleepyTime);
         }

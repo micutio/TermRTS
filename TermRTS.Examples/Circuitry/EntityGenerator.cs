@@ -59,7 +59,7 @@ internal class EntityGenerator
         _generatedBusComponents = new List<Circuitry.Bus>();
         _chipEntities = new List<EntityBase>();
         _busEntities = new List<EntityBase>();
-        _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
+        _rng = _rngSeed != null ? new Random(Convert.ToInt32(_rngSeed)) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
     }
     
@@ -98,7 +98,7 @@ internal class EntityGenerator
     
     internal void Build(out List<EntityBase> entities, out List<ComponentBase> components)
     {
-        _rng = _rngSeed != null ? new Random((int)_rngSeed) : new Random();
+        _rng = _rngSeed != null ? new Random(Convert.ToInt32(_rngSeed)) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
         
         GenerateChips();
@@ -143,8 +143,8 @@ internal class EntityGenerator
             _generatedChipComponents.Add(newChip);
             _chipEntities.Add(chipEntity);
             
-            for (var j = (int)newChip.Position1.Y; j <= newChip.Position2.Y; j += 1)
-            for (var i = (int)newChip.Position1.X; i <= newChip.Position2.X; i += 1)
+            for (var j = Convert.ToInt32(newChip.Position1.Y); j <= newChip.Position2.Y; j += 1)
+            for (var i = Convert.ToInt32(newChip.Position1.X); i <= newChip.Position2.X; i += 1)
                 Occupy(i, j);
         }
         
@@ -281,7 +281,7 @@ internal class EntityGenerator
             {
                 Heuristic = loc =>
                 {
-                    var isOccupied = IsOccupied((int)loc.X, (int)loc.Y);
+                    var isOccupied = IsOccupied(Convert.ToInt32(loc.X), Convert.ToInt32(loc.Y));
                     var isEndPoint = loc.Equals(origin) || loc.Equals(goal);
                     var penalty = isOccupied && !isEndPoint ? float.PositiveInfinity : 0;
                     return Vector2.Distance(loc, goal) + penalty;
@@ -291,7 +291,7 @@ internal class EntityGenerator
             aStar.Weight = (loc, neighbor) =>
             {
                 // penalise occupied locations
-                var isOccupied = IsOccupied((int)neighbor.X, (int)neighbor.Y);
+                var isOccupied = IsOccupied(Convert.ToInt32(neighbor.X), Convert.ToInt32(neighbor.Y));
                 var isNeighborEndPoint = neighbor.Equals(origin) || neighbor.Equals(goal);
                 var occupationPenalty = isOccupied && !isNeighborEndPoint
                     ? float.PositiveInfinity
@@ -315,7 +315,7 @@ internal class EntityGenerator
             if (path == null) continue;
             
             var wire =
-                new Circuitry.Wire(path.ToList().ConvertAll(vec => ((int)vec.X, (int)vec.Y)));
+                new Circuitry.Wire(path.ToList().ConvertAll(vec => (Convert.ToInt32(vec.X), Convert.ToInt32(vec.Y))));
             foreach (var (x, y, _) in wire.Outline) Occupy(x, y);
             wires.Add(wire);
         }

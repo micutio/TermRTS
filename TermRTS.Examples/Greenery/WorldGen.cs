@@ -54,7 +54,7 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
                 
                 if (dist > minDist) continue;
                 
-                minDist = (int)dist;
+                minDist = Convert.ToInt32(dist);
                 cellHeights[x, y] = landWaterMap[i];
             }
             
@@ -63,7 +63,7 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         
         // step 4: for each voronoi land cell, apply perlin or simplex noise to generate height
         Noise.Seed = seed;
-        var noiseField = Noise.Calc2D(worldWidth, worldHeight, 0.5f);
+        var noiseField = Noise.Calc2D(worldWidth, worldHeight, 0.2f);
         for (var y = 0; y < worldHeight; y += 1)
         for (var x = 0; x < worldWidth; x += 1)
         {
@@ -72,8 +72,8 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
             var heightVal = cellHeights[x, y] + normalizedNoise * baseHeight * heightFactors[x, y];
             
             // for debug only
-            //cellHeights[x, y] = (int)(heightFactors[x, y] * 9.0f);
-            cellHeights[x, y] = (int)Math.Clamp(heightVal, 0.0f, 9.0f);
+            //cellHeights[x, y] = Convert.ToInt32(heightFactors[x, y] * 9.0f);
+            cellHeights[x, y] = Convert.ToInt32(Math.Clamp(heightVal, 0.0f, 9.0f));
         }
         // step 5: for each voronoi water cell, apply perlin or simplex noise to generate depth
         

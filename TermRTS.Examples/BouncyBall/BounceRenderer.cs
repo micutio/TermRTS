@@ -21,7 +21,7 @@ internal class BounceRenderer : IRenderer
         {
             var ball = (BounceBall)ballComponent;
             
-            _canvas.Set((int)ball.Position.X, (int)ball.Position.Y);
+            _canvas.Set(Convert.ToInt32(ball.Position.X), Convert.ToInt32(ball.Position.Y));
         }
         
         // if (ball.Velocity == Vector2.Zero)

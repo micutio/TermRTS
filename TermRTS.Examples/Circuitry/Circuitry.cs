@@ -119,27 +119,27 @@ internal class Circuitry : IRunnableExample
         
         public ArraySegment<Cell> UpperWall()
         {
-            return new ArraySegment<Cell>(Outline, 4, (int)(Position2.X - Position1.X) - 1);
+            return new ArraySegment<Cell>(Outline, 4, Convert.ToInt32(Position2.X - Position1.X) - 1);
         }
         
         public ArraySegment<Cell> LowerWall()
         {
-            var width = (int)(Position2.X - Position1.X) - 1;
+            var width = Convert.ToInt32(Position2.X - Position1.X) - 1;
             return new ArraySegment<Cell>(Outline, 4 + width, width);
         }
         
         public ArraySegment<Cell> LeftWall()
         {
-            var width = (int)(Position2.X - Position1.X) - 1;
-            var height = (int)(Position2.Y - Position1.Y) - 1;
+            var width = Convert.ToInt32(Position2.X - Position1.X) - 1;
+            var height = Convert.ToInt32(Position2.Y - Position1.Y) - 1;
             // return Outline.Skip(4 + width + width).Take(height).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width + width, height);
         }
         
         public ArraySegment<Cell> RightWall()
         {
-            var width = (int)(Position2.X - Position1.X) - 1;
-            var height = (int)(Position2.Y - Position1.Y) - 1;
+            var width = Convert.ToInt32(Position2.X - Position1.X) - 1;
+            var height = Convert.ToInt32(Position2.Y - Position1.Y) - 1;
             // return Outline.Skip(4 + width + width + height).Take(height).ToList();
             return new ArraySegment<Cell>(Outline, 4 + width + width + height, height);
         }
@@ -147,10 +147,10 @@ internal class Circuitry : IRunnableExample
         private Cell[] GenerateOutline()
         {
             var outline = new List<Cell>();
-            var x1 = (int)Position1.X;
-            var x2 = (int)Position2.X;
-            var y1 = (int)Position1.Y;
-            var y2 = (int)Position2.Y;
+            var x1 = Convert.ToInt32(Position1.X);
+            var x2 = Convert.ToInt32(Position2.X);
+            var y1 = Convert.ToInt32(Position1.Y);
+            var y2 = Convert.ToInt32(Position2.Y);
             
             // left upper corner
             outline.Add(new Cell(x1, y1, Cp437.BoxDoubleDownDoubleRight));
