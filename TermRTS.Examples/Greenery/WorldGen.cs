@@ -24,7 +24,6 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
 
         // step 2: associate each grid cell to one of the cell seeds
         // step 3: for each voronoi cell, determine whether it's going to be water or land
-
         var cellHeights = new int[worldWidth, worldHeight];
         var heightFactors = new double[worldWidth, worldHeight];
 
@@ -32,6 +31,7 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         for (var x = 0; x < worldWidth; x += 1)
         {
             var minDist = int.MaxValue;
+            var minHeightFactor = double.MaxValue;
             for (var i = 0; i < cellCount; i += 1)
             {
                 var vX = voronois[i] % worldWidth;
@@ -42,13 +42,16 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
 
                 // Gauge the distance to the shoreline by how close to equidistant we are between
                 // two voronoi cell centres. Normalise and use this as multiplier for height.
-                heightFactors[x, y] = Math.Min(9.0f, Math.Abs(dist - minDist)) / 9.0f;
+                var heightFactor = Math.Min(9.0f, Math.Abs(dist - minDist) * 0.6) / 9.0f;
+                minHeightFactor = Math.Min(minHeightFactor, heightFactor);
 
                 if (dist > minDist) continue;
 
                 minDist = (int)dist;
                 cellHeights[x, y] = landWaterMap[i];
             }
+
+            heightFactors[x, y] = minHeightFactor;
         }
 
         // step 4: for each voronoi land cell, apply perlin or simplex noise to generate height
@@ -58,10 +61,13 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         for (var y = 0; y < worldHeight; y += 1)
         for (var x = 0; x < worldWidth; x += 1)
         {
-            var factor = cellHeights[x, y] == 4 ? 1 : -1;
-            var noiseVal = (int)(noiseField[x, y] / 255.0f * 5.0f);
-            cellHeights[x, y] =
-                (int)Math.Clamp(cellHeights[x, y] + noiseVal * factor * heightFactors[x, y], 0, 9);
+            var baseHeight = cellHeights[x, y] == 4 ? 5.0f : -3.0f;
+            var normalizedNoise = noiseField[x, y] / 255.0f;
+            var heightVal = cellHeights[x, y] + normalizedNoise * baseHeight * heightFactors[x, y];
+
+            // for debug only
+            //cellHeights[x, y] = (int)(heightFactors[x, y] * 9.0f);
+            cellHeights[x, y] = (int)Math.Clamp(heightVal, 0.0f, 9.0f);
         }
         // step 5: for each voronoi water cell, apply perlin or simplex noise to generate depth
 
