@@ -1,6 +1,7 @@
 using ConsoleRenderer;
 using log4net;
 using System.Numerics;
+using TermRTS.Examples.Circuitry;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -133,6 +134,7 @@ public class Renderer : IRenderer, IEventSink
                 _ => ConsoleColor.Gray
             };
 
+            // c = Cp437.BlockFull;
             _canvas.Set(x - minX, y - minY, c, colFg, colBg);
         }
 
