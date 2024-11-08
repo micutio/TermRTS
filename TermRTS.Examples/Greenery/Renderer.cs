@@ -109,8 +109,8 @@ public class Renderer : IRenderer, IEventSink
         // TODO: Only update whenever CameraPos changes.
         var minX = Convert.ToInt32(_cameraPos.X);
         var minY = Convert.ToInt32(_cameraPos.Y);
-        var maxX = Convert.ToInt32(Math.Min(_cameraPos.X + _viewportSize.X, _worldSize.X - 1));
-        var maxY = Convert.ToInt32(Math.Min(_cameraPos.Y + _viewportSize.Y, _worldSize.Y - 1));
+        var maxX = Convert.ToInt32(Math.Min(_cameraPos.X + _viewportSize.X, _worldSize.X));
+        var maxY = Convert.ToInt32(Math.Min(_cameraPos.Y + _viewportSize.Y, _worldSize.Y));
         
         for (var y = minY; y < maxY; y++)
         for (var x = minX; x < maxX; x++)

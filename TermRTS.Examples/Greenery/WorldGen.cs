@@ -19,57 +19,60 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         var voronois = new int[cellCount];
         for (var i = 0; i < cellCount; i += 1) voronois[i] = _rng.Next(worldWidth * worldHeight);
         
-        
         // step 2: for each voronoi cell, determine whether it's going to be water or land
         var landWaterMap = _rng.GetItems([3, 4], cellCount);
         
         // step 3: associate each grid cell to one of the cell seeds
+        const float scale = .3f;
         var cellHeights = new int[worldWidth, worldHeight];
-        var heightFactors = new double[worldWidth, worldHeight];
-        var jiggleNoiseField = Noise.Calc2D(worldWidth, worldHeight, 0.1f);
+        var coastalSlopes = new double[worldWidth, worldHeight];
+        var jiggleNoise = Noise.Calc2D(worldWidth, worldHeight, scale);
         
         for (var y = 0; y < worldHeight; y += 1)
         for (var x = 0; x < worldWidth; x += 1)
         {
+            var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+            var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+            
             var minDist = int.MaxValue;
-            var minHeightFactor = double.MaxValue;
+            var minCoastalSlopeFactor = double.MaxValue;
             var lastLandWaterValue = 0;
             for (var i = 0; i < cellCount; i += 1)
             {
-                var thisWaterLandValue = landWaterMap[i];
-                // Do not compare two voronoi cells of the same type to avoid visual 'seams'. 
-                if (thisWaterLandValue == lastLandWaterValue) continue;
-                lastLandWaterValue = thisWaterLandValue;
-                
                 var vX = voronois[i] % worldWidth;
                 var vY = voronois[i] / worldWidth;
-                var dist = Math.Sqrt(Math.Pow(vX - x, 2.0f) + Math.Pow(vY - y, 2.0f));
-                var jiggleVal = jiggleNoiseField[x, y] / 255.0f * jiggle;
-                dist += jiggleVal;
-                
-                // Gauge the distance to the shoreline by how close to equidistant we are between
-                // two voronoi cell centres. Normalise and use this as multiplier for height.
-                var heightFactor = Math.Min(9.0f, Math.Abs(dist - minDist) * 0.6) / 9.0f;
-                minHeightFactor = Math.Min(minHeightFactor, heightFactor);
+                var dist = Math.Sqrt(Math.Pow(vX - jiggledX, 2.0f) + Math.Pow(vY - jiggledY, 2.0f));
                 
                 if (dist > minDist) continue;
                 
                 minDist = Convert.ToInt32(dist);
                 cellHeights[x, y] = landWaterMap[i];
+                
+                
+                var thisWaterLandValue = landWaterMap[i];
+                
+                // Do not compare two voronoi cells of the same type to avoid visual 'seams'. 
+                if (thisWaterLandValue == lastLandWaterValue) continue;
+                lastLandWaterValue = thisWaterLandValue;
+                
+                // Gauge the distance to the shoreline by how close to equidistant we are between
+                // two voronoi cell centres. Normalise and use this as multiplier for height.
+                var coastalSlopeFactor = Math.Min(9.0f, Math.Abs(dist - minDist) * 1.0) / 9.0f;
+                minCoastalSlopeFactor = Math.Min(minCoastalSlopeFactor, coastalSlopeFactor);
             }
             
-            heightFactors[x, y] = minHeightFactor;
+            coastalSlopes[x, y] = minCoastalSlopeFactor; // 1;
         }
         
         // step 4: for each voronoi land cell, apply perlin or simplex noise to generate height
         Noise.Seed = seed;
-        var noiseField = Noise.Calc2D(worldWidth, worldHeight, 0.2f);
+        var noiseField = Noise.Calc2D(worldWidth, worldHeight, 0.01f);
         for (var y = 0; y < worldHeight; y += 1)
         for (var x = 0; x < worldWidth; x += 1)
         {
             var baseHeight = cellHeights[x, y] == 4 ? 5.0f : -3.0f;
             var normalizedNoise = noiseField[x, y] / 255.0f;
-            var heightVal = cellHeights[x, y] + normalizedNoise * baseHeight * heightFactors[x, y];
+            var heightVal = cellHeights[x, y] + normalizedNoise * baseHeight * coastalSlopes[x, y];
             
             // for debug only
             //cellHeights[x, y] = Convert.ToInt32(heightFactors[x, y] * 9.0f);
