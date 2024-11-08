@@ -47,15 +47,15 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
                 {
                     if (minDistToLand < dist) continue;
                     minDistToLand = dist;
-                    cellElevations[x, y] = landWaterMap[i];
                 }
                 else
                 {
                     if (minDistToWater < dist) continue;
                     minDistToWater = dist;
-                    cellElevations[x, y] = landWaterMap[i];
                 }
             }
+            
+            cellElevations[x, y] = minDistToLand < minDistToWater ? 4 : 3;
             
             // Gauge the distance to the shoreline by how close to equidistant we are between
             // two voronoi cell centres. Normalise and use this as multiplier for height.

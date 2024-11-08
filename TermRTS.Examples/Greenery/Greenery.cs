@@ -16,7 +16,7 @@ public class Greenery : IRunnableExample
     {
         _log.Info("~ Greenery ~");
         var rng = new Random();
-        var seed = 0; //rng.Next();
+        var seed = 5; //rng.Next();
         
         var viewportWidth = Console.WindowWidth;
         var viewportHeight = Console.WindowHeight;
@@ -30,7 +30,7 @@ public class Greenery : IRunnableExample
         
         // TODO: Move entity generation elsewhere.
         // TODO: Add 'enter text' component.
-        var worldGen = new VoronoiWorld(45, 3, seed);
+        var worldGen = new VoronoiWorld(2, 3, seed);
         var worldEntity = new EntityBase();
         var worldComponent =
             new WorldComponent(
