@@ -3,6 +3,9 @@ using TermRTS.IO;
 
 namespace TermRTS.Examples.Greenery;
 
+// TODO: Make world generation parameters changeable in-game.
+// TODO: --> Create concept of a debug mode.
+
 public class Greenery : IRunnableExample
 {
     private readonly ILog _log;
