@@ -1,6 +1,10 @@
+using System.Numerics;
 using SimplexNoise;
 
 namespace TermRTS.Examples.Greenery;
+
+// Refer to link below for a nice layered noise map implementation:
+// https://github.com/SebLague/Procedural-Landmass-Generation/blob/master/Proc%20Gen%20E03/Assets/Scripts/Noise.cs
 
 public interface IWorldGen
 {
@@ -24,6 +28,7 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         var landWaterMap = _rng.GetItems([3, 4], cellCount);
 
         // step 3: associate each grid cell to one of the voronoi cells
+        // TODO: Refactor into separate water/land field generation function.
         const float scale = .13f;
         var cellElevations = new int[worldWidth, worldHeight];
         var coastalSlopes = new double[worldWidth, worldHeight];
@@ -50,6 +55,7 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         }
 
         // Step 4: Generate coastal slopes for each voronoi cell.
+        // TODO: Refactor into slope field generation function.
         // 4.1 For each Land cell with adjacent Water cell, set elevation to 0 a.k.a. "Boundary"
         //     Push all boundary cells onto a queue.
         var q = new Queue<(int, int)>();
@@ -99,7 +105,26 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         }
 
         // Step 5: for each voronoi land cell, apply perlin or simplex noise to generate height
-        var noiseField = Noise.Calc2D(worldWidth, worldHeight, 0.025f);
+        // TODO: Refactor into separate noise generation (see link at the top of the file).
+        // var noiseField = Noise.Calc2D(worldWidth, worldHeight, 0.025f);
+
+        // NOISE MAP
+        const float noiseScale = 2.0f;
+        const int octaves = 4;
+        const float persistance = 0.75f; //?
+        const float lacunarity = 1.8f; //?
+        var offset = new Vector2(1f, 1f);
+        var noiseField = GenerateNoiseMap(
+            worldWidth,
+            worldHeight,
+            seed,
+            noiseScale,
+            octaves,
+            persistance,
+            lacunarity,
+            offset);
+        // NOISE MAP END
+
         for (var y = 0; y < worldHeight; y += 1)
         for (var x = 0; x < worldWidth; x += 1)
         {
@@ -112,7 +137,7 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
             //var elevation = cellElevations[x, y] + baseElevation * slopeFactor;
 
             // debug: check land-water distribution
-            //var elevation = cellElevations[x, y] + baseElevation;
+            // var elevation = cellElevations[x, y] + baseElevation;
 
             // debug: check coastal slope values
             // var elevation = 9 * coastalSlopes[x, y];
@@ -127,5 +152,76 @@ public class VoronoiWorld(int cellCount, int jiggle, int seed = 0) : IWorldGen
         for (var x = 0; x < worldWidth; x += 1)
             world[x, y] = Convert.ToByte(cellElevations[x, y]);
         return world;
+    }
+
+    public static float[,] GenerateNoiseMap(
+        int mapWidth,
+        int mapHeight,
+        int seed,
+        float scale,
+        int octaves,
+        float persistance,
+        float lacunarity,
+        Vector2 offset)
+    {
+        // For now work with a fixed scale
+        const float noiseScale = 0.03f;
+
+        var noiseMap = new float[mapWidth, mapHeight];
+
+        var prng = new Random(seed);
+        var octaveOffsets = new Vector2[octaves];
+        for (var i = 0; i < octaves; i++)
+        {
+            var offsetX = prng.Next(-100000, 100000) + offset.X;
+            var offsetY = prng.Next(-100000, 100000) + offset.Y;
+            octaveOffsets[i] = new Vector2(offsetX, offsetY);
+        }
+
+        if (scale <= 0) scale = 0.0001f;
+
+        var maxNoiseHeight = float.MinValue;
+        var minNoiseHeight = float.MaxValue;
+
+        for (var y = 0; y < mapHeight; y++)
+        for (var x = 0; x < mapWidth; x++)
+        {
+            float amplitude = 1;
+            float frequency = 1;
+            float noiseHeight = 0;
+
+            for (var i = 0; i < octaves; i++)
+            {
+                var sampleX = Convert.ToInt32(x / scale * frequency + octaveOffsets[i].X);
+                var sampleY = Convert.ToInt32(y / scale * frequency + octaveOffsets[i].Y);
+                var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
+
+                noiseHeight += perlinValue * amplitude;
+                amplitude *= persistance;
+                frequency *= lacunarity;
+            }
+
+            if (noiseHeight > maxNoiseHeight)
+                maxNoiseHeight = noiseHeight;
+            else if (noiseHeight < minNoiseHeight)
+                minNoiseHeight = noiseHeight;
+            noiseMap[x, y] = noiseHeight;
+        }
+
+        for (var y = 0; y < mapHeight; y++)
+        for (var x = 0; x < mapWidth; x++)
+            noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
+
+        return noiseMap;
+    }
+
+    private static float Lerp(float a, float b, float t)
+    {
+        return a + t * (b - a);
+    }
+
+    private static float InverseLerp(float a, float b, float t)
+    {
+        return (t - a) / (b - a);
     }
 }

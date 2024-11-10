@@ -30,7 +30,7 @@ public class Greenery : IRunnableExample
 
         // TODO: Move entity generation elsewhere.
         // TODO: Add 'enter text' component.
-        var worldGen = new VoronoiWorld(50, 5, seed);
+        var worldGen = new VoronoiWorld(50, 15, seed);
         var worldEntity = new EntityBase();
         var worldComponent =
             new WorldComponent(
