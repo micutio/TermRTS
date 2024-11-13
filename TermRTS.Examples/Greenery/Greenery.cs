@@ -18,7 +18,7 @@ public class Greenery : IRunnableExample
     public void Run()
     {
         _log.Info("~ Greenery ~");
-        var rng = new Random();
+        // var rng = new Random();
         var seed = 0; //rng.Next();
         
         var viewportWidth = Console.WindowWidth;
