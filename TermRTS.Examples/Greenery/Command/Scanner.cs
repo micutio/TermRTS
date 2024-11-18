@@ -122,8 +122,8 @@ public class Scanner(char[] source)
     }
     
     /// <summary>
-    /// Consume as many digits as can be found for the integer part,
-    /// then look for a decimal point and a fractional part of more digits.
+    ///     Consume as many digits as can be found for the integer part,
+    ///     then look for a decimal point and a fractional part of more digits.
     /// </summary>
     /// <param name="c"></param>
     /// <returns></returns>

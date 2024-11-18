@@ -1,6 +1,6 @@
+using System.Numerics;
 using ConsoleRenderer;
 using log4net;
-using System.Numerics;
 
 namespace TermRTS.Examples.Circuitry;
 

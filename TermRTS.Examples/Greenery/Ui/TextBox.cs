@@ -8,9 +8,9 @@ internal enum InputState
 
 public class TextBox : IEventSink
 {
+    private readonly char[] _msg = new char[80];
     private int _idx;
     private string _lastMessage = "";
-    private readonly char[] _msg = new char[80];
     private InputState _state = InputState.Idle;
     
     public bool IsOngoingInput => _state.Equals(InputState.OngoingInput);
@@ -31,7 +31,6 @@ public class TextBox : IEventSink
                     FinalizeMessage();
                     _state = InputState.Idle;
                     return;
-                default: break;
             }
         
         if (!IsOngoingInput) return;

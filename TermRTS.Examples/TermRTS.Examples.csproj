@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
-        <ProjectReference Include="..\TermRTS\TermRTS.csproj" />
+        <ProjectReference Include="..\TermRTS\TermRTS.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="ConsoleRenderer" Version="0.7.1" />
-        <PackageReference Include="log4net" Version="3.0.2" />
-        <PackageReference Include="SimplexNoise" Version="2.0.0" />
+        <PackageReference Include="ConsoleRenderer" Version="0.7.1"/>
+        <PackageReference Include="log4net" Version="3.0.2"/>
+        <PackageReference Include="SimplexNoise" Version="2.0.0"/>
     </ItemGroup>
 
     <PropertyGroup>

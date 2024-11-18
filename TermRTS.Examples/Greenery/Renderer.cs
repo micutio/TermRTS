@@ -1,32 +1,11 @@
+using System.Numerics;
 using ConsoleRenderer;
 using log4net;
-using System.Numerics;
 
 namespace TermRTS.Examples.Greenery;
 
 public class Renderer : IRenderer, IEventSink
 {
-    #region Public Fields
-    
-    private readonly Vector2 _viewportSize;
-    private readonly Vector2 _worldSize;
-    
-    private Vector2 _cameraPos = new(0, 0);
-    
-    #endregion
-    
-    #region Private Fields
-    
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly ILog _log;
-    
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-    
-    #endregion
-    
     #region Constructor
     
     public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight)
@@ -68,6 +47,27 @@ public class Renderer : IRenderer, IEventSink
         
         _textbox.ProcessEvent(evt);
     }
+    
+    #endregion
+    
+    #region Public Fields
+    
+    private readonly Vector2 _viewportSize;
+    private readonly Vector2 _worldSize;
+    
+    private Vector2 _cameraPos = new(0, 0);
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly ILog _log;
+    
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
     
     #endregion
     
