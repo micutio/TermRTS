@@ -13,16 +13,16 @@ public enum TokenType
     Minus,
     Plus,
     Star,
-
+    
     // One or two character tokens
     Bang,
     BangEqual,
-
+    
     // Literals
     Identifier,
     String,
     Number,
-
+    
     // Special
     UnfinishedString, // For live syntax highlighting
     Unknown
@@ -45,9 +45,9 @@ public class Scanner(char[] source)
     private readonly List<Token> _tokens = new();
     private int _current;
     private int _start;
-
+    
     private bool IsAtEnd => _current >= source.Length;
-
+    
     public List<Token> ScanTokens()
     {
         while (!IsAtEnd)
@@ -55,10 +55,10 @@ public class Scanner(char[] source)
             _start = _current;
             ScanToken();
         }
-
+        
         return _tokens;
     }
-
+    
     private void ScanToken()
     {
         var c = Advance();
@@ -84,7 +84,7 @@ public class Scanner(char[] source)
             case '"':
                 TakeString();
                 break;
-
+            
             default: // TODO: How to handle erroneous input?
                 if (IsDigit(c))
                     TakeNumber();
@@ -92,35 +92,35 @@ public class Scanner(char[] source)
                     TakeIdentifier();
                 else
                     AddToken(TokenType.Unknown);
-
+                
                 break;
         }
     }
-
+    
     private char Advance()
     {
         return source[_current++];
     }
-
+    
     private bool Match(char expected)
     {
         if (IsAtEnd) return false;
         if (source[_current] != expected) return false;
-
+        
         _current++;
         return true;
     }
-
+    
     private char Peek()
     {
         return IsAtEnd ? '\0' : source[_current];
     }
-
+    
     private char PeekNext()
     {
         return _current + 1 >= source.Length ? '\0' : source[_current + 1];
     }
-
+    
     /// <summary>
     /// Consume as many digits as can be found for the integer part,
     /// then look for a decimal point and a fractional part of more digits.
@@ -131,42 +131,42 @@ public class Scanner(char[] source)
     {
         return c is >= '0' and <= '9';
     }
-
+    
     private static bool IsAlpha(char c)
     {
         return c is >= 'a' and <= 'z'
             or >= 'A' and <= 'Z'
             or '_';
     }
-
+    
     private static bool IsAlphaNumeric(char c)
     {
         return IsAlpha(c) || IsDigit(c);
     }
-
+    
     private void TakeString()
     {
         while (Peek() != '"' && !IsAtEnd)
             // if (Peek() == '\n') line++;
             Advance();
-
+        
         if (IsAtEnd)
         {
             AddToken(TokenType.UnfinishedString);
             return;
         }
-
+        
         // The closing "
         Advance();
-
+        
         // Trim the surrounding quotes
-        AddToken(TokenType.String, new string(source, _start + 1, _current - 1));
+        AddToken(TokenType.String, new string(source, _start + 1, _current - _start - 2));
     }
-
+    
     private void TakeNumber()
     {
         while (IsDigit(Peek())) Advance();
-
+        
         // Look for a fractional part
         if (Peek() == '.' && IsDigit(PeekNext()))
         {
@@ -180,17 +180,20 @@ public class Scanner(char[] source)
             TokenType.Number,
             Convert.ToDouble(new string(source, _start, _current - _start)));
     }
-
+    
     private void TakeIdentifier()
     {
         while (IsAlphaNumeric(Peek())) Advance();
-
+        
+        // Optional, check if map of keywords contains text
+        // if so, token type = KEYWORD, otherwise IDENTIFIER.
+        
         AddToken(TokenType.Identifier);
     }
-
+    
     private void AddToken(TokenType tokenType, object? literal = null)
     {
-        var segment = new string(source, _start, _current - _start);
-        _tokens.Add(new Token(tokenType, segment, literal));
+        var lexeme = new string(source, _start, _current - _start);
+        _tokens.Add(new Token(tokenType, lexeme, literal));
     }
 }

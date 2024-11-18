@@ -174,7 +174,6 @@ public class Scheduler : IEventSink
         }
         
         _channel.Writer.Complete();
-        Console.WriteLine("Scheduler shut down");
     }
     
     #endregion

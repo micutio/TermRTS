@@ -89,7 +89,6 @@ public class Core : ICore
     public void Shutdown()
     {
         _renderer.Shutdown();
-        Console.WriteLine("Core shut down");
     }
     
     /// <summary>

@@ -6,7 +6,6 @@ public class NullRenderer : IRenderer
 {
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
-        Console.WriteLine($"Rendering components at {howFarIntoNextFrameMs} ms into next frame.");
     }
     
     public void Shutdown()
@@ -33,8 +32,8 @@ public class NullEntity : EntityBase
 public class WatcherSystem : SimSystem
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
+    public readonly ChannelReader<(IEvent, ulong)> EventOutput;
     private int _remainingTicks;
-    public ChannelReader<(IEvent, ulong)> EventOutput;
     
     public WatcherSystem(int remainingTicks)
     {

@@ -66,7 +66,6 @@ public class ConsoleInput : IEventSink
         }
         
         _channel.Writer.Complete();
-        Console.WriteLine("ConsoleInput shut down");
     }
     
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
