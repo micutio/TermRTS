@@ -22,9 +22,9 @@ public class ScannerTest
     
     [Theory]
     [ClassData(typeof(LiteralDataGenerator))]
-    public void TestLiteralToken((char[], Token) value)
+    public void TestLiteralToken((string, Token) value)
     {
-        var scanner = new Scanner(value.Item1);
+        var scanner = new Scanner(value.Item1.ToCharArray());
         Assert.True(scanner.ScanTokens()[0].IsEqual(value.Item2));
     }
 }
@@ -76,13 +76,13 @@ public class LiteralDataGenerator : IEnumerable<object[]>
 {
     private readonly List<object[]> _data =
     [
-        [("Foo".ToCharArray(), new Token(TokenType.Identifier, "Foo", null))],
-        [("Bar".ToCharArray(), new Token(TokenType.Identifier, "Bar", null))],
-        [("\"Baz\"".ToCharArray(), new Token(TokenType.String, "\"Baz\"", "Baz"))],
-        [("1234".ToCharArray(), new Token(TokenType.Number, "1234", 1234d))],
-        [("1234.567".ToCharArray(), new Token(TokenType.Number, "1234.567", 1234.567d))],
-        [("\"ImA1337Coder\"".ToCharArray(), new Token(TokenType.String, "\"ImA1337Coder\"", "ImA1337Coder"))],
-        [("\"WTF".ToCharArray(), new Token(TokenType.UnfinishedString, "\"WTF", null))]
+        [("Foo", new Token(TokenType.Identifier, "Foo", null))],
+        [("Bar", new Token(TokenType.Identifier, "Bar", null))],
+        [("\"Baz\"", new Token(TokenType.String, "\"Baz\"", "Baz"))],
+        [("1234", new Token(TokenType.Number, "1234", 1234d))],
+        [("1234.567", new Token(TokenType.Number, "1234.567", 1234.567d))],
+        [("\"ImA1337Coder\"", new Token(TokenType.String, "\"ImA1337Coder\"", "ImA1337Coder"))],
+        [("\"WTF", new Token(TokenType.UnfinishedString, "\"WTF", null))]
     ];
     
     public IEnumerator<object[]> GetEnumerator()
