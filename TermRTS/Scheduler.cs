@@ -118,11 +118,11 @@ public class Scheduler : IEventSink
     /// </summary>
     public void SimulationLoop()
     {
-        _loopTimer.Start();
         var lag = TimeSpan.FromMilliseconds(_timeStepSizeMs);
 
         if (_core.IsRunning()) _core.SpawnNewEntities();
 
+        _loopTimer.Start();
         while (_core.IsRunning())
         {
             _loopTimer.Stop();
