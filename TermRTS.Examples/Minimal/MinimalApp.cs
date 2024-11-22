@@ -5,7 +5,7 @@ namespace TermRTS.Examples.Testing;
 
 internal class NullRenderer : IRenderer
 {
-    public void RenderComponents(in IStorage components, double timeStepSizeMs, double howFarIntoNextFrameMs)
+    public void RenderComponents(in IStorage components, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }

@@ -71,6 +71,7 @@ public class Scheduler : IEventSink
     private TimeSpan _caughtUpLoopTime;
     
     private double _tickCount;
+    private int _sleepyTime;
     
     #endregion
     
@@ -168,9 +169,9 @@ public class Scheduler : IEventSink
             _tickElapsed = _tickTimer.Elapsed;
             
             // STEP 3: RENDER ////////////////////////////////////////////////////////////////////
-            var howFarIntoNextFrameMs = _lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
+            var howFarIntoNextFramePercent = _lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
             _renderTimer.Restart();
-            _core.Render(_timeStepSizeMs, howFarIntoNextFrameMs);
+            _core.Render(_timeStepSizeMs, howFarIntoNextFramePercent);
             // _renderTimer.Stop();
             _renderElapsed = _renderTimer.Elapsed;
             
@@ -191,8 +192,8 @@ public class Scheduler : IEventSink
                 continue;
             
             // ...otherwise wait until the next frame is due.
-            var sleepyTime = Convert.ToInt32((_msPerUpdate - _caughtUpLoopTime).TotalMilliseconds);
-            Thread.Sleep(sleepyTime);
+            _sleepyTime = Convert.ToInt32((_msPerUpdate - _caughtUpLoopTime).TotalMilliseconds);
+            Thread.Sleep(_sleepyTime);
         }
         
         _channel.Writer.Complete();

@@ -12,7 +12,7 @@ internal class BounceRenderer : IRenderer
         Console.CursorVisible = false;
     }
     
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _canvas.Clear();
         var ballComponents = storage.GetForType(typeof(BounceBall));

@@ -92,7 +92,7 @@ public class Renderer : IRenderer, IEventSink
     public void RenderComponents(
         in IStorage storage,
         double timeStepSizeMs,
-        double howFarIntoNextFrameMs)
+        double howFarIntoNextFramePercent)
     {
         // Step 1: Render world
         // var worldComponent = storage
@@ -103,7 +103,7 @@ public class Renderer : IRenderer, IEventSink
                 RenderWorld(world);
         
         // Step 2: Render profiling info on top of the world
-        RenderInfo(timeStepSizeMs, howFarIntoNextFrameMs);
+        RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
         
         if (!_textbox.IsOngoingInput) return;
         
@@ -186,9 +186,9 @@ public class Renderer : IRenderer, IEventSink
                && y <= _cameraPos.Y + _viewportSize.Y;
     }
     
-    private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFrameMs)
+    private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
-        _timePassedMs += timeStepSizeMs + howFarIntoNextFrameMs;
+        _timePassedMs += timeStepSizeMs + timeStepSizeMs * howFarIntoNextFramePercent;
         
         //#if DEBUG
         var debugStr = string.IsNullOrEmpty(_profileOutput)

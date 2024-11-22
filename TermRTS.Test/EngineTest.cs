@@ -5,7 +5,7 @@ namespace TermRTS.Test;
 
 public class NullRenderer : IRenderer
 {
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs)
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
     }
     

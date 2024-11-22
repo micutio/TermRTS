@@ -11,7 +11,7 @@ public interface ICore : IEventSink
     
     public void Tick(ulong timeStepSizeMs);
     
-    public void Render(double timeStepSizeMs, double howFarIntoNextFrameMs);
+    public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent);
     
     public void Shutdown();
 }
@@ -146,9 +146,9 @@ public class Core : ICore
     /// <summary>
     ///     Call the renderer to render all renderable objects.
     /// </summary>
-    public void Render(double timeStepSizeMs, double howFarIntoNextFrameMs)
+    public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
-        _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFrameMs);
+        _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
         
         _renderer.FinalizeRender();
     }

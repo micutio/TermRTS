@@ -7,13 +7,13 @@ public interface IRenderer
     ///     Called for each entity in the engine, at the end of each simulation tick
     /// </summary>
     /// <param name="entity">The entity to render</param>
-    /// <param name="howFarIntoNextFrameMs">
+    /// <param name="howFarIntoNextFramePercent">
     ///     How much extra time was needed for the last simulation tick.
     /// </param>
     //public void RenderEntity(
     //    Dictionary<Type, ComponentBase> entity,
     //    double howFarIntoNextFrameMs);
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFrameMs);
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent);
     
     /// <summary>
     ///     Called at the end of the rendering step each simulation tick. This allows to apply the

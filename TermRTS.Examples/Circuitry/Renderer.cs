@@ -47,9 +47,9 @@ internal class Renderer : IRenderer, IEventSink
     #region Public Methods
     
     public void RenderComponents(in IStorage storage, double timeStepSizeMs,
-        double howFarIntoNextFrameMs)
+        double howFarIntoNextFramePercent)
     {
-        RenderInfo(timeStepSizeMs, howFarIntoNextFrameMs);
+        RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
         
         foreach (var chip in storage.GetForType(typeof(Circuitry.Chip)))
             RenderOutline(((Circuitry.Chip)chip).Outline);
