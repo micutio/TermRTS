@@ -1,4 +1,6 @@
-﻿namespace TermRTS.Examples.Greenery;
+﻿using TermRTS.Events;
+
+namespace TermRTS.Examples.Greenery;
 
 internal enum InputState
 {

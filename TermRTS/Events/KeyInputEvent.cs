@@ -1,9 +1,7 @@
-namespace TermRTS;
+namespace TermRTS.Events;
 
-public class KeyInputEvent(ConsoleKeyInfo info) : IEvent
+public readonly record struct KeyInputEvent(ConsoleKeyInfo Info) : IEvent
 {
-    public ConsoleKeyInfo Info { get; } = info;
-    
     public EventType Type()
     {
         return EventType.KeyInput;

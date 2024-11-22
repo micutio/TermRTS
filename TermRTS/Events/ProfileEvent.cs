@@ -1,9 +1,7 @@
-﻿namespace TermRTS;
+﻿namespace TermRTS.Events;
 
-public class ProfileEvent(string profileInfo) : IEvent
+public readonly record struct ProfileEvent(string ProfileInfo) : IEvent
 {
-    public string ProfileInfo { get; } = profileInfo;
-    
     public EventType Type()
     {
         return EventType.Profile;

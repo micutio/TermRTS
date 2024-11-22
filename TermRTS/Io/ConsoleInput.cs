@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using TermRTS.Events;
 
-namespace TermRTS.IO;
+namespace TermRTS.Io;
 
 /// <summary>
 ///     Input processing for terminal key events.

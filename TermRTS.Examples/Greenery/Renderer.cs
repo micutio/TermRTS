@@ -1,6 +1,7 @@
 using System.Numerics;
 using ConsoleRenderer;
 using log4net;
+using TermRTS.Events;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;

@@ -1,5 +1,6 @@
 using System.Numerics;
-using TermRTS.IO;
+using TermRTS.Events;
+using TermRTS.Io;
 
 namespace TermRTS.Examples.BouncyBall;
 

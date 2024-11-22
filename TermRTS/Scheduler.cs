@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using TermRTS.Events;
 
 namespace TermRTS;
 
@@ -26,6 +27,8 @@ public class Scheduler : IEventSink
         _timeStepSizeMs = timeStepSizeMs;
         TimeMs = 0L;
         _loopTimer = new Stopwatch();
+        _tickTimer = new Stopwatch();
+        _renderTimer = new Stopwatch();
         _eventQueue = new EventQueue<IEvent, ulong>();
         _eventSinks = new Dictionary<EventType, List<IEventSink>>();
         _core = core;
@@ -52,10 +55,22 @@ public class Scheduler : IEventSink
     private readonly Profiler _profiler;
     private readonly TimeSpan _msPerUpdate;
     private readonly ulong _timeStepSizeMs;
+    
     private readonly Stopwatch _loopTimer;
+    private readonly Stopwatch _tickTimer;
+    private readonly Stopwatch _renderTimer;
+    
     private readonly EventQueue<IEvent, ulong> _eventQueue;
     private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
     private readonly ICore _core;
+    
+    private TimeSpan _lag;
+    private TimeSpan _loopTime;
+    private TimeSpan _tickElapsed;
+    private TimeSpan _renderElapsed;
+    private TimeSpan _caughtUpLoopTime;
+    
+    private double _tickCount;
     
     #endregion
     
@@ -118,17 +133,16 @@ public class Scheduler : IEventSink
     /// </summary>
     public void SimulationLoop()
     {
-        var lag = TimeSpan.FromMilliseconds(_timeStepSizeMs);
+        _lag = TimeSpan.Zero; // TimeSpan.FromMilliseconds(_timeStepSizeMs);
         
         if (_core.IsRunning()) _core.SpawnNewEntities();
         
         _loopTimer.Start();
         while (_core.IsRunning())
         {
-            _loopTimer.Stop();
-            lag += _loopTimer.Elapsed;
-            var loopTime = _loopTimer.Elapsed;
+            _loopTime = _loopTimer.Elapsed;
             _loopTimer.Restart();
+            _lag += _loopTime;
             
             // STEP 1: INPUT /////////////////////////////////////////////////////////////////////
             ProcessInput();
@@ -140,44 +154,44 @@ public class Scheduler : IEventSink
             
             // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
             // Reduce possible lag by processing consecutive ticks without rendering
-            var tickCount = 0d;
-            var tickWatch = Stopwatch.StartNew();
-            while (lag >= _msPerUpdate)
+            _tickCount = 0d;
+            _tickTimer.Restart();
+            while (_lag >= _msPerUpdate)
             {
                 _core.Tick(_timeStepSizeMs);
                 TimeMs += _timeStepSizeMs;
-                lag -= _msPerUpdate;
-                tickCount += 1.0d;
+                _lag -= _msPerUpdate;
+                _tickCount += 1.0d;
             }
             
-            tickWatch.Stop();
-            var tickElapsed = tickWatch.Elapsed;
+            //_tickTimer.Stop();
+            _tickElapsed = _tickTimer.Elapsed;
             
             // STEP 3: RENDER ////////////////////////////////////////////////////////////////////
-            var howFarIntoNextFrameMs = lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
-            var renderWatch = Stopwatch.StartNew();
+            var howFarIntoNextFrameMs = _lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
+            _renderTimer.Restart();
             _core.Render(_timeStepSizeMs, howFarIntoNextFrameMs);
-            renderWatch.Stop();
-            var renderElapsed = renderWatch.Elapsed;
+            // _renderTimer.Stop();
+            _renderElapsed = _renderTimer.Elapsed;
             
-            var avgTickMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
+            var avgTickMs = _tickCount == 0 ? 0.0 : _tickElapsed.TotalMilliseconds / _tickCount;
             // Record tick time for profiling
             _profiler.AddTickTimeSample(
-                Convert.ToUInt64(loopTime.TotalMilliseconds),
+                Convert.ToUInt64(_loopTime.TotalMilliseconds),
                 Convert.ToUInt64(avgTickMs),
-                Convert.ToUInt64(renderElapsed.TotalMilliseconds));
+                Convert.ToUInt64(_renderElapsed.TotalMilliseconds));
             // Push out profiling results every 10 samples
             if (_profiler.SampleSize % 10 == 0)
                 _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
             
             // Get loop time after making up for previous lag
-            var caughtUpLoopTimeMs = lag + renderElapsed;
+            _caughtUpLoopTime = _lag + _renderElapsed;
             // If we spent longer than our allotted time, skip right ahead...
-            if (caughtUpLoopTimeMs >= _msPerUpdate)
+            if (_caughtUpLoopTime >= _msPerUpdate)
                 continue;
             
             // ...otherwise wait until the next frame is due.
-            var sleepyTime = Convert.ToInt32((_msPerUpdate - caughtUpLoopTimeMs).TotalMilliseconds);
+            var sleepyTime = Convert.ToInt32((_msPerUpdate - _caughtUpLoopTime).TotalMilliseconds);
             Thread.Sleep(sleepyTime);
         }
         

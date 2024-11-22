@@ -1,9 +1,9 @@
-﻿namespace TermRTS;
+﻿namespace TermRTS.Events;
 
-public class PlainEvent(EventType typ) : IEvent
+public readonly record struct PlainEvent(EventType Typ) : IEvent
 {
     public EventType Type()
     {
-        return typ;
+        return Typ;
     }
 }

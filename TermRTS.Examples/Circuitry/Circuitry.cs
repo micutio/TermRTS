@@ -1,7 +1,7 @@
 using System.Numerics;
 using log4net;
+using TermRTS.Events;
 using TermRTS.Io;
-using TermRTS.IO;
 
 namespace TermRTS.Examples.Circuitry;
 
