@@ -50,11 +50,11 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSink(renderer, EventType.Profile);
         
         // Init input
-        // var input = new ConsoleInput();
-        // scheduler.AddEventSources(input.KeyEventReader);
-        // scheduler.AddEventSink(input, EventType.Shutdown);
-        // scheduler.AddEventSink(renderer, EventType.KeyInput);
-        // input.Run();
+        var input = new ConsoleInput();
+        scheduler.AddEventSources(input.KeyEventReader);
+        scheduler.AddEventSink(input, EventType.Shutdown);
+        scheduler.AddEventSink(renderer, EventType.KeyInput);
+        input.Run();
         
         // Graceful shutdown on canceling via CTRL+C.
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)

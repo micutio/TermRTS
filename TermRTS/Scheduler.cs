@@ -69,9 +69,9 @@ public class Scheduler : IEventSink
     private TimeSpan _tickElapsed;
     private TimeSpan _renderElapsed;
     private TimeSpan _caughtUpLoopTime;
+    private TimeSpan _sleepyTime;
     
     private double _tickCount;
-    private int _sleepyTime;
     
     #endregion
     
@@ -134,6 +134,8 @@ public class Scheduler : IEventSink
     /// </summary>
     public void SimulationLoop()
     {
+        var iterTimer = new Stopwatch();
+        var lastIterTime = TimeSpan.Zero;
         _lag = TimeSpan.Zero; // TimeSpan.FromMilliseconds(_timeStepSizeMs);
         
         if (_core.IsRunning()) _core.SpawnNewEntities();
@@ -178,7 +180,8 @@ public class Scheduler : IEventSink
             var avgTickMs = _tickCount == 0 ? 0.0 : _tickElapsed.TotalMilliseconds / _tickCount;
             // Record tick time for profiling
             _profiler.AddTickTimeSample(
-                Convert.ToUInt64(_loopTime.TotalMilliseconds),
+                // Convert.ToUInt64(_loopTime.TotalMilliseconds),
+                Convert.ToUInt64(lastIterTime.TotalMilliseconds),
                 Convert.ToUInt64(avgTickMs),
                 Convert.ToUInt64(_renderElapsed.TotalMilliseconds));
             // Push out profiling results every 10 samples
@@ -192,8 +195,13 @@ public class Scheduler : IEventSink
                 continue;
             
             // ...otherwise wait until the next frame is due.
-            _sleepyTime = Convert.ToInt32((_msPerUpdate - _caughtUpLoopTime).TotalMilliseconds);
-            Thread.Sleep(_sleepyTime);
+            _sleepyTime = _msPerUpdate - _caughtUpLoopTime;
+            iterTimer.Start();
+            Task.Delay(_sleepyTime).Wait();
+            // Thread.Sleep(_sleepyTime);
+            iterTimer.Stop();
+            lastIterTime = iterTimer.Elapsed;
+            iterTimer.Reset();
         }
         
         _channel.Writer.Complete();
