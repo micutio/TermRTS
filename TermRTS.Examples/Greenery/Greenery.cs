@@ -8,16 +8,16 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private readonly ILog _log;
+    // private readonly ILog _log;
     
     public Greenery()
     {
-        _log = LogManager.GetLogger(GetType());
+        // _log = LogManager.GetLogger(GetType());
     }
     
     public void Run()
     {
-        _log.Info("~ Greenery ~");
+        // _log.Info("~ Greenery ~");
         // var rng = new Random();
         var seed = 0; //rng.Next();
         
@@ -71,6 +71,6 @@ public class Greenery : IRunnableExample
         // After the app is terminated, clear the console.
         Console.Clear();
         
-        _log.Info("~ Greenery app shutdown ~");
+        // _log.Info("~ Greenery app shutdown ~");
     }
 }

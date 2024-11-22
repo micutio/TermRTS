@@ -94,10 +94,12 @@ public class Renderer : IRenderer, IEventSink
         double howFarIntoNextFrameMs)
     {
         // Step 1: Render world
-        var worldComponent = storage
-            .GetForType(typeof(WorldComponent))
-            .First();
-        if (worldComponent is WorldComponent world) RenderWorld(world);
+        // var worldComponent = storage
+        //     .GetForType(typeof(WorldComponent))
+        //     .First();
+        foreach (var worldComponent in storage.GetForType(typeof(WorldComponent)))
+            if (worldComponent is WorldComponent world)
+                RenderWorld(world);
         
         // Step 2: Render profiling info on top of the world
         RenderInfo(timeStepSizeMs, howFarIntoNextFrameMs);
@@ -194,7 +196,7 @@ public class Renderer : IRenderer, IEventSink
         var sec = (int)Math.Floor(_timePassedMs / 1000) % 60;
         var min = (int)Math.Floor(_timePassedMs / (1000 * 60)) % 60;
         var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
-        _canvas.Text(1, 0, $"Greenery | T {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
+        _canvas.Text(1, 0, $"Greenery | {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
         //#endif
     }
     

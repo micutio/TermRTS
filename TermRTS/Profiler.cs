@@ -69,10 +69,17 @@ public class Profiler
     /// </summary>
     public override string ToString()
     {
+        /*
         return $"Loop {_minLoopTime:D3}, {_lastLoopTime:D3}, {_maxLoopTime:D3} | " +
                $"Tick {_minTickTime:D3}, {_lastTickTime:D3}, {_maxTickTime:D3} | " +
                $"Render {_minRenderTime:D3}, {_lastRenderTime:D3}, {_maxRenderTime:D3} | " +
                $"FPS {_minFps:D3}, {_lastFps:D3}, {_maxFps:D3} | " +
+               $"Frames dropped {_droppedFrames}";
+               */
+        return $"Loop {_lastLoopTime:D3} " +
+               $"Tick {_lastTickTime:D3} " +
+               $"Render {_lastRenderTime:D3} " +
+               $"FPS {_lastFps:D3} " +
                $"Frames dropped {_droppedFrames}";
     }
     

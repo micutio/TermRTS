@@ -53,7 +53,7 @@ public class ConsoleInput : IEventSink
                 // If there are longer periods of waiting, then adjust to check less frequently.
                 _timer.Stop();
                 var elapsedMs = _timer.ElapsedMilliseconds;
-                AdjustWaitingTimeForIntput(elapsedMs);
+                AdjustWaitingTimeForInput(elapsedMs);
                 _timer.Start(); // Resume without resetting.
                 
                 Thread.Sleep(_sleepMs);
@@ -73,14 +73,14 @@ public class ConsoleInput : IEventSink
         _channel.Writer.TryWrite((new KeyInputEvent(keyInfo), 0L));
     }
     
-    private void AdjustWaitingTimeForIntput(long lastWaitInMs)
+    private void AdjustWaitingTimeForInput(long lastWaitInMs)
     {
         switch (lastWaitInMs)
         {
-            case < 1000:
+            case < 500:
                 _sleepMs = 16;
                 return;
-            case < 1000 * 60:
+            case < 1000 * 30:
                 _sleepMs = 250;
                 return;
             default:
