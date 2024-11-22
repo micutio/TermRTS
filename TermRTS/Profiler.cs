@@ -8,21 +8,21 @@ public class Profiler
 {
     private readonly ulong _timeStepSize;
     
-    private double _lastLoopTime;
-    private double _lastTickTime;
-    private double _lastRenderTime;
-    private double _lastFps;
+    private ulong _lastLoopTime;
+    private ulong _lastTickTime;
+    private ulong _lastRenderTime;
+    private ulong _lastFps;
     
     private ulong _droppedFrames;
     
-    private double _maxLoopTime;
-    private double _maxTickTime;
-    private double _maxRenderTime;
-    private double _maxFps;
-    private double _minLoopTime;
-    private double _minTickTime;
-    private double _minRenderTime;
-    private double _minFps;
+    private ulong _maxLoopTime;
+    private ulong _maxTickTime;
+    private ulong _maxRenderTime;
+    private ulong _maxFps;
+    private ulong _minLoopTime;
+    private ulong _minTickTime;
+    private ulong _minRenderTime;
+    private ulong _minFps;
     
     public Profiler(ulong timeStepSize)
     {
@@ -33,7 +33,7 @@ public class Profiler
     public ulong SampleSize { get; private set; }
     
     
-    public void AddTickTimeSample(double loopTimeMs, double tickTimeMs, double renderTimeMs)
+    public void AddTickTimeSample(ulong loopTimeMs, ulong tickTimeMs, ulong renderTimeMs)
     {
         // exclude invalid samples, which should be only the first ones taken
         if (loopTimeMs == 0) // || tickTimeMs == 0 || renderTimeMs == 0)
@@ -57,7 +57,7 @@ public class Profiler
         if (tickTimeMs + renderTimeMs > _timeStepSize) _droppedFrames += 1;
         // _droppedFrames += Math.Max(0, Convert.ToUInt64(loopTimeMs) - 1 / _timeStepSize);
         
-        _lastFps = 1000d / loopTimeMs;
+        _lastFps = 1000 / loopTimeMs;
         _minFps = Math.Min(_minFps, _lastFps);
         _maxFps = Math.Max(_maxFps, _lastFps);
         
@@ -69,10 +69,10 @@ public class Profiler
     /// </summary>
     public override string ToString()
     {
-        return $"Loop {_minLoopTime:F1}, {_lastLoopTime:F1}, {_maxLoopTime:F1} | " +
-               $"Tick {_minTickTime:F1}, {_lastTickTime:F1}, {_maxTickTime:F1} | " +
-               $"Render {_minRenderTime:F1}, {_lastRenderTime:F1}, {_maxRenderTime:F1} | " +
-               $"FPS {_minFps:F1}, {_lastFps:F1}, {_maxFps:F1} | " +
+        return $"Loop {_minLoopTime:D3}, {_lastLoopTime:D3}, {_maxLoopTime:D3} | " +
+               $"Tick {_minTickTime:D3}, {_lastTickTime:D3}, {_maxTickTime:D3} | " +
+               $"Render {_minRenderTime:D3}, {_lastRenderTime:D3}, {_maxRenderTime:D3} | " +
+               $"FPS {_minFps:D3}, {_lastFps:D3}, {_maxFps:D3} | " +
                $"Frames dropped {_droppedFrames}";
     }
     
@@ -80,19 +80,19 @@ public class Profiler
     {
         SampleSize = 0L;
         
-        _lastLoopTime = 0.0;
+        _lastLoopTime = 0L;
         _minLoopTime = ulong.MaxValue;
         _maxLoopTime = 0L;
         
-        _lastTickTime = 0.0;
+        _lastTickTime = 0L;
         _minTickTime = ulong.MaxValue;
         _maxTickTime = 0L;
         
-        _lastRenderTime = 0.0;
+        _lastRenderTime = 0L;
         _minRenderTime = ulong.MaxValue;
         _maxRenderTime = 0L;
         
-        _lastFps = 0.0;
+        _lastFps = 0L;
         _minFps = ulong.MaxValue;
         _maxFps = 0L;
     }
