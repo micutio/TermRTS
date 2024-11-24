@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using TermRTS.Events;
 
@@ -6,14 +7,8 @@ namespace TermRTS;
 
 public class Scheduler : IEventSink
 {
-    // channel for emitting events
-    // TODO: Replace `(IEvent, UInt64)` with actual type.
-    private readonly Channel<(IEvent, ulong)> _channel;
-    
     #region Constructor
-    
-    // TODO: Test time step size 0
-    // TODO: Add logging to file
+
     /// <summary>
     ///     Constructor.
     /// </summary>
@@ -25,69 +20,65 @@ public class Scheduler : IEventSink
         _profiler = new Profiler(timeStepSizeMs);
         _msPerUpdate = TimeSpan.FromMilliseconds(frameTimeMs);
         _timeStepSizeMs = timeStepSizeMs;
-        TimeMs = 0L;
         _loopTimer = new Stopwatch();
         _tickTimer = new Stopwatch();
         _renderTimer = new Stopwatch();
         _eventQueue = new EventQueue<IEvent, ulong>();
         _eventSinks = new Dictionary<EventType, List<IEventSink>>();
-        _core = core;
-        
         _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
         
+        _core = core;
         AddEventSink(_core, EventType.Shutdown);
+        
+        TimeMs = 0L;
     }
-    
+
     #endregion
-    
+
     #region IEventSink Members
-    
+
     public void ProcessEvent(IEvent evt)
     {
         // Emit regular profiling output
-        //if (evt.Type() == EventType.Profile) Console.WriteLine(_profiler.ToString());
+        if (evt.Type() == EventType.Profile) Console.WriteLine(_profiler.ToString());
     }
-    
+
     #endregion
     
     #region Private Fields
+
+    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
+    
+    // channel for emitting events
+    private readonly Channel<(IEvent, ulong)> _channel;
     
     private readonly Profiler _profiler;
     private readonly TimeSpan _msPerUpdate;
     private readonly ulong _timeStepSizeMs;
-    
+
     private readonly Stopwatch _loopTimer;
     private readonly Stopwatch _tickTimer;
     private readonly Stopwatch _renderTimer;
-    
+
     private readonly EventQueue<IEvent, ulong> _eventQueue;
     private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
     private readonly ICore _core;
-    
-    private TimeSpan _lag;
-    private TimeSpan _loopTime;
-    private TimeSpan _tickElapsed;
-    private TimeSpan _renderElapsed;
-    private TimeSpan _caughtUpLoopTime;
-    private TimeSpan _sleepyTime;
-    
-    private double _tickCount;
-    
+
     #endregion
-    
+
     #region Properties
-    
+
     /// <summary>
     ///     Property for read-only access to current simulation time.
     /// </summary>
     public ulong TimeMs { get; private set; }
-    
+
     public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
-    
+
     #endregion
-    
+
     #region Public Members
-    
+
     /// <summary>
     ///     Add a new event source to the scheduler. Using a channel the event source can send in new
     ///     events in an asynchronous fashion.
@@ -96,7 +87,7 @@ public class Scheduler : IEventSink
     {
         Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
     }
-    
+
     /// <summary>
     ///     Add a new event sink, which will receive events of the specified type.
     /// </summary>
@@ -105,11 +96,11 @@ public class Scheduler : IEventSink
         var isFound = _eventSinks.TryGetValue(type, out var sinks);
         if (!isFound || sinks == null)
             sinks = new List<IEventSink>();
-        
+
         sinks.Add(sink);
         _eventSinks[type] = sinks;
     }
-    
+
     /// <summary>
     ///     Remove an event sink from the scheduler. The given sink will no longer receive any events.
     /// </summary>
@@ -117,7 +108,7 @@ public class Scheduler : IEventSink
     {
         _eventSinks[type].Remove(sink);
     }
-    
+
     /// <summary>
     ///     This method offers a manual way of schedule
     /// </summary>
@@ -128,25 +119,23 @@ public class Scheduler : IEventSink
     {
         _eventQueue.TryAdd(item);
     }
-    
+
     /// <summary>
     ///     The core loop for advancing the simulation.
     /// </summary>
     public void SimulationLoop()
     {
-        var iterTimer = new Stopwatch();
-        var lastIterTime = TimeSpan.Zero;
-        _lag = TimeSpan.Zero; // TimeSpan.FromMilliseconds(_timeStepSizeMs);
-        
+        var lag = TimeSpan.Zero; 
+
         if (_core.IsRunning()) _core.SpawnNewEntities();
-        
+
         _loopTimer.Start();
         while (_core.IsRunning())
         {
-            _loopTime = _loopTimer.Elapsed;
+            var loopTime = _loopTimer.Elapsed;
             _loopTimer.Restart();
-            _lag += _loopTime;
-            
+            lag += loopTime;
+
             // STEP 1: INPUT /////////////////////////////////////////////////////////////////////
             ProcessInput();
             if (!_core.IsRunning())
@@ -154,63 +143,77 @@ public class Scheduler : IEventSink
                 _core.Shutdown();
                 break;
             }
-            
+
             // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
             // Reduce possible lag by processing consecutive ticks without rendering
-            _tickCount = 0d;
+            var tickCount = 0;
             _tickTimer.Restart();
-            while (_lag >= _msPerUpdate)
+            while (lag >= _msPerUpdate)
             {
                 _core.Tick(_timeStepSizeMs);
                 TimeMs += _timeStepSizeMs;
-                _lag -= _msPerUpdate;
-                _tickCount += 1.0d;
+                lag -= _msPerUpdate;
+                tickCount += 1;
             }
-            
-            //_tickTimer.Stop();
-            _tickElapsed = _tickTimer.Elapsed;
-            
+
+            var tickElapsed = _tickTimer.Elapsed;
+
             // STEP 3: RENDER ////////////////////////////////////////////////////////////////////
-            var howFarIntoNextFramePercent = _lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
             _renderTimer.Restart();
+            var howFarIntoNextFramePercent = lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
             _core.Render(_timeStepSizeMs, howFarIntoNextFramePercent);
-            // _renderTimer.Stop();
-            _renderElapsed = _renderTimer.Elapsed;
-            
-            var avgTickMs = _tickCount == 0 ? 0.0 : _tickElapsed.TotalMilliseconds / _tickCount;
-            // Record tick time for profiling
+
+            var tickTimeMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
+            var renderTime = _renderTimer.Elapsed;
+            // Record times for profiling
             _profiler.AddTickTimeSample(
-                // Convert.ToUInt64(_loopTime.TotalMilliseconds),
-                Convert.ToUInt64(lastIterTime.TotalMilliseconds),
-                Convert.ToUInt64(avgTickMs),
-                Convert.ToUInt64(_renderElapsed.TotalMilliseconds));
+                Convert.ToUInt64(loopTime.TotalMilliseconds),
+                Convert.ToUInt64(tickTimeMs),
+                Convert.ToUInt64(renderTime.TotalMilliseconds));
             // Push out profiling results every 10 samples
             if (_profiler.SampleSize % 10 == 0)
                 _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
+
             
             // Get loop time after making up for previous lag
-            _caughtUpLoopTime = _lag + _renderElapsed;
+            var caughtUpLoopTime = lag + renderTime + tickElapsed;
+
             // If we spent longer than our allotted time, skip right ahead...
-            if (_caughtUpLoopTime >= _msPerUpdate)
+            if (caughtUpLoopTime >= _msPerUpdate)
+            {
                 continue;
-            
+            }
+
             // ...otherwise wait until the next frame is due.
-            _sleepyTime = _msPerUpdate - _caughtUpLoopTime;
-            iterTimer.Start();
-            Task.Delay(_sleepyTime).Wait();
-            // Thread.Sleep(_sleepyTime);
-            iterTimer.Stop();
-            lastIterTime = iterTimer.Elapsed;
-            iterTimer.Reset();
+           Pause(_msPerUpdate - caughtUpLoopTime);
         }
-        
+
         _channel.Writer.Complete();
     }
-    
+
     #endregion
-    
+
     #region Private Members
-    
+
+    /// <summary>
+    /// Pause execution of the scheduler for a given time period.
+    /// Due to time constraints and context switching <see cref="Thread.Sleep(TimeSpan)"/> and
+    /// <see cref="Task.Delay(TimeSpan)"/> become inaccurate below the TimeSlice size of 15(?)/>
+    /// </summary>
+    /// <param name="timeout"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Pause(TimeSpan timeout)
+    {
+            if (timeout > TimeResolution)
+            {
+                Thread.Sleep(timeout);
+                return;
+            }
+            
+            var sleepWatch = Stopwatch.StartNew();
+            while (sleepWatch.Elapsed < timeout) ;
+    }
+
     /// <summary>
     ///     Fires events that are due in the current time step by distributing them to all event
     ///     sinks registered to these event types.
@@ -220,19 +223,19 @@ public class Scheduler : IEventSink
         while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
             _eventQueue.TryTake(out var eventItem);
-            
+
             if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
-            
+
             foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
                 eventSink.ProcessEvent(eventItem.Item1);
         }
     }
-    
+
     private async Task Redirect(ChannelReader<(IEvent, ulong)> input)
     {
         await foreach (var item in input.ReadAllAsync())
             _eventQueue.TryAdd(item);
     }
-    
+
     #endregion
 }
