@@ -37,14 +37,14 @@ public class StorageTest
     {
         Assert.True(true);
     }
-    
+
     [Fact]
     public void TestInitialState()
     {
         var storage = new MappedCollectionStorage();
         Assert.Empty(storage.GetForType(typeof(ComponentA)));
     }
-    
+
     [Theory]
     [ClassData(typeof(StorageTestData))]
     public void TestInsertion(IStorage storage)
@@ -52,13 +52,13 @@ public class StorageTest
         // Test retrieval by type
         Assert.Equal(7, storage.GetForType(typeof(ComponentA)).Count());
         Assert.Equal(3, storage.GetForType(typeof(ComponentB)).Count());
-        
+
         // Test retrieval by entity
         Assert.Equal(4, storage.GetForEntity(1).Count());
         Assert.Single(storage.GetForEntity(2));
         Assert.Equal(2, storage.GetForEntity(3).Count());
         Assert.Equal(3, storage.GetForEntity(4).Count());
-        
+
         // Test retrieval by entity and type
         Assert.Equal(3, storage.GetForEntityAndType(1, typeof(ComponentA)).Count());
         Assert.Single(storage.GetForEntityAndType(1, typeof(ComponentB)));
@@ -69,17 +69,17 @@ public class StorageTest
         Assert.Single(storage.GetForEntityAndType(4, typeof(ComponentA)));
         Assert.Equal(2, storage.GetForEntityAndType(4, typeof(ComponentB)).Count());
     }
-    
+
     [Theory]
     [ClassData(typeof(StorageTestData))]
     public void TestRemoval(IStorage storage)
     {
         Assert.Equal(7, storage.GetForType(typeof(ComponentA)).Count());
         Assert.Equal(3, storage.GetForType(typeof(ComponentB)).Count());
-        
+
         storage.RemoveComponentsByEntity(1);
         Assert.Empty(storage.GetForEntity(1));
-        
+
         storage.RemoveComponentsByType(typeof(ComponentB));
         Assert.Equal(4, storage.GetForType(typeof(ComponentA)).Count());
     }

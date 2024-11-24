@@ -8,37 +8,8 @@ namespace TermRTS.Examples.Greenery;
 
 public class Renderer : IRenderer, IEventSink
 {
-    #region Public Fields
-    
-    private readonly Vector2 _viewportSize;
-    private readonly Vector2 _worldSize;
-    
-    #endregion
-    
-    #region Private Fields
-    
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visuals;
-    private readonly ILog _log;
-    
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-    
-    private string _profileOutput;
-    private double _timePassedMs;
-
-    private int _cameraPosX;
-    private int _cameraPosY;
-    
-    // Keep track of visible world coordinates
-    private int _maxX;
-    private int _maxY;
-    
-    #endregion
     #region Constructor
-    
+
     public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight)
     {
         _canvas = new ConsoleCanvas().Render();
@@ -50,15 +21,15 @@ public class Renderer : IRenderer, IEventSink
         _worldSize.X = worldWidth;
         _worldSize.Y = worldHeight;
         _profileOutput = string.Empty;
-        
+
         SetElevationLevelColorVisual();
         Console.CursorVisible = false;
     }
-    
+
     #endregion
-    
+
     #region IEventSink Members
-    
+
     public void ProcessEvent(IEvent evt)
     {
         _profileOutput = evt.Type() switch
@@ -66,9 +37,9 @@ public class Renderer : IRenderer, IEventSink
             EventType.Profile => ((ProfileEvent)evt).ProfileInfo,
             _ => _profileOutput
         };
-        
+
         if (evt.Type() != EventType.KeyInput) return;
-        
+
         var keyEvent = (KeyInputEvent)evt;
         switch (keyEvent.Info.Key)
         {
@@ -85,14 +56,44 @@ public class Renderer : IRenderer, IEventSink
                 MoveCameraRight();
                 return;
         }
-        
+
         _textbox.ProcessEvent(evt);
     }
-    
+
     #endregion
-    
+
+    #region Public Fields
+
+    private readonly Vector2 _viewportSize;
+    private readonly Vector2 _worldSize;
+
+    #endregion
+
+    #region Private Fields
+
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly (char, ConsoleColor, ConsoleColor)[] _visuals;
+    private readonly ILog _log;
+
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+
+    private string _profileOutput;
+    private double _timePassedMs;
+
+    private int _cameraPosX;
+    private int _cameraPosY;
+
+    // Keep track of visible world coordinates
+    private int _maxX;
+    private int _maxY;
+
+    #endregion
+
     #region IRenderer Members
-    
+
     public void RenderComponents(
         in IStorage storage,
         double timeStepSizeMs,
@@ -102,24 +103,24 @@ public class Renderer : IRenderer, IEventSink
         foreach (var worldComponent in storage.GetForType(typeof(WorldComponent)))
             if (worldComponent is WorldComponent world)
                 RenderWorld(world);
-        
+
         // Step 2: Render profiling info on top of the world
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
-        
+
         if (!_textbox.IsOngoingInput) return;
-        
+
         // Step 3: Render textbox if its contents have changed.
         var x = Convert.ToInt32(_viewportSize.X - 1);
         var y = Convert.ToInt32(_viewportSize.Y - 1);
         var fg = DefaultFg;
         var bg = DefaultBg;
-        
+
         for (var i = 0; i < x; i += 1)
             _canvas.Set(i, y, ' ', bg, fg);
-        
+
         _canvas.Set(0, y, '>', bg, fg);
         _canvas.Set(1, y, ' ', bg, fg);
-        
+
         var input = _textbox.GetCurrentInput();
         for (var i = 0; i < input.Count; i += 1)
         {
@@ -127,32 +128,30 @@ public class Renderer : IRenderer, IEventSink
             _canvas.Set(2 + i, y, c, bg, fg);
         }
     }
-    
+
     private void RenderWorld(WorldComponent world)
     {
         for (var y = CameraPosY; y < _maxY; y++)
+        for (var x = CameraPosX; x < _maxX; x++)
         {
-            for (var x = CameraPosX; x < _maxX; x++)
-            {
-                var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
-                _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
-            }
+            var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
+            _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
         }
     }
-    
+
     public void FinalizeRender()
     {
         _canvas.Render();
     }
-    
+
     public void Shutdown()
     {
         Console.ResetColor();
         _log.Info("Shutting down renderer.");
     }
-    
+
     #endregion
-    
+
     #region Properties
 
     public int CameraPosX
@@ -164,7 +163,7 @@ public class Renderer : IRenderer, IEventSink
             _maxX = Convert.ToInt32(Math.Min(_cameraPosX + _viewportSize.X, _worldSize.X));
         }
     }
-    
+
     public int CameraPosY
     {
         get => _cameraPosY;
@@ -174,33 +173,33 @@ public class Renderer : IRenderer, IEventSink
             _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y));
         }
     }
-    
+
     #endregion
-    
+
     #region Private Members
-    
+
     private void MoveCameraUp()
     {
         CameraPosY = Math.Max(CameraPosY - 1, 0);
     }
-    
+
     private void MoveCameraDown()
     {
         CameraPosY =
-            Convert.ToInt32(Math.Clamp(CameraPosY+1, 0, _worldSize.Y - _viewportSize.Y));
+            Convert.ToInt32(Math.Clamp(CameraPosY + 1, 0, _worldSize.Y - _viewportSize.Y));
     }
-    
+
     private void MoveCameraLeft()
     {
         CameraPosX = Math.Max(CameraPosX - 1, 0);
     }
-    
+
     private void MoveCameraRight()
     {
         CameraPosX =
             Convert.ToInt32(Math.Clamp(CameraPosX + 1, 0, _worldSize.X - _viewportSize.X));
     }
-    
+
     private bool IsInCamera(float x, float y)
     {
         return x >= CameraPosX
@@ -208,11 +207,11 @@ public class Renderer : IRenderer, IEventSink
                && y >= CameraPosY
                && y <= CameraPosY + _viewportSize.Y;
     }
-    
+
     private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _timePassedMs += timeStepSizeMs + timeStepSizeMs * howFarIntoNextFramePercent;
-        
+
         //#if DEBUG
         var debugStr = string.IsNullOrEmpty(_profileOutput)
             ? ""
@@ -223,7 +222,7 @@ public class Renderer : IRenderer, IEventSink
         _canvas.Text(1, 0, $"Greenery | {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
         //#endif
     }
-    
+
     private void SetElevationLevelColorVisual()
     {
         _visuals[0] = ('0', ConsoleColor.DarkBlue, DefaultBg);
@@ -237,7 +236,7 @@ public class Renderer : IRenderer, IEventSink
         _visuals[8] = ('8', ConsoleColor.DarkGray, DefaultBg);
         _visuals[9] = ('9', ConsoleColor.Gray, DefaultBg);
     }
-    
+
     private void SetElevationLevelMonochromeVisual()
     {
         _visuals[0] = ('0', DefaultFg, DefaultBg);
@@ -251,7 +250,7 @@ public class Renderer : IRenderer, IEventSink
         _visuals[8] = ('8', DefaultFg, DefaultBg);
         _visuals[9] = ('9', DefaultFg, DefaultBg);
     }
-    
+
     private void SetTerrainColorVisual()
     {
         _visuals[0] = (Cp437.TripleBar, ConsoleColor.DarkBlue, DefaultBg);
@@ -265,7 +264,7 @@ public class Renderer : IRenderer, IEventSink
         _visuals[8] = (Cp437.Caret, ConsoleColor.DarkGray, DefaultBg);
         _visuals[9] = (Cp437.TriangleUp, ConsoleColor.Gray, DefaultBg);
     }
-    
+
     private void SetTerrainMonochromeVisual()
     {
         _visuals[0] = (Cp437.TripleBar, DefaultFg, DefaultBg);
@@ -279,7 +278,7 @@ public class Renderer : IRenderer, IEventSink
         _visuals[8] = (Cp437.Caret, DefaultFg, DefaultBg);
         _visuals[9] = (Cp437.TriangleUp, DefaultFg, DefaultBg);
     }
-    
+
     private void SetGrayScaleVisual()
     {
         _visuals[0] = (Cp437.BlockFull, ConsoleColor.Black, ConsoleColor.Black);
@@ -293,6 +292,6 @@ public class Renderer : IRenderer, IEventSink
         _visuals[8] = (Cp437.DenseShade, ConsoleColor.White, ConsoleColor.DarkGray);
         _visuals[9] = (Cp437.BlockFull, ConsoleColor.White, ConsoleColor.DarkGray);
     }
-    
+
     #endregion
 }

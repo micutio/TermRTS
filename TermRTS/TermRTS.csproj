@@ -6,11 +6,11 @@
         <Nullable>enable</Nullable>
         <OutputType>Library</OutputType>
     </PropertyGroup>
-    
+
     <ItemGroup>
-      <Reference Include="log4net">
-        <HintPath>..\..\..\.nuget\packages\log4net\3.0.2\lib\netstandard2.0\log4net.dll</HintPath>
-      </Reference>
+        <Reference Include="log4net">
+            <HintPath>..\..\..\.nuget\packages\log4net\3.0.2\lib\netstandard2.0\log4net.dll</HintPath>
+        </Reference>
     </ItemGroup>
 
 </Project>

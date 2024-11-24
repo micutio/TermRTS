@@ -38,7 +38,7 @@ internal static class ExampleRunner
                 Console.WriteLine("Nothing to run...");
                 return 1;
         }
-        
+
         Console.WriteLine("done.");
         return 0;
     }

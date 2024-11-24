@@ -7,6 +7,6 @@ namespace TermRTS;
 public abstract class SimSystem
 {
     // TODO: Investigate use of `in` keyword for storage.
-    
+
     public abstract void ProcessComponents(ulong timeStepSize, in IStorage storage);
 }

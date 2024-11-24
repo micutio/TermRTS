@@ -26,10 +26,10 @@ public class Scheduler : IEventSink
         _eventQueue = new EventQueue<IEvent, ulong>();
         _eventSinks = new Dictionary<EventType, List<IEventSink>>();
         _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-        
+
         _core = core;
         AddEventSink(_core, EventType.Shutdown);
-        
+
         TimeMs = 0L;
     }
 
@@ -44,14 +44,14 @@ public class Scheduler : IEventSink
     }
 
     #endregion
-    
+
     #region Private Fields
 
     private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-    
+
     // channel for emitting events
     private readonly Channel<(IEvent, ulong)> _channel;
-    
+
     private readonly Profiler _profiler;
     private readonly TimeSpan _msPerUpdate;
     private readonly ulong _timeStepSizeMs;
@@ -125,7 +125,7 @@ public class Scheduler : IEventSink
     /// </summary>
     public void SimulationLoop()
     {
-        var lag = TimeSpan.Zero; 
+        var lag = TimeSpan.Zero;
 
         if (_core.IsRunning()) _core.SpawnNewEntities();
 
@@ -174,18 +174,15 @@ public class Scheduler : IEventSink
             if (_profiler.SampleSize % 10 == 0)
                 _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
 
-            
+
             // Get loop time after making up for previous lag
             var caughtUpLoopTime = lag + renderTime + tickElapsed;
 
             // If we spent longer than our allotted time, skip right ahead...
-            if (caughtUpLoopTime >= _msPerUpdate)
-            {
-                continue;
-            }
+            if (caughtUpLoopTime >= _msPerUpdate) continue;
 
             // ...otherwise wait until the next frame is due.
-           Pause(_msPerUpdate - caughtUpLoopTime);
+            Pause(_msPerUpdate - caughtUpLoopTime);
         }
 
         _channel.Writer.Complete();
@@ -196,22 +193,22 @@ public class Scheduler : IEventSink
     #region Private Members
 
     /// <summary>
-    /// Pause execution of the scheduler for a given time period.
-    /// Due to time constraints and context switching <see cref="Thread.Sleep(TimeSpan)"/> and
-    /// <see cref="Task.Delay(TimeSpan)"/> become inaccurate below the TimeSlice size of 15(?)/>
+    ///     Pause execution of the scheduler for a given time period.
+    ///     Due to time constraints and context switching <see cref="Thread.Sleep(TimeSpan)" /> and
+    ///     <see cref="Task.Delay(TimeSpan)" /> become inaccurate below the TimeSlice size of 15(?)/>
     /// </summary>
     /// <param name="timeout"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Pause(TimeSpan timeout)
     {
-            if (timeout > TimeResolution)
-            {
-                Thread.Sleep(timeout);
-                return;
-            }
-            
-            var sleepWatch = Stopwatch.StartNew();
-            while (sleepWatch.Elapsed < timeout) ;
+        if (timeout > TimeResolution)
+        {
+            Thread.Sleep(timeout);
+            return;
+        }
+
+        var sleepWatch = Stopwatch.StartNew();
+        while (sleepWatch.Elapsed < timeout) ;
     }
 
     /// <summary>
