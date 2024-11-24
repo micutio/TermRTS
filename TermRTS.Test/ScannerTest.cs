@@ -27,6 +27,16 @@ public class ScannerTest
         var scanner = new Scanner(value.Item1.ToCharArray());
         Assert.True(scanner.ScanTokens()[0].IsEqual(value.Item2));
     }
+
+    [Theory]
+    [ClassData(typeof(TokenListDataGenerator))]
+    public void TestTokenList((string, List<Token> tokenList) value)
+    {
+        var scanner = new Scanner(value.Item1.ToCharArray());
+        var tokens = scanner.ScanTokens();
+        Assert.Equal(tokens.Count, value.Item2.Count);
+        for (var i = 0; i < tokens.Count; i++) Assert.True(tokens[i].Equals(value.Item2[i]));
+    }
 }
 
 /// <summary>
@@ -83,6 +93,44 @@ public class LiteralDataGenerator : IEnumerable<object[]>
         [("1234.567", new Token(TokenType.Number, "1234.567", 1234.567d))],
         [("\"ImA1337Coder\"", new Token(TokenType.String, "\"ImA1337Coder\"", "ImA1337Coder"))],
         [("\"WTF", new Token(TokenType.UnfinishedString, "\"WTF", null))]
+    ];
+
+    public IEnumerator<object[]> GetEnumerator()
+    {
+        return _data.GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+}
+
+public class TokenListDataGenerator : IEnumerable<object[]>
+{
+    private readonly List<object[]> _data =
+    [
+        [
+            ("Foo Bar Baz",
+                (List<Token>)
+                [
+                    new Token(TokenType.Identifier, "Foo", null),
+                    new Token(TokenType.Identifier, "Bar", null),
+                    new Token(TokenType.Identifier, "Baz", null)
+                ]
+            )
+        ],
+        [
+            ("Foo 123 4.567 \"Hornochse\"   ",
+                (List<Token>)
+                [
+                    new Token(TokenType.Identifier, "Foo", null),
+                    new Token(TokenType.Number, "123", 123d),
+                    new Token(TokenType.Number, "4.567", 4.567d),
+                    new Token(TokenType.String, "\"Hornochse\"", "Hornochse")
+                ]
+            )
+        ]
     ];
 
     public IEnumerator<object[]> GetEnumerator()

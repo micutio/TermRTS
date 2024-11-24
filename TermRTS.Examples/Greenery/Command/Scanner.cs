@@ -84,6 +84,11 @@ public class Scanner(char[] source)
             case '"':
                 TakeString();
                 break;
+            // Skip whitespaces
+            case ' ':
+            case '\t':
+            case '\r':
+                break;
 
             default: // TODO: How to handle erroneous input?
                 if (IsDigit(c))
