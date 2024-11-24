@@ -8,6 +8,35 @@ namespace TermRTS.Examples.Greenery;
 
 public class Renderer : IRenderer, IEventSink
 {
+    #region Public Fields
+    
+    private readonly Vector2 _viewportSize;
+    private readonly Vector2 _worldSize;
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly (char, ConsoleColor, ConsoleColor)[] _visuals;
+    private readonly ILog _log;
+    
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+    
+    private string _profileOutput;
+    private double _timePassedMs;
+
+    private int _cameraPosX;
+    private int _cameraPosY;
+    
+    // Keep track of visible world coordinates
+    private int _maxX;
+    private int _maxY;
+    
+    #endregion
     #region Constructor
     
     public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight)
@@ -62,31 +91,6 @@ public class Renderer : IRenderer, IEventSink
     
     #endregion
     
-    #region Public Fields
-    
-    private readonly Vector2 _viewportSize;
-    private readonly Vector2 _worldSize;
-    
-    private Vector2 _cameraPos = new(0, 0);
-    
-    #endregion
-    
-    #region Private Fields
-    
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visuals;
-    private readonly ILog _log;
-    
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-    
-    private string _profileOutput;
-    private double _timePassedMs;
-    
-    #endregion
-    
     #region IRenderer Members
     
     public void RenderComponents(
@@ -95,9 +99,6 @@ public class Renderer : IRenderer, IEventSink
         double howFarIntoNextFramePercent)
     {
         // Step 1: Render world
-        // var worldComponent = storage
-        //     .GetForType(typeof(WorldComponent))
-        //     .First();
         foreach (var worldComponent in storage.GetForType(typeof(WorldComponent)))
             if (worldComponent is WorldComponent world)
                 RenderWorld(world);
@@ -129,17 +130,13 @@ public class Renderer : IRenderer, IEventSink
     
     private void RenderWorld(WorldComponent world)
     {
-        // TODO: Only update whenever CameraPos changes.
-        var minX = Convert.ToInt32(_cameraPos.X);
-        var minY = Convert.ToInt32(_cameraPos.Y);
-        var maxX = Convert.ToInt32(Math.Min(_cameraPos.X + _viewportSize.X, _worldSize.X));
-        var maxY = Convert.ToInt32(Math.Min(_cameraPos.Y + _viewportSize.Y, _worldSize.Y));
-        
-        for (var y = minY; y < maxY; y++)
-        for (var x = minX; x < maxX; x++)
+        for (var y = CameraPosY; y < _maxY; y++)
         {
-            var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
-            _canvas.Set(x - minX, y - minY, c, colFg, colBg);
+            for (var x = CameraPosX; x < _maxX; x++)
+            {
+                var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
+                _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
+            }
         }
     }
     
@@ -156,34 +153,60 @@ public class Renderer : IRenderer, IEventSink
     
     #endregion
     
+    #region Properties
+
+    public int CameraPosX
+    {
+        get => _cameraPosX;
+        set
+        {
+            _cameraPosX = value;
+            _maxX = Convert.ToInt32(Math.Min(_cameraPosX + _viewportSize.X, _worldSize.X));
+        }
+    }
+    
+    public int CameraPosY
+    {
+        get => _cameraPosY;
+        set
+        {
+            _cameraPosY = value;
+            _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y));
+        }
+    }
+    
+    #endregion
+    
     #region Private Members
     
     private void MoveCameraUp()
     {
-        _cameraPos.Y = Math.Max(_cameraPos.Y - 1, 0);
+        CameraPosY = Math.Max(CameraPosY - 1, 0);
     }
     
     private void MoveCameraDown()
     {
-        _cameraPos.Y = Math.Max(0, Math.Min(_cameraPos.Y + 1, _worldSize.Y - _viewportSize.Y));
+        CameraPosY =
+            Convert.ToInt32(Math.Clamp(CameraPosY+1, 0, _worldSize.Y - _viewportSize.Y));
     }
     
     private void MoveCameraLeft()
     {
-        _cameraPos.X = Math.Max(_cameraPos.X - 1, 0);
+        CameraPosX = Math.Max(CameraPosX - 1, 0);
     }
     
     private void MoveCameraRight()
     {
-        _cameraPos.X = Math.Max(0, Math.Min(_cameraPos.X + 1, _worldSize.X - _viewportSize.X));
+        CameraPosX =
+            Convert.ToInt32(Math.Clamp(CameraPosX + 1, 0, _worldSize.X - _viewportSize.X));
     }
     
     private bool IsInCamera(float x, float y)
     {
-        return x >= _cameraPos.X
-               && y <= _cameraPos.X + _viewportSize.X
-               && y >= _cameraPos.Y
-               && y <= _cameraPos.Y + _viewportSize.Y;
+        return x >= CameraPosX
+               && y <= CameraPosX + _viewportSize.X
+               && y >= CameraPosY
+               && y <= CameraPosY + _viewportSize.Y;
     }
     
     private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
