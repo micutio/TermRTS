@@ -42,7 +42,6 @@ public class ConsoleInput : IEventSink
         _thread.Start();
     }
     
-    // TODO: Reduce input checking frequency if there hasn't been any input for a long time.
     private void ListenForKeyInput()
     {
         _timer.Start();
@@ -79,10 +78,13 @@ public class ConsoleInput : IEventSink
         switch (lastWaitInMs)
         {
             case < 500:
-                _sleepMs = 16;
+                _sleepMs = 100;
+                return;
+            case < 1000:
+                _sleepMs = 250;
                 return;
             case < 1000 * 30:
-                _sleepMs = 250;
+                _sleepMs = 500;
                 return;
             default:
                 _sleepMs = 1000;

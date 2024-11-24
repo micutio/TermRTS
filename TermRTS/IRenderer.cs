@@ -1,6 +1,5 @@
 namespace TermRTS;
 
-// TODO: Create a method for setup operations, before the simulation is run
 public interface IRenderer
 {
     /// <summary>
@@ -10,9 +9,6 @@ public interface IRenderer
     /// <param name="howFarIntoNextFramePercent">
     ///     How much extra time was needed for the last simulation tick.
     /// </param>
-    //public void RenderEntity(
-    //    Dictionary<Type, ComponentBase> entity,
-    //    double howFarIntoNextFrameMs);
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent);
     
     /// <summary>

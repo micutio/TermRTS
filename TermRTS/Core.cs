@@ -2,17 +2,42 @@ using System.Diagnostics;
 
 namespace TermRTS;
 
-// TODO: Add documentation
+/// <summary>
+/// Interface for the simulation core, which handles all entities, components, systems and
+/// processing thereof.
+/// </summary>
 public interface ICore : IEventSink
 {
+    /// <summary>
+    ///     A method to check whether the simulation is still running.
+    /// </summary>
+    /// <returns>
+    ///     <code>true</code> if the simulation is still running, <code>false</code> if it has
+    ///     terminated.
+    /// </returns>
     public bool IsRunning();
     
+    /// <summary>
+    /// Prepares to spawn new entities. This always happens at the end of a simulation tick.
+    /// </summary>
     public void SpawnNewEntities();
     
+    /// <summary>
+    /// Performs one simulation tick.
+    /// </summary>
+    /// <param name="timeStepSizeMs">
+    /// Indicates how much time is being simulated within this one tick.
+    /// </param>
     public void Tick(ulong timeStepSizeMs);
     
+    /// <summary>
+    ///     Call the renderer to render all renderable objects.
+    /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent);
     
+    /// <summary>
+    ///     Prompt the simulation to stop running.
+    /// </summary>
     public void Shutdown();
 }
 
@@ -33,13 +58,28 @@ public interface ICore : IEventSink
 /// </summary>
 public class Core : ICore
 {
+    #region Private Fields
+    
+    private readonly IRenderer _renderer;
+    private readonly List<SimSystem> _systems;
+    private readonly List<EntityBase> _entities;
+    private readonly MappedCollectionStorage _components;
+    private readonly List<EntityBase> _newEntities;
+    private readonly List<ComponentBase> _newComponents;
+
+    private readonly bool _isParallelized;
+    
+    private bool _isGameRunning;
+    
+    #endregion
+    
     #region Constructor
     
     /// <summary>
     ///     Constructor
     /// </summary>
     /// <param name="renderer"> An object representing the renderer. </param>
-    public Core(IRenderer renderer)
+    public Core(IRenderer renderer, bool isParallelized = false)
     {
         _isGameRunning = true;
         _renderer = renderer;
@@ -48,22 +88,25 @@ public class Core : ICore
         _newEntities = new List<EntityBase>();
         _newComponents = new List<ComponentBase>();
         _systems = new List<SimSystem>();
+        
+        _isParallelized = isParallelized;
     }
     
     #endregion
     
     #region IEventSink Members
     
+    /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
         switch (evt.Type())
         {
             case EventType.KeyInput:
-                throw new NotImplementedException();
+                break;
             case EventType.MouseInput:
-                throw new NotImplementedException();
+                break;
             case EventType.Profile:
-                throw new NotImplementedException();
+                break;
             case EventType.Shutdown:
                 _isGameRunning = false;
                 return;
@@ -74,32 +117,15 @@ public class Core : ICore
     
     #endregion
     
-    #region Private Fields
-    
-    private bool _isGameRunning;
-    private readonly IRenderer _renderer;
-    private readonly List<SimSystem> _systems;
-    private readonly List<EntityBase> _entities;
-    private readonly MappedCollectionStorage _components;
-    private readonly List<EntityBase> _newEntities;
-    private readonly List<ComponentBase> _newComponents;
-    
-    #endregion
-    
     #region ICore Members
     
-    /// <summary>
-    ///     A method to check whether the simulation is still running.
-    /// </summary>
-    /// <returns>
-    ///     <code>true</code> if the simulation is still running, <code>false</code> if it has
-    ///     terminated.
-    /// </returns>
+    /// <inheritdoc />
     public bool IsRunning()
     {
         return _isGameRunning;
     }
     
+    /// <inheritdoc />
     public void SpawnNewEntities()
     {
         if (_newEntities.Count != 0)
@@ -115,19 +141,23 @@ public class Core : ICore
         }
     }
     
+    /// <inheritdoc />
     public void Tick(ulong timeStepSizeMs)
     {
         // Two-step simulation
-        // Step 1: Iterate over each system and apply it to the respective entities. The actual
-        //         changes are stored separately to avoid affecting the current iteration
-        
-        // TODO: Make parallelised iteration over systems and/or entities configurable:
-        //      - on/off
-        //      - thread count
-        //foreach (var sys in _systems.AsParallel())
-        foreach (var sys in _systems)
-            sys.ProcessComponents(timeStepSizeMs, _components);
-        
+        // Step 1: Iterate over each system and apply it to the respective entities.
+        if (_isParallelized)
+        {
+            // Is it possible to set the thread count for parallel processing?
+            foreach (var sys in _systems.AsParallel())
+                sys.ProcessComponents(timeStepSizeMs, _components);
+        }
+        else
+        {
+            foreach (var sys in _systems)
+                sys.ProcessComponents(timeStepSizeMs, _components);
+        }
+
         _components.SwapBuffers();
         
         // Clean up operations: remove 'dead' entities and add new ones
@@ -143,9 +173,7 @@ public class Core : ICore
         //  - all to-be-removed entities removed
     }
     
-    /// <summary>
-    ///     Call the renderer to render all renderable objects.
-    /// </summary>
+    /// <inheritdoc />
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
@@ -153,17 +181,15 @@ public class Core : ICore
         _renderer.FinalizeRender();
     }
     
-    #endregion
-    
-    #region Public Members
-    
-    /// <summary>
-    ///     Prompt the simulation to stop running.
-    /// </summary>
+    /// <inheritdoc />
     public void Shutdown()
     {
         _renderer.Shutdown();
     }
+    
+    #endregion
+    
+    #region Public Members
     
     /// <summary>
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.
