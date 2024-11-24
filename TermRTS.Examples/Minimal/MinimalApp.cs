@@ -1,7 +1,7 @@
 using System.Threading.Channels;
 using TermRTS.Events;
 
-namespace TermRTS.Examples.Testing;
+namespace TermRTS.Examples.Minimal;
 
 internal class NullRenderer : IRenderer
 {

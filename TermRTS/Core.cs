@@ -64,6 +64,9 @@ public class Core : ICore
     ///     Constructor
     /// </summary>
     /// <param name="renderer"> An object representing the renderer. </param>
+    /// <param name="isParallelized">
+    ///     Whether the game systems should be processed in parallel.
+    /// </param>
     public Core(IRenderer renderer, bool isParallelized = false)
     {
         _isGameRunning = true;

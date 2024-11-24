@@ -5,9 +5,11 @@ public interface IRenderer
     /// <summary>
     ///     Called for each entity in the engine, at the end of each simulation tick
     /// </summary>
-    /// <param name="entity">The entity to render</param>
+    /// <param name="storage"> Instance of the component storage. </param>
+    /// <param name="timeStepSizeMs"> Duration of one frame in Ms. </param>
     /// <param name="howFarIntoNextFramePercent">
     ///     How much extra time was needed for the last simulation tick.
+    ///     Given in percent of <see cref="timeStepSizeMs" />.
     /// </param>
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent);
 

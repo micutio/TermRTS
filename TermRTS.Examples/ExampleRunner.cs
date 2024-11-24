@@ -1,7 +1,7 @@
 using System.Text;
 using log4net.Config;
 using TermRTS.Examples.BouncyBall;
-using TermRTS.Examples.Testing;
+using TermRTS.Examples.Minimal;
 
 namespace TermRTS.Examples;
 
