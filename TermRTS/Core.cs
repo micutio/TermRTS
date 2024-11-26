@@ -16,12 +16,12 @@ public interface ICore : IEventSink
     ///     terminated.
     /// </returns>
     public bool IsRunning();
-
+    
     /// <summary>
     ///     Prepares to spawn new entities. This always happens at the end of a simulation tick.
     /// </summary>
     public void SpawnNewEntities();
-
+    
     /// <summary>
     ///     Performs one simulation tick.
     /// </summary>
@@ -29,12 +29,12 @@ public interface ICore : IEventSink
     ///     Indicates how much time is being simulated within this one tick.
     /// </param>
     public void Tick(ulong timeStepSizeMs);
-
+    
     /// <summary>
     ///     Call the renderer to render all renderable objects.
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent);
-
+    
     /// <summary>
     ///     Prompt the simulation to stop running.
     /// </summary>
@@ -59,7 +59,7 @@ public interface ICore : IEventSink
 public class Core : ICore
 {
     #region Constructor
-
+    
     /// <summary>
     ///     Constructor
     /// </summary>
@@ -76,14 +76,29 @@ public class Core : ICore
         _newEntities = new List<EntityBase>();
         _newComponents = new List<ComponentBase>();
         _systems = new List<SimSystem>();
-
+        
         _isParallelized = isParallelized;
     }
-
+    
     #endregion
-
+    
+    #region Private Fields
+    
+    private readonly IRenderer _renderer;
+    private readonly List<SimSystem> _systems;
+    private readonly List<EntityBase> _entities;
+    private readonly MappedCollectionStorage _components;
+    private readonly List<EntityBase> _newEntities;
+    private readonly List<ComponentBase> _newComponents;
+    
+    private readonly bool _isParallelized;
+    
+    private bool _isGameRunning;
+    
+    #endregion
+    
     #region IEventSink Members
-
+    
     /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
@@ -102,32 +117,17 @@ public class Core : ICore
                 throw new UnreachableException();
         }
     }
-
+    
     #endregion
-
-    #region Private Fields
-
-    private readonly IRenderer _renderer;
-    private readonly List<SimSystem> _systems;
-    private readonly List<EntityBase> _entities;
-    private readonly MappedCollectionStorage _components;
-    private readonly List<EntityBase> _newEntities;
-    private readonly List<ComponentBase> _newComponents;
-
-    private readonly bool _isParallelized;
-
-    private bool _isGameRunning;
-
-    #endregion
-
+    
     #region ICore Members
-
+    
     /// <inheritdoc />
     public bool IsRunning()
     {
         return _isGameRunning;
     }
-
+    
     /// <inheritdoc />
     public void SpawnNewEntities()
     {
@@ -136,14 +136,14 @@ public class Core : ICore
             _entities.AddRange(_newEntities);
             _newEntities.Clear();
         }
-
+        
         if (_newComponents.Count != 0)
         {
             foreach (var c in _newComponents) _components.AddComponent(c);
             _newComponents.Clear();
         }
     }
-
+    
     /// <inheritdoc />
     public void Tick(ulong timeStepSizeMs)
     {
@@ -156,40 +156,53 @@ public class Core : ICore
         else
             foreach (var sys in _systems)
                 sys.ProcessComponents(timeStepSizeMs, _components);
-
+        
         _components.SwapBuffers();
-
+        
         // Clean up operations: remove 'dead' entities and add new ones
-        var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
-        foreach (var id in entityIdsToRemove) _components.RemoveComponentsByEntity(id);
-        _entities.RemoveAll(e => e.IsMarkedForRemoval);
-
+        // var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
+        // foreach (var id in entityIdsToRemove) _components.RemoveComponentsByEntity(id);
+        // _entities.RemoveAll(e => e.IsMarkedForRemoval);
+        
+        var i = 0;
+        while (i < _entities.Count)
+        {
+            if (!_entities[i].IsMarkedForRemoval)
+            {
+                i++;
+                continue;
+            }
+            
+            _components.RemoveComponentsByEntity(_entities[i].Id);
+            _entities.RemoveAt(i);
+        }
+        
         SpawnNewEntities();
-
+        
         // New game state should look like this:
         //  - all pending changes cleared
         //  - all pending new entities added
         //  - all to-be-removed entities removed
     }
-
+    
     /// <inheritdoc />
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
-
+        
         _renderer.FinalizeRender();
     }
-
+    
     /// <inheritdoc />
     public void Shutdown()
     {
         _renderer.Shutdown();
     }
-
+    
     #endregion
-
+    
     #region Public Members
-
+    
     /// <summary>
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.
     /// </summary>
@@ -198,7 +211,7 @@ public class Core : ICore
     {
         _newEntities.Add(entity);
     }
-
+    
     /// <summary>
     ///     Schedule a range of new entities to be added to the simulation at the beginning of the
     ///     next tick.
@@ -208,7 +221,7 @@ public class Core : ICore
     {
         _newEntities.AddRange(entities);
     }
-
+    
     /// <summary>
     ///     Schedule a new component to be added to the simulation at the beginning of the next tick.
     /// </summary>
@@ -217,7 +230,7 @@ public class Core : ICore
     {
         _newComponents.Add(component);
     }
-
+    
     /// <summary>
     ///     Schedule a range of new components to be added to the simulation at the beginning of the
     ///     next tick.
@@ -227,7 +240,7 @@ public class Core : ICore
     {
         _newComponents.AddRange(components);
     }
-
+    
     /// <summary>
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
@@ -236,7 +249,7 @@ public class Core : ICore
     {
         _systems.Add(system);
     }
-
+    
     /// <summary>
     ///     Remove system from the simulation, effective immediately.
     /// </summary>
@@ -245,6 +258,6 @@ public class Core : ICore
     {
         _systems.Remove(system);
     }
-
+    
     #endregion
 }

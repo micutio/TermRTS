@@ -14,15 +14,15 @@ public class TextBox : IEventSink
     private int _idx;
     private string _lastMessage = "";
     private InputState _state = InputState.Idle;
-
-    public bool IsOngoingInput => _state.Equals(InputState.OngoingInput);
-
+    
+    public bool IsOngoingInput => _state == InputState.OngoingInput;
+    
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() != EventType.KeyInput) return;
-
+        
         var keyEvent = (KeyInputEvent)evt;
-
+        
         if (keyEvent.Info.Key.Equals(ConsoleKey.Enter))
             switch (_state)
             {
@@ -34,9 +34,9 @@ public class TextBox : IEventSink
                     _state = InputState.Idle;
                     return;
             }
-
+        
         if (!IsOngoingInput) return;
-
+        
         var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
         switch (keyEvent.Info.Key)
         {
@@ -52,7 +52,7 @@ public class TextBox : IEventSink
                 _idx += 1;
                 break;
         }
-
+        
         /*
         switch (keyEvent.Info.Key)
         {
@@ -185,14 +185,14 @@ public class TextBox : IEventSink
                 break;
                 */
     }
-
+    
     private void FinalizeMessage()
     {
         _lastMessage = new string(_msg[..(_idx + 1)].ToArray());
         _idx = 0;
         _state = InputState.Idle;
     }
-
+    
     public ArraySegment<char> GetCurrentInput()
     {
         return _idx == 0
