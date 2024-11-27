@@ -101,7 +101,8 @@ public class Renderer : IRenderer, IEventSink
         double howFarIntoNextFramePercent)
     {
         // Step 1: Render world
-        foreach (var worldComponent in storage.GetForType(typeof(WorldComponent)))
+        storage.GetForType(typeof(WorldComponent), out var worldComponents);
+        foreach (var worldComponent in worldComponents)
             if (worldComponent is WorldComponent world)
                 RenderWorld(world);
         
@@ -139,6 +140,19 @@ public class Renderer : IRenderer, IEventSink
         {
             var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
             _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
+            // char c;
+            // if (x == CameraPosX)
+            // c = '_';
+            // else if (world.Cells[x - 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
+            // c = Cp437.Slash;
+            // else if (world.Cells[x - 1, y] > world.Cells[x, y] && world.Cells[x - 1, y] > 3)
+            // c = Cp437.BackSlash;
+            // else if (world.Cells[x, y] <= 3)
+            // c = '~';
+            // else
+            // c = ' ';
+            
+            // _canvas.Set(x - CameraPosX, y - CameraPosY, c, DefaultFg, DefaultBg);
         }
     }
     

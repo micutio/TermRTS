@@ -61,8 +61,8 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
     
     public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
-        var ballComponents = storage.GetForType(typeof(BounceBall));
-
+        storage.GetForType(typeof(BounceBall), out var ballComponents);
+        
         foreach (var ballComponent in ballComponents)
         {
             var ball = (BounceBall)ballComponent;

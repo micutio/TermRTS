@@ -37,51 +37,70 @@ public class StorageTest
     {
         Assert.True(true);
     }
-
+    
     [Fact]
     public void TestInitialState()
     {
         var storage = new MappedCollectionStorage();
-        Assert.Empty(storage.GetForType(typeof(ComponentA)));
+        storage.GetForType(typeof(ComponentA), out var components);
+        Assert.Empty(components);
     }
-
+    
     [Theory]
     [ClassData(typeof(StorageTestData))]
     public void TestInsertion(IStorage storage)
     {
         // Test retrieval by type
-        Assert.Equal(7, storage.GetForType(typeof(ComponentA)).Count());
-        Assert.Equal(3, storage.GetForType(typeof(ComponentB)).Count());
-
+        storage.GetForType(typeof(ComponentA), out var componentsA);
+        Assert.Equal(7, componentsA.Count());
+        storage.GetForType(typeof(ComponentB), out var componentsB);
+        Assert.Equal(3, componentsB.Count());
+        
         // Test retrieval by entity
-        Assert.Equal(4, storage.GetForEntity(1).Count());
-        Assert.Single(storage.GetForEntity(2));
-        Assert.Equal(2, storage.GetForEntity(3).Count());
-        Assert.Equal(3, storage.GetForEntity(4).Count());
-
+        storage.GetForEntity(1, out var e1Components);
+        Assert.Equal(4, e1Components.Count());
+        storage.GetForEntity(2, out var e2Components);
+        Assert.Single(e2Components);
+        storage.GetForEntity(3, out var e3Components);
+        Assert.Equal(2, e3Components.Count());
+        storage.GetForEntity(4, out var e4Components);
+        Assert.Equal(3, e4Components.Count());
+        
         // Test retrieval by entity and type
-        Assert.Equal(3, storage.GetForEntityAndType(1, typeof(ComponentA)).Count());
-        Assert.Single(storage.GetForEntityAndType(1, typeof(ComponentB)));
-        Assert.Single(storage.GetForEntityAndType(2, typeof(ComponentA)));
-        Assert.Empty(storage.GetForEntityAndType(2, typeof(ComponentB)));
-        Assert.Equal(2, storage.GetForEntityAndType(3, typeof(ComponentA)).Count());
-        Assert.Empty(storage.GetForEntityAndType(3, typeof(ComponentB)));
-        Assert.Single(storage.GetForEntityAndType(4, typeof(ComponentA)));
-        Assert.Equal(2, storage.GetForEntityAndType(4, typeof(ComponentB)).Count());
+        storage.GetForEntityAndType(1, typeof(ComponentA), out var entity1TypeA);
+        Assert.Equal(3, entity1TypeA.Count());
+        storage.GetForEntityAndType(1, typeof(ComponentB), out var entity1TypeB);
+        Assert.Single(entity1TypeB);
+        storage.GetForEntityAndType(2, typeof(ComponentA), out var entity2TypeA);
+        Assert.Single(entity2TypeA);
+        storage.GetForEntityAndType(2, typeof(ComponentA), out var entity2TypeB);
+        Assert.Empty(entity2TypeB);
+        storage.GetForEntityAndType(3, typeof(ComponentA), out var entity3TypeA);
+        Assert.Equal(2, entity3TypeA.Count());
+        storage.GetForEntityAndType(3, typeof(ComponentA), out var entity3TypeB);
+        Assert.Empty(entity3TypeB);
+        storage.GetForEntityAndType(4, typeof(ComponentA), out var entity4TypeA);
+        Assert.Single(entity4TypeA);
+        storage.GetForEntityAndType(4, typeof(ComponentB), out var entity4TypeB);
+        Assert.Equal(2, entity4TypeB.Count());
     }
-
+    
     [Theory]
     [ClassData(typeof(StorageTestData))]
     public void TestRemoval(IStorage storage)
     {
-        Assert.Equal(7, storage.GetForType(typeof(ComponentA)).Count());
-        Assert.Equal(3, storage.GetForType(typeof(ComponentB)).Count());
-
+        storage.GetForType(typeof(ComponentA), out var componentsA);
+        Assert.Equal(7, componentsA.Count());
+        storage.GetForType(typeof(ComponentB), out var componentsB);
+        Assert.Equal(3, componentsB.Count());
+        
         storage.RemoveComponentsByEntity(1);
-        Assert.Empty(storage.GetForEntity(1));
-
+        storage.GetForEntity(1, out var entity);
+        Assert.Empty(entity);
+        
         storage.RemoveComponentsByType(typeof(ComponentB));
-        Assert.Equal(4, storage.GetForType(typeof(ComponentA)).Count());
+        storage.GetForType(typeof(ComponentA), out var componentsAa);
+        Assert.Equal(4, componentsAa.Count());
     }
 }
 

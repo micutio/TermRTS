@@ -50,11 +50,13 @@ internal class Renderer : IRenderer, IEventSink
         double howFarIntoNextFramePercent)
     {
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
-
-        foreach (var chip in storage.GetForType(typeof(Circuitry.Chip)))
+        
+        storage.GetForType(typeof(Circuitry.Chip), out var chipComponents);
+        foreach (var chip in chipComponents)
             RenderOutline(((Circuitry.Chip)chip).Outline);
-
-        foreach (var bus in storage.GetForType(typeof(Circuitry.Bus)).Cast<Circuitry.Bus>())
+        
+        storage.GetForType(typeof(Circuitry.Bus), out var busComponents);
+        foreach (var bus in busComponents.Cast<Circuitry.Bus>())
         {
             var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
             foreach (var wire in bus.Connections) RenderWire(wire.Outline, bus.IsActive, progress);

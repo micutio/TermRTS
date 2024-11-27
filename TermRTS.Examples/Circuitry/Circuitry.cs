@@ -350,7 +350,8 @@ internal class Circuitry : IRunnableExample
         
         public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
-            foreach (var b in storage.GetForType(typeof(Bus)))
+            storage.GetForType(typeof(Bus), out var results);
+            foreach (var b in results)
             {
                 var bus = (Bus)b;
                 

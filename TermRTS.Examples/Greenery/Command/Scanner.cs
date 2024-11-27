@@ -42,7 +42,7 @@ public readonly record struct Token(TokenType TokenType, string Lexeme, object? 
 /// </summary>
 public class Scanner(char[] source)
 {
-    private readonly List<Token> _tokens = new();
+    private readonly List<Token> _tokens = [];
     private int _current;
     private int _start;
 
@@ -58,6 +58,8 @@ public class Scanner(char[] source)
 
         return _tokens;
     }
+
+    #region Private Members
 
     private void ScanToken()
     {
@@ -201,4 +203,6 @@ public class Scanner(char[] source)
         var lexeme = new string(source, _start, _current - _start);
         _tokens.Add(new Token(tokenType, lexeme, literal));
     }
+
+    #endregion
 }
