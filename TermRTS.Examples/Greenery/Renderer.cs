@@ -1,10 +1,23 @@
 using System.Numerics;
 using ConsoleRenderer;
 using log4net;
+using TermRTS.Event;
 using TermRTS.Events;
+using TermRTS.Examples.Greenery.Event;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
+
+public enum RenderMode
+{
+    ElevationColor,
+    ElevationMonochrome,
+    ElevationHeatmap,
+    TerrainColor,
+    TerrainMonochrome,
+    ReliefColor,
+    ReliefMonochrome
+}
 
 public class Renderer : IRenderer, IEventSink
 {
@@ -22,6 +35,8 @@ public class Renderer : IRenderer, IEventSink
     // TODO: Find a more modular way of handling this.
     private readonly TextBox _textbox;
     
+    private RenderMode _renderMode = RenderMode.ElevationColor;
+    
     private string _profileOutput;
     private double _timePassedMs;
     
@@ -36,12 +51,12 @@ public class Renderer : IRenderer, IEventSink
     
     #region Constructor
     
-    public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight)
+    public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight, TextBox textbox)
     {
         _canvas = new ConsoleCanvas().Render();
         _visuals = new (char, ConsoleColor, ConsoleColor)[10];
         _log = LogManager.GetLogger(GetType());
-        _textbox = new TextBox();
+        _textbox = textbox;
         _viewportSize.X = viewportWidth;
         _viewportSize.Y = viewportHeight;
         _worldSize.X = worldWidth;
@@ -53,6 +68,41 @@ public class Renderer : IRenderer, IEventSink
         
         SetElevationLevelColorVisual();
         Console.CursorVisible = false;
+    }
+    
+    #endregion
+    
+    #region Properties
+    
+    public RenderMode RenderMode
+    {
+        get => _renderMode;
+        set
+        {
+            _renderMode = value;
+            switch (_renderMode)
+            {
+                case RenderMode.ElevationColor:
+                    SetElevationLevelColorVisual();
+                    break;
+                case RenderMode.ElevationMonochrome:
+                    SetElevationLevelMonochromeVisual();
+                    break;
+                case RenderMode.ElevationHeatmap:
+                    SetGrayScaleVisual();
+                    break;
+                case RenderMode.TerrainColor:
+                case RenderMode.ReliefColor:
+                    SetTerrainColorVisual();
+                    break;
+                case RenderMode.TerrainMonochrome:
+                case RenderMode.ReliefMonochrome:
+                    SetTerrainMonochromeVisual();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
     }
     
     #endregion
@@ -69,26 +119,27 @@ public class Renderer : IRenderer, IEventSink
         };
 #endif
         
-        if (evt.Type() != EventType.KeyInput) return;
-        
-        var keyEvent = (KeyInputEvent)evt;
-        switch (keyEvent.Info.Key)
+        if (!_textbox.IsOngoingInput && evt.Type() == EventType.KeyInput)
         {
-            case ConsoleKey.UpArrow:
-                MoveCameraUp();
-                return;
-            case ConsoleKey.DownArrow:
-                MoveCameraDown();
-                return;
-            case ConsoleKey.LeftArrow:
-                MoveCameraLeft();
-                return;
-            case ConsoleKey.RightArrow:
-                MoveCameraRight();
-                return;
+            var keyEvent = (KeyInputEvent)evt;
+            switch (keyEvent.Info.Key)
+            {
+                case ConsoleKey.UpArrow:
+                    MoveCameraUp();
+                    return;
+                case ConsoleKey.DownArrow:
+                    MoveCameraDown();
+                    return;
+                case ConsoleKey.LeftArrow:
+                    MoveCameraLeft();
+                    return;
+                case ConsoleKey.RightArrow:
+                    MoveCameraRight();
+                    return;
+            }
         }
         
-        _textbox.ProcessEvent(evt);
+        if (evt.Type() == EventType.Custom && evt is RenderOptionEvent roe) RenderMode = roe.RenderMode;
     }
     
     #endregion
@@ -104,56 +155,31 @@ public class Renderer : IRenderer, IEventSink
         storage.GetForType(typeof(WorldComponent), out var worldComponents);
         foreach (var worldComponent in worldComponents)
             if (worldComponent is WorldComponent world)
-                RenderWorld(world);
+                // RenderWorld(world);
+                switch (RenderMode)
+                {
+                    case RenderMode.ElevationColor:
+                    case RenderMode.ElevationMonochrome:
+                    case RenderMode.ElevationHeatmap:
+                    case RenderMode.TerrainColor:
+                    case RenderMode.TerrainMonochrome:
+                        RenderWorld(world);
+                        break;
+                    case RenderMode.ReliefColor:
+                    case RenderMode.ReliefMonochrome:
+                        RenderWorldRelief(world);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
         
         // Step 2: Render profiling info on top of the world
 #if DEBUG
         // RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
 #endif
         
-        if (!_textbox.IsOngoingInput) return;
-        
         // Step 3: Render textbox if its contents have changed.
-        var x = Convert.ToInt32(_viewportSize.X - 1);
-        var y = Convert.ToInt32(_viewportSize.Y - 1);
-        var fg = DefaultFg;
-        var bg = DefaultBg;
-        
-        for (var i = 0; i < x; i += 1)
-            _canvas.Set(i, y, ' ', bg, fg);
-        
-        _canvas.Set(0, y, '>', bg, fg);
-        _canvas.Set(1, y, ' ', bg, fg);
-        
-        var input = _textbox.GetCurrentInput();
-        for (var i = 0; i < input.Count; i += 1)
-        {
-            var c = input[i];
-            _canvas.Set(2 + i, y, c, bg, fg);
-        }
-    }
-    
-    private void RenderWorld(WorldComponent world)
-    {
-        for (var y = CameraPosY; y < _maxY; y++)
-        for (var x = CameraPosX; x < _maxX; x++)
-        {
-            var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
-            _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
-            // char c;
-            // if (x == CameraPosX)
-            // c = '_';
-            // else if (world.Cells[x - 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
-            // c = Cp437.Slash;
-            // else if (world.Cells[x - 1, y] > world.Cells[x, y] && world.Cells[x - 1, y] > 3)
-            // c = Cp437.BackSlash;
-            // else if (world.Cells[x, y] <= 3)
-            // c = '~';
-            // else
-            // c = ' ';
-            
-            // _canvas.Set(x - CameraPosX, y - CameraPosY, c, DefaultFg, DefaultBg);
-        }
+        if (_textbox.IsOngoingInput) RenderTextbox();
     }
     
     public void FinalizeRender()
@@ -225,6 +251,41 @@ public class Renderer : IRenderer, IEventSink
                && y <= CameraPosY + _viewportSize.Y;
     }
     
+    private void RenderWorld(WorldComponent world)
+    {
+        for (var y = CameraPosY; y < _maxY; y++)
+        for (var x = CameraPosX; x < _maxX; x++)
+        {
+            var (c, colFg, colBg) = _visuals[world.Cells[x, y]];
+            _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
+        }
+    }
+    
+    private void RenderWorldRelief(WorldComponent world)
+    {
+        for (var y = CameraPosY; y < _maxY; y++)
+        for (var x = CameraPosX; x < _maxX; x++)
+        {
+            char c;
+            if (x == CameraPosX)
+                c = '_';
+            else if (world.Cells[x - 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
+                c = Cp437.Slash;
+            else if (world.Cells[x - 1, y] > world.Cells[x, y] && world.Cells[x - 1, y] > 3)
+                c = Cp437.BackSlash;
+            else if (world.Cells[x, y] <= 3)
+                c = '~';
+            else
+                c = ' ';
+            
+            var colFg = RenderMode == RenderMode.ReliefMonochrome
+                ? DefaultFg
+                : _visuals[world.Cells[x, y]].Item2;
+            
+            _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, DefaultBg);
+        }
+    }
+    
     private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _timePassedMs += timeStepSizeMs + timeStepSizeMs * howFarIntoNextFramePercent;
@@ -236,6 +297,27 @@ public class Renderer : IRenderer, IEventSink
         var min = (int)Math.Floor(_timePassedMs / (1000 * 60)) % 60;
         var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
         _canvas.Text(1, 0, $"Greenery | {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
+    }
+    
+    private void RenderTextbox()
+    {
+        var x = Convert.ToInt32(_viewportSize.X - 1);
+        var y = Convert.ToInt32(_viewportSize.Y - 1);
+        var fg = DefaultFg;
+        var bg = DefaultBg;
+        
+        for (var i = 0; i < x; i += 1)
+            _canvas.Set(i, y, ' ', bg, fg);
+        
+        _canvas.Set(0, y, '>', bg, fg);
+        _canvas.Set(1, y, ' ', bg, fg);
+        
+        var input = _textbox.GetCurrentInput();
+        for (var i = 0; i < input.Count; i += 1)
+        {
+            var c = input[i];
+            _canvas.Set(2 + i, y, c, bg, fg);
+        }
     }
     
     private void SetElevationLevelColorVisual()
@@ -268,11 +350,11 @@ public class Renderer : IRenderer, IEventSink
     
     private void SetTerrainColorVisual()
     {
-        _visuals[0] = (Cp437.TripleBar, ConsoleColor.DarkBlue, DefaultBg);
-        _visuals[1] = (Cp437.TripleBar, ConsoleColor.Blue, DefaultBg);
+        _visuals[0] = (Cp437.Tilde, ConsoleColor.DarkBlue, DefaultBg);
+        _visuals[1] = (Cp437.Tilde, ConsoleColor.Blue, DefaultBg);
         _visuals[2] = (Cp437.Approximation, ConsoleColor.DarkCyan, DefaultBg);
-        _visuals[3] = (Cp437.Tilde, ConsoleColor.Cyan, DefaultBg);
-        _visuals[4] = (Cp437.MediumShade, ConsoleColor.Yellow, DefaultBg);
+        _visuals[3] = (Cp437.TripleBar, ConsoleColor.Cyan, DefaultBg);
+        _visuals[4] = (Cp437.SparseShade, ConsoleColor.Yellow, DefaultBg);
         _visuals[5] = (Cp437.BoxDoubleUpHorizontal, ConsoleColor.DarkGreen, DefaultBg);
         _visuals[6] = (Cp437.BoxUpHorizontal, ConsoleColor.Green, DefaultBg);
         _visuals[7] = (Cp437.Intersection, ConsoleColor.DarkYellow, DefaultBg);

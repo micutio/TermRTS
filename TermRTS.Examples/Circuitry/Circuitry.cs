@@ -1,5 +1,6 @@
 using System.Numerics;
 using log4net;
+using TermRTS.Event;
 using TermRTS.Events;
 using TermRTS.Io;
 

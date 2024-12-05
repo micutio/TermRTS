@@ -1,4 +1,6 @@
-﻿using TermRTS.Events;
+﻿using TermRTS.Event;
+using TermRTS.Events;
+using TermRTS.Examples.Greenery.Command;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
@@ -9,6 +11,8 @@ namespace TermRTS.Examples.Greenery;
 public class Greenery : IRunnableExample
 {
     // private readonly ILog _log;
+    private readonly CommandRunner _commandRunner = new();
+    private readonly TextBox _textbox = new();
     
     public void Run()
     {
@@ -23,7 +27,7 @@ public class Greenery : IRunnableExample
         // var worldWidth = viewportWidth;
         // var worldHeight = viewportHeight;
         // Set up engine
-        var renderer = new Renderer(viewportWidth, viewportHeight, worldWidth, worldHeight);
+        var renderer = new Renderer(viewportWidth, viewportHeight, worldWidth, worldHeight, _textbox);
         var core = new Core(renderer);
         
         // TODO: Move entity generation elsewhere.
@@ -43,12 +47,20 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(renderer, EventType.Profile);
         
+        // Listen to commands
+        scheduler.AddEventSink(renderer, EventType.Custom); // render option events
+        scheduler.AddEventSources(_commandRunner.CommandEventReader);
+        scheduler.AddEventSink(_commandRunner, EventType.Custom);
+        
         // Init input
         var input = new ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);
         scheduler.AddEventSink(input, EventType.Shutdown);
         scheduler.AddEventSink(renderer, EventType.KeyInput);
+        scheduler.AddEventSink(_textbox, EventType.KeyInput);
+        scheduler.AddEventSources(_textbox.MessageEventReader);
         input.Run();
+        
         
         // Graceful shutdown on canceling via CTRL+C.
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)

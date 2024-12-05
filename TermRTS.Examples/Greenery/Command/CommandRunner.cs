@@ -1,6 +1,9 @@
-﻿namespace TermRTS.Examples.Greenery.Command;
+﻿using System.Threading.Channels;
+using TermRTS.Examples.Greenery.Event;
 
-public class CommandRunner
+namespace TermRTS.Examples.Greenery.Command;
+
+public class CommandRunner : IEventSink
 {
     // Replies
     private const string ErrorEmptyCmd = "< Cannot run empty command";
@@ -15,9 +18,20 @@ public class CommandRunner
     private const string SubCmdRenderElevationHeatmap = "elevation_heat";
     private const string SubCmdRenderTerrainColor = "terrain_col";
     private const string SubCmdRenderTerrainMonochrome = "terrain_mono";
-    private const string SubCmdRenderProfile = "profile";
+    private const string SubCmdRenderReliefColor = "relief_col";
+    private const string SubCmdRenderReliefMonochrome = "relief_mono";
     
-    public string Run(IReadOnlyList<Token> cmdTokens)
+    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+    
+    public ChannelReader<(IEvent, ulong)> CommandEventReader => _channel.Reader;
+    
+    public void ProcessEvent(IEvent evt)
+    {
+        if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt) Run(new Scanner(cmdEvt.Command).ScanTokens());
+    }
+    
+    // TODO: Create a notification system that can display the responses
+    private string Run(IReadOnlyList<Token> cmdTokens)
     {
         if (cmdTokens.Count == 0) return ErrorEmptyCmd;
         
@@ -34,13 +48,32 @@ public class CommandRunner
     private string CommandRenderMode(IReadOnlyList<Token> tokens)
     {
         if (tokens.Count > 2) return ErrorTooManyArgs;
-        switch (tokens[1].Literal)
+        switch (tokens[1].Lexeme)
         {
-            case SubCmdRenderElevationColor: throw new NotImplementedException();
-            case SubCmdRenderElevationMonochrome: throw new NotImplementedException();
-            case SubCmdRenderTerrainColor: throw new NotImplementedException();
-            case SubCmdRenderTerrainMonochrome: throw new NotImplementedException();
-            case SubCmdRenderProfile: throw new NotImplementedException();
+            case SubCmdRenderElevationColor:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationColor), 0L));
+                break;
+            case SubCmdRenderElevationMonochrome:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationMonochrome), 0L));
+                break;
+            case SubCmdRenderElevationHeatmap:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationHeatmap), 0L));
+                break;
+            case SubCmdRenderTerrainColor:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.TerrainColor), 0L));
+                break;
+            case SubCmdRenderTerrainMonochrome:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.TerrainMonochrome), 0L));
+                break;
+            case SubCmdRenderReliefColor:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ReliefColor), 0L));
+                break;
+            case SubCmdRenderReliefMonochrome:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ReliefMonochrome), 0L));
+                break;
+            default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }
+        
+        return string.Empty;
     }
 }

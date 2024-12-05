@@ -1,4 +1,6 @@
-﻿using TermRTS.Events;
+﻿using System.Threading.Channels;
+using TermRTS.Event;
+using TermRTS.Examples.Greenery.Event;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -10,10 +12,13 @@ internal enum InputState
 
 public class TextBox : IEventSink
 {
+    public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
+    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+    
     private readonly char[] _msg = new char[80];
     private int _idx;
-    private string _lastMessage = "";
     private InputState _state = InputState.Idle;
+    
     
     public bool IsOngoingInput => _state == InputState.OngoingInput;
     
@@ -28,6 +33,7 @@ public class TextBox : IEventSink
             {
                 case InputState.Idle:
                     _state = InputState.OngoingInput;
+                    Array.Clear(_msg, 0, 80);
                     return;
                 case InputState.OngoingInput:
                     FinalizeMessage();
@@ -37,7 +43,7 @@ public class TextBox : IEventSink
         
         if (!IsOngoingInput) return;
         
-        var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
+        // var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
         switch (keyEvent.Info.Key)
         {
             case ConsoleKey.Spacebar:
@@ -188,9 +194,9 @@ public class TextBox : IEventSink
     
     private void FinalizeMessage()
     {
-        _lastMessage = new string(_msg[..(_idx + 1)].ToArray());
         _idx = 0;
         _state = InputState.Idle;
+        _channel.Writer.TryWrite((new CommandEvent(_msg), 0L));
     }
     
     public ArraySegment<char> GetCurrentInput()

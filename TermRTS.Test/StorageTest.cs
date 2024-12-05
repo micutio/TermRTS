@@ -73,11 +73,11 @@ public class StorageTest
         Assert.Single(entity1TypeB);
         storage.GetForEntityAndType(2, typeof(ComponentA), out var entity2TypeA);
         Assert.Single(entity2TypeA);
-        storage.GetForEntityAndType(2, typeof(ComponentA), out var entity2TypeB);
+        storage.GetForEntityAndType(2, typeof(ComponentB), out var entity2TypeB);
         Assert.Empty(entity2TypeB);
         storage.GetForEntityAndType(3, typeof(ComponentA), out var entity3TypeA);
         Assert.Equal(2, entity3TypeA.Count());
-        storage.GetForEntityAndType(3, typeof(ComponentA), out var entity3TypeB);
+        storage.GetForEntityAndType(3, typeof(ComponentB), out var entity3TypeB);
         Assert.Empty(entity3TypeB);
         storage.GetForEntityAndType(4, typeof(ComponentA), out var entity4TypeA);
         Assert.Single(entity4TypeA);
