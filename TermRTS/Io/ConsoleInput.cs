@@ -79,7 +79,7 @@ public class ConsoleInput : IEventSink
         switch (lastWaitInMs)
         {
             case < 500:
-                _sleepMs = 100;
+                _sleepMs = 10;
                 return;
             case < 1000:
                 _sleepMs = 250;

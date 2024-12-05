@@ -173,8 +173,8 @@ public class Scheduler : IEventSink
                 Convert.ToUInt64(renderTime.TotalMilliseconds));
             // Push out profiling results every 10 samples
 #if DEBUG
-            // if (_profiler.SampleSize % 10 == 0)
-            //     _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
+            if (_profiler.SampleSize % 10 == 0)
+                _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
 #endif
             
             // Get loop time after making up for previous lag

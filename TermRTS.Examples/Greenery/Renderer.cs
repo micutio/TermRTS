@@ -175,7 +175,7 @@ public class Renderer : IRenderer, IEventSink
         
         // Step 2: Render profiling info on top of the world
 #if DEBUG
-        // RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
+        RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
 #endif
         
         // Step 3: Render textbox if its contents have changed.
@@ -353,7 +353,7 @@ public class Renderer : IRenderer, IEventSink
         _visuals[0] = (Cp437.Tilde, ConsoleColor.DarkBlue, DefaultBg);
         _visuals[1] = (Cp437.Tilde, ConsoleColor.Blue, DefaultBg);
         _visuals[2] = (Cp437.Approximation, ConsoleColor.DarkCyan, DefaultBg);
-        _visuals[3] = (Cp437.TripleBar, ConsoleColor.Cyan, DefaultBg);
+        _visuals[3] = (Cp437.Approximation, ConsoleColor.Cyan, DefaultBg);
         _visuals[4] = (Cp437.SparseShade, ConsoleColor.Yellow, DefaultBg);
         _visuals[5] = (Cp437.BoxDoubleUpHorizontal, ConsoleColor.DarkGreen, DefaultBg);
         _visuals[6] = (Cp437.BoxUpHorizontal, ConsoleColor.Green, DefaultBg);
@@ -364,10 +364,10 @@ public class Renderer : IRenderer, IEventSink
     
     private void SetTerrainMonochromeVisual()
     {
-        _visuals[0] = (Cp437.TripleBar, DefaultFg, DefaultBg);
-        _visuals[1] = (Cp437.TripleBar, DefaultFg, DefaultBg);
+        _visuals[0] = (Cp437.Tilde, DefaultFg, DefaultBg);
+        _visuals[1] = (Cp437.Tilde, DefaultFg, DefaultBg);
         _visuals[2] = (Cp437.Approximation, DefaultFg, DefaultBg);
-        _visuals[3] = (Cp437.Tilde, DefaultFg, DefaultBg);
+        _visuals[3] = (Cp437.Approximation, DefaultFg, DefaultBg);
         _visuals[4] = (Cp437.MediumShade, DefaultFg, DefaultBg);
         _visuals[5] = (Cp437.BoxDoubleUpHorizontal, DefaultFg, DefaultBg);
         _visuals[6] = (Cp437.BoxUpHorizontal, DefaultFg, DefaultBg);
