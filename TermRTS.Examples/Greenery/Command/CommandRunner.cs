@@ -10,7 +10,7 @@ public class CommandRunner : IEventSink
     private const string ErrorNoIdentifier = "< Command must start with an identifier!";
     private const string ErrorTooManyArgs = "< Too many arguments!";
     private const string ErrorUnknownCmd = "< Unknown command!";
-    
+
     // Available commands
     private const string CmdRender = "render";
     private const string SubCmdRenderElevationColor = "elevation_col";
@@ -20,30 +20,32 @@ public class CommandRunner : IEventSink
     private const string SubCmdRenderTerrainMonochrome = "terrain_mono";
     private const string SubCmdRenderReliefColor = "relief_col";
     private const string SubCmdRenderReliefMonochrome = "relief_mono";
-    
+    private const string SubCmdRenderContourColor = "contour_col";
+    private const string SubCmdRenderContourMonochrome = "contour_mono";
+
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-    
+
     public ChannelReader<(IEvent, ulong)> CommandEventReader => _channel.Reader;
-    
+
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt) Run(new Scanner(cmdEvt.Command).ScanTokens());
     }
-    
+
     // TODO: Create a notification system that can display the responses
     private string Run(IReadOnlyList<Token> cmdTokens)
     {
         if (cmdTokens.Count == 0) return ErrorEmptyCmd;
-        
+
         if (cmdTokens[0].TokenType != TokenType.Identifier) return ErrorNoIdentifier;
-        
+
         return cmdTokens[0].Lexeme switch
         {
             CmdRender => CommandRenderMode(cmdTokens),
             _ => ErrorUnknownCmd
         };
     }
-    
+
     // TODO: Change argument to listview
     private string CommandRenderMode(IReadOnlyList<Token> tokens)
     {
@@ -71,9 +73,15 @@ public class CommandRunner : IEventSink
             case SubCmdRenderReliefMonochrome:
                 _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ReliefMonochrome), 0L));
                 break;
+            case SubCmdRenderContourColor:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ContourColor), 0L));
+                break;
+            case SubCmdRenderContourMonochrome:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ContourMonochrome), 0L));
+                break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }
-        
+
         return string.Empty;
     }
 }
