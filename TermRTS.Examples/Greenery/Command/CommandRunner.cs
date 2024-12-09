@@ -10,42 +10,43 @@ public class CommandRunner : IEventSink
     private const string ErrorNoIdentifier = "< Command must start with an identifier!";
     private const string ErrorTooManyArgs = "< Too many arguments!";
     private const string ErrorUnknownCmd = "< Unknown command!";
-
+    
     // Available commands
     private const string CmdRender = "render";
     private const string SubCmdRenderElevationColor = "elevation_col";
     private const string SubCmdRenderElevationMonochrome = "elevation_mono";
-    private const string SubCmdRenderElevationHeatmap = "elevation_heat";
+    private const string SubCmdRenderHeatmapColor = "heat_col";
+    private const string SubCmdRenderHeatmapMonochrome = "heat_mono";
     private const string SubCmdRenderTerrainColor = "terrain_col";
     private const string SubCmdRenderTerrainMonochrome = "terrain_mono";
     private const string SubCmdRenderReliefColor = "relief_col";
     private const string SubCmdRenderReliefMonochrome = "relief_mono";
     private const string SubCmdRenderContourColor = "contour_col";
     private const string SubCmdRenderContourMonochrome = "contour_mono";
-
+    
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-
+    
     public ChannelReader<(IEvent, ulong)> CommandEventReader => _channel.Reader;
-
+    
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt) Run(new Scanner(cmdEvt.Command).ScanTokens());
     }
-
+    
     // TODO: Create a notification system that can display the responses
     private string Run(IReadOnlyList<Token> cmdTokens)
     {
         if (cmdTokens.Count == 0) return ErrorEmptyCmd;
-
+        
         if (cmdTokens[0].TokenType != TokenType.Identifier) return ErrorNoIdentifier;
-
+        
         return cmdTokens[0].Lexeme switch
         {
             CmdRender => CommandRenderMode(cmdTokens),
             _ => ErrorUnknownCmd
         };
     }
-
+    
     // TODO: Change argument to listview
     private string CommandRenderMode(IReadOnlyList<Token> tokens)
     {
@@ -58,8 +59,11 @@ public class CommandRunner : IEventSink
             case SubCmdRenderElevationMonochrome:
                 _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationMonochrome), 0L));
                 break;
-            case SubCmdRenderElevationHeatmap:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationHeatmap), 0L));
+            case SubCmdRenderHeatmapColor:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.HeatMapColor), 0L));
+                break;
+            case SubCmdRenderHeatmapMonochrome:
+                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.HeatMapMonochrome), 0L));
                 break;
             case SubCmdRenderTerrainColor:
                 _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.TerrainColor), 0L));
@@ -81,7 +85,7 @@ public class CommandRunner : IEventSink
                 break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }
-
+        
         return string.Empty;
     }
 }
