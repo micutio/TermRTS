@@ -4,6 +4,7 @@ using log4net;
 using TermRTS.Event;
 using TermRTS.Events;
 using TermRTS.Examples.Greenery.Event;
+using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;

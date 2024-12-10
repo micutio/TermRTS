@@ -2,7 +2,7 @@
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
 
-namespace TermRTS.Examples.Greenery;
+namespace TermRTS.Examples.Greenery.Ui;
 
 internal enum InputState
 {
