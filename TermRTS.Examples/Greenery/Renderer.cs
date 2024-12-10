@@ -24,36 +24,6 @@ public enum RenderMode
 
 public class Renderer : IRenderer, IEventSink
 {
-    #region Private Fields
-    
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
-    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
-    private readonly ILog _log;
-    
-    private readonly Vector2 _viewportSize;
-    private readonly Vector2 _worldSize;
-    
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-    
-    private RenderMode _renderMode = RenderMode.ContourColor;
-    private bool _initVisualMatrix = true;
-    
-    private string _profileOutput;
-    private double _timePassedMs;
-    
-    private int _cameraPosX;
-    private int _cameraPosY;
-    
-    // Keep track of visible world coordinates
-    private int _maxX;
-    private int _maxY;
-    
-    #endregion
-    
     #region Constructor
     
     public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight, TextBox textbox)
@@ -158,6 +128,36 @@ public class Renderer : IRenderer, IEventSink
         
         if (evt.Type() == EventType.Custom && evt is RenderOptionEvent roe) RenderMode = roe.RenderMode;
     }
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
+    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
+    private readonly ILog _log;
+    
+    private readonly Vector2 _viewportSize;
+    private readonly Vector2 _worldSize;
+    
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+    
+    private RenderMode _renderMode = RenderMode.ContourColor;
+    private bool _initVisualMatrix = true;
+    
+    private string _profileOutput;
+    private double _timePassedMs;
+    
+    private int _cameraPosX;
+    private int _cameraPosY;
+    
+    // Keep track of visible world coordinates
+    private int _maxX;
+    private int _maxY;
     
     #endregion
     

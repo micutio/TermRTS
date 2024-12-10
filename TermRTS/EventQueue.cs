@@ -6,7 +6,7 @@ namespace TermRTS;
 public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
 {
     #region Constructor
-
+    
     /// <summary>
     ///     Constructor.
     /// </summary>
@@ -23,18 +23,18 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
                 return result;
             }));
     }
-
+    
     #endregion
-
+    
     #region Private Fields
-
+    
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
     private long _index;
-
+    
     #endregion
-
+    
     #region Properties
-
+    
     /// <inheritdoc />
     public int Count
     {
@@ -46,14 +46,14 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
             }
         }
     }
-
+    
     /// <inheritdoc />
     public bool IsSynchronized => true; // use to be `false`, not sure whether true is correct
-
+    
     #endregion
-
+    
     #region Public Methods
-
+    
     /// <inheritdoc />
     public bool TryAdd((TElement, TPriority) item)
     {
@@ -61,10 +61,10 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         {
             _queue.Enqueue(item.Item1, (item.Item2, ++_index));
         }
-
+        
         return true;
     }
-
+    
     /// <inheritdoc />
     public bool TryTake(out (TElement, TPriority) item)
     {
@@ -75,12 +75,12 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
                 item = (element, priority.Item1);
                 return true;
             }
-
+            
             item = default;
             return false;
         }
     }
-
+    
     public bool TryPeek(out TElement? element, out TPriority? priority)
     {
         lock (SyncRoot)
@@ -91,24 +91,24 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
             return value;
         }
     }
-
+    
     /// <inheritdoc />
     public object SyncRoot { get; }
-
+    
     /// <inheritdoc />
     public void CopyTo((TElement, TPriority)[] array, int index)
     {
         throw new NotSupportedException();
-
+        
         /*
         ArgumentNullException.ThrowIfNull(array);
-
+        
         ArgumentOutOfRangeException.ThrowIfNegative(index);
-
+        
         var count = Count;
         if (array.Length - index < count)
             throw new ArgumentException("Not enough elements after index in the destination array.");
-
+        
         lock (SyncRoot)
         {
             for (var i = 0; i < count; ++i)
@@ -116,38 +116,38 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         }
         */
     }
-
+    
     /// <inheritdoc />
     public void CopyTo(Array array, int index)
     {
         throw new NotSupportedException();
         /*
         ArgumentNullException.ThrowIfNull(array);
-
+        
         if (array is not (TElement, TPriority)[] pArray)
             throw new ArgumentException("Cannot convert to priority array", nameof(array));
-
+        
         CopyTo(pArray, index);
         */
     }
-
+    
     /// <inheritdoc />
     public IEnumerator<(TElement, TPriority)> GetEnumerator()
     {
         throw new NotSupportedException();
     }
-
+    
     /// <inheritdoc />
     public (TElement, TPriority)[] ToArray()
     {
         throw new NotSupportedException();
     }
-
+    
     /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
     }
-
+    
     #endregion
 }

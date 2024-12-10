@@ -6,13 +6,13 @@ namespace TermRTS;
 public class EntityBase
 {
     #region Fields
-
+    
     private static int _runningId;
-
+    
     #endregion
-
+    
     #region Constructors
-
+    
     /// <summary>
     ///     Constructor
     /// </summary>
@@ -20,7 +20,7 @@ public class EntityBase
     {
         Id = Interlocked.Increment(ref _runningId);
     }
-
+    
     /// <summary>
     ///     Shorthand for instantiating an entity with a single component
     /// </summary>
@@ -28,18 +28,18 @@ public class EntityBase
     {
         Id = Interlocked.Increment(ref _runningId);
     }
-
+    
     #endregion
-
+    
     #region Properties
-
+    
     public int Id { get; }
-
+    
     /// <summary>
     ///     Property to indicate whether this entity is to be removed.
     /// </summary>
     public bool IsMarkedForRemoval { get; set; } = false;
-
+    
     #endregion
 }
 
@@ -62,17 +62,17 @@ public class DoubleBuffered<T>(T val) : IDoubleBufferedProperty
 {
     private T _buffer = val;
     private T _value = val;
-
+    
     public void SwitchBuffer()
     {
         _buffer = _value;
     }
-
+    
     public void Set(T value)
     {
         _value = value;
     }
-
+    
     public T Get()
     {
         return _buffer;

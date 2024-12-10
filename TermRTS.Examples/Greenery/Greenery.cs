@@ -1,5 +1,4 @@
 ﻿using TermRTS.Event;
-using TermRTS.Events;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Io;
 
@@ -26,6 +25,7 @@ public class Greenery : IRunnableExample
         var worldHeight = 150;
         // var worldWidth = viewportWidth;
         // var worldHeight = viewportHeight;
+        
         // Set up engine
         var renderer = new Renderer(viewportWidth, viewportHeight, worldWidth, worldHeight, _textbox);
         var core = new Core(renderer);
@@ -77,7 +77,5 @@ public class Greenery : IRunnableExample
         
         // After the app is terminated, clear the console.
         Console.Clear();
-        
-        // _log.Info("~ Greenery app shutdown ~");
     }
 }

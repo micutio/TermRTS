@@ -12,12 +12,12 @@ internal enum InputState
 
 public class TextBox : IEventSink
 {
-    public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
     
     private readonly char[] _msg = new char[80];
     private int _idx;
     private InputState _state = InputState.Idle;
+    public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
     
     
     public bool IsOngoingInput => _state == InputState.OngoingInput;

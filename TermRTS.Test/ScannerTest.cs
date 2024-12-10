@@ -11,7 +11,7 @@ public class ScannerTest
         var scanner = new Scanner([]);
         Assert.Empty(scanner.ScanTokens());
     }
-
+    
     [Theory]
     [ClassData(typeof(CharDataGenerator))]
     public void TestSingleToken((char[], Token) value)
@@ -19,7 +19,7 @@ public class ScannerTest
         var scanner = new Scanner(value.Item1);
         Assert.True(scanner.ScanTokens()[0].IsEqual(value.Item2));
     }
-
+    
     [Theory]
     [ClassData(typeof(LiteralDataGenerator))]
     public void TestLiteralToken((string, Token) value)
@@ -27,7 +27,7 @@ public class ScannerTest
         var scanner = new Scanner(value.Item1.ToCharArray());
         Assert.True(scanner.ScanTokens()[0].IsEqual(value.Item2));
     }
-
+    
     [Theory]
     [ClassData(typeof(TokenListDataGenerator))]
     public void TestTokenList((string, List<Token> tokenList) value)
@@ -49,12 +49,12 @@ internal static class TokenExtension
         var isEqual = token.TokenType.Equals(other.TokenType)
                       && token.Lexeme.Equals(other.Lexeme)
                       && Equals(token.Literal, other.Literal);
-
+        
         if (!isEqual)
             Console.WriteLine($"ERROR, Mismatching Tokens ("
                               + $"{token.TokenType}, {token.Lexeme}, {token.Literal}) "
                               + $"!= ({other.TokenType}, {other.Lexeme}, {other.Literal})");
-
+        
         return isEqual;
     }
 }
@@ -70,12 +70,12 @@ public class CharDataGenerator : IEnumerable<object[]>
         [(new[] { '!' }, new Token(TokenType.Bang, "!", null))],
         [(new[] { '!', '=' }, new Token(TokenType.BangEqual, "!=", null))]
     ];
-
+    
     public IEnumerator<object[]> GetEnumerator()
     {
         return _data.GetEnumerator();
     }
-
+    
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
@@ -94,12 +94,12 @@ public class LiteralDataGenerator : IEnumerable<object[]>
         [("\"ImA1337Coder\"", new Token(TokenType.String, "\"ImA1337Coder\"", "ImA1337Coder"))],
         [("\"WTF", new Token(TokenType.UnfinishedString, "\"WTF", null))]
     ];
-
+    
     public IEnumerator<object[]> GetEnumerator()
     {
         return _data.GetEnumerator();
     }
-
+    
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
@@ -132,12 +132,12 @@ public class TokenListDataGenerator : IEnumerable<object[]>
             )
         ]
     ];
-
+    
     public IEnumerator<object[]> GetEnumerator()
     {
         return _data.GetEnumerator();
     }
-
+    
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();

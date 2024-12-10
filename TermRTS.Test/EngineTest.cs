@@ -8,11 +8,11 @@ public class NullRenderer : IRenderer
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
     }
-
+    
     public void Shutdown()
     {
     }
-
+    
     void IRenderer.FinalizeRender()
     {
     }
@@ -35,18 +35,18 @@ public class WatcherSystem : SimSystem
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     public readonly ChannelReader<(IEvent, ulong)> EventOutput;
     private int _remainingTicks;
-
+    
     public WatcherSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
         _eventChannel = Channel.CreateUnbounded<(IEvent, ulong)>();
         EventOutput = _eventChannel.Reader;
     }
-
+    
     public override void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         _remainingTicks -= 1;
-
+        
         if (_remainingTicks == 0)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
     }
@@ -66,7 +66,7 @@ public class EngineTest
         core.ProcessEvent(new PlainEvent(EventType.Shutdown));
         Assert.False(core.IsRunning());
     }
-
+    
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
     public void TestSchedulerSetup(Core core)
@@ -78,15 +78,15 @@ public class EngineTest
         scheduler.AddEventSink(core, EventType.Shutdown);
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
-
+        
         // Run it
         scheduler.SimulationLoop();
-
+        
         // It should terminate after 12 ticks of 16ms simulated time each.
         const ulong finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);
     }
-
+    
     [Theory]
     [ClassData(typeof(EngineTestTheoryData))]
     public void TestScheduledEvent(Core core)
@@ -95,10 +95,10 @@ public class EngineTest
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 12 * 16));
-
+        
         // Run it
         scheduler.SimulationLoop();
-
+        
         // It should terminate after 12 ticks of 16ms simulated time each.
         ulong finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);

@@ -1,6 +1,5 @@
 using System.Threading.Channels;
 using TermRTS.Event;
-using TermRTS.Events;
 
 namespace TermRTS.Examples.Minimal;
 

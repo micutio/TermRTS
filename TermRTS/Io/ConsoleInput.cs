@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
 using TermRTS.Event;
-using TermRTS.Events;
 
 namespace TermRTS.Io;
 

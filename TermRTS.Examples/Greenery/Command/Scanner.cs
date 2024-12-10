@@ -155,7 +155,6 @@ public class Scanner(char[] source)
     private void TakeString()
     {
         while (Peek() != '"' && !IsAtEnd)
-            // if (Peek() == '\n') line++;
             Advance();
         
         if (IsAtEnd)

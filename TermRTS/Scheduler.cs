@@ -7,29 +7,6 @@ namespace TermRTS;
 
 public class Scheduler : IEventSink
 {
-    #region Private Fields
-    
-    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-    
-    // channel for emitting events
-    private readonly Channel<(IEvent, ulong)> _channel;
-    
-    private readonly Profiler _profiler;
-    private readonly TimeSpan _msPerUpdate;
-    private readonly ulong _timeStepSizeMs;
-    
-    private readonly Stopwatch _loopTimer;
-    private readonly Stopwatch _tickTimer;
-    private readonly Stopwatch _renderTimer;
-    
-    private readonly EventQueue<IEvent, ulong> _eventQueue;
-    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
-    private readonly ICore _core;
-    
-    private readonly Stopwatch _pauseTimer;
-    
-    #endregion
-    
     #region Constructor
     
     /// <summary>
@@ -64,6 +41,29 @@ public class Scheduler : IEventSink
     public void ProcessEvent(IEvent evt)
     {
     }
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
+    
+    // channel for emitting events
+    private readonly Channel<(IEvent, ulong)> _channel;
+    
+    private readonly Profiler _profiler;
+    private readonly TimeSpan _msPerUpdate;
+    private readonly ulong _timeStepSizeMs;
+    
+    private readonly Stopwatch _loopTimer;
+    private readonly Stopwatch _tickTimer;
+    private readonly Stopwatch _renderTimer;
+    
+    private readonly EventQueue<IEvent, ulong> _eventQueue;
+    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
+    private readonly ICore _core;
+    
+    private readonly Stopwatch _pauseTimer;
     
     #endregion
     

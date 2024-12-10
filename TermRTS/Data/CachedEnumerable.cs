@@ -8,7 +8,7 @@ internal static class CachedEnumerable
         var cache = new List<T>();
         return ToCachedEnumerableHelper(enumerator, cache);
     }
-
+    
     private static IEnumerable<T> ToCachedEnumerableHelper<T>(IEnumerator<T> enumerator, List<T> cache)
     {
         for (var i = 0;; i++)

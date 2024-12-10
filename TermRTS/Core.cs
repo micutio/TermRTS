@@ -82,21 +82,6 @@ public class Core : ICore
     
     #endregion
     
-    #region Private Fields
-    
-    private readonly IRenderer _renderer;
-    private readonly List<SimSystem> _systems;
-    private readonly List<EntityBase> _entities;
-    private readonly MappedCollectionStorage _components;
-    private readonly List<EntityBase> _newEntities;
-    private readonly List<ComponentBase> _newComponents;
-    
-    private readonly bool _isParallelized;
-    
-    private bool _isGameRunning;
-    
-    #endregion
-    
     #region IEventSink Members
     
     /// <inheritdoc />
@@ -117,6 +102,21 @@ public class Core : ICore
                 throw new UnreachableException();
         }
     }
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private readonly IRenderer _renderer;
+    private readonly List<SimSystem> _systems;
+    private readonly List<EntityBase> _entities;
+    private readonly MappedCollectionStorage _components;
+    private readonly List<EntityBase> _newEntities;
+    private readonly List<ComponentBase> _newComponents;
+    
+    private readonly bool _isParallelized;
+    
+    private bool _isGameRunning;
     
     #endregion
     
