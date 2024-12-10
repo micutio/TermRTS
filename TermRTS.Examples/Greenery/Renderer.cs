@@ -25,17 +25,49 @@ public enum RenderMode
 
 public class Renderer : IRenderer, IEventSink
 {
+    #region Private Fields
+    
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
+    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
+    private readonly ILog _log;
+    
+    private Vector2 _viewportSize;
+    private readonly Vector2 _worldSize;
+    
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+    
+    private RenderMode _renderMode = RenderMode.ElevationColor;
+    private bool _initVisualMatrix = true;
+    
+    private string _profileOutput;
+    private double _timePassedMs;
+    
+    private int _cameraPosX;
+    private int _cameraPosY;
+    
+    // Keep track of visible world coordinates
+    private int _maxX;
+    private int _maxY;
+    
+    #endregion
+    
     #region Constructor
     
-    public Renderer(int viewportWidth, int viewportHeight, int worldWidth, int worldHeight, TextBox textbox)
+    public Renderer(int worldWidth, int worldHeight, TextBox textbox)
     {
         _canvas = new ConsoleCanvas().Render();
+        _canvas.AutoResize = true;
+        _canvas.Interlaced = true;
         _visualByElevation = new (char, ConsoleColor, ConsoleColor)[10];
         _visualByPosition = new (char, ConsoleColor, ConsoleColor)[worldWidth, worldHeight];
         _log = LogManager.GetLogger(GetType());
         _textbox = textbox;
-        _viewportSize.X = viewportWidth;
-        _viewportSize.Y = viewportHeight;
+        _viewportSize.X = _canvas.Width;
+        _viewportSize.Y = _canvas.Height;
         _worldSize.X = worldWidth;
         _worldSize.Y = worldHeight;
         _profileOutput = string.Empty;
@@ -132,36 +164,6 @@ public class Renderer : IRenderer, IEventSink
     
     #endregion
     
-    #region Private Fields
-    
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
-    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
-    private readonly ILog _log;
-    
-    private readonly Vector2 _viewportSize;
-    private readonly Vector2 _worldSize;
-    
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-    
-    private RenderMode _renderMode = RenderMode.ContourColor;
-    private bool _initVisualMatrix = true;
-    
-    private string _profileOutput;
-    private double _timePassedMs;
-    
-    private int _cameraPosX;
-    private int _cameraPosY;
-    
-    // Keep track of visible world coordinates
-    private int _maxX;
-    private int _maxY;
-    
-    #endregion
-    
     #region IRenderer Members
     
     public void RenderComponents(
@@ -169,6 +171,14 @@ public class Renderer : IRenderer, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
+        if (_canvas.Width != _viewportSize.X || _canvas.Height != _viewportSize.Y)
+        {
+            _viewportSize.X = _canvas.Width;
+            _viewportSize.Y = _canvas.Height;
+            UpdateMaxX();
+            UpdateMaxY();
+        }
+        
         // Step 1: Render world
         storage.GetForType(typeof(WorldComponent), out var worldComponents);
         foreach (var worldComponent in worldComponents)
@@ -207,6 +217,17 @@ public class Renderer : IRenderer, IEventSink
                         throw new ArgumentOutOfRangeException();
                 }
         
+        // Step 2: Render drone
+        storage.GetForType(typeof(DroneComponent), out var droneComponents);
+        foreach (var droneComponent in droneComponents)
+            if (droneComponent is DroneComponent drone)
+            {
+                var x = Convert.ToInt32(drone.Position.X);
+                var y = Convert.ToInt32(drone.Position.Y);
+                if (IsInCamera(x, y))
+                    _canvas.Set(x - CameraPosX, y - CameraPosY, '@', ConsoleColor.Black, ConsoleColor.Red);
+            }
+        
         // Step 2: Render profiling info on top of the world
 #if DEBUG
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
@@ -237,7 +258,7 @@ public class Renderer : IRenderer, IEventSink
         set
         {
             _cameraPosX = value;
-            _maxX = Convert.ToInt32(Math.Min(_cameraPosX + _viewportSize.X, _worldSize.X));
+            UpdateMaxX();
         }
     }
     
@@ -247,13 +268,23 @@ public class Renderer : IRenderer, IEventSink
         set
         {
             _cameraPosY = value;
-            _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y));
+            UpdateMaxY();
         }
     }
     
     #endregion
     
     #region Private Members
+    
+    private void UpdateMaxX()
+    {
+        _maxX = Convert.ToInt32(Math.Min(_cameraPosX + _viewportSize.X, _worldSize.X));
+    }
+    
+    private void UpdateMaxY()
+    {
+        _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y));
+    }
     
     private void MoveCameraUp()
     {
@@ -416,6 +447,31 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[7] = (Cp437.DenseShade, ConsoleColor.DarkYellow, DefaultBg);
         _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.DarkGray, DefaultBg);
         _visualByElevation[9] = (Cp437.DenseShade, ConsoleColor.Gray, DefaultBg);
+        
+        /*
+        _visualByElevation[0] = (Cp437.DenseShade, ConsoleColor.DarkBlue, DefaultBg);
+        _visualByElevation[1] = (Cp437.DenseShade, ConsoleColor.Blue, DefaultBg);
+        _visualByElevation[2] = (Cp437.DenseShade, ConsoleColor.DarkCyan, DefaultBg);
+        _visualByElevation[3] = (Cp437.DenseShade, ConsoleColor.Cyan, DefaultBg);
+        _visualByElevation[4] = (Cp437.DenseShade, ConsoleColor.Yellow, DefaultBg);
+        _visualByElevation[5] = (Cp437.DenseShade, ConsoleColor.DarkGreen, DefaultBg);
+        _visualByElevation[6] = (Cp437.DenseShade, ConsoleColor.Green, DefaultBg);
+        _visualByElevation[7] = (Cp437.DenseShade, ConsoleColor.DarkYellow, DefaultBg);
+        _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.DarkGray, DefaultBg);
+        _visualByElevation[9] = (Cp437.DenseShade, ConsoleColor.Gray, DefaultBg);
+        */
+        /*
+        _visualByElevation[0] = (Cp437.SparseShade, ConsoleColor.DarkBlue, DefaultBg);
+        _visualByElevation[1] = (Cp437.SparseShade, ConsoleColor.Blue, DefaultBg);
+        _visualByElevation[2] = (Cp437.SparseShade, ConsoleColor.DarkCyan, DefaultBg);
+        _visualByElevation[3] = (Cp437.SparseShade, ConsoleColor.Cyan, DefaultBg);
+        _visualByElevation[4] = (Cp437.SparseShade, ConsoleColor.Yellow, DefaultBg);
+        _visualByElevation[5] = (Cp437.SparseShade, ConsoleColor.DarkGreen, DefaultBg);
+        _visualByElevation[6] = (Cp437.SparseShade, ConsoleColor.Green, DefaultBg);
+        _visualByElevation[7] = (Cp437.SparseShade, ConsoleColor.DarkYellow, DefaultBg);
+        _visualByElevation[8] = (Cp437.SparseShade, ConsoleColor.DarkGray, DefaultBg);
+        _visualByElevation[9] = (Cp437.SparseShade, ConsoleColor.Gray, DefaultBg);
+        */
     }
     
     private void SetHeatmapMonochromeVisual()
@@ -439,15 +495,15 @@ public class Renderer : IRenderer, IEventSink
         {
             char c;
             if (x == CameraPosX)
-                c = '_';
+                c = '~';
             else if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
                 c = Cp437.Slash;
-            else if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] > world.Cells[x, y] && world.Cells[x - 1, y] > 3)
+            else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
                 c = Cp437.BackSlash;
             else if (world.Cells[x, y] <= 3)
                 c = '~';
             else
-                c = ' ';
+                c = Cp437.Interpunct;
             
             var colFg = RenderMode == RenderMode.ReliefMonochrome
                 ? DefaultFg

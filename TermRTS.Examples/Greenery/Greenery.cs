@@ -1,4 +1,5 @@
-﻿using TermRTS.Event;
+﻿using System.Numerics;
+using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
@@ -20,15 +21,11 @@ public class Greenery : IRunnableExample
         // var rng = new Random();
         var seed = 0; //rng.Next();
         
-        var viewportWidth = Console.WindowWidth;
-        var viewportHeight = Console.WindowHeight;
         var worldWidth = 300;
         var worldHeight = 150;
-        // var worldWidth = viewportWidth;
-        // var worldHeight = viewportHeight;
         
         // Set up engine
-        var renderer = new Renderer(viewportWidth, viewportHeight, worldWidth, worldHeight, _textbox);
+        var renderer = new Renderer(worldWidth, worldHeight, _textbox);
         var core = new Core(renderer);
         
         // TODO: Move entity generation elsewhere.
@@ -43,6 +40,11 @@ public class Greenery : IRunnableExample
                 worldGen.Generate(worldWidth, worldHeight));
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
+        
+        var droneEntity = new EntityBase();
+        var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(90, 10));
+        core.AddEntity(droneEntity);
+        core.AddComponent(droneComponent);
         
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
