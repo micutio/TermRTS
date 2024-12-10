@@ -12,5 +12,14 @@ public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[
 
 public class DroneComponent(int entityId, Vector2 position) : ComponentBase(entityId)
 {
+    public const float Velocity = 1.0f; // [m/s]
     public Vector2 Position { get; set; } = position;
+    public List<Vector2>? Path { get; set; }
+    public int? PathIndex { get; set; }
+    
+    public void ResetPath()
+    {
+        Path = null;
+        PathIndex = null;
+    }
 }
