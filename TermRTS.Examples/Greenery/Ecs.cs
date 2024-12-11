@@ -1,4 +1,5 @@
 using System.Numerics;
+using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -15,11 +16,117 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
     public const float Velocity = 1.0f; // [m/s]
     public Vector2 Position { get; set; } = position;
     public List<Vector2>? Path { get; set; }
+    
+    public List<(int, int, char)> CachedPathVisual = [];
     public int? PathIndex { get; set; }
     
     public void ResetPath()
     {
         Path = null;
         PathIndex = null;
+        CachedPathVisual.Clear();
+    }
+    
+    
+    public void GeneratePathVisual()
+    {
+        var visual = new (int, int, char)[Path.Count];
+        var positionCount = Path.Count;
+        
+        // Generate starting terminator
+        var startChar = GenerateTerminatorChar(
+            Path[0].X,
+            Path[0].Y,
+            Path[1].X,
+            Path[1].Y
+        );
+        visual[0] = (Convert.ToInt32(Path[0].X), Convert.ToInt32(Path[0].Y), startChar);
+        
+        // Generate all parts in-between
+        for (var i = 1; i < positionCount - 1; ++i)
+        {
+            var c = GeneratePathChar(
+                Path[i].X,
+                Path[i].Y,
+                Path[i - 1].X,
+                Path[i - 1].Y,
+                Path[i + 1].X,
+                Path[i + 1].Y
+            );
+            visual[i] = (Convert.ToInt32(Path[i].X), Convert.ToInt32(Path[i].Y), c);
+        }
+        
+        // Generate ending terminator
+        var endChar = GenerateTerminatorChar(
+            Path[positionCount - 1].X,
+            Path[positionCount - 1].Y,
+            Path[positionCount - 2].X,
+            Path[positionCount - 2].Y
+        );
+        visual[positionCount - 1] = (
+            Convert.ToInt32(Path[positionCount - 1].X),
+            Convert.ToInt32(Path[positionCount - 1].Y),
+            endChar);
+        CachedPathVisual = visual.ToList();
+    }
+    
+    private static char GenerateTerminatorChar(float thisX, float thisY, float nextX, float nextY)
+    {
+        if (Math.Abs(thisX - nextX) > 0.0001)
+            return thisX > nextX
+                ? Cp437.BoxDoubleVerticalLeft
+                : Cp437.BoxDoubleVerticalRight;
+        return thisY > nextY
+            ? Cp437.BoxUpDoubleHorizontal
+            : Cp437.BoxDownDoubleHorizontal;
+    }
+    
+    private static char GeneratePathChar(
+        float thisX, float thisY, float prevX, float prevY, float nextX, float nextY)
+    {
+        Direction incoming;
+        if (Math.Abs(thisX - prevX) > 0.0001)
+            incoming = thisX > prevX
+                ? Direction.West
+                : Direction.East;
+        else
+            incoming = thisY > prevY
+                ? Direction.North
+                : Direction.South;
+        
+        Direction outgoing;
+        if (Math.Abs(thisX - nextX) > 0.0001)
+            outgoing = thisX > nextX
+                ? Direction.West
+                : Direction.East;
+        else
+            outgoing = thisY > nextY
+                ? Direction.North
+                : Direction.South;
+        
+        return (incoming, outgoing) switch
+        {
+            (Direction.North, Direction.East) or
+                (Direction.East, Direction.North) => Cp437.BoxUpRight,
+            (Direction.North, Direction.South) or
+                (Direction.South, Direction.North) => Cp437.BoxVertical,
+            (Direction.North, Direction.West) or
+                (Direction.West, Direction.North) => Cp437.BoxUpLeft,
+            (Direction.West, Direction.East) or
+                (Direction.East, Direction.West) => Cp437.BoxHorizontal,
+            (Direction.West, Direction.South) or
+                (Direction.South, Direction.West) => Cp437.BoxDownLeft,
+            (Direction.South, Direction.East) or
+                (Direction.East, Direction.South) => Cp437.BoxDownRight,
+            _ => '?'
+        };
+    }
+    
+    private enum Direction
+    {
+        North,
+        East,
+        South,
+        West
     }
 }

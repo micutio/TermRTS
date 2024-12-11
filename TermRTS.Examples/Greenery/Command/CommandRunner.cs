@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using System.Numerics;
+using System.Threading.Channels;
 using TermRTS.Examples.Greenery.Event;
 
 namespace TermRTS.Examples.Greenery.Command;
@@ -9,9 +10,11 @@ public class CommandRunner : IEventSink
     private const string ErrorEmptyCmd = "< Cannot run empty command";
     private const string ErrorNoIdentifier = "< Command must start with an identifier!";
     private const string ErrorTooManyArgs = "< Too many arguments!";
+    private const string ErrorTooFewArgs = "< Too few arguments!";
     private const string ErrorUnknownCmd = "< Unknown command!";
     
     // Available commands
+    private const string CmdGo = "go";
     private const string CmdRender = "render";
     private const string SubCmdRenderElevationColor = "elevation_col";
     private const string SubCmdRenderElevationMonochrome = "elevation_mono";
@@ -42,15 +45,35 @@ public class CommandRunner : IEventSink
         
         return cmdTokens[0].Lexeme switch
         {
+            CmdGo => CommandGo(cmdTokens),
             CmdRender => CommandRenderMode(cmdTokens),
             _ => ErrorUnknownCmd
         };
     }
     
+    private string CommandGo(IReadOnlyList<Token> tokens)
+    {
+        if (tokens.Count < 1) return ErrorTooFewArgs;
+        
+        if (tokens.Count > 3) return ErrorTooManyArgs;
+        
+        if (tokens[1].TokenType != TokenType.Number || tokens[2].TokenType != TokenType.Number)
+            return "Error: both following arguments must be numbers";
+        
+        var x = Convert.ToSingle(tokens[1].Literal);
+        var y = Convert.ToSingle(tokens[2].Literal);
+        
+        _channel.Writer.TryWrite((new MoveEvent(1, new Vector2(x, y)), 0L));
+        return string.Empty;
+    }
+    
     // TODO: Change argument to listview
     private string CommandRenderMode(IReadOnlyList<Token> tokens)
     {
+        if (tokens.Count < 1) return ErrorTooFewArgs;
+        
         if (tokens.Count > 2) return ErrorTooManyArgs;
+        
         switch (tokens[1].Lexeme)
         {
             case SubCmdRenderElevationColor:

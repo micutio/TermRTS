@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
+using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
 
@@ -28,8 +29,6 @@ public class Greenery : IRunnableExample
         var renderer = new Renderer(worldWidth, worldHeight, _textbox);
         var core = new Core(renderer);
         
-        // TODO: Move entity generation elsewhere.
-        // TODO: Add 'enter text' component.
         var worldGen = new VoronoiWorld(50, seed);
         var worldEntity = new EntityBase();
         var worldComponent =
@@ -46,6 +45,9 @@ public class Greenery : IRunnableExample
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
         
+        var pathFindingSystem = new PathFindingSystem(worldWidth, worldHeight);
+        core.AddSimSystem(pathFindingSystem);
+        
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(renderer, EventType.Profile);
@@ -54,6 +56,8 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSink(renderer, EventType.Custom); // render option events
         scheduler.AddEventSources(_commandRunner.CommandEventReader);
         scheduler.AddEventSink(_commandRunner, EventType.Custom);
+        scheduler.AddEventSink(pathFindingSystem, EventType.Custom);
+        // TODO: Add rendering of paths
         
         // Init input
         var input = new ConsoleInput();
