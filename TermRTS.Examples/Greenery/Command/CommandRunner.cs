@@ -63,7 +63,7 @@ public class CommandRunner : IEventSink
         var x = Convert.ToSingle(tokens[1].Literal);
         var y = Convert.ToSingle(tokens[2].Literal);
         
-        _channel.Writer.TryWrite((new MoveEvent(1, new Vector2(x, y)), 0L));
+        _channel.Writer.TryWrite((new MoveEvent(2, new Vector2(x, y)), 0L));
         return string.Empty;
     }
     

@@ -26,37 +26,37 @@ public enum RenderMode
 public class Renderer : IRenderer, IEventSink
 {
     #region Private Fields
-    
+
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
     private readonly ConsoleCanvas _canvas;
     private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
     private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
     private readonly ILog _log;
-    
+
     private Vector2 _viewportSize;
     private readonly Vector2 _worldSize;
-    
+
     // TODO: Find a more modular way of handling this.
     private readonly TextBox _textbox;
-    
+
     private RenderMode _renderMode = RenderMode.ElevationColor;
     private bool _initVisualMatrix = true;
-    
+
     private string _profileOutput;
     private double _timePassedMs;
-    
+
     private int _cameraPosX;
     private int _cameraPosY;
-    
+
     // Keep track of visible world coordinates
     private int _maxX;
     private int _maxY;
-    
+
     #endregion
-    
+
     #region Constructor
-    
+
     public Renderer(int worldWidth, int worldHeight, TextBox textbox)
     {
         _canvas = new ConsoleCanvas().Render();
@@ -71,18 +71,18 @@ public class Renderer : IRenderer, IEventSink
         _worldSize.X = worldWidth;
         _worldSize.Y = worldHeight;
         _profileOutput = string.Empty;
-        
+
         CameraPosX = 0;
         CameraPosY = 0;
-        
+
         SetElevationLevelColorVisual();
         Console.CursorVisible = false;
     }
-    
+
     #endregion
-    
+
     #region Properties
-    
+
     private RenderMode RenderMode
     {
         get => _renderMode;
@@ -124,11 +124,11 @@ public class Renderer : IRenderer, IEventSink
             }
         }
     }
-    
+
     #endregion
-    
+
     #region IEventSink Members
-    
+
     public void ProcessEvent(IEvent evt)
     {
 #if DEBUG
@@ -138,7 +138,7 @@ public class Renderer : IRenderer, IEventSink
             _ => _profileOutput
         };
 #endif
-        
+
         if (!_textbox.IsOngoingInput && evt.Type() == EventType.KeyInput)
         {
             var keyEvent = (KeyInputEvent)evt;
@@ -158,14 +158,15 @@ public class Renderer : IRenderer, IEventSink
                     return;
             }
         }
-        
-        if (evt.Type() == EventType.Custom && evt is RenderOptionEvent roe) RenderMode = roe.RenderMode;
+
+        if (evt.Type() == EventType.Custom && evt is RenderOptionEvent roe)
+            RenderMode = roe.RenderMode;
     }
-    
+
     #endregion
-    
+
     #region IRenderer Members
-    
+
     public void RenderComponents(
         in IStorage storage,
         double timeStepSizeMs,
@@ -178,7 +179,7 @@ public class Renderer : IRenderer, IEventSink
             UpdateMaxX();
             UpdateMaxY();
         }
-        
+
         // Step 1: Render world
         storage.GetForType(typeof(WorldComponent), out var worldComponents);
         foreach (var worldComponent in worldComponents)
@@ -200,7 +201,7 @@ public class Renderer : IRenderer, IEventSink
                             SetWorldReliefVisual(world);
                             _initVisualMatrix = false;
                         }
-                        
+
                         RenderWorldByVisualMatrix();
                         break;
                     case RenderMode.ContourColor:
@@ -210,48 +211,55 @@ public class Renderer : IRenderer, IEventSink
                             SetWorldContourLines(world);
                             _initVisualMatrix = false;
                         }
-                        
+
                         RenderWorldByVisualMatrix();
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
-        
+
         // Step 2: Render drone
         storage.GetForType(typeof(DroneComponent), out var droneComponents);
         foreach (var droneComponent in droneComponents)
             if (droneComponent is DroneComponent drone)
             {
-                var x = Convert.ToInt32(drone.Position.X);
-                var y = Convert.ToInt32(drone.Position.Y);
-                if (IsInCamera(x, y))
-                    _canvas.Set(x - CameraPosX, y - CameraPosY, '@', ConsoleColor.Black, ConsoleColor.Red);
+                if (drone.Path != null)
+                    foreach (var (x, y, c) in drone.CachedPathVisual)
+                        if (IsInCamera(x, y))
+                            _canvas.Set(x - CameraPosX, y - CameraPosY, c, ConsoleColor.Red,
+                                DefaultBg);
+
+                var droneX = Convert.ToInt32(drone.Position.X);
+                var droneY = Convert.ToInt32(drone.Position.Y);
+                if (IsInCamera(droneX, droneY))
+                    _canvas.Set(droneX - CameraPosX, droneY - CameraPosY, '@', ConsoleColor.Black,
+                        ConsoleColor.Red);
             }
-        
+
         // Step 2: Render profiling info on top of the world
 #if DEBUG
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
 #endif
-        
+
         // Step 3: Render textbox if its contents have changed.
         if (_textbox.IsOngoingInput) RenderTextbox();
     }
-    
+
     public void FinalizeRender()
     {
         _canvas.Render();
     }
-    
+
     public void Shutdown()
     {
         Console.ResetColor();
         _log.Info("Shutting down renderer.");
     }
-    
+
     #endregion
-    
+
     #region Properties
-    
+
     private int CameraPosX
     {
         get => _cameraPosX;
@@ -261,7 +269,7 @@ public class Renderer : IRenderer, IEventSink
             UpdateMaxX();
         }
     }
-    
+
     private int CameraPosY
     {
         get => _cameraPosY;
@@ -271,43 +279,43 @@ public class Renderer : IRenderer, IEventSink
             UpdateMaxY();
         }
     }
-    
+
     #endregion
-    
+
     #region Private Members
-    
+
     private void UpdateMaxX()
     {
         _maxX = Convert.ToInt32(Math.Min(_cameraPosX + _viewportSize.X, _worldSize.X));
     }
-    
+
     private void UpdateMaxY()
     {
         _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y));
     }
-    
+
     private void MoveCameraUp()
     {
         CameraPosY = Math.Max(CameraPosY - 1, 0);
     }
-    
+
     private void MoveCameraDown()
     {
         CameraPosY =
             Convert.ToInt32(Math.Clamp(CameraPosY + 1, 0, _worldSize.Y - _viewportSize.Y));
     }
-    
+
     private void MoveCameraLeft()
     {
         CameraPosX = Math.Max(CameraPosX - 1, 0);
     }
-    
+
     private void MoveCameraRight()
     {
         CameraPosX =
             Convert.ToInt32(Math.Clamp(CameraPosX + 1, 0, _worldSize.X - _viewportSize.X));
     }
-    
+
     private bool IsInCamera(float x, float y)
     {
         return x >= CameraPosX
@@ -315,7 +323,7 @@ public class Renderer : IRenderer, IEventSink
                && y >= CameraPosY
                && y <= CameraPosY + _viewportSize.Y;
     }
-    
+
     private bool IsInBounds(float x, float y)
     {
         return x >= 0
@@ -323,7 +331,7 @@ public class Renderer : IRenderer, IEventSink
                && y >= 0
                && y < _worldSize.Y;
     }
-    
+
     private void RenderWorldByElevationVisuals(WorldComponent world)
     {
         for (var y = CameraPosY; y < _maxY; y++)
@@ -333,7 +341,7 @@ public class Renderer : IRenderer, IEventSink
             _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, colBg);
         }
     }
-    
+
     private void RenderWorldByVisualMatrix()
     {
         for (var y = CameraPosY; y < _maxY; y++)
@@ -343,11 +351,11 @@ public class Renderer : IRenderer, IEventSink
             _canvas.Set(x - CameraPosX, y - CameraPosY, c, colFg, DefaultBg);
         }
     }
-    
+
     private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _timePassedMs += timeStepSizeMs + timeStepSizeMs * howFarIntoNextFramePercent;
-        
+
         var debugStr = string.IsNullOrEmpty(_profileOutput)
             ? string.Empty
             : _profileOutput;
@@ -356,20 +364,20 @@ public class Renderer : IRenderer, IEventSink
         var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
         _canvas.Text(1, 0, $"Greenery | {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
     }
-    
+
     private void RenderTextbox()
     {
         var x = Convert.ToInt32(_viewportSize.X - 1);
         var y = Convert.ToInt32(_viewportSize.Y - 1);
         var fg = DefaultFg;
         var bg = DefaultBg;
-        
+
         for (var i = 0; i < x; i += 1)
             _canvas.Set(i, y, ' ', bg, fg);
-        
+
         _canvas.Set(0, y, '>', bg, fg);
         _canvas.Set(1, y, ' ', bg, fg);
-        
+
         var input = _textbox.GetCurrentInput();
         for (var i = 0; i < input.Count; i += 1)
         {
@@ -377,7 +385,7 @@ public class Renderer : IRenderer, IEventSink
             _canvas.Set(2 + i, y, c, bg, fg);
         }
     }
-    
+
     private void SetElevationLevelColorVisual()
     {
         _visualByElevation[0] = ('0', ConsoleColor.DarkBlue, DefaultBg);
@@ -391,7 +399,7 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[8] = ('8', ConsoleColor.DarkGray, DefaultBg);
         _visualByElevation[9] = ('9', ConsoleColor.Gray, DefaultBg);
     }
-    
+
     private void SetElevationLevelMonochromeVisual()
     {
         _visualByElevation[0] = ('0', DefaultFg, DefaultBg);
@@ -405,7 +413,7 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[8] = ('8', DefaultFg, DefaultBg);
         _visualByElevation[9] = ('9', DefaultFg, DefaultBg);
     }
-    
+
     private void SetTerrainColorVisual()
     {
         _visualByElevation[0] = (Cp437.Tilde, ConsoleColor.DarkBlue, DefaultBg);
@@ -419,7 +427,7 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[8] = (Cp437.Caret, ConsoleColor.DarkGray, DefaultBg);
         _visualByElevation[9] = (Cp437.TriangleUp, ConsoleColor.Gray, DefaultBg);
     }
-    
+
     private void SetTerrainMonochromeVisual()
     {
         _visualByElevation[0] = (Cp437.Tilde, DefaultFg, DefaultBg);
@@ -433,8 +441,8 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[8] = (Cp437.Caret, DefaultFg, DefaultBg);
         _visualByElevation[9] = (Cp437.TriangleUp, DefaultFg, DefaultBg);
     }
-    
-    
+
+
     private void SetHeatmapColorVisual()
     {
         _visualByElevation[0] = (Cp437.DenseShade, ConsoleColor.DarkBlue, DefaultBg);
@@ -447,7 +455,7 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[7] = (Cp437.DenseShade, ConsoleColor.DarkYellow, DefaultBg);
         _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.DarkGray, DefaultBg);
         _visualByElevation[9] = (Cp437.DenseShade, ConsoleColor.Gray, DefaultBg);
-        
+
         /*
         _visualByElevation[0] = (Cp437.DenseShade, ConsoleColor.DarkBlue, DefaultBg);
         _visualByElevation[1] = (Cp437.DenseShade, ConsoleColor.Blue, DefaultBg);
@@ -473,7 +481,7 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[9] = (Cp437.SparseShade, ConsoleColor.Gray, DefaultBg);
         */
     }
-    
+
     private void SetHeatmapMonochromeVisual()
     {
         _visualByElevation[0] = (Cp437.BlockFull, ConsoleColor.Black, ConsoleColor.Black);
@@ -487,7 +495,7 @@ public class Renderer : IRenderer, IEventSink
         _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.White, ConsoleColor.DarkGray);
         _visualByElevation[9] = (Cp437.BlockFull, ConsoleColor.White, ConsoleColor.DarkGray);
     }
-    
+
     private void SetWorldReliefVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldSize.Y; y++)
@@ -496,23 +504,25 @@ public class Renderer : IRenderer, IEventSink
             char c;
             if (x == CameraPosX)
                 c = '~';
-            else if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
+            else if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] &&
+                     world.Cells[x, y] > 3)
                 c = Cp437.Slash;
-            else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] && world.Cells[x, y] > 3)
+            else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] &&
+                     world.Cells[x, y] > 3)
                 c = Cp437.BackSlash;
             else if (world.Cells[x, y] <= 3)
                 c = '~';
             else
                 c = Cp437.Interpunct;
-            
+
             var colFg = RenderMode == RenderMode.ReliefMonochrome
                 ? DefaultFg
                 : _visualByElevation[world.Cells[x, y]].Item2;
-            
+
             _visualByPosition[x, y] = (c, colFg, DefaultBg);
         }
     }
-    
+
     private void SetWorldContourLines(WorldComponent world)
     {
         for (var y = 0; y < _worldSize.Y; y++)
@@ -524,65 +534,65 @@ public class Renderer : IRenderer, IEventSink
                 _visualByPosition[x, y] = (Cp437.WhiteSpace, DefaultFg, DefaultBg);
                 continue;
             }
-            
+
             var c = GetCharFromCliffs(cell, x, y, world);
             _visualByPosition[x, y].Item1 = c;
         }
-        
+
         for (var y = 0; y < _worldSize.Y; y++)
         for (var x = 0; x < _worldSize.X; x++)
         {
             var cell = world.Cells[x, y];
             if (cell < 3) continue;
-            
+
             if (_visualByPosition[x, y].Item1 == 'X') continue;
             var c = GetCliffAdjacentChar(cell, x, y, world);
-            
+
             var colFg = RenderMode == RenderMode.ContourMonochrome
                 ? DefaultFg
                 : _visualByElevation[world.Cells[x, y]].Item2;
-            
+
             _visualByPosition[x, y] = (c, colFg, DefaultBg);
         }
-        
+
         for (var y = 0; y < _worldSize.Y; y++)
         for (var x = 0; x < _worldSize.X; x++)
         {
             var cell = world.Cells[x, y];
             if (cell < 3) continue;
-            
+
             if (_visualByPosition[x, y].Item1 != 'X') continue;
             var c = GetCliffChar(cell, x, y, world);
-            
+
             var colFg = RenderMode == RenderMode.ContourMonochrome
                 ? DefaultFg
                 : _visualByElevation[world.Cells[x, y]].Item2;
-            
+
             _visualByPosition[x, y] = (c, colFg, DefaultBg);
         }
     }
-    
+
     private char GetCharFromCliffs(byte cell, int x, int y, WorldComponent world)
     {
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
         if (north < cell) return 'X';
-        
+
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
         if (east < cell) return 'X';
-        
+
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
         if (south < cell) return 'X';
-        
+
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
         if (west < cell) return 'X';
-        
+
         return Cp437.WhiteSpace;
     }
-    
+
     private char GetCliffAdjacentChar(byte cell, int x, int y, WorldComponent world)
     {
         //return _visualByPosition[x, y].Item1;
@@ -590,19 +600,19 @@ public class Renderer : IRenderer, IEventSink
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
         if (north == cell && _visualByPosition[x, y - 1].Item1 == Cp437.UpperX) b |= 0b_0000_1000;
-        
+
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
         if (east == cell && _visualByPosition[x + 1, y].Item1 == Cp437.UpperX) b |= 0b_0000_0100;
-        
+
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
         if (south == cell && _visualByPosition[x, y + 1].Item1 == Cp437.UpperX) b |= 0b_0000_0010;
-        
+
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
         if (west == cell && _visualByPosition[x - 1, y].Item1 == Cp437.UpperX) b |= 0b_0000_0001;
-        
+
         return b switch
         {
             0 => Cp437.WhiteSpace, // 0000
@@ -624,29 +634,33 @@ public class Renderer : IRenderer, IEventSink
             _ => '?'
         };
     }
-    
+
     private char GetCliffChar(byte cell, int x, int y, WorldComponent world)
     {
         //return _visualByPosition[x, y].Item1;
         var b = 0b_0000_0000;
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
-        if (north == cell && _visualByPosition[x, y - 1].Item1 != Cp437.WhiteSpace) b |= 0b_0000_1000;
-        
+        if (north == cell && _visualByPosition[x, y - 1].Item1 != Cp437.WhiteSpace)
+            b |= 0b_0000_1000;
+
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
-        if (east == cell && _visualByPosition[x + 1, y].Item1 != Cp437.WhiteSpace) b |= 0b_0000_0100;
-        
+        if (east == cell && _visualByPosition[x + 1, y].Item1 != Cp437.WhiteSpace)
+            b |= 0b_0000_0100;
+
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
-        if (south == cell && _visualByPosition[x, y + 1].Item1 != Cp437.WhiteSpace) b |= 0b_0000_0010;
-        
+        if (south == cell && _visualByPosition[x, y + 1].Item1 != Cp437.WhiteSpace)
+            b |= 0b_0000_0010;
+
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
-        if (west == cell && _visualByPosition[x - 1, y].Item1 != Cp437.WhiteSpace) b |= 0b_0000_0001;
-        
+        if (west == cell && _visualByPosition[x - 1, y].Item1 != Cp437.WhiteSpace)
+            b |= 0b_0000_0001;
+
         if (b == 0 && _visualByPosition[x, y].Item1 == Cp437.WhiteSpace) return Cp437.WhiteSpace;
-        
+
         return b switch
         {
             0 => Cp437.BulletHollow, // 0000
@@ -668,6 +682,6 @@ public class Renderer : IRenderer, IEventSink
             _ => '?'
         };
     }
-    
+
     #endregion
 }
