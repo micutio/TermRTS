@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Threading.Channels;
 using TermRTS.Event;
 
@@ -11,15 +10,13 @@ public class ConsoleInput : IEventSink
 {
     private readonly Channel<(IEvent, ulong)> _channel;
     private readonly Thread _thread;
-    private readonly Stopwatch _timer;
     private bool _keepRunning;
-    private int _sleepMs = 16;
     
-    public ConsoleInput()
+    public ConsoleInput(ConsoleKey? terminatorKey = null)
     {
         _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
         _thread = new Thread(ListenForKeyInput);
-        _timer = new Stopwatch();
+        TerminatorKey = terminatorKey;
     }
     
     public ChannelReader<(IEvent, ulong)> KeyEventReader => _channel.Reader;
@@ -36,32 +33,34 @@ public class ConsoleInput : IEventSink
     
     #endregion
     
+    #region Properties
+    
+    public ConsoleKey? TerminatorKey { get; set; }
+    
+    #endregion
+    
+    #region Public API
+    
     public void Run()
     {
         _keepRunning = true;
         _thread.Start();
     }
     
+    #endregion
+    
     private void ListenForKeyInput()
     {
-        _timer.Start();
         while (_keepRunning)
         {
-            if (!Console.KeyAvailable)
+            var keyInfo = Console.ReadKey(true);
+            
+            if (TerminatorKey != null && keyInfo.Key == TerminatorKey)
             {
-                // Check how long we have been waiting so far.
-                // If there are longer periods of waiting, then adjust to check less frequently.
-                _timer.Stop();
-                var elapsedMs = _timer.ElapsedMilliseconds;
-                AdjustWaitingTimeForInput(elapsedMs);
-                _timer.Start(); // Resume without resetting.
-                
-                Thread.Sleep(_sleepMs);
-                continue;
+                _keepRunning = false;
+                _channel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0L));
             }
             
-            _timer.Restart(); // Reset waiting timer.
-            var keyInfo = Console.ReadKey(true);
             FireKeyEvent(keyInfo);
         }
         
@@ -71,24 +70,5 @@ public class ConsoleInput : IEventSink
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
     {
         _channel.Writer.TryWrite((new KeyInputEvent(keyInfo), 0L));
-    }
-    
-    private void AdjustWaitingTimeForInput(long lastWaitInMs)
-    {
-        switch (lastWaitInMs)
-        {
-            case < 500:
-                _sleepMs = 10;
-                return;
-            case < 1000:
-                _sleepMs = 250;
-                return;
-            case < 1000 * 30:
-                _sleepMs = 500;
-                return;
-            default:
-                _sleepMs = 1000;
-                return;
-        }
     }
 }

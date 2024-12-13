@@ -200,7 +200,6 @@ public class Scheduler : IEventSink
     ///     <see cref="Task.Delay(TimeSpan)" /> become inaccurate below the TimeSlice size of 15(?)/>
     /// </summary>
     /// <param name="timeout"></param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Pause(TimeSpan timeout)
     {
         if (timeout > TimeResolution)

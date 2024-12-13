@@ -60,7 +60,7 @@ public class Greenery : IRunnableExample
         // TODO: Add rendering of paths
         
         // Init input
-        var input = new ConsoleInput();
+        var input = new ConsoleInput(ConsoleKey.Escape);
         scheduler.AddEventSources(input.KeyEventReader);
         scheduler.AddEventSink(input, EventType.Shutdown);
         scheduler.AddEventSink(renderer, EventType.KeyInput);

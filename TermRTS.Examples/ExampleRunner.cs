@@ -39,7 +39,6 @@ internal static class ExampleRunner
                 return 1;
         }
         
-        Console.WriteLine("done.");
         return 0;
     }
 }

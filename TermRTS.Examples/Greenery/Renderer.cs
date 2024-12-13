@@ -278,6 +278,7 @@ public class Renderer : IRenderer, IEventSink
     public void Shutdown()
     {
         Console.ResetColor();
+        Console.Clear();
         _log.Info("Shutting down renderer.");
     }
     
@@ -337,6 +338,7 @@ public class Renderer : IRenderer, IEventSink
     
     private void MoveCameraRight()
     {
+        // TODO: Fix bug in case where viewport is larger than world!
         CameraPosX =
             Convert.ToInt32(Math.Clamp(CameraPosX + 1, 0, _worldSize.X - _viewportSize.X));
     }
