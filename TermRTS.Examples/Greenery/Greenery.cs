@@ -18,6 +18,9 @@ public class Greenery : IRunnableExample
     
     public void Run()
     {
+        var previousTitle = Console.Title;
+        Console.Title = "TermRTS - Greenery";
+        
         var seed = 0; //rng.Next();
         
         var worldWidth = 300;
@@ -83,5 +86,6 @@ public class Greenery : IRunnableExample
         
         // After the app is terminated, clear the console.
         Console.Clear();
+        Console.Title = previousTitle;
     }
 }
