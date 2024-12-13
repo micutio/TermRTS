@@ -7,7 +7,7 @@ namespace TermRTS.Examples.Greenery.System;
 public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEventSink
 {
     private readonly Dictionary<int, Vector2> _newTargetPositions = new();
-
+    
     public override void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         storage.GetForType(typeof(WorldComponent), out var worldComponents);
@@ -19,31 +19,31 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEv
                     if (droneComponent is DroneComponent drone)
                     {
                         TryGeneratePath(world, drone);
-
+                        
                         if (drone.Path == null || drone.PathIndex == null) continue;
-
+                        
                         ProcessDronePathing(drone, timeStepSize);
                     }
             }
     }
-
+    
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() != EventType.Custom || evt is not MoveEvent moveEvent) return;
-        _newTargetPositions.Remove(moveEvent.entityId);
-        _newTargetPositions.Add(moveEvent.entityId, moveEvent.targetPosition);
+        _newTargetPositions.Remove(moveEvent.EntityId);
+        _newTargetPositions.Add(moveEvent.EntityId, moveEvent.TargetPosition);
     }
-
+    
     private static void ProcessDronePathing(DroneComponent drone, ulong timeStepSize)
     {
         if (drone.Path == null || drone.PathIndex == null) return;
-
+        
         if (drone.PathIndex == drone.Path.Count - 1) drone.ResetPath();
-
+        
         var nextPosition = drone.Path[(int)(drone.PathIndex + 1)];
         var distFromDroneToNext = Vector2.Distance(drone.Position, nextPosition);
         var distCoveredThisTimeStep = DroneComponent.Velocity / 1000 * timeStepSize;
-
+        
         if (distCoveredThisTimeStep < distFromDroneToNext)
         {
             var normalizedA = Vector2.Normalize(nextPosition - drone.Position);
@@ -51,7 +51,7 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEv
             drone.Position = newDronePosA;
             return;
         }
-
+        
         if (drone.PathIndex + 1 == drone.Path.Count - 1)
         {
             // end of the path
@@ -59,7 +59,7 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEv
             drone.ResetPath();
             return;
         }
-
+        
         var remainingDistB = distCoveredThisTimeStep - distFromDroneToNext;
         var nextNextPosition = drone.Path[(int)drone.PathIndex + 2];
         var normalizedB = Vector2.Normalize(nextNextPosition - nextPosition);
@@ -68,11 +68,11 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEv
         drone.Path.RemoveAt(0);
         drone.GeneratePathVisual();
     }
-
+    
     private void TryGeneratePath(WorldComponent world, DroneComponent drone)
     {
         if (!_newTargetPositions.Remove(drone.EntityId, out var goalPosition)) return;
-
+        
         var aStar = new AStar(worldWidth, worldHeight, drone.Position, goalPosition)
         {
             Heuristic = loc =>
@@ -86,16 +86,16 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEv
             {
                 var neighborCell =
                     world.Cells[(int)neighbor.X, (int)neighbor.Y];
-
+                
                 if (neighborCell <= 3) return float.PositiveInfinity; // Do not go into water
-
+                
                 return float.Pow(2, neighborCell);
                 // (world.Cells[(int)loc.X, (int)loc.Y] + neighborCell) * 2;
             }
         };
         var path = aStar.ComputePath();
         if (path == null) return;
-
+        
         path.Reverse();
         drone.Path = path;
         drone.PathIndex = 0;

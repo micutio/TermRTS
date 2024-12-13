@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using TermRTS.Events;
 
@@ -7,6 +6,29 @@ namespace TermRTS;
 
 public class Scheduler : IEventSink
 {
+    #region Private Fields
+    
+    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
+    
+    // channel for emitting events
+    private readonly Channel<(IEvent, ulong)> _channel;
+    
+    private readonly Profiler _profiler;
+    private readonly TimeSpan _msPerUpdate;
+    private readonly ulong _timeStepSizeMs;
+    
+    private readonly Stopwatch _loopTimer;
+    private readonly Stopwatch _tickTimer;
+    private readonly Stopwatch _renderTimer;
+    
+    private readonly EventQueue<IEvent, ulong> _eventQueue;
+    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
+    private readonly ICore _core;
+    
+    private readonly Stopwatch _pauseTimer;
+    
+    #endregion
+    
     #region Constructor
     
     /// <summary>
@@ -44,29 +66,6 @@ public class Scheduler : IEventSink
     
     #endregion
     
-    #region Private Fields
-    
-    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-    
-    // channel for emitting events
-    private readonly Channel<(IEvent, ulong)> _channel;
-    
-    private readonly Profiler _profiler;
-    private readonly TimeSpan _msPerUpdate;
-    private readonly ulong _timeStepSizeMs;
-    
-    private readonly Stopwatch _loopTimer;
-    private readonly Stopwatch _tickTimer;
-    private readonly Stopwatch _renderTimer;
-    
-    private readonly EventQueue<IEvent, ulong> _eventQueue;
-    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
-    private readonly ICore _core;
-    
-    private readonly Stopwatch _pauseTimer;
-    
-    #endregion
-    
     #region Properties
     
     /// <summary>
@@ -74,6 +73,9 @@ public class Scheduler : IEventSink
     /// </summary>
     public ulong TimeMs { get; private set; }
     
+    /// <summary>
+    ///     Reader for channel to receive Profile events on.
+    /// </summary>
     public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
     
     #endregion
@@ -164,19 +166,9 @@ public class Scheduler : IEventSink
             var howFarIntoNextFramePercent = lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
             _core.Render(_timeStepSizeMs, howFarIntoNextFramePercent);
             
-            var tickTimeMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
             var renderTime = _renderTimer.Elapsed;
-            // Record times for profiling
-            _profiler.AddTickTimeSample(
-                Convert.ToUInt64(loopTime.TotalMilliseconds),
-                Convert.ToUInt64(tickTimeMs),
-                Convert.ToUInt64(renderTime.TotalMilliseconds));
-            // Push out profiling results every 10 samples
-#if DEBUG
-            if (_profiler.SampleSize % 10 == 0)
-                _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
-#endif
             
+            // Step 4: Optional pausing for consistent tick times ////////////////////////////////
             // Get loop time after making up for previous lag
             var caughtUpLoopTime = lag + renderTime + tickElapsed;
             
@@ -185,6 +177,19 @@ public class Scheduler : IEventSink
             
             // ...otherwise wait until the next frame is due.
             Pause(_msPerUpdate - caughtUpLoopTime);
+            
+            // Step 5: Optional profiling ////////////////////////////////////////////////////////
+#if DEBUG
+            // Record measurements
+            var tickTimeMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
+            _profiler.AddTickTimeSample(
+                Convert.ToUInt64(loopTime.TotalMilliseconds),
+                Convert.ToUInt64(tickTimeMs),
+                Convert.ToUInt64(renderTime.TotalMilliseconds));
+            // Push out profiling results every 10 samples
+            if (_profiler.SampleSize % 10 == 0)
+                _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
+#endif
         }
         
         _channel.Writer.Complete();
@@ -230,6 +235,10 @@ public class Scheduler : IEventSink
         }
     }
     
+    /// <summary>
+    ///     Redirect event messages from an input ChannelReader directly into the event queue.
+    /// </summary>
+    /// <param name="input">Channel reader providing event messages</param>
     private async Task Redirect(ChannelReader<(IEvent, ulong)> input)
     {
         await foreach (var item in input.ReadAllAsync())

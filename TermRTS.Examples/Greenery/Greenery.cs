@@ -18,8 +18,6 @@ public class Greenery : IRunnableExample
     
     public void Run()
     {
-        // _log.Info("~ Greenery ~");
-        // var rng = new Random();
         var seed = 0; //rng.Next();
         
         var worldWidth = 300;
@@ -57,7 +55,6 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSources(_commandRunner.CommandEventReader);
         scheduler.AddEventSink(_commandRunner, EventType.Custom);
         scheduler.AddEventSink(pathFindingSystem, EventType.Custom);
-        // TODO: Add rendering of paths
         
         // Init input
         var input = new ConsoleInput(ConsoleKey.Escape);
@@ -74,6 +71,8 @@ public class Greenery : IRunnableExample
         {
             e.Cancel = true;
             scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
+            Console.Clear();
+            Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
         };
         
         // Automatically shut down after 10 minutes.

@@ -21,14 +21,6 @@ public class EntityBase
         Id = Interlocked.Increment(ref _runningId);
     }
     
-    /// <summary>
-    ///     Shorthand for instantiating an entity with a single component
-    /// </summary>
-    public EntityBase(ComponentBase component)
-    {
-        Id = Interlocked.Increment(ref _runningId);
-    }
-    
     #endregion
     
     #region Properties

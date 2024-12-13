@@ -11,27 +11,60 @@ public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[
     public int Height { get; } = worldHeight;
 }
 
-public class DroneComponent(int entityId, Vector2 position) : ComponentBase(entityId)
+public class DroneComponent : ComponentBase
 {
     public const float Velocity = 1.0f; // [m/s]
-    public Vector2 Position { get; set; } = position;
+    
+    #region Private Fields
+    
+    private readonly DoubleBuffered<Vector2> _position;
+    
+    #endregion
+    
+    #region Constructor
+    
+    public DroneComponent(int entityId, Vector2 position) : base(entityId)
+    {
+        _position = new DoubleBuffered<Vector2>(position);
+        RegisterDoubleBufferedProperty(_position);
+    }
+    
+    #endregion
+    
+    public Vector2 Position
+    {
+        get => _position.Get();
+        set => _position.Set(value);
+    }
+    
+    #region Properties
+    
     public List<Vector2>? Path { get; set; } // TODO: Change into Queue!
-
-    public List<(int, int, char)> CachedPathVisual = [];
+    
     public int? PathIndex { get; set; }
-
+    
+    public List<(int, int, char)> CachedPathVisual { get; } = [];
+    
+    #endregion
+    
     public void ResetPath()
     {
         Path = null;
         PathIndex = null;
         CachedPathVisual.Clear();
     }
-
+    
+    /// <summary>
+    ///     Generate a visual representation of the drone path.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown if Path is null.</exception>
     public void GeneratePathVisual()
     {
+        if (Path == null) throw new ArgumentNullException("Path");
+        
         var visual = new (int, int, char)[Path.Count];
         var positionCount = Path.Count;
-
+        
         // Generate starting terminator
         var startChar = GenerateTerminatorChar(
             Path[0].X,
@@ -40,7 +73,7 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             Path[1].Y
         );
         visual[0] = (Convert.ToInt32(Path[0].X), Convert.ToInt32(Path[0].Y), startChar);
-
+        
         // Generate all parts in-between
         for (var i = 1; i < positionCount - 1; ++i)
         {
@@ -54,7 +87,7 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             );
             visual[i] = (Convert.ToInt32(Path[i].X), Convert.ToInt32(Path[i].Y), c);
         }
-
+        
         // Generate ending terminator
         var endChar = GenerateTerminatorChar(
             Path[positionCount - 1].X,
@@ -66,9 +99,11 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             Convert.ToInt32(Path[positionCount - 1].X),
             Convert.ToInt32(Path[positionCount - 1].Y),
             endChar);
-        CachedPathVisual = visual.ToList();
+        
+        CachedPathVisual.Clear();
+        CachedPathVisual.AddRange(visual);
     }
-
+    
     private static char GenerateTerminatorChar(float thisX, float thisY, float nextX, float nextY)
     {
         if (Math.Abs(thisX - nextX) > 0.0001)
@@ -79,7 +114,7 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             ? Cp437.BoxUpDoubleHorizontal
             : Cp437.BoxDownDoubleHorizontal;
     }
-
+    
     private static char GeneratePathChar(
         float thisX, float thisY, float prevX, float prevY, float nextX, float nextY)
     {
@@ -92,7 +127,7 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             incoming = thisY > prevY
                 ? Direction.North
                 : Direction.South;
-
+        
         Direction outgoing;
         if (Math.Abs(thisX - nextX) > 0.0001)
             outgoing = thisX > nextX
@@ -102,7 +137,7 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             outgoing = thisY > nextY
                 ? Direction.North
                 : Direction.South;
-
+        
         return (incoming, outgoing) switch
         {
             (Direction.North, Direction.East) or
@@ -120,7 +155,7 @@ public class DroneComponent(int entityId, Vector2 position) : ComponentBase(enti
             _ => '?'
         };
     }
-
+    
     private enum Direction
     {
         North,

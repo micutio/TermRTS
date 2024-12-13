@@ -2,7 +2,7 @@
 
 namespace TermRTS.Examples.Greenery.Event;
 
-public readonly record struct MoveEvent(int entityId, Vector2 targetPosition) : IEvent
+public readonly record struct MoveEvent(int EntityId, Vector2 TargetPosition) : IEvent
 {
     public EventType Type()
     {

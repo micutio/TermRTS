@@ -65,7 +65,7 @@ public class Renderer : IRenderer, IEventSink
     {
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;
-        _canvas.Interlaced = true;
+        // _canvas.Interlaced = true;
         _visualByElevation = new (char, ConsoleColor, ConsoleColor)[10];
         _visualByPosition = new (char, ConsoleColor, ConsoleColor)[worldWidth, worldHeight];
         _log = LogManager.GetLogger(GetType());
@@ -261,13 +261,18 @@ public class Renderer : IRenderer, IEventSink
         
         RenderCoordinates();
         
-        // Step 2: Render profiling info on top of the world
-#if DEBUG
-        RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
-#endif
+        // Step 2: Render textbox if its contents have changed.
+        if (_textbox.IsOngoingInput)
+            RenderTextbox();
+        else
+            for (var i = 0; i <= _viewportSize.X; i += 1)
+                _canvas.Set(i, (int)_viewportSize.Y, ' ', DefaultFg, DefaultBg);
         
-        // Step 3: Render textbox if its contents have changed.
-        if (_textbox.IsOngoingInput) RenderTextbox();
+        // Step 3: Render profiling info on top of the world
+#if DEBUG
+        if (!_textbox.IsOngoingInput)
+            RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
+#endif
     }
     
     public void FinalizeRender()
@@ -317,7 +322,8 @@ public class Renderer : IRenderer, IEventSink
     
     private void UpdateMaxY()
     {
-        _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y));
+        // subtract 1 to leave an empty row at the bottom for text and debug messages
+        _maxY = Convert.ToInt32(Math.Min(_cameraPosY + _viewportSize.Y, _worldSize.Y)) - 1;
     }
     
     private void MoveCameraUp()
@@ -423,7 +429,7 @@ public class Renderer : IRenderer, IEventSink
             _canvas.Set(x, y - CameraPosY + _mapOffsetY, Cp437.BlockFull, fg);
         }
         
-        for (var y = CameraPosY; y < _maxY + _mapOffsetY; y++)
+        for (var y = CameraPosY; y < _maxY; y++)
         {
             var isTick = y > 0 && y % 5 == 0;
             if (isTick)
@@ -447,7 +453,7 @@ public class Renderer : IRenderer, IEventSink
         var sec = (int)Math.Floor(_timePassedMs / 1000) % 60;
         var min = (int)Math.Floor(_timePassedMs / (1000 * 60)) % 60;
         var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
-        _canvas.Text(_mapOffsetX, _maxY - CameraPosY, $"Greenery | {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
+        _canvas.Text(0, (int)_viewportSize.Y, $"{hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
     }
     
     private void RenderTextbox()
