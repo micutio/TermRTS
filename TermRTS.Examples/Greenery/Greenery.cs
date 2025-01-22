@@ -42,6 +42,11 @@ public class Greenery : IRunnableExample
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
         
+        var fovEntity = new EntityBase();
+        var fovComponent = new FovComponent(fovEntity.Id, worldWidth, worldHeight);
+        core.AddEntity(fovEntity);
+        core.AddComponent(fovComponent);
+        
         var droneEntity = new EntityBase();
         var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(90, 10));
         core.AddEntity(droneEntity);
@@ -49,6 +54,7 @@ public class Greenery : IRunnableExample
         
         var pathFindingSystem = new PathFindingSystem(worldWidth, worldHeight);
         core.AddSimSystem(pathFindingSystem);
+        core.AddSimSystem(new FovSystem());
         
         var scheduler = new Scheduler(16, 16, core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);

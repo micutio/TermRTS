@@ -6,7 +6,11 @@ using System.Collections.Generic;
 public static class Fov
 {
     // Basic Raycasting
-    public static HashSet<(int x, int y)> BasicRaycast(int startX, int startY, int range, Func<int, int, bool> isWall)
+    public static HashSet<(int x, int y)> BasicRaycast(
+        int startX,
+        int startY,
+        int range,
+        Func<int, int, bool> isWall)
     {
         var visibleCells = new HashSet<(int x, int y)>();
         
@@ -38,7 +42,10 @@ public static class Fov
     
     
     // Recursive Shadowcasting (Octant-based)
-    public static HashSet<(int x, int y)> RecursiveShadowcasting(int startX, int startY, int range,
+    public static HashSet<(int x, int y)> RecursiveShadowcasting(
+        int startX,
+        int startY,
+        int range,
         Func<int, int, bool> isWall)
     {
         var visibleCells = new HashSet<(int x, int y)>();
