@@ -343,12 +343,12 @@ internal class Circuitry : IRunnableExample
         }
     }
     
-    private class BusSystem : SimSystem
+    private class BusSystem : ISimSystem
     {
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
         
-        public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+        public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
             storage.GetForType(typeof(Bus), out var results);
             foreach (var b in results)

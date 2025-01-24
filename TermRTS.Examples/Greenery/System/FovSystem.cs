@@ -2,9 +2,9 @@
 
 namespace TermRTS.Examples.Greenery.System;
 
-public class FovSystem : SimSystem
+public class FovSystem : ISimSystem
 {
-    public override void ProcessComponents(ulong timeStepSize, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         // TODO: Switch Fov algorithms at runtime.
         

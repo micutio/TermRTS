@@ -19,7 +19,7 @@ internal class NullRenderer : IRenderer
     }
 }
 
-internal class WatcherSystem : SimSystem
+internal class WatcherSystem : ISimSystem
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     public readonly ChannelReader<(IEvent, ulong)> EventOutput;
@@ -32,7 +32,7 @@ internal class WatcherSystem : SimSystem
         EventOutput = _eventChannel.Reader;
     }
     
-    public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         _remainingTicks -= 1;
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");

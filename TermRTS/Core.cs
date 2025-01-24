@@ -75,7 +75,7 @@ public class Core : ICore
         _components = new MappedCollectionStorage();
         _newEntities = new List<EntityBase>();
         _newComponents = new List<ComponentBase>();
-        _systems = new List<SimSystem>();
+        _systems = new List<ISimSystem>();
         
         _isParallelized = isParallelized;
     }
@@ -108,7 +108,7 @@ public class Core : ICore
     #region Private Fields
     
     private readonly IRenderer _renderer;
-    private readonly List<SimSystem> _systems;
+    private readonly List<ISimSystem> _systems;
     private readonly List<EntityBase> _entities;
     private readonly MappedCollectionStorage _components;
     private readonly List<EntityBase> _newEntities;
@@ -165,6 +165,7 @@ public class Core : ICore
         // _entities.RemoveAll(e => e.IsMarkedForRemoval);
         
         var i = 0;
+        // TODO: Verify that modification of the list while iterating over it is not causing issues!
         while (i < _entities.Count)
         {
             if (!_entities[i].IsMarkedForRemoval)
@@ -189,7 +190,6 @@ public class Core : ICore
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
-        
         _renderer.FinalizeRender();
     }
     
@@ -245,7 +245,7 @@ public class Core : ICore
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be added </param>
-    public void AddSimSystem(SimSystem system)
+    public void AddSimSystem(ISimSystem system)
     {
         _systems.Add(system);
     }
@@ -254,7 +254,7 @@ public class Core : ICore
     ///     Remove system from the simulation, effective immediately.
     /// </summary>
     /// <param name="system"> System object to be removed </param>
-    public void RemoveSimSystem(SimSystem system)
+    public void RemoveSimSystem(ISimSystem system)
     {
         _systems.Remove(system);
     }

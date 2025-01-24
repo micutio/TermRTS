@@ -33,7 +33,7 @@ internal class BounceBall : ComponentBase
 
 // Bouncing ball and other physics:
 //  - https://processing.org/examples/bouncingball.html
-internal class BouncePhysicsSystem : SimSystem, IEventSink
+internal class BouncePhysicsSystem : ISimSystem, IEventSink
 {
     private Vector2 _velocity;
     
@@ -59,7 +59,7 @@ internal class BouncePhysicsSystem : SimSystem, IEventSink
         }
     }
     
-    public override void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         storage.GetForType(typeof(BounceBall), out var ballComponents);
         
