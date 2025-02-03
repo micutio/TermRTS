@@ -4,11 +4,11 @@ using TermRTS.Examples.Greenery.Event;
 
 namespace TermRTS.Examples.Greenery.System;
 
-public class PathFindingSystem(int worldWidth, int worldHeight) : SimSystem, IEventSink
+public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IEventSink
 {
     private readonly Dictionary<int, Vector2> _newTargetPositions = new();
     
-    public override void ProcessComponents(ulong timeStepSize, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         storage.GetForType(typeof(WorldComponent), out var worldComponents);
         foreach (var worldComponent in worldComponents)

@@ -30,7 +30,7 @@ public class NullEntity : EntityBase
 {
 }
 
-public class WatcherSystem : SimSystem
+public class WatcherSystem : ISimSystem
 {
     private readonly Channel<(IEvent, ulong)> _eventChannel;
     public readonly ChannelReader<(IEvent, ulong)> EventOutput;
@@ -43,7 +43,7 @@ public class WatcherSystem : SimSystem
         EventOutput = _eventChannel.Reader;
     }
     
-    public override void ProcessComponents(ulong timeStepSize, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         _remainingTicks -= 1;
         

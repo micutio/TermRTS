@@ -11,6 +11,14 @@ public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[
     public int Height { get; } = worldHeight;
 }
 
+public class FovComponent(int entityId, int worldWidth, int worldHeight)
+    : ComponentBase(entityId)
+{
+    public bool[,] Cells { get; } = new bool[worldWidth, worldHeight];
+    public int Width { get; } = worldWidth;
+    public int Height { get; } = worldHeight;
+}
+
 public class DroneComponent : ComponentBase
 {
     public const float Velocity = 1.0f; // [m/s]
