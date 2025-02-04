@@ -8,23 +8,19 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 {
     private readonly Dictionary<int, Vector2> _newTargetPositions = new();
     
-    public void ProcessComponents(ulong timeStepSize, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
-        storage.GetForType(typeof(WorldComponent), out var worldComponents);
-        foreach (var worldComponent in worldComponents)
-            if (worldComponent is WorldComponent world)
-            {
-                storage.GetForType(typeof(DroneComponent), out var droneComponents);
-                foreach (var droneComponent in droneComponents)
-                    if (droneComponent is DroneComponent drone)
-                    {
-                        TryGeneratePath(world, drone);
-                        
-                        if (drone.Path == null || drone.PathIndex == null) continue;
-                        
-                        ProcessDronePathing(drone, timeStepSize);
-                    }
-            }
+        var world = storage.GetSingleForType<WorldComponent>();
+        if (world == null) return;
+        
+        foreach (var drone in storage.GetAllForType<DroneComponent>())
+        {
+            TryGeneratePath(world, drone);
+            
+            if (drone.Path == null || drone.PathIndex == null) continue;
+            
+            ProcessDronePathing(drone, timeStepSizeMs);
+        }
     }
     
     public void ProcessEvent(IEvent evt)
@@ -84,12 +80,14 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
             },
             Weight = (loc, neighbor) =>
             {
+                var thisCell = world.Cells[(int)loc.X, (int)loc.Y];
                 var neighborCell =
                     world.Cells[(int)neighbor.X, (int)neighbor.Y];
                 
-                if (neighborCell <= 3) return float.PositiveInfinity; // Do not go into water
+                return neighborCell <= 3
+                    ? float.PositiveInfinity // do not go into water
+                    : float.Pow(2, neighborCell - thisCell);
                 
-                return float.Pow(2, neighborCell);
                 // (world.Cells[(int)loc.X, (int)loc.Y] + neighborCell) * 2;
             }
         };

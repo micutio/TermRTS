@@ -350,11 +350,8 @@ internal class Circuitry : IRunnableExample
         
         public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
-            storage.GetForType(typeof(Bus), out var results);
-            foreach (var b in results)
+            foreach (var bus in storage.GetAllForType<Bus>())
             {
-                var bus = (Bus)b;
-                
                 // If not active, then randomly determine whether to activate.
                 if (!bus.IsActive)
                 {

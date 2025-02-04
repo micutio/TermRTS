@@ -42,8 +42,7 @@ public class StorageTest
     public void TestInitialState()
     {
         var storage = new MappedCollectionStorage();
-        storage.GetForType(typeof(ComponentA), out var components);
-        Assert.Empty(components);
+        Assert.Empty(storage.GetAllForType<ComponentA>());
     }
     
     [Theory]
@@ -51,56 +50,38 @@ public class StorageTest
     public void TestInsertion(IStorage storage)
     {
         // Test retrieval by type
-        storage.GetForType(typeof(ComponentA), out var componentsA);
-        Assert.Equal(7, componentsA.Count());
-        storage.GetForType(typeof(ComponentB), out var componentsB);
-        Assert.Equal(3, componentsB.Count());
+        Assert.Equal(7, storage.GetAllForType<ComponentA>().Count());
+        Assert.Equal(3, storage.GetAllForType<ComponentB>().Count());
         
         // Test retrieval by entity
-        storage.GetForEntity(1, out var e1Components);
-        Assert.Equal(4, e1Components.Count());
-        storage.GetForEntity(2, out var e2Components);
-        Assert.Single(e2Components);
-        storage.GetForEntity(3, out var e3Components);
-        Assert.Equal(2, e3Components.Count());
-        storage.GetForEntity(4, out var e4Components);
-        Assert.Equal(3, e4Components.Count());
+        Assert.Equal(4, storage.GetAllForEntity(1).Count());
+        Assert.Single(storage.GetAllForEntity(2));
+        Assert.Equal(2, storage.GetAllForEntity(3).Count());
+        Assert.Equal(3, storage.GetAllForEntity(4).Count());
         
         // Test retrieval by entity and type
-        storage.GetForEntityAndType(1, typeof(ComponentA), out var entity1TypeA);
-        Assert.Equal(3, entity1TypeA.Count());
-        storage.GetForEntityAndType(1, typeof(ComponentB), out var entity1TypeB);
-        Assert.Single(entity1TypeB);
-        storage.GetForEntityAndType(2, typeof(ComponentA), out var entity2TypeA);
-        Assert.Single(entity2TypeA);
-        storage.GetForEntityAndType(2, typeof(ComponentB), out var entity2TypeB);
-        Assert.Empty(entity2TypeB);
-        storage.GetForEntityAndType(3, typeof(ComponentA), out var entity3TypeA);
-        Assert.Equal(2, entity3TypeA.Count());
-        storage.GetForEntityAndType(3, typeof(ComponentB), out var entity3TypeB);
-        Assert.Empty(entity3TypeB);
-        storage.GetForEntityAndType(4, typeof(ComponentA), out var entity4TypeA);
-        Assert.Single(entity4TypeA);
-        storage.GetForEntityAndType(4, typeof(ComponentB), out var entity4TypeB);
-        Assert.Equal(2, entity4TypeB.Count());
+        Assert.Equal(3, storage.GetAllForTypeAndEntity<ComponentA>(1).Count());
+        Assert.Single(storage.GetAllForTypeAndEntity<ComponentB>(1));
+        Assert.Single(storage.GetAllForTypeAndEntity<ComponentA>(2));
+        Assert.Empty(storage.GetAllForTypeAndEntity<ComponentB>(2));
+        Assert.Equal(2, storage.GetAllForTypeAndEntity<ComponentA>(3).Count());
+        Assert.Empty(storage.GetAllForTypeAndEntity<ComponentB>(3));
+        Assert.Single(storage.GetAllForTypeAndEntity<ComponentA>(4));
+        Assert.Equal(2, storage.GetAllForTypeAndEntity<ComponentB>(4).Count());
     }
     
     [Theory]
     [ClassData(typeof(StorageTestData))]
     public void TestRemoval(IStorage storage)
     {
-        storage.GetForType(typeof(ComponentA), out var componentsA);
-        Assert.Equal(7, componentsA.Count());
-        storage.GetForType(typeof(ComponentB), out var componentsB);
-        Assert.Equal(3, componentsB.Count());
+        Assert.Equal(7, storage.GetAllForType<ComponentA>().Count());
+        Assert.Equal(3, storage.GetAllForType<ComponentB>().Count());
         
         storage.RemoveComponentsByEntity(1);
-        storage.GetForEntity(1, out var entity);
-        Assert.Empty(entity);
+        Assert.Empty(storage.GetAllForEntity(1));
         
         storage.RemoveComponentsByType(typeof(ComponentB));
-        storage.GetForType(typeof(ComponentA), out var componentsAa);
-        Assert.Equal(4, componentsAa.Count());
+        Assert.Equal(4, storage.GetAllForType<ComponentA>().Count());
     }
 }
 

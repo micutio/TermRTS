@@ -15,14 +15,10 @@ internal class BounceRenderer : IRenderer
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _canvas.Clear();
-        storage.GetForType(typeof(BounceBall), out var ballComponents);
+        var ballComponents = storage.GetAllForType<BounceBall>();
         
-        foreach (var ballComponent in ballComponents)
-        {
-            var ball = (BounceBall)ballComponent;
-            
-            _canvas.Set(Convert.ToInt32(ball.Position.X), Convert.ToInt32(ball.Position.Y));
-        }
+        foreach (var ballPos in ballComponents.Select(ball => ball.Position))
+            _canvas.Set(Convert.ToInt32(ballPos.X), Convert.ToInt32(ballPos.Y));
         
         // if (ball.Velocity == Vector2.Zero)
         //    return;

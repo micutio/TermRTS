@@ -182,7 +182,8 @@ public class Renderer : IRenderer, IEventSink
             < 10 => 1,
             < 100 => 2,
             < 1000 => 3,
-            < 10000 => 4
+            < 10000 => 4,
+            _ => 5
         };
         
         // Update viewport on Terminal resizing
@@ -196,73 +197,70 @@ public class Renderer : IRenderer, IEventSink
         }
         
         // Step 1: Render world
-        storage.GetForType(typeof(WorldComponent), out var worldComponents);
-        foreach (var worldComponent in worldComponents)
-            if (worldComponent is WorldComponent world)
-            {
-                storage.GetForType(typeof(FovComponent), out var fovComponents);
-                foreach (var fovComponent in fovComponents)
-                    if (fovComponent is FovComponent fov)
-                        switch (RenderMode)
-                        {
-                            case RenderMode.ElevationColor:
-                            case RenderMode.ElevationMonochrome:
-                            case RenderMode.HeatMapColor:
-                            case RenderMode.HeatMapMonochrome:
-                            case RenderMode.TerrainColor:
-                            case RenderMode.TerrainMonochrome:
-                                RenderWorldByElevationVisuals(world, fov);
-                                break;
-                            case RenderMode.ReliefColor:
-                            case RenderMode.ReliefMonochrome:
-                                if (_initVisualMatrix)
-                                {
-                                    SetWorldReliefVisual(world);
-                                    _initVisualMatrix = false;
-                                }
-                                
-                                RenderWorldByVisualMatrix(fov);
-                                break;
-                            case RenderMode.ContourColor:
-                            case RenderMode.ContourMonochrome:
-                                if (_initVisualMatrix)
-                                {
-                                    SetWorldContourLines(world);
-                                    _initVisualMatrix = false;
-                                }
-                                
-                                RenderWorldByVisualMatrix(fov);
-                                break;
-                            default:
-                                throw new ArgumentOutOfRangeException();
-                        }
-            }
+        var world = storage.GetSingleForType<WorldComponent>();
+        if (world == null) return;
+        var fov = storage.GetSingleForType<FovComponent>();
+        if (fov == null) return;
+        
+        switch (RenderMode)
+        {
+            case RenderMode.ElevationColor:
+            case RenderMode.ElevationMonochrome:
+            case RenderMode.HeatMapColor:
+            case RenderMode.HeatMapMonochrome:
+            case RenderMode.TerrainColor:
+            case RenderMode.TerrainMonochrome:
+                RenderWorldByElevationVisuals(world, fov);
+                break;
+            case RenderMode.ReliefColor:
+            case RenderMode.ReliefMonochrome:
+                if (_initVisualMatrix)
+                {
+                    SetWorldReliefVisual(world);
+                    _initVisualMatrix = false;
+                }
+                
+                RenderWorldByVisualMatrix(fov);
+                break;
+            case RenderMode.ContourColor:
+            case RenderMode.ContourMonochrome:
+                if (_initVisualMatrix)
+                {
+                    SetWorldContourLines(world);
+                    _initVisualMatrix = false;
+                }
+                
+                RenderWorldByVisualMatrix(fov);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        
         
         // Step 2: Render drone
-        storage.GetForType(typeof(DroneComponent), out var droneComponents);
-        foreach (var droneComponent in droneComponents)
-            if (droneComponent is DroneComponent drone)
-            {
-                if (drone.Path != null)
-                    foreach (var (x, y, c) in drone.CachedPathVisual)
-                        if (IsInCamera(x, y))
-                            _canvas.Set(
-                                x - CameraPosX + _mapOffsetX,
-                                y - CameraPosY + _mapOffsetY,
-                                c,
-                                ConsoleColor.Red,
-                                DefaultBg);
-                
-                var droneX = Convert.ToInt32(drone.Position.X);
-                var droneY = Convert.ToInt32(drone.Position.Y);
-                if (IsInCamera(droneX, droneY))
-                    _canvas.Set(
-                        droneX - CameraPosX + _mapOffsetX,
-                        droneY - CameraPosY + _mapOffsetY,
-                        '@',
-                        DefaultBg,
-                        ConsoleColor.Red);
-            }
+        
+        foreach (var drone in storage.GetAllForType<DroneComponent>())
+        {
+            if (drone.Path != null)
+                foreach (var (x, y, c) in drone.CachedPathVisual)
+                    if (IsInCamera(x, y))
+                        _canvas.Set(
+                            x - CameraPosX + _mapOffsetX,
+                            y - CameraPosY + _mapOffsetY,
+                            c,
+                            ConsoleColor.Red,
+                            DefaultBg);
+            
+            var droneX = Convert.ToInt32(drone.Position.X);
+            var droneY = Convert.ToInt32(drone.Position.Y);
+            if (IsInCamera(droneX, droneY))
+                _canvas.Set(
+                    droneX - CameraPosX + _mapOffsetX,
+                    droneY - CameraPosY + _mapOffsetY,
+                    '@',
+                    DefaultBg,
+                    ConsoleColor.Red);
+        }
         
         RenderCoordinates();
         

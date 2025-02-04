@@ -1,3 +1,4 @@
+using log4net;
 using TermRTS.Data;
 
 namespace TermRTS;
@@ -23,11 +24,13 @@ public interface IStorage
     
     public void RemoveComponentsByEntityAndType(int entityId, Type type);
     
-    public void GetForEntity(int entityId, out IEnumerable<ComponentBase> results);
+    public IEnumerable<ComponentBase> GetAllForEntity(int entityId);
     
-    public void GetForType(Type type, out IEnumerable<ComponentBase> results);
+    public IEnumerable<T> GetAllForType<T>();
+    public T? GetSingleForType<T>();
     
-    public void GetForEntityAndType(int entityId, Type type, out IEnumerable<ComponentBase> results);
+    public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId);
+    public T? GetSingleForTypeAndEntity<T>(int entityId);
     
     public void SwapBuffers();
     
@@ -49,6 +52,13 @@ public class MappedCollectionStorage : IStorage
     
     // private Dictionary<Type, ComponentBaseStore> componentStores;
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
+    
+    private readonly ILog _log;
+    
+    public MappedCollectionStorage()
+    {
+        _log = LogManager.GetLogger(GetType());
+    }
     
     public void AddComponent(ComponentBase component)
     {
@@ -97,9 +107,9 @@ public class MappedCollectionStorage : IStorage
         _cachedGetForTypeQueries.Remove(type);
     }
     
-    public void GetForEntity(int entityId, out IEnumerable<ComponentBase> results)
+    public IEnumerable<ComponentBase> GetAllForEntity(int entityId)
     {
-        results = _componentStores
+        return _componentStores
             .Values
             .Where(v => v.ContainsKey(entityId))
             .Select(v => v[entityId])
@@ -107,42 +117,57 @@ public class MappedCollectionStorage : IStorage
             .AsEnumerable();
     }
     
-    public void GetForType(Type type, out IEnumerable<ComponentBase> results)
+    public IEnumerable<T> GetAllForType<T>()
     {
-        if (_cachedGetForTypeQueries.TryGetValue(type, out var cachedQuery))
-        {
-            results = cachedQuery;
-            return;
-        }
+        if (_cachedGetForTypeQueries.TryGetValue(typeof(T), out var cachedQuery)) return cachedQuery.Cast<T>();
         
-        if (!_componentStores.TryGetValue(type, out var components))
-        {
-            results = Enumerable.Empty<ComponentBase>();
-            return;
-        }
+        if (!_componentStores.TryGetValue(typeof(T), out var components)) return Enumerable.Empty<T>();
         
         var query = components
             .Values
             .SelectMany(v => v);
         // ReSharper disable once PossibleMultipleEnumeration
-        _cachedGetForTypeQueries.Add(type, query.ToCachedEnumerable());
+        _cachedGetForTypeQueries.Add(typeof(T), query.ToCachedEnumerable());
         // ReSharper disable once PossibleMultipleEnumeration
-        results = query;
+        return query.Cast<T>();
     }
     
-    public void GetForEntityAndType(int entityId, Type type, out IEnumerable<ComponentBase> results)
+    public T? GetSingleForType<T>()
     {
-        if (!_componentStores.TryGetValue(type, out var componentsByType))
+        try
         {
-            results = Enumerable.Empty<ComponentBase>();
-            return;
+            if (GetAllForType<T>().First() is { } c) return c;
+        }
+        catch (InvalidOperationException e)
+        {
+            _log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
         }
         
-        results = !componentsByType.TryGetValue(entityId, out var componentsByTypeAndEntity)
-            ? Enumerable.Empty<ComponentBase>()
-            : componentsByTypeAndEntity;
+        return default;
     }
     
+    public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var componentsByType)) return Enumerable.Empty<T>();
+        
+        return !componentsByType.TryGetValue(entityId, out var componentsByTypeAndEntity)
+            ? Enumerable.Empty<T>()
+            : componentsByTypeAndEntity.Cast<T>();
+    }
+    
+    public T? GetSingleForTypeAndEntity<T>(int entityId)
+    {
+        try
+        {
+            if (GetAllForTypeAndEntity<T>(entityId).First() is { } c) return c;
+        }
+        catch (InvalidOperationException e)
+        {
+            _log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
+        }
+        
+        return default;
+    }
     
     public void SwapBuffers()
     {

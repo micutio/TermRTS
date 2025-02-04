@@ -61,12 +61,10 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
     
     public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
-        storage.GetForType(typeof(BounceBall), out var ballComponents);
+        var ballComponents = storage.GetAllForType<BounceBall>();
         
-        foreach (var ballComponent in ballComponents)
+        foreach (var ball in ballComponents)
         {
-            var ball = (BounceBall)ballComponent;
-            
             var maxX = Console.BufferWidth;
             var maxY = Console.BufferHeight;
             

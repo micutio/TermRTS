@@ -1,3 +1,4 @@
+using System.IO.IsolatedStorage;
 using System.Numerics;
 using ConsoleRenderer;
 using log4net;
@@ -51,12 +52,10 @@ internal class Renderer : IRenderer, IEventSink
     {
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
         
-        storage.GetForType(typeof(Circuitry.Chip), out var chipComponents);
-        foreach (var chip in chipComponents)
-            RenderOutline(((Circuitry.Chip)chip).Outline);
+        foreach (var chipOutline in storage.GetAllForType<Circuitry.Chip>().Select(chip => chip.Outline))
+            RenderOutline(chipOutline);
         
-        storage.GetForType(typeof(Circuitry.Bus), out var busComponents);
-        foreach (var bus in busComponents.Cast<Circuitry.Bus>())
+        foreach (var bus in storage.GetAllForType<Circuitry.Bus>())
         {
             var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
             foreach (var wire in bus.Connections) RenderWire(wire.Outline, bus.IsActive, progress);
