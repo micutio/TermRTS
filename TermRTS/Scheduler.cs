@@ -23,7 +23,7 @@ public class Scheduler : IEventSink
     
     private readonly EventQueue<IEvent, ulong> _eventQueue;
     private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
-    private readonly ICore _core;
+    private readonly Core _core;
     
     private readonly Stopwatch _pauseTimer;
     
@@ -37,7 +37,7 @@ public class Scheduler : IEventSink
     /// <param name="frameTimeMs">How much time is allocated for processing each frame</param>
     /// <param name="timeStepSizeMs">How much time is processed during one simulation tick</param>
     /// <param name="core">Game core object, which is performing the actual simulation ticks</param>
-    public Scheduler(double frameTimeMs, ulong timeStepSizeMs, ICore core)
+    public Scheduler(double frameTimeMs, ulong timeStepSizeMs, Core core)
     {
         _profiler = new Profiler(timeStepSizeMs);
         _msPerUpdate = TimeSpan.FromMilliseconds(frameTimeMs);

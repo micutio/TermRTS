@@ -2,45 +2,6 @@ using System.Diagnostics;
 
 namespace TermRTS;
 
-/// <summary>
-///     Interface for the simulation core, which handles all entities, components, systems and
-///     processing thereof.
-/// </summary>
-public interface ICore : IEventSink
-{
-    /// <summary>
-    ///     A method to check whether the simulation is still running.
-    /// </summary>
-    /// <returns>
-    ///     <code>true</code> if the simulation is still running, <code>false</code> if it has
-    ///     terminated.
-    /// </returns>
-    public bool IsRunning();
-    
-    /// <summary>
-    ///     Prepares to spawn new entities. This always happens at the end of a simulation tick.
-    /// </summary>
-    public void SpawnNewEntities();
-    
-    /// <summary>
-    ///     Performs one simulation tick.
-    /// </summary>
-    /// <param name="timeStepSizeMs">
-    ///     Indicates how much time is being simulated within this one tick.
-    /// </param>
-    public void Tick(ulong timeStepSizeMs);
-    
-    /// <summary>
-    ///     Call the renderer to render all renderable objects.
-    /// </summary>
-    public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent);
-    
-    /// <summary>
-    ///     Prompt the simulation to stop running.
-    /// </summary>
-    public void Shutdown();
-}
-
 // Notes to self:
 // Possible optimisation - remove all new variable allocation from game loop and replace with
 // assigning to private class fields.
@@ -56,7 +17,7 @@ public interface ICore : IEventSink
 /// <summary>
 ///     The core of the engine performs the actual tick logic and is controlled by the scheduler.
 /// </summary>
-public class Core : ICore
+public class Core : IEventSink
 {
     #region Constructor
     
@@ -122,13 +83,21 @@ public class Core : ICore
     
     #region ICore Members
     
-    /// <inheritdoc />
+    /// <summary>
+    ///     A method to check whether the simulation is still running.
+    /// </summary>
+    /// <returns>
+    ///     <code>true</code> if the simulation is still running, <code>false</code> if it has
+    ///     terminated.
+    /// </returns>
     public bool IsRunning()
     {
         return _isGameRunning;
     }
     
-    /// <inheritdoc />
+    /// <summary>
+    ///     Prepares to spawn new entities. This always happens at the end of a simulation tick.
+    /// </summary>
     public void SpawnNewEntities()
     {
         if (_newEntities.Count != 0)
@@ -144,7 +113,12 @@ public class Core : ICore
         }
     }
     
-    /// <inheritdoc />
+    /// <summary>
+    ///     Performs one simulation tick.
+    /// </summary>
+    /// <param name="timeStepSizeMs">
+    ///     Indicates how much time is being simulated within this one tick.
+    /// </param>
     public void Tick(ulong timeStepSizeMs)
     {
         // Two-step simulation
@@ -186,14 +160,18 @@ public class Core : ICore
         //  - all to-be-removed entities removed
     }
     
-    /// <inheritdoc />
+    /// <summary>
+    ///     Call the renderer to render all renderable objects.
+    /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
         _renderer.FinalizeRender();
     }
     
-    /// <inheritdoc />
+    /// <summary>
+    ///     Prompt the simulation to stop running.
+    /// </summary>
     public void Shutdown()
     {
         _renderer.Shutdown();
