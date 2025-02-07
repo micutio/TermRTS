@@ -139,7 +139,6 @@ public class Core : IEventSink
         // _entities.RemoveAll(e => e.IsMarkedForRemoval);
         
         var i = 0;
-        // TODO: Verify that modification of the list while iterating over it is not causing issues!
         while (i < _entities.Count)
         {
             if (!_entities[i].IsMarkedForRemoval)
