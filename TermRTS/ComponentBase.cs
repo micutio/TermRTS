@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TermRTS;
 
 public abstract class ComponentBase(int entityId)

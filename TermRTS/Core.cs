@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 
 namespace TermRTS;
 
@@ -68,16 +69,16 @@ public class Core : IEventSink
     
     #region Private Fields
     
-    private readonly IRenderer _renderer;
-    private readonly List<ISimSystem> _systems;
-    private readonly List<EntityBase> _entities;
-    private readonly MappedCollectionStorage _components;
-    private readonly List<EntityBase> _newEntities;
-    private readonly List<ComponentBase> _newComponents;
+    [JsonInclude] private readonly IRenderer _renderer;
+    [JsonInclude] private readonly List<ISimSystem> _systems;
+    [JsonInclude] private readonly List<EntityBase> _entities;
+    [JsonInclude] private readonly MappedCollectionStorage _components;
+    [JsonInclude] private readonly List<EntityBase> _newEntities;
+    [JsonInclude] private readonly List<ComponentBase> _newComponents;
     
-    private readonly bool _isParallelized;
+    [JsonInclude] private readonly bool _isParallelized;
     
-    private bool _isGameRunning;
+    [JsonInclude] private bool _isGameRunning;
     
     #endregion
     

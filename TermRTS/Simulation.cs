@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using log4net;
 
 namespace TermRTS;
@@ -13,35 +14,39 @@ namespace TermRTS;
 public class Simulation
 {
     #region Private Fields
-
+    
     private readonly ILog _log;
-
+    
     #endregion
-
+    
     #region Constructor
-
+    
     public Simulation(Scheduler scheduler)
     {
         _log = LogManager.GetLogger(typeof(Simulation));
         Scheduler = scheduler;
     }
-
+    
     #endregion
-
+    
     #region Properties
-
+    
     public Scheduler Scheduler { get; private set; }
-
+    
     #endregion
-
+    
     #region Public Members
-
+    
     public void Start()
     {
         _log.Info("Starting Simulation");
+        Scheduler.Prepare();
         while (Scheduler.IsActive) Scheduler.SimulationStep();
+        
+        Scheduler.Shutdown();
+        Save("C:\\Users\\WA_MICHA\\savegame.json");
     }
-
+    
     /// <summary>
     /// Persist the current simulation state to the file system.
     /// </summary>
@@ -50,21 +55,22 @@ public class Simulation
         var options = new JsonSerializerOptions
         {
             WriteIndented = true,
-            ReferenceHandler = ReferenceHandler.Preserve
+            IncludeFields = true
         };
-
+        
         string jsonStr;
-
+        
         try
         {
             jsonStr = JsonSerializer.Serialize(Scheduler, options);
+            Console.WriteLine(jsonStr);
         }
         catch (Exception e)
         {
             _log.ErrorFormat("Error serializing simulation state to json: {0}", e);
             return;
         }
-
+        
         try
         {
             File.WriteAllText(fileName, jsonStr);
@@ -74,7 +80,7 @@ public class Simulation
             _log.ErrorFormat("Error writing simulation state to file {0}: {1}", fileName, e);
         }
     }
-
+    
     /// <summary>
     /// Load a saved simulation state from the file system.
     /// </summary>
@@ -93,14 +99,14 @@ public class Simulation
             Environment.Exit(1);
             return;
         }
-
+        
         if (string.IsNullOrWhiteSpace(jsonStr))
         {
             _log.ErrorFormat("Error reading simulation state yielded empty json string.");
             Environment.Exit(1);
             return;
         }
-
+        
         Scheduler? newScheduler;
         try
         {
@@ -112,15 +118,15 @@ public class Simulation
             Environment.Exit(1);
             return;
         }
-
+        
         if (newScheduler == null)
         {
             _log.ErrorFormat("Error: scheduler parsed from json is invalid.");
             Environment.Exit(1);
         }
-
+        
         Scheduler = newScheduler;
     }
-
+    
     #endregion
 }

@@ -48,17 +48,38 @@ public interface IStorage
 // TODO: Make implementation thread-safe
 public class MappedCollectionStorage : IStorage
 {
-    private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
+    #region Private Fields
     
-    // private Dictionary<Type, ComponentBaseStore> componentStores;
+    private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
     
     private readonly ILog _log;
+    
+    #endregion
+    
+    #region Constructor
     
     public MappedCollectionStorage()
     {
         _log = LogManager.GetLogger(GetType());
     }
+    
+    #endregion
+    
+    #region Public Properties
+    
+    public IList<ComponentBase> SerializedComponents
+    {
+        get => All().ToList();
+        set
+        {
+            foreach (var c in value) AddComponent(c);
+        }
+    }
+    
+    #endregion
+    
+    #region IStorage Members
     
     public void AddComponent(ComponentBase component)
     {
@@ -188,6 +209,8 @@ public class MappedCollectionStorage : IStorage
                  select component)
         */
     }
+    
+    #endregion
     
     private IEnumerable<ComponentBase> All()
     {
