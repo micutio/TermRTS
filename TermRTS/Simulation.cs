@@ -1,7 +1,6 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using log4net;
+using TermRTS.Serialization;
 
 namespace TermRTS;
 
@@ -55,7 +54,8 @@ public class Simulation
         var options = new JsonSerializerOptions
         {
             WriteIndented = true,
-            IncludeFields = true
+            IncludeFields = true,
+            Converters = { new BaseClassConverter<ComponentBase>() }
         };
         
         string jsonStr;
@@ -63,7 +63,7 @@ public class Simulation
         try
         {
             jsonStr = JsonSerializer.Serialize(Scheduler, options);
-            Console.WriteLine(jsonStr);
+            // Console.WriteLine(jsonStr);
         }
         catch (Exception e)
         {
