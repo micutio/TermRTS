@@ -10,27 +10,17 @@ namespace TermRTS;
 ///
 /// See https://madhawapolkotuwa.medium.com/mastering-json-serialization-in-c-with-system-text-json-01f4cec0440d
 /// </summary>
-public class Simulation
+public class Simulation(Scheduler scheduler)
 {
     #region Private Fields
     
-    private readonly ILog _log;
-    
-    #endregion
-    
-    #region Constructor
-    
-    public Simulation(Scheduler scheduler)
-    {
-        _log = LogManager.GetLogger(typeof(Simulation));
-        Scheduler = scheduler;
-    }
+    private static readonly ILog _log = LogManager.GetLogger(typeof(Simulation));
     
     #endregion
     
     #region Properties
     
-    public Scheduler Scheduler { get; private set; }
+    public Scheduler Scheduler { get; private set; } = scheduler;
     
     #endregion
     

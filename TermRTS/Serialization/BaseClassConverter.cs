@@ -4,21 +4,15 @@ using System.Text.Json.Serialization;
 
 namespace TermRTS.Serialization;
 
-public class BaseClassConverter<TBaseType> : JsonConverter<TBaseType>
+public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<TBaseType>
     where TBaseType : class
 {
-    private readonly Type[] _types;
     private const string TypeProperty = "$type";
     
-    public BaseClassConverter(params Type[] types)
+    public override bool CanConvert(Type typeToConvert)
     {
-        _types = types;
-    }
-    
-    public override bool CanConvert(Type type)
-    {
-        return typeof(TBaseType) == type;
         // only responsible for the abstract base
+        return typeof(TBaseType) == typeToConvert;
     }
     
     public override TBaseType Read(
@@ -33,11 +27,10 @@ public class BaseClassConverter<TBaseType> : JsonConverter<TBaseType>
             if (doc.RootElement.TryGetProperty(TypeProperty, out var typeProperty))
             {
                 var typeName = typeProperty.GetString();
-                var type = _types.FirstOrDefault(t => t.Name == typeName) ??
+                var type = Array.Find(types, t => t.Name == typeName) ??
                            throw new JsonException($"{TypeProperty} specifies an invalid type");
                 
                 var rootElement = doc.RootElement.GetRawText();
-                
                 result = JsonSerializer.Deserialize(rootElement, type, options) as TBaseType ??
                          throw new JsonException("target type could not be serialized");
             }
@@ -60,8 +53,7 @@ public class BaseClassConverter<TBaseType> : JsonConverter<TBaseType>
         JsonSerializerOptions options)
     {
         var type = value.GetType();
-        
-        if (_types.Any(t => type.Name == t.Name))
+        if (Array.Exists(types, t => type.Name == t.Name))
         {
             var jsonElement = JsonSerializer.SerializeToElement(value, type, options);
             
