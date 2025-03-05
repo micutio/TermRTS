@@ -14,7 +14,14 @@ public class Simulation(Scheduler scheduler)
 {
     #region Private Fields
     
-    private static readonly ILog _log = LogManager.GetLogger(typeof(Simulation));
+    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
+    
+    private readonly JsonSerializerOptions _serializerOptions = new()
+    {
+        WriteIndented = true,
+        IncludeFields = true,
+        Converters = { new BaseClassConverter<ComponentBase>(GetAllComponentTypes()) }
+    };
     
     #endregion
     
@@ -28,7 +35,7 @@ public class Simulation(Scheduler scheduler)
     
     public void Start()
     {
-        _log.Info("Starting Simulation");
+        Log.Info("Starting Simulation");
         Scheduler.Prepare();
         while (Scheduler.IsActive) Scheduler.SimulationStep();
         
@@ -41,23 +48,16 @@ public class Simulation(Scheduler scheduler)
     /// </summary>
     public void Save(string fileName)
     {
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            IncludeFields = true,
-            Converters = { new BaseClassConverter<ComponentBase>() }
-        };
-        
         string jsonStr;
         
         try
         {
-            jsonStr = JsonSerializer.Serialize(Scheduler, options);
-            // Console.WriteLine(jsonStr);
+            jsonStr = JsonSerializer.Serialize(Scheduler, _serializerOptions);
+            Console.WriteLine(jsonStr);
         }
         catch (Exception e)
         {
-            _log.ErrorFormat("Error serializing simulation state to json: {0}", e);
+            Log.ErrorFormat("Error serializing simulation state to json: {0}", e);
             return;
         }
         
@@ -67,7 +67,7 @@ public class Simulation(Scheduler scheduler)
         }
         catch (Exception e)
         {
-            _log.ErrorFormat("Error writing simulation state to file {0}: {1}", fileName, e);
+            Log.ErrorFormat("Error writing simulation state to file {0}: {1}", fileName, e);
         }
     }
     
@@ -85,14 +85,14 @@ public class Simulation(Scheduler scheduler)
         }
         catch (Exception e)
         {
-            _log.ErrorFormat("Error loading simulation state from file {0}: {1}", fileName, e);
+            Log.ErrorFormat("Error loading simulation state from file {0}: {1}", fileName, e);
             Environment.Exit(1);
             return;
         }
         
         if (string.IsNullOrWhiteSpace(jsonStr))
         {
-            _log.ErrorFormat("Error reading simulation state yielded empty json string.");
+            Log.ErrorFormat("Error reading simulation state yielded empty json string.");
             Environment.Exit(1);
             return;
         }
@@ -104,18 +104,33 @@ public class Simulation(Scheduler scheduler)
         }
         catch (Exception e)
         {
-            _log.ErrorFormat("Error parsing simulation state from json: {0}", e);
+            Log.ErrorFormat("Error parsing simulation state from json: {0}", e);
             Environment.Exit(1);
             return;
         }
         
         if (newScheduler == null)
         {
-            _log.ErrorFormat("Error: scheduler parsed from json is invalid.");
+            Log.ErrorFormat("Error: scheduler parsed from json is invalid.");
             Environment.Exit(1);
         }
         
         Scheduler = newScheduler;
+    }
+    
+    #endregion
+    
+    #region Private Members
+    
+    private static Type[] GetAllComponentTypes()
+    {
+        var types = AppDomain
+            .CurrentDomain
+            .GetAssemblies()
+            .SelectMany(x => x.GetTypes())
+            .Where(x => typeof(ComponentBase).IsAssignableFrom(x) && x is { IsInterface: false, IsAbstract: false })
+            .ToArray();
+        return types;
     }
     
     #endregion

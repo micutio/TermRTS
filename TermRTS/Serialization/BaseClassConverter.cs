@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Reflection.Metadata;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -14,6 +15,8 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         // only responsible for the abstract base
         return typeof(TBaseType) == typeToConvert;
     }
+    
+    #region JsonConverter<> Members
     
     public override TBaseType Read(
         ref Utf8JsonReader reader,
@@ -67,4 +70,6 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
             throw new JsonException($"{type.Name} with matching base type {typeof(TBaseType).Name} is not registered.");
         }
     }
+    
+    #endregion
 }
