@@ -22,7 +22,13 @@ public class Simulation(Scheduler scheduler)
     {
         WriteIndented = true,
         IncludeFields = true,
-        Converters = { new BaseClassConverter<ComponentBase>(GetAllComponentTypes()) }
+        Converters =
+        {
+            // handle all subclasses of ComponentBase
+            new BaseClassConverter<ComponentBase>(GetAllComponentTypes()),
+            // handle all byte[,] matrices
+            new ByteArray2DConverter()
+        }
     };
 
     #endregion
@@ -42,7 +48,8 @@ public class Simulation(Scheduler scheduler)
         while (Scheduler.IsActive) Scheduler.SimulationStep();
 
         Scheduler.Shutdown();
-        Save("C:\\Users\\WA_MICHA\\savegame.json");
+        // Save("C:\\Users\\WA_MICHA\\savegame.json");
+        Save("/home/michael/savegame.json");
     }
 
     /// <summary>
