@@ -27,7 +27,9 @@ public class Simulation(Scheduler scheduler)
             // handle all subclasses of ComponentBase
             new BaseClassConverter<ComponentBase>(GetAllComponentTypes()),
             // handle all byte[,] matrices
-            new ByteArray2DConverter()
+            new ByteArray2DConverter(),
+            // handle all bool[,] matrices
+            new BooleanArray2DConverter()
         }
     };
 
