@@ -122,7 +122,7 @@ public class BounceApp : IRunnableExample
         core.AddEntity(bounceEntity);
         core.AddComponent(bounceBall);
 
-        var scheduler = new Scheduler(16, 16, core);
+        var scheduler = new Scheduler(core);
         scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.AddEventSink(bouncePhysics, EventType.KeyInput);
 

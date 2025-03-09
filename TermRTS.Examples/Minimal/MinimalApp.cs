@@ -54,7 +54,7 @@ internal class MinimalApp : IRunnableExample
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new EntityBase());
 
-        var scheduler = new Scheduler(16, 16, core);
+        var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
         scheduler.AddEventSink(core, EventType.Shutdown);
 

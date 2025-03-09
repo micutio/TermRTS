@@ -73,7 +73,7 @@ public class EngineTest
     {
         // Setup Scheduler
         var watcherSystem = new WatcherSystem(12);
-        var scheduler = new Scheduler(16, 16, core);
+        var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
         scheduler.AddEventSink(core, EventType.Shutdown);
         core.AddSimSystem(watcherSystem);
@@ -93,7 +93,7 @@ public class EngineTest
     public void TestScheduledEvent(Core core)
     {
         // Setup Scheduler
-        var scheduler = new Scheduler(16, 16, core);
+        var scheduler = new Scheduler(core);
         scheduler.AddEventSink(core, EventType.Shutdown);
         scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 12 * 16));
 

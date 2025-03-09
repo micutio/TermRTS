@@ -50,14 +50,17 @@ public class Simulation(Scheduler scheduler)
         while (Scheduler.IsActive) Scheduler.SimulationStep();
 
         Scheduler.Shutdown();
-        // Save("C:\\Users\\WA_MICHA\\savegame.json");
-        Save("/home/michael/savegame.json");
+
+        // TODO: Remove temporary serialization test
+        var jsonStr = SerializeSimulationStateToJson();
+        if (!string.IsNullOrEmpty(jsonStr))
+            SaveJsonToFile("/home/michael/savegame.json", jsonStr);
     }
 
     /// <summary>
     /// Persist the current simulation state to the file system.
     /// </summary>
-    public void Save(string fileName)
+    public string? SerializeSimulationStateToJson()
     {
         string jsonStr;
 
@@ -69,16 +72,21 @@ public class Simulation(Scheduler scheduler)
         catch (Exception e)
         {
             Log.ErrorFormat("Error serializing simulation state to json: {0}", e);
-            return;
+            return null;
         }
 
+        return jsonStr;
+    }
+
+    private static void SaveJsonToFile(string filePath, string jsonStr)
+    {
         try
         {
-            File.WriteAllText(fileName, jsonStr);
+            File.WriteAllText(filePath, jsonStr);
         }
         catch (Exception e)
         {
-            Log.ErrorFormat("Error writing simulation state to file {0}: {1}", fileName, e);
+            Log.ErrorFormat("Error writing simulation state to file {0}: {1}", filePath, e);
         }
     }
 
@@ -86,47 +94,53 @@ public class Simulation(Scheduler scheduler)
     /// Load a saved simulation state from the file system.
     /// </summary>
     /// TODO: Any better way to handle failed loading?
-    /// <param name="fileName"></param>
-    public void Load(string fileName)
+    /// <param name="filePath"></param>
+    private static string? LoadJsonFromFile(string filePath)
     {
         string jsonStr;
         try
         {
-            jsonStr = File.ReadAllText(fileName);
+            jsonStr = File.ReadAllText(filePath);
         }
         catch (Exception e)
         {
-            Log.ErrorFormat("Error loading simulation state from file {0}: {1}", fileName, e);
+            Log.ErrorFormat("Error loading simulation state from file {0}: {1}", filePath, e);
             Environment.Exit(1);
-            return;
+            return null;
         }
 
+        return jsonStr;
+    }
+
+    public Scheduler? LoadSimulationStateFromJson(string jsonStr)
+    {
         if (string.IsNullOrWhiteSpace(jsonStr))
         {
-            Log.ErrorFormat("Error reading simulation state yielded empty json string.");
+            Log.ErrorFormat("Error reading simulation state: empty json string.");
             Environment.Exit(1);
-            return;
+            return null;
         }
 
         Scheduler? newScheduler;
         try
         {
-            newScheduler = JsonSerializer.Deserialize<Scheduler>(jsonStr);
+            newScheduler = JsonSerializer.Deserialize<Scheduler>(jsonStr, _serializerOptions);
         }
         catch (Exception e)
         {
             Log.ErrorFormat("Error parsing simulation state from json: {0}", e);
             Environment.Exit(1);
-            return;
+            return null;
         }
 
         if (newScheduler == null)
         {
             Log.ErrorFormat("Error: scheduler parsed from json is invalid.");
             Environment.Exit(1);
+            return null;
         }
 
-        Scheduler = newScheduler;
+        return newScheduler;
     }
 
     #endregion

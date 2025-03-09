@@ -44,7 +44,7 @@ internal class Circuitry : IRunnableExample
         core.AddAllComponents(components);
         core.AddSimSystem(new BusSystem());
 
-        var scheduler = new Scheduler(16, 16, core);
+        var scheduler = new Scheduler(core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(renderer, EventType.Profile);
 

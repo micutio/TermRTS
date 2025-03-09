@@ -8,86 +8,111 @@ namespace TermRTS;
 public class Scheduler : IEventSink
 {
     #region Private Fields
-    
+
     private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-    
-    // channel for emitting events
-    private readonly Channel<(IEvent, ulong)> _channel;
-    
+
+    // time constants
+    [JsonInclude] private readonly TimeSpan _msPerUpdate = TimeSpan.FromMilliseconds(16.0d);
+    [JsonInclude] private readonly ulong _timeStepSizeMs = 16L;
+
+    // time keeping tools
+    [JsonInclude] private readonly Stopwatch _loopTimer = new();
+    [JsonInclude] private readonly Stopwatch _tickTimer = new();
+    [JsonInclude] private readonly Stopwatch _renderTimer = new();
+    [JsonInclude] private readonly Stopwatch _pauseTimer = new();
+    [JsonInclude] private TimeSpan _lag = TimeSpan.Zero;
+
+    // statistics recording for profiling
     [JsonInclude] private readonly Profiler _profiler;
-    [JsonInclude] private readonly TimeSpan _msPerUpdate;
-    [JsonInclude] private readonly ulong _timeStepSizeMs;
-    
-    [JsonInclude] private readonly Stopwatch _loopTimer;
-    [JsonInclude] private readonly Stopwatch _tickTimer;
-    [JsonInclude] private readonly Stopwatch _renderTimer;
-    
-    /* [JsonInclude] */
-    private readonly EventQueue<IEvent, ulong> _eventQueue;
-    [JsonInclude] private readonly Dictionary<EventType, List<IEventSink>> _eventSinks;
+
+    // the meaty bits - actual simulation loop logic
+
+    // channel for emitting events
+    // TODO: Does this need to be serialized?
+    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+
+    // serialized via property
+    private readonly EventQueue<IEvent, ulong> _eventQueue = new();
+    [JsonInclude] private readonly Dictionary<EventType, List<IEventSink>> _eventSinks = new();
     [JsonInclude] private readonly Core _core;
-    
-    [JsonInclude] private readonly Stopwatch _pauseTimer;
-    
-    [JsonInclude] private TimeSpan _lag;
-    
+
     #endregion
-    
-    #region Constructor
-    
+
+    #region Constructors
+
     /// <summary>
     ///     Constructor.
     /// </summary>
-    /// <param name="frameTimeMs">How much time is allocated for processing each frame</param>
+    /// <param name="msPerUpdate">How much time is allocated for processing each frame</param>
     /// <param name="timeStepSizeMs">How much time is processed during one simulation tick</param>
     /// <param name="core">Game core object, which is performing the actual simulation ticks</param>
-    public Scheduler(double frameTimeMs, ulong timeStepSizeMs, Core core)
+    public Scheduler(Core core, double msPerUpdate = 16.0d, ulong timeStepSizeMs = 16L)
     {
         _profiler = new Profiler(timeStepSizeMs);
-        _msPerUpdate = TimeSpan.FromMilliseconds(frameTimeMs);
+        _msPerUpdate = TimeSpan.FromMilliseconds(msPerUpdate);
         _timeStepSizeMs = timeStepSizeMs;
-        _loopTimer = new Stopwatch();
-        _tickTimer = new Stopwatch();
-        _renderTimer = new Stopwatch();
-        _eventQueue = new EventQueue<IEvent, ulong>();
-        _eventSinks = new Dictionary<EventType, List<IEventSink>>();
-        _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-        _pauseTimer = new Stopwatch();
-        
         _core = core;
         AddEventSink(_core, EventType.Shutdown);
-        
+
         TimeMs = 0L;
     }
-    
+
+    /// <summary>
+    /// Constructor for deserialisation from JSON.
+    /// </summary>
+    [JsonConstructor]
+    public Scheduler(Core core,
+        TimeSpan msPerUpdate,
+        ulong timeStepSizeMs,
+        Stopwatch loopTimer,
+        Stopwatch tickTimer,
+        Stopwatch renderTimer,
+        Stopwatch pauseTimer,
+        TimeSpan lag,
+        Profiler profiler,
+        Dictionary<EventType, List<IEventSink>> eventSinks
+    )
+    {
+        _core = core;
+        _msPerUpdate = msPerUpdate;
+        _timeStepSizeMs = timeStepSizeMs;
+        _loopTimer = loopTimer;
+        _tickTimer = tickTimer;
+        _renderTimer = renderTimer;
+        _pauseTimer = pauseTimer;
+        _lag = lag;
+        _profiler = profiler;
+        _eventSinks = eventSinks;
+    }
+
     #endregion
-    
+
     #region IEventSink Members
-    
+
     public void ProcessEvent(IEvent evt)
     {
     }
-    
+
     #endregion
-    
+
     #region Properties
-    
+
     /// <summary>
     ///     Property for read-only access to current simulation time.
     /// </summary>
     public ulong TimeMs { get; private set; }
-    
+
     /// <summary>
     ///     Reader for channel to receive Profile events on.
     /// </summary>
     public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
-    
+
     [JsonIgnore] public bool IsActive => _core.IsRunning();
-    
+
     #endregion
-    
+
     #region Public Members
-    
+
     /// <summary>
     ///     Add a new event source to the scheduler. Using a channel the event source can send in new
     ///     events in an asynchronous fashion.
@@ -96,7 +121,7 @@ public class Scheduler : IEventSink
     {
         Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
     }
-    
+
     /// <summary>
     ///     Add a new event sink, which will receive events of the specified type.
     /// </summary>
@@ -105,11 +130,11 @@ public class Scheduler : IEventSink
         var isFound = _eventSinks.TryGetValue(type, out var sinks);
         if (!isFound || sinks == null)
             sinks = new List<IEventSink>();
-        
+
         sinks.Add(sink);
         _eventSinks[type] = sinks;
     }
-    
+
     /// <summary>
     ///     Remove an event sink from the scheduler. The given sink will no longer receive any events.
     /// </summary>
@@ -117,7 +142,7 @@ public class Scheduler : IEventSink
     {
         _eventSinks[type].Remove(sink);
     }
-    
+
     /// <summary>
     ///     This method offers a manual way of schedule
     /// </summary>
@@ -128,13 +153,13 @@ public class Scheduler : IEventSink
     {
         _eventQueue.TryAdd(item);
     }
-    
+
     public void Prepare()
     {
         if (_core.IsRunning()) _core.SpawnNewEntities();
         _loopTimer.Start();
     }
-    
+
     /// <summary>
     ///     The core loop for advancing the simulation.
     /// </summary>
@@ -143,7 +168,7 @@ public class Scheduler : IEventSink
         var loopTime = _loopTimer.Elapsed;
         _loopTimer.Restart();
         _lag += loopTime;
-        
+
         // STEP 1: INPUT /////////////////////////////////////////////////////////////////////
         ProcessInput();
         if (!_core.IsRunning())
@@ -151,7 +176,7 @@ public class Scheduler : IEventSink
             _core.Shutdown();
             return;
         }
-        
+
         // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
         // Reduce possible lag by processing consecutive ticks without rendering
         var tickCount = 0;
@@ -163,26 +188,26 @@ public class Scheduler : IEventSink
             _lag -= _msPerUpdate;
             tickCount += 1;
         }
-        
+
         var tickElapsed = _tickTimer.Elapsed;
-        
+
         // STEP 3: RENDER ////////////////////////////////////////////////////////////////////
         _renderTimer.Restart();
         var howFarIntoNextFramePercent = _lag.TotalMilliseconds / _msPerUpdate.TotalMilliseconds;
         _core.Render(_timeStepSizeMs, howFarIntoNextFramePercent);
-        
+
         var renderTime = _renderTimer.Elapsed;
-        
+
         // Step 4: Optional pausing for consistent tick times ////////////////////////////////
         // Get loop time after making up for previous lag
         var caughtUpLoopTime = _lag + renderTime + tickElapsed;
-        
+
         // If we spent longer than our allotted time, skip right ahead...
         if (caughtUpLoopTime >= _msPerUpdate) return;
-        
+
         // ...otherwise wait until the next frame is due.
         Pause(_msPerUpdate - caughtUpLoopTime);
-        
+
         // Step 5: Optional profiling ////////////////////////////////////////////////////////
 #if DEBUG
         // Record measurements
@@ -196,16 +221,16 @@ public class Scheduler : IEventSink
             _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
 #endif
     }
-    
+
     public void Shutdown()
     {
         _channel.Writer.Complete();
     }
-    
+
     #endregion
-    
+
     #region Private Members
-    
+
     /// <summary>
     ///     Pause execution of the scheduler for a given time period.
     ///     Due to time constraints and context switching <see cref="Thread.Sleep(TimeSpan)" /> and
@@ -219,12 +244,12 @@ public class Scheduler : IEventSink
             Thread.Sleep(timeout);
             return;
         }
-        
+
         _pauseTimer.Restart();
         while (_pauseTimer.Elapsed < timeout) ;
         _pauseTimer.Stop();
     }
-    
+
     /// <summary>
     ///     Fires events that are due in the current time step by distributing them to all event
     ///     sinks registered to these event types.
@@ -234,14 +259,14 @@ public class Scheduler : IEventSink
         while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
             _eventQueue.TryTake(out var eventItem);
-            
+
             if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
-            
+
             foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
                 eventSink.ProcessEvent(eventItem.Item1);
         }
     }
-    
+
     /// <summary>
     ///     Redirect event messages from an input ChannelReader directly into the event queue.
     /// </summary>
@@ -251,6 +276,6 @@ public class Scheduler : IEventSink
         await foreach (var item in input.ReadAllAsync())
             _eventQueue.TryAdd(item);
     }
-    
+
     #endregion
 }
