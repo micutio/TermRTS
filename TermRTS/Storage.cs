@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using log4net;
 using TermRTS.Data;
 
@@ -50,32 +51,30 @@ public class MappedCollectionStorage : IStorage
 {
     #region Private Fields
     
+    private static readonly ILog Log = LogManager.GetLogger(typeof(MappedCollectionStorage));
+    
     private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
     
-    private readonly ILog _log;
-    
     #endregion
     
-    #region Constructor
+    #region Constructors
     
     public MappedCollectionStorage()
     {
-        _log = LogManager.GetLogger(GetType());
+    }
+    
+    [JsonConstructor]
+    public MappedCollectionStorage(IList<ComponentBase> serializedComponents)
+    {
+        AddComponents(serializedComponents);
     }
     
     #endregion
     
     #region Public Properties
     
-    public IList<ComponentBase> SerializedComponents
-    {
-        get => All().ToList();
-        set
-        {
-            foreach (var c in value) AddComponent(c);
-        }
-    }
+    public IList<ComponentBase> SerializedComponents => All().ToList();
     
     #endregion
     
@@ -161,7 +160,7 @@ public class MappedCollectionStorage : IStorage
         }
         catch (InvalidOperationException e)
         {
-            _log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
+            Log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
         }
         
         return default;
@@ -184,7 +183,7 @@ public class MappedCollectionStorage : IStorage
         }
         catch (InvalidOperationException e)
         {
-            _log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
+            Log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
         }
         
         return default;

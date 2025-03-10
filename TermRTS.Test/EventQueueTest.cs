@@ -1,3 +1,5 @@
+using TermRTS.Event;
+
 namespace TermRTS.Test;
 
 public class EventQueueTest

@@ -3,14 +3,20 @@ namespace TermRTS.Test;
 public class SerializationTest
 {
     [Fact]
-    public void TestSchedularSerialization()
+    public void TestSchedulerSerialization()
     {
-        var scheduler = new Scheduler(new Core(new NullRenderer()));
-        var sim = new Simulation(scheduler);
-        var jsonStr = sim.SerializeSimulationStateToJson();
-        Assert.NotNull(jsonStr);
-        var roundTripScheduler = sim.LoadSimulationStateFromJson(jsonStr);
-        Assert.NotNull(roundTripScheduler);
-        Assert.Equal(scheduler, roundTripScheduler);
+        var expectedScheduler = new Scheduler(new Core(new NullRenderer()));
+        var sim = new Simulation(expectedScheduler);
+        
+        var expectedJsonStr = sim.SerializeSimulationStateToJson();
+        Assert.NotNull(expectedJsonStr);
+        
+        var actualScheduler = sim.LoadSimulationStateFromJson(expectedJsonStr);
+        Assert.NotNull(actualScheduler);
+        
+        var actualJsonStr = sim.SerializeSimulationStateToJson();
+        Assert.NotNull(actualJsonStr);
+        
+        Assert.Equal(expectedJsonStr, actualJsonStr);
     }
 }

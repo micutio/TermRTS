@@ -15,55 +15,59 @@ namespace TermRTS;
 public class Simulation(Scheduler scheduler)
 {
     #region Private Fields
-
+    
     private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
-
+    
     private readonly JsonSerializerOptions _serializerOptions = new()
     {
         WriteIndented = true,
         IncludeFields = true,
         Converters =
         {
-            // handle all subclasses of ComponentBase
-            new BaseClassConverter<ComponentBase>(GetAllComponentTypes()),
+            // handle all subclasses of various interfaces and abstract classes
+            new BaseClassConverter<ComponentBase>(GetAllSubTypes<ComponentBase>()),
+            new BaseClassConverter<IEventSink>(GetAllSubTypes<IEventSink>()),
+            new BaseClassConverter<IEvent>(GetAllSubTypes<IEvent>()),
+            new BaseClassConverter<ISimSystem>(GetAllSubTypes<ISimSystem>()),
+            new BaseClassConverter<IRenderer>(GetAllSubTypes<IRenderer>()),
             // handle all byte[,] matrices
             new ByteArray2DConverter(),
             // handle all bool[,] matrices
             new BooleanArray2DConverter()
         }
     };
-
+    
     #endregion
-
+    
     #region Properties
-
+    
     public Scheduler Scheduler { get; private set; } = scheduler;
-
+    
     #endregion
-
+    
     #region Public Members
-
+    
     public void Start()
     {
         Log.Info("Starting Simulation");
         Scheduler.Prepare();
         while (Scheduler.IsActive) Scheduler.SimulationStep();
-
+        
         Scheduler.Shutdown();
-
+        
         // TODO: Remove temporary serialization test
         var jsonStr = SerializeSimulationStateToJson();
         if (!string.IsNullOrEmpty(jsonStr))
             SaveJsonToFile("/home/michael/savegame.json", jsonStr);
     }
-
+    
     /// <summary>
     /// Persist the current simulation state to the file system.
     /// </summary>
     public string? SerializeSimulationStateToJson()
     {
         string jsonStr;
-
+        
         try
         {
             jsonStr = JsonSerializer.Serialize(Scheduler, _serializerOptions);
@@ -74,10 +78,10 @@ public class Simulation(Scheduler scheduler)
             Log.ErrorFormat("Error serializing simulation state to json: {0}", e);
             return null;
         }
-
+        
         return jsonStr;
     }
-
+    
     private static void SaveJsonToFile(string filePath, string jsonStr)
     {
         try
@@ -89,7 +93,7 @@ public class Simulation(Scheduler scheduler)
             Log.ErrorFormat("Error writing simulation state to file {0}: {1}", filePath, e);
         }
     }
-
+    
     /// <summary>
     /// Load a saved simulation state from the file system.
     /// </summary>
@@ -108,10 +112,10 @@ public class Simulation(Scheduler scheduler)
             Environment.Exit(1);
             return null;
         }
-
+        
         return jsonStr;
     }
-
+    
     public Scheduler? LoadSimulationStateFromJson(string jsonStr)
     {
         if (string.IsNullOrWhiteSpace(jsonStr))
@@ -120,7 +124,7 @@ public class Simulation(Scheduler scheduler)
             Environment.Exit(1);
             return null;
         }
-
+        
         Scheduler? newScheduler;
         try
         {
@@ -132,31 +136,31 @@ public class Simulation(Scheduler scheduler)
             Environment.Exit(1);
             return null;
         }
-
+        
         if (newScheduler == null)
         {
             Log.ErrorFormat("Error: scheduler parsed from json is invalid.");
             Environment.Exit(1);
             return null;
         }
-
+        
         return newScheduler;
     }
-
+    
     #endregion
-
+    
     #region Private Members
-
-    private static Type[] GetAllComponentTypes()
+    
+    private static Type[] GetAllSubTypes<TSuperType>()
     {
         var types = AppDomain
             .CurrentDomain
             .GetAssemblies()
             .SelectMany(x => x.GetTypes())
-            .Where(x => typeof(ComponentBase).IsAssignableFrom(x) && x is { IsInterface: false, IsAbstract: false })
+            .Where(x => typeof(TSuperType).IsAssignableFrom(x) && x is { IsInterface: false, IsAbstract: false })
             .ToArray();
         return types;
     }
-
+    
     #endregion
 }

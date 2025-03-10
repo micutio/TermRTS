@@ -1,31 +1,9 @@
-using System.Collections;
-using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 
-namespace TermRTS;
+namespace TermRTS.Event;
 
-public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TElement, TPriority)>
+public class EventQueue<TElement, TPriority>
 {
-    #region Constructor
-    
-    /// <summary>
-    ///     Constructor.
-    /// </summary>
-    /// <param name="comparer"> Comparer to facilitate sorting by priority. </param>
-    public EventQueue(IComparer<TPriority>? comparer = default)
-    {
-        SyncRoot = new object();
-        comparer ??= Comparer<TPriority>.Default;
-        _queue = new PriorityQueue<TElement, (TPriority, long)>(Comparer<(TPriority, long)>.Create(
-            (x, y) =>
-            {
-                var result = comparer.Compare(x.Item1, y.Item1);
-                if (result == 0) result = x.Item2.CompareTo(y.Item2);
-                return result;
-            }));
-    }
-    
-    #endregion
-    
     #region Private Fields
     
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
@@ -33,9 +11,35 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
     
     #endregion
     
+    #region Constructor
+    
+    /// <summary>
+    ///     Constructor.
+    /// </summary>
+    public EventQueue()
+    {
+        var comparer = Comparer<TPriority>.Default;
+        _queue = new PriorityQueue<TElement, (TPriority, long)>(
+            Comparer<(TPriority, long)>.Create(
+                (x, y) =>
+                {
+                    var result = comparer.Compare(x.Item1, y.Item1);
+                    if (result == 0) result = x.Item2.CompareTo(y.Item2);
+                    return result;
+                }));
+    }
+    
+    public EventQueue(IEnumerable<(TElement, TPriority)> serializedElements) : this()
+    {
+        foreach (var e in serializedElements) TryAdd(e);
+    }
+    
+    #endregion
+    
+    
     #region Properties
     
-    /// <inheritdoc />
+    [JsonIgnore]
     public int Count
     {
         get
@@ -47,14 +51,32 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         }
     }
     
-    /// <inheritdoc />
-    public bool IsSynchronized => true; // use to be `false`, not sure whether true is correct
+    [JsonInclude]
+    public ICollection<(TElement, TPriority)> SerializedElements
+    {
+        get
+        {
+            lock (SyncRoot)
+            {
+                return _queue
+                    .UnorderedItems
+                    .AsEnumerable()
+                    .Select(e =>
+                    {
+                        var (element, (priority, _)) = e;
+                        return (Element: element, priority);
+                    })
+                    .ToList();
+            }
+        }
+    }
     
     #endregion
     
+    [JsonIgnore] private object SyncRoot { get; } = new();
+    
     #region Public Methods
     
-    /// <inheritdoc />
     public bool TryAdd((TElement, TPriority) item)
     {
         lock (SyncRoot)
@@ -65,7 +87,6 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
         return true;
     }
     
-    /// <inheritdoc />
     public bool TryTake(out (TElement, TPriority) item)
     {
         lock (SyncRoot)
@@ -90,63 +111,6 @@ public class EventQueue<TElement, TPriority> : IProducerConsumerCollection<(TEle
             priority = priority1.Item1;
             return value;
         }
-    }
-    
-    /// <inheritdoc />
-    public object SyncRoot { get; }
-    
-    /// <inheritdoc />
-    public void CopyTo((TElement, TPriority)[] array, int index)
-    {
-        throw new NotSupportedException();
-        
-        /*
-        ArgumentNullException.ThrowIfNull(array);
-        
-        ArgumentOutOfRangeException.ThrowIfNegative(index);
-        
-        var count = Count;
-        if (array.Length - index < count)
-            throw new ArgumentException("Not enough elements after index in the destination array.");
-        
-        lock (SyncRoot)
-        {
-            for (var i = 0; i < count; ++i)
-                array[i + index] = _queue[i];
-        }
-        */
-    }
-    
-    /// <inheritdoc />
-    public void CopyTo(Array array, int index)
-    {
-        throw new NotSupportedException();
-        /*
-        ArgumentNullException.ThrowIfNull(array);
-        
-        if (array is not (TElement, TPriority)[] pArray)
-            throw new ArgumentException("Cannot convert to priority array", nameof(array));
-        
-        CopyTo(pArray, index);
-        */
-    }
-    
-    /// <inheritdoc />
-    public IEnumerator<(TElement, TPriority)> GetEnumerator()
-    {
-        throw new NotSupportedException();
-    }
-    
-    /// <inheritdoc />
-    public (TElement, TPriority)[] ToArray()
-    {
-        throw new NotSupportedException();
-    }
-    
-    /// <inheritdoc />
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
     }
     
     #endregion

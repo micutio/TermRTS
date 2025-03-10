@@ -3,6 +3,17 @@ using System.Text.Json.Serialization;
 
 namespace TermRTS;
 
+internal record CoreState(
+    IRenderer renderer,
+    List<ISimSystem> Systems,
+    List<EntityBase> Entities,
+    MappedCollectionStorage Components,
+    List<EntityBase> NewEntities,
+    List<ComponentBase> NewComponents
+)
+{
+}
+
 // Notes to self:
 // Possible optimisation - remove all new variable allocation from game loop and replace with
 // assigning to private class fields.
@@ -20,27 +31,58 @@ namespace TermRTS;
 /// </summary>
 public class Core : IEventSink
 {
-    #region Constructor
+    #region Private Fields
+    
+    private readonly IRenderer _renderer;
+    private readonly List<ISimSystem> _systems = [];
+    private readonly List<EntityBase> _entities = [];
+    private readonly MappedCollectionStorage _components = new();
+    private readonly List<EntityBase> _newEntities = [];
+    private readonly List<ComponentBase> _newComponents = [];
+    
+    private bool _isGameRunning = true;
+    
+    #endregion
+    
+    #region Constructors
     
     /// <summary>
     ///     Constructor
     /// </summary>
     /// <param name="renderer"> An object representing the renderer. </param>
-    /// <param name="isParallelized">
     ///     Whether the game systems should be processed in parallel.
     /// </param>
-    public Core(IRenderer renderer, bool isParallelized = false)
+    public Core(IRenderer renderer)
     {
-        _isGameRunning = true;
         _renderer = renderer;
-        _entities = new List<EntityBase>();
-        _components = new MappedCollectionStorage();
-        _newEntities = new List<EntityBase>();
-        _newComponents = new List<ComponentBase>();
-        _systems = new List<ISimSystem>();
-        
-        _isParallelized = isParallelized;
     }
+    
+    [JsonConstructor]
+    internal Core(CoreState coreState)
+    {
+        _renderer = coreState.renderer;
+        _systems = coreState.Systems;
+        _entities = coreState.Entities;
+        _components = coreState.Components;
+        _newEntities = coreState.NewEntities;
+        _newComponents = coreState.NewComponents;
+    }
+    
+    #endregion
+    
+    #region Properties
+    
+    public bool IsParallelized { get; set; } = true;
+    
+    [JsonInclude]
+    internal CoreState CoreState => new(
+        _renderer,
+        _systems,
+        _entities,
+        _components,
+        _newEntities,
+        _newComponents
+    );
     
     #endregion
     
@@ -64,21 +106,6 @@ public class Core : IEventSink
                 throw new UnreachableException();
         }
     }
-    
-    #endregion
-    
-    #region Private Fields
-    
-    [JsonInclude] private readonly IRenderer _renderer;
-    [JsonInclude] private readonly List<ISimSystem> _systems;
-    [JsonInclude] private readonly List<EntityBase> _entities;
-    [JsonInclude] private readonly MappedCollectionStorage _components;
-    [JsonInclude] private readonly List<EntityBase> _newEntities;
-    [JsonInclude] private readonly List<ComponentBase> _newComponents;
-    
-    [JsonInclude] private readonly bool _isParallelized;
-    
-    [JsonInclude] private bool _isGameRunning;
     
     #endregion
     
@@ -124,7 +151,7 @@ public class Core : IEventSink
     {
         // Two-step simulation
         // Step 1: Iterate over each system and apply it to the respective entities.
-        if (_isParallelized)
+        if (IsParallelized)
             // Is it possible to set the thread count for parallel processing?
             foreach (var sys in _systems.AsParallel())
                 sys.ProcessComponents(timeStepSizeMs, _components);
