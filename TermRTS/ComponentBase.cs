@@ -4,16 +4,16 @@ namespace TermRTS;
 
 public abstract class ComponentBase(int entityId)
 {
-    private readonly List<IDoubleBufferedProperty> _doubleBufferedProperties = [];
+    [JsonInclude] internal readonly List<IDoubleBufferedProperty> DoubleBufferedProperties = [];
     public int EntityId { get; } = entityId;
-    
+
     public void SwapBuffers()
     {
-        foreach (var property in _doubleBufferedProperties) property.SwitchBuffer();
+        foreach (var property in DoubleBufferedProperties) property.SwitchBuffer();
     }
-    
+
     protected void RegisterDoubleBufferedProperty(IDoubleBufferedProperty property)
     {
-        _doubleBufferedProperties.Add(property);
+        DoubleBufferedProperties.Add(property);
     }
 }

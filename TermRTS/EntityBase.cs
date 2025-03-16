@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TermRTS;
 
 /// <summary>
@@ -6,13 +8,13 @@ namespace TermRTS;
 public class EntityBase
 {
     #region Fields
-    
+
     private static int _runningId;
-    
+
     #endregion
-    
+
     #region Constructors
-    
+
     /// <summary>
     ///     Constructor
     /// </summary>
@@ -20,18 +22,18 @@ public class EntityBase
     {
         Id = Interlocked.Increment(ref _runningId);
     }
-    
+
     #endregion
-    
+
     #region Properties
-    
+
     public int Id { get; }
-    
+
     /// <summary>
     ///     Property to indicate whether this entity is to be removed.
     /// </summary>
     public bool IsMarkedForRemoval { get; set; } = false;
-    
+
     #endregion
 }
 
@@ -48,23 +50,25 @@ public interface IDoubleBufferedProperty
 ///     The property can be reassigned a new value while still exposing the old value publicly.
 ///     Only the <see cref="SwitchBuffer" /> method updates the readable value.
 /// </summary>
-/// <param name="val">Value of the property</param>
+/// <param name="value">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>
-public class DoubleBuffered<T>(T val) : IDoubleBufferedProperty
+public class DoubleBuffered<T>(T value) : IDoubleBufferedProperty
 {
-    private T _buffer = val;
-    private T _value = val;
-    
+    private T _buffer = value;
+
+    [JsonInclude] [JsonPropertyName("value")]
+    private T _value = value;
+
     public void SwitchBuffer()
     {
         _buffer = _value;
     }
-    
-    public void Set(T value)
+
+    public void Set(T newValue)
     {
-        _value = value;
+        _value = newValue;
     }
-    
+
     public T Get()
     {
         return _buffer;
