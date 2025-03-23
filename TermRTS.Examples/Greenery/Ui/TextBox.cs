@@ -1,4 +1,4 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
 
@@ -12,22 +12,30 @@ internal enum InputState
 
 public class TextBox : IEventSink
 {
+    #region Private Fields
+
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-    
+
     private readonly char[] _msg = new char[80];
     private int _idx;
     private InputState _state = InputState.Idle;
+
+    #endregion
+
+    #region Properties
+
     public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
-    
-    
+
     public bool IsOngoingInput => _state == InputState.OngoingInput;
-    
+
+    #endregion
+
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() != EventType.KeyInput) return;
-        
+
         var keyEvent = (KeyInputEvent)evt;
-        
+
         if (keyEvent.Info.Key.Equals(ConsoleKey.Enter))
             switch (_state)
             {
@@ -40,9 +48,9 @@ public class TextBox : IEventSink
                     _state = InputState.Idle;
                     return;
             }
-        
+
         if (!IsOngoingInput) return;
-        
+
         // var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
         switch (keyEvent.Info.Key)
         {
@@ -59,14 +67,14 @@ public class TextBox : IEventSink
                 break;
         }
     }
-    
+
     private void FinalizeMessage()
     {
         _idx = 0;
         _state = InputState.Idle;
         _channel.Writer.TryWrite((new CommandEvent(_msg), 0L));
     }
-    
+
     public ArraySegment<char> GetCurrentInput()
     {
         return _idx == 0

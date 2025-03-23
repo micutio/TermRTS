@@ -28,15 +28,15 @@ public class Renderer : IRenderer, IEventSink
 {
     #region Private Fields
 
+    private readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
     private readonly ConsoleCanvas _canvas;
     private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
     private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
-    private readonly ILog _log;
 
-    [JsonIgnore] // updated from canvas and viewport size
-    private Vector2 _viewportSize;
+    // updated from canvas and viewport size
+    [JsonIgnore] private Vector2 _viewportSize;
 
     private readonly Vector2 _worldSize;
 
@@ -56,7 +56,7 @@ public class Renderer : IRenderer, IEventSink
 
     private int _maxY;
 
-    // Offsets for the Map rendering, to accomodate left and top indicators
+    // Offsets for the Map rendering, to accommodate left and top indicators
     private int _mapOffsetX;
     private int _mapOffsetY;
 
@@ -71,7 +71,6 @@ public class Renderer : IRenderer, IEventSink
         // _canvas.Interlaced = true;
         _visualByElevation = new (char, ConsoleColor, ConsoleColor)[10];
         _visualByPosition = new (char, ConsoleColor, ConsoleColor)[worldWidth, worldHeight];
-        _log = LogManager.GetLogger(GetType());
         _textbox = textbox;
         _viewportSize.X = _canvas.Width;
         _viewportSize.Y = _canvas.Height;
@@ -290,7 +289,7 @@ public class Renderer : IRenderer, IEventSink
     {
         Console.ResetColor();
         Console.Clear();
-        _log.Info("Shutting down renderer.");
+        Log.Info("Shutting down renderer.");
     }
 
     #endregion
@@ -374,34 +373,34 @@ public class Renderer : IRenderer, IEventSink
     private void RenderWorldByElevationVisuals(in WorldComponent world, in FovComponent fov)
     {
         for (var y = CameraPosY; y < _maxY; y++)
-        for (var x = CameraPosX; x < _maxX; x++)
-        {
-            var (c, colFg, colBg) = _visualByElevation[world.Cells[x, y]];
-            colFg = fov.Cells[x, y] ? colFg : DefaultFg;
-            colBg = fov.Cells[x, y] ? colBg : DefaultBg;
-            _canvas.Set(
-                x - CameraPosX + _mapOffsetX,
-                y - CameraPosY + _mapOffsetY,
-                c,
-                colFg,
-                colBg);
-        }
+            for (var x = CameraPosX; x < _maxX; x++)
+            {
+                var (c, colFg, colBg) = _visualByElevation[world.Cells[x, y]];
+                colFg = fov.Cells[x, y] ? colFg : DefaultFg;
+                colBg = fov.Cells[x, y] ? colBg : DefaultBg;
+                _canvas.Set(
+                    x - CameraPosX + _mapOffsetX,
+                    y - CameraPosY + _mapOffsetY,
+                    c,
+                    colFg,
+                    colBg);
+            }
     }
 
     private void RenderWorldByVisualMatrix(in FovComponent fov)
     {
         for (var y = CameraPosY; y < _maxY; y++)
-        for (var x = CameraPosX; x < _maxX; x++)
-        {
-            var (c, colFg, _) = _visualByPosition[x, y];
-            colFg = fov.Cells[x, y] ? colFg : DefaultFg;
-            _canvas.Set(
-                x - CameraPosX + _mapOffsetX,
-                y - CameraPosY + _mapOffsetY,
-                c,
-                colFg,
-                DefaultBg);
-        }
+            for (var x = CameraPosX; x < _maxX; x++)
+            {
+                var (c, colFg, _) = _visualByPosition[x, y];
+                colFg = fov.Cells[x, y] ? colFg : DefaultFg;
+                _canvas.Set(
+                    x - CameraPosX + _mapOffsetX,
+                    y - CameraPosY + _mapOffsetY,
+                    c,
+                    colFg,
+                    DefaultBg);
+            }
     }
 
     private void RenderCoordinates()
@@ -431,12 +430,12 @@ public class Renderer : IRenderer, IEventSink
 
         // Vertical
         for (var y = CameraPosY; y < _maxY; y++)
-        for (var x = 0; x < _mapOffsetX; x++)
-        {
-            var isTick = y > 0 && y % 5 == 0;
-            var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(x, y - CameraPosY + _mapOffsetY, Cp437.BlockFull, fg);
-        }
+            for (var x = 0; x < _mapOffsetX; x++)
+            {
+                var isTick = y > 0 && y % 5 == 0;
+                var fg = isTick ? DefaultFg : DefaultBg;
+                _canvas.Set(x, y - CameraPosY + _mapOffsetY, Cp437.BlockFull, fg);
+            }
 
         for (var y = CameraPosY; y < _maxY; y++)
         {
@@ -599,77 +598,77 @@ public class Renderer : IRenderer, IEventSink
     private void SetWorldReliefVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldSize.Y; y++)
-        for (var x = 0; x < _worldSize.X; x++)
-        {
-            char c;
-            if (x == CameraPosX)
-                c = '~';
-            else if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] &&
-                     world.Cells[x, y] > 3)
-                c = Cp437.Slash;
-            else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] &&
-                     world.Cells[x, y] > 3)
-                c = Cp437.BackSlash;
-            else if (world.Cells[x, y] <= 3)
-                c = '~';
-            else
-                c = Cp437.Interpunct;
+            for (var x = 0; x < _worldSize.X; x++)
+            {
+                char c;
+                if (x == CameraPosX)
+                    c = '~';
+                else if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] &&
+                         world.Cells[x, y] > 3)
+                    c = Cp437.Slash;
+                else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] &&
+                         world.Cells[x, y] > 3)
+                    c = Cp437.BackSlash;
+                else if (world.Cells[x, y] <= 3)
+                    c = '~';
+                else
+                    c = Cp437.Interpunct;
 
-            var colFg = RenderMode == RenderMode.ReliefMonochrome
-                ? DefaultFg
-                : _visualByElevation[world.Cells[x, y]].Item2;
+                var colFg = RenderMode == RenderMode.ReliefMonochrome
+                    ? DefaultFg
+                    : _visualByElevation[world.Cells[x, y]].Item2;
 
-            _visualByPosition[x, y] = (c, colFg, DefaultBg);
-        }
+                _visualByPosition[x, y] = (c, colFg, DefaultBg);
+            }
     }
 
     private void SetWorldContourLines(WorldComponent world)
     {
         for (var y = 0; y < _worldSize.Y; y++)
-        for (var x = 0; x < _worldSize.X; x++)
-        {
-            var cell = world.Cells[x, y];
-            if (cell < 3)
+            for (var x = 0; x < _worldSize.X; x++)
             {
-                _visualByPosition[x, y] = (Cp437.WhiteSpace, DefaultFg, DefaultBg);
-                continue;
+                var cell = world.Cells[x, y];
+                if (cell < 3)
+                {
+                    _visualByPosition[x, y] = (Cp437.WhiteSpace, DefaultFg, DefaultBg);
+                    continue;
+                }
+
+                var c = GetCharFromCliffs(cell, x, y, world);
+                _visualByPosition[x, y].Item1 = c;
             }
 
-            var c = GetCharFromCliffs(cell, x, y, world);
-            _visualByPosition[x, y].Item1 = c;
-        }
+        for (var y = 0; y < _worldSize.Y; y++)
+            for (var x = 0; x < _worldSize.X; x++)
+            {
+                var cell = world.Cells[x, y];
+                if (cell < 3) continue;
+
+                if (_visualByPosition[x, y].Item1 == 'X') continue;
+                var c = GetCliffAdjacentChar(cell, x, y, world);
+
+                var colFg = RenderMode == RenderMode.ContourMonochrome
+                    ? DefaultFg
+                    : _visualByElevation[world.Cells[x, y]].Item2;
+
+                _visualByPosition[x, y] = (c, colFg, DefaultBg);
+            }
 
         for (var y = 0; y < _worldSize.Y; y++)
-        for (var x = 0; x < _worldSize.X; x++)
-        {
-            var cell = world.Cells[x, y];
-            if (cell < 3) continue;
+            for (var x = 0; x < _worldSize.X; x++)
+            {
+                var cell = world.Cells[x, y];
+                if (cell < 3) continue;
 
-            if (_visualByPosition[x, y].Item1 == 'X') continue;
-            var c = GetCliffAdjacentChar(cell, x, y, world);
+                if (_visualByPosition[x, y].Item1 != 'X') continue;
+                var c = GetCliffChar(cell, x, y, world);
 
-            var colFg = RenderMode == RenderMode.ContourMonochrome
-                ? DefaultFg
-                : _visualByElevation[world.Cells[x, y]].Item2;
+                var colFg = RenderMode == RenderMode.ContourMonochrome
+                    ? DefaultFg
+                    : _visualByElevation[world.Cells[x, y]].Item2;
 
-            _visualByPosition[x, y] = (c, colFg, DefaultBg);
-        }
-
-        for (var y = 0; y < _worldSize.Y; y++)
-        for (var x = 0; x < _worldSize.X; x++)
-        {
-            var cell = world.Cells[x, y];
-            if (cell < 3) continue;
-
-            if (_visualByPosition[x, y].Item1 != 'X') continue;
-            var c = GetCliffChar(cell, x, y, world);
-
-            var colFg = RenderMode == RenderMode.ContourMonochrome
-                ? DefaultFg
-                : _visualByElevation[world.Cells[x, y]].Item2;
-
-            _visualByPosition[x, y] = (c, colFg, DefaultBg);
-        }
+                _visualByPosition[x, y] = (c, colFg, DefaultBg);
+            }
     }
 
     private char GetCharFromCliffs(byte cell, int x, int y, WorldComponent world)
