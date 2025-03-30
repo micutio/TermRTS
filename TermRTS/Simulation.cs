@@ -42,18 +42,17 @@ public class Simulation(Scheduler scheduler)
 
     #region Properties
 
-    public Scheduler Scheduler { get; private set; } = scheduler;
+    public Scheduler Scheduler { get; } = scheduler;
 
     #endregion
 
     #region Public Members
 
-    public void Start()
+    public void Run()
     {
         Log.Info("Starting Simulation");
         Scheduler.Prepare();
         while (Scheduler.IsActive) Scheduler.SimulationStep();
-
         Scheduler.Shutdown();
 
         // TODO: Remove temporary serialization test
@@ -72,8 +71,7 @@ public class Simulation(Scheduler scheduler)
 
         try
         {
-            jsonStr = JsonSerializer.Serialize(Scheduler, _serializerOptions);
-            Console.WriteLine(jsonStr);
+            jsonStr = JsonSerializer.Serialize(Scheduler.GetSchedulerState(), _serializerOptions);
         }
         catch (Exception e)
         {
@@ -118,35 +116,35 @@ public class Simulation(Scheduler scheduler)
         return jsonStr;
     }
 
-    public Scheduler? LoadSimulationStateFromJson(string jsonStr)
+    public void LoadSimulationStateFromJson(string jsonStr)
     {
         if (string.IsNullOrWhiteSpace(jsonStr))
         {
             Log.ErrorFormat("Error reading simulation state: empty json string.");
             Environment.Exit(1);
-            return null;
+            return;
         }
 
-        Scheduler? newScheduler;
+        SchedulerState? newSchedulerState;
         try
         {
-            newScheduler = JsonSerializer.Deserialize<Scheduler>(jsonStr, _serializerOptions);
+            newSchedulerState = JsonSerializer.Deserialize<SchedulerState>(jsonStr, _serializerOptions);
         }
         catch (Exception e)
         {
             Log.ErrorFormat("Error parsing simulation state from json: {0}", e);
             Environment.Exit(1);
-            return null;
+            return;
         }
 
-        if (newScheduler == null)
+        if (newSchedulerState != null)
         {
-            Log.ErrorFormat("Error: scheduler parsed from json is invalid.");
-            Environment.Exit(1);
-            return null;
+            Scheduler.ReplaceSchedulerState(newSchedulerState);
+            return;
         }
 
-        return newScheduler;
+        Log.ErrorFormat("Error: simulation state parsed from json is invalid.");
+        Environment.Exit(1);
     }
 
     #endregion

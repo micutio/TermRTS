@@ -81,7 +81,7 @@ public class EngineTest
 
         // Run it
         var simulation = new Simulation(scheduler);
-        simulation.Start();
+        simulation.Run();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         const ulong finalTime = 12 * 16;
@@ -99,7 +99,7 @@ public class EngineTest
 
         // Run it
         var simulation = new Simulation(scheduler);
-        simulation.Start();
+        simulation.Run();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         ulong finalTime = 12 * 16;

@@ -131,6 +131,6 @@ public class BounceApp : IRunnableExample
         input.Run();
 
         var simulation = new Simulation(scheduler);
-        simulation.Start();
+        simulation.Run();
     }
 }

@@ -5,14 +5,14 @@ namespace TermRTS.Event;
 public class EventQueue<TElement, TPriority>
 {
     #region Private Fields
-    
+
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
     private long _index;
-    
+
     #endregion
-    
+
     #region Constructor
-    
+
     /// <summary>
     ///     Constructor.
     /// </summary>
@@ -28,18 +28,12 @@ public class EventQueue<TElement, TPriority>
                     return result;
                 }));
     }
-    
-    public EventQueue(IEnumerable<(TElement, TPriority)> serializedElements) : this()
-    {
-        foreach (var e in serializedElements) TryAdd(e);
-    }
-    
+
     #endregion
-    
-    
+
+
     #region Properties
-    
-    [JsonIgnore]
+
     public int Count
     {
         get
@@ -50,43 +44,23 @@ public class EventQueue<TElement, TPriority>
             }
         }
     }
-    
-    [JsonInclude]
-    public ICollection<(TElement, TPriority)> SerializedElements
-    {
-        get
-        {
-            lock (SyncRoot)
-            {
-                return _queue
-                    .UnorderedItems
-                    .AsEnumerable()
-                    .Select(e =>
-                    {
-                        var (element, (priority, _)) = e;
-                        return (Element: element, priority);
-                    })
-                    .ToList();
-            }
-        }
-    }
-    
+
     #endregion
-    
-    [JsonIgnore] private object SyncRoot { get; } = new();
-    
+
+    private object SyncRoot { get; } = new();
+
     #region Public Methods
-    
+
     public bool TryAdd((TElement, TPriority) item)
     {
         lock (SyncRoot)
         {
             _queue.Enqueue(item.Item1, (item.Item2, ++_index));
         }
-        
+
         return true;
     }
-    
+
     public bool TryTake(out (TElement, TPriority) item)
     {
         lock (SyncRoot)
@@ -96,12 +70,12 @@ public class EventQueue<TElement, TPriority>
                 item = (element, priority.Item1);
                 return true;
             }
-            
+
             item = default;
             return false;
         }
     }
-    
+
     public bool TryPeek(out TElement? element, out TPriority? priority)
     {
         lock (SyncRoot)
@@ -112,6 +86,34 @@ public class EventQueue<TElement, TPriority>
             return value;
         }
     }
-    
+
+    public void Clear()
+    {
+        lock (SyncRoot)
+        {
+            _queue.Clear();
+        }
+    }
+
+    #endregion
+
+    #region Internal Members
+
+    internal List<(TElement, TPriority)> GetSerializableElements()
+    {
+        lock (SyncRoot)
+        {
+            return _queue
+                .UnorderedItems
+                .AsEnumerable()
+                .Select(e =>
+                {
+                    var (element, (priority, _)) = e;
+                    return (Element: element, priority);
+                })
+                .ToList();
+        }
+    }
+
     #endregion
 }

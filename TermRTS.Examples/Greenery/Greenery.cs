@@ -94,7 +94,7 @@ public class Greenery : IRunnableExample
         // scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 10));
 
         // Run it
-        simulation.Start();
+        simulation.Run();
 
         // After the app is terminated, clear the console.
         Console.Clear();

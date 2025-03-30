@@ -63,7 +63,7 @@ internal class MinimalApp : IRunnableExample
         var simulation = new Simulation(scheduler);
 
         // Run it
-        simulation.Start();
+        simulation.Run();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
     }

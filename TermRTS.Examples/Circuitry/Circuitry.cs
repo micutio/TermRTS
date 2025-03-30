@@ -65,7 +65,7 @@ internal class Circuitry : IRunnableExample
 
         // Run it
         var simulation = new Simulation(scheduler);
-        simulation.Start();
+        simulation.Run();
 
         // After the app is terminated, clear the console.
         Console.Clear();

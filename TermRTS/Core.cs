@@ -4,10 +4,8 @@ using System.Text.Json.Serialization;
 namespace TermRTS;
 
 internal record CoreState(
-    IRenderer renderer,
-    List<ISimSystem> Systems,
     List<EntityBase> Entities,
-    MappedCollectionStorage Components,
+    List<ComponentBase> Components,
     List<EntityBase> NewEntities,
     List<ComponentBase> NewComponents
 )
@@ -32,62 +30,39 @@ internal record CoreState(
 public class Core : IEventSink
 {
     #region Private Fields
-    
+
     private readonly IRenderer _renderer;
     private readonly List<ISimSystem> _systems = [];
     private readonly List<EntityBase> _entities = [];
     private readonly MappedCollectionStorage _components = new();
     private readonly List<EntityBase> _newEntities = [];
     private readonly List<ComponentBase> _newComponents = [];
-    
+
     private bool _isGameRunning = true;
-    
+
     #endregion
-    
+
     #region Constructors
-    
+
     /// <summary>
     ///     Constructor
     /// </summary>
     /// <param name="renderer"> An object representing the renderer. </param>
-    ///     Whether the game systems should be processed in parallel.
-    /// </param>
     public Core(IRenderer renderer)
     {
         _renderer = renderer;
     }
-    
-    [JsonConstructor]
-    internal Core(CoreState coreState)
-    {
-        _renderer = coreState.renderer;
-        _systems = coreState.Systems;
-        _entities = coreState.Entities;
-        _components = coreState.Components;
-        _newEntities = coreState.NewEntities;
-        _newComponents = coreState.NewComponents;
-    }
-    
+
     #endregion
-    
+
     #region Properties
-    
+
     public bool IsParallelized { get; set; } = true;
-    
-    [JsonInclude]
-    internal CoreState CoreState => new(
-        _renderer,
-        _systems,
-        _entities,
-        _components,
-        _newEntities,
-        _newComponents
-    );
-    
+
     #endregion
-    
+
     #region IEventSink Members
-    
+
     /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
@@ -106,11 +81,11 @@ public class Core : IEventSink
                 throw new UnreachableException();
         }
     }
-    
+
     #endregion
-    
+
     #region ICore Members
-    
+
     /// <summary>
     ///     A method to check whether the simulation is still running.
     /// </summary>
@@ -122,7 +97,7 @@ public class Core : IEventSink
     {
         return _isGameRunning;
     }
-    
+
     /// <summary>
     ///     Prepares to spawn new entities. This always happens at the end of a simulation tick.
     /// </summary>
@@ -133,14 +108,14 @@ public class Core : IEventSink
             _entities.AddRange(_newEntities);
             _newEntities.Clear();
         }
-        
+
         if (_newComponents.Count != 0)
         {
             foreach (var c in _newComponents) _components.AddComponent(c);
             _newComponents.Clear();
         }
     }
-    
+
     /// <summary>
     ///     Performs one simulation tick.
     /// </summary>
@@ -158,14 +133,14 @@ public class Core : IEventSink
         else
             foreach (var sys in _systems)
                 sys.ProcessComponents(timeStepSizeMs, _components);
-        
+
         _components.SwapBuffers();
-        
+
         // Clean up operations: remove 'dead' entities and add new ones
         // var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
         // foreach (var id in entityIdsToRemove) _components.RemoveComponentsByEntity(id);
         // _entities.RemoveAll(e => e.IsMarkedForRemoval);
-        
+
         var i = 0;
         while (i < _entities.Count)
         {
@@ -174,19 +149,19 @@ public class Core : IEventSink
                 i++;
                 continue;
             }
-            
+
             _components.RemoveComponentsByEntity(_entities[i].Id);
             _entities.RemoveAt(i);
         }
-        
+
         SpawnNewEntities();
-        
+
         // New game state should look like this:
         //  - all pending changes cleared
         //  - all pending new entities added
         //  - all to-be-removed entities removed
     }
-    
+
     /// <summary>
     ///     Call the renderer to render all renderable objects.
     /// </summary>
@@ -195,7 +170,7 @@ public class Core : IEventSink
         _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
         _renderer.FinalizeRender();
     }
-    
+
     /// <summary>
     ///     Prompt the simulation to stop running.
     /// </summary>
@@ -203,11 +178,11 @@ public class Core : IEventSink
     {
         _renderer.Shutdown();
     }
-    
+
     #endregion
-    
+
     #region Public Members
-    
+
     /// <summary>
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.
     /// </summary>
@@ -216,7 +191,7 @@ public class Core : IEventSink
     {
         _newEntities.Add(entity);
     }
-    
+
     /// <summary>
     ///     Schedule a range of new entities to be added to the simulation at the beginning of the
     ///     next tick.
@@ -226,7 +201,7 @@ public class Core : IEventSink
     {
         _newEntities.AddRange(entities);
     }
-    
+
     /// <summary>
     ///     Schedule a new component to be added to the simulation at the beginning of the next tick.
     /// </summary>
@@ -235,7 +210,7 @@ public class Core : IEventSink
     {
         _newComponents.Add(component);
     }
-    
+
     /// <summary>
     ///     Schedule a range of new components to be added to the simulation at the beginning of the
     ///     next tick.
@@ -245,7 +220,7 @@ public class Core : IEventSink
     {
         _newComponents.AddRange(components);
     }
-    
+
     /// <summary>
     ///     Add a new system to the simulation, effective immediately.
     /// </summary>
@@ -254,7 +229,7 @@ public class Core : IEventSink
     {
         _systems.Add(system);
     }
-    
+
     /// <summary>
     ///     Remove system from the simulation, effective immediately.
     /// </summary>
@@ -263,6 +238,32 @@ public class Core : IEventSink
     {
         _systems.Remove(system);
     }
-    
+
+    #endregion
+
+    #region Internal Members
+
+    internal CoreState GetSerializableCoreState()
+    {
+        return new CoreState(
+            _entities,
+            _components.GetSerializableComponents(),
+            _newEntities,
+            _newComponents
+        );
+    }
+
+    internal void ReplaceCoreState(CoreState coreState)
+    {
+        _entities.Clear();
+        _entities.AddRange(coreState.Entities);
+        _newEntities.Clear();
+        _newEntities.AddRange(coreState.NewEntities);
+        _newComponents.Clear();
+        _newComponents.AddRange(coreState.NewComponents);
+        _components.Clear();
+        _components.AddComponents(coreState.Components);
+    }
+
     #endregion
 }
