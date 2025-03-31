@@ -56,7 +56,6 @@ public class DoubleBuffered<T>(T value) : IDoubleBufferedProperty
 {
     private T _buffer = value;
 
-    [JsonInclude] [JsonPropertyName("value")]
     private T _value = value;
 
     public void SwitchBuffer()

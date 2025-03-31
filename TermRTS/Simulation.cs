@@ -60,6 +60,11 @@ public class Simulation(Scheduler scheduler)
         if (!string.IsNullOrEmpty(jsonStr))
             SaveJsonToFile("/home/michael/savegame.json", jsonStr);
         LoadSimulationStateFromJson(jsonStr);
+        var newJsonStr = SerializeSimulationStateToJson();
+        if (!string.Equals(jsonStr, newJsonStr))
+        {
+            Console.Error.WriteLine("ERROR: SERIALIZATION FAILED");
+        }
     }
 
     /// <summary>
