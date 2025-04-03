@@ -16,7 +16,7 @@ public class EntityBase
     #region Constructors
 
     /// <summary>
-    /// Create a new EntityBase with incremental running Id.
+    ///     Create a new EntityBase with incremental running Id.
     /// </summary>
     public EntityBase()
     {
@@ -67,10 +67,14 @@ public class DoubleBuffered<T>(T value) : IDoubleBufferedProperty
 
     private T _value = value;
 
+    #region IDoubleBufferedProperty Members
+
     public void SwitchBuffer()
     {
         _buffer = _value;
     }
+
+    #endregion
 
     public void Set(T newValue)
     {

@@ -1,9 +1,9 @@
 using System.Numerics;
-using TermRTS.Examples.Greenery.Command;
-using TermRTS.Examples.Greenery.Ui;
 using System.Runtime.InteropServices;
 using TermRTS.Event;
+using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.System;
+using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
@@ -16,6 +16,8 @@ public class Greenery : IRunnableExample
     // private readonly ILog _log;
     private readonly CommandRunner _commandRunner = new();
     private readonly TextBox _textbox = new();
+
+    #region IRunnableExample Members
 
     public void Run()
     {
@@ -98,4 +100,6 @@ public class Greenery : IRunnableExample
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) Console.Title = previousTitle;
     }
+
+    #endregion
 }

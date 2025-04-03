@@ -1,16 +1,7 @@
-using System.Text.Json.Serialization;
-
 namespace TermRTS.Event;
 
 public class EventQueue<TElement, TPriority>
 {
-    #region Private Fields
-
-    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
-    private long _index;
-
-    #endregion
-
     #region Constructor
 
     /// <summary>
@@ -48,6 +39,29 @@ public class EventQueue<TElement, TPriority>
     #endregion
 
     private object SyncRoot { get; } = new();
+
+    internal List<(TElement, TPriority)> GetSerializableElements()
+    {
+        lock (SyncRoot)
+        {
+            return _queue
+                .UnorderedItems
+                .AsEnumerable()
+                .Select(e =>
+                {
+                    var (element, (priority, _)) = e;
+                    return (Element: element, priority);
+                })
+                .ToList();
+        }
+    }
+
+    #region Private Fields
+
+    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
+    private long _index;
+
+    #endregion
 
     #region Public Methods
 
@@ -92,26 +106,6 @@ public class EventQueue<TElement, TPriority>
         lock (SyncRoot)
         {
             _queue.Clear();
-        }
-    }
-
-    #endregion
-
-    #region Internal Members
-
-    internal List<(TElement, TPriority)> GetSerializableElements()
-    {
-        lock (SyncRoot)
-        {
-            return _queue
-                .UnorderedItems
-                .AsEnumerable()
-                .Select(e =>
-                {
-                    var (element, (priority, _)) = e;
-                    return (Element: element, priority);
-                })
-                .ToList();
         }
     }
 

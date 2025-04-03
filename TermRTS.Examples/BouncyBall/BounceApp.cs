@@ -37,6 +37,8 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
 {
     private Vector2 _velocity;
 
+    #region IEventSink Members
+
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() != EventType.KeyInput) return;
@@ -58,6 +60,10 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
                 break;
         }
     }
+
+    #endregion
+
+    #region ISimSystem Members
 
     public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
@@ -108,10 +114,14 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
             ball.Velocity = ballVel;
         }
     }
+
+    #endregion
 }
 
 public class BounceApp : IRunnableExample
 {
+    #region IRunnableExample Members
+
     public void Run()
     {
         var core = new Core(new BounceRenderer());
@@ -133,4 +143,6 @@ public class BounceApp : IRunnableExample
         var simulation = new Simulation(scheduler);
         simulation.Run();
     }
+
+    #endregion
 }

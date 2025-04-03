@@ -5,6 +5,8 @@ namespace TermRTS.Examples.Minimal;
 
 internal class NullRenderer : IRenderer
 {
+    #region IRenderer Members
+
     public void RenderComponents(in IStorage components, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
@@ -17,6 +19,8 @@ internal class NullRenderer : IRenderer
     public void Shutdown()
     {
     }
+
+    #endregion
 }
 
 internal class WatcherSystem : ISimSystem
@@ -32,6 +36,8 @@ internal class WatcherSystem : ISimSystem
         EventOutput = _eventChannel.Reader;
     }
 
+    #region ISimSystem Members
+
     public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         _remainingTicks -= 1;
@@ -43,10 +49,14 @@ internal class WatcherSystem : ISimSystem
         if (_remainingTicks % 60 == 0)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Profile), 60));
     }
+
+    #endregion
 }
 
 internal class MinimalApp : IRunnableExample
 {
+    #region IRunnableExample Members
+
     public void Run()
     {
         var core = new Core(new NullRenderer());
@@ -67,4 +77,6 @@ internal class MinimalApp : IRunnableExample
 
         // It should terminate after 12 ticks of 16ms simulated time each.
     }
+
+    #endregion
 }

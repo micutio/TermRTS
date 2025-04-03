@@ -5,6 +5,8 @@ namespace TermRTS.Test;
 
 public class NullRenderer : IRenderer
 {
+    #region IRenderer Members
+
     public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
     }
@@ -16,6 +18,8 @@ public class NullRenderer : IRenderer
     void IRenderer.FinalizeRender()
     {
     }
+
+    #endregion
 }
 
 public class EngineTestTheoryData : TheoryData<Core>
@@ -43,6 +47,8 @@ public class WatcherSystem : ISimSystem
         EventOutput = _eventChannel.Reader;
     }
 
+    #region ISimSystem Members
+
     public void ProcessComponents(ulong timeStepSize, in IStorage storage)
     {
         _remainingTicks -= 1;
@@ -50,6 +56,8 @@ public class WatcherSystem : ISimSystem
         if (_remainingTicks == 0)
             _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
     }
+
+    #endregion
 }
 
 public class EngineTest

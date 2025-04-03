@@ -12,23 +12,23 @@ public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[
     public int WorldHeight { get; } = worldHeight;
 }
 
-public class FovComponent: ComponentBase
+public class FovComponent : ComponentBase
 {
-    public FovComponent(int entityId, int worldWidth, int worldHeight): base(entityId)
+    public FovComponent(int entityId, int worldWidth, int worldHeight) : base(entityId)
     {
         Cells = new bool[worldWidth, worldHeight];
         WorldWidth = worldWidth;
         WorldHeight = worldHeight;
     }
-    
+
     [JsonConstructor]
-    internal FovComponent(int entityId, int worldWidth, int worldHeight, bool[,] cells): base(entityId)
+    internal FovComponent(int entityId, int worldWidth, int worldHeight, bool[,] cells) : base(entityId)
     {
         Cells = cells;
         WorldWidth = worldWidth;
         WorldHeight = worldHeight;
     }
-    
+
     public bool[,] Cells { get; }
     public int WorldWidth { get; }
     public int WorldHeight { get; }
@@ -59,16 +59,6 @@ public class DroneComponent : ComponentBase
         get => _position.Get();
         set => _position.Set(value);
     }
-
-    #region Properties
-
-    public List<Vector2>? Path { get; set; } // TODO: Change into Queue!
-
-    public int? PathIndex { get; set; }
-
-    public List<(int, int, char)> CachedPathVisual { get; } = [];
-
-    #endregion
 
     public void ResetPath()
     {
@@ -179,6 +169,8 @@ public class DroneComponent : ComponentBase
         };
     }
 
+    #region Nested type: Direction
+
     private enum Direction
     {
         North,
@@ -186,4 +178,16 @@ public class DroneComponent : ComponentBase
         South,
         West
     }
+
+    #endregion
+
+    #region Properties
+
+    public List<Vector2>? Path { get; set; } // TODO: Change into Queue!
+
+    public int? PathIndex { get; set; }
+
+    public List<(int, int, char)> CachedPathVisual { get; } = [];
+
+    #endregion
 }

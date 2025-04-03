@@ -1,4 +1,3 @@
-using System.IO.IsolatedStorage;
 using System.Numerics;
 using ConsoleRenderer;
 using log4net;
@@ -14,13 +13,13 @@ internal class Renderer : IRenderer, IEventSink
     private readonly ILog _log;
     private string _profileOutput;
     private double _timePassedMs;
-    
+
     public Vector2 CameraPos = new(0, 0);
     public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
     public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
-    
+
     #region Constructor
-    
+
     public Renderer()
     {
         Console.CursorVisible = false;
@@ -28,11 +27,11 @@ internal class Renderer : IRenderer, IEventSink
         _log = LogManager.GetLogger(GetType());
         _profileOutput = string.Empty;
     }
-    
+
     #endregion
-    
+
     #region IEventSink Members
-    
+
     /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
@@ -42,44 +41,44 @@ internal class Renderer : IRenderer, IEventSink
             _ => _profileOutput
         };
     }
-    
+
     #endregion
-    
+
     #region Public Methods
-    
+
     public void RenderComponents(in IStorage storage, double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
-        
+
         foreach (var chipOutline in storage.GetAllForType<Circuitry.Chip>().Select(chip => chip.Outline))
             RenderOutline(chipOutline);
-        
+
         foreach (var bus in storage.GetAllForType<Circuitry.Bus>())
         {
             var progress = bus.IsForward ? bus.Progress : 1.0f - bus.Progress;
             foreach (var wire in bus.Connections) RenderWire(wire.Outline, bus.IsActive, progress);
         }
     }
-    
+
     public void FinalizeRender()
     {
         _canvas.Render();
     }
-    
+
     public void Shutdown()
     {
         Console.ResetColor();
     }
-    
+
     #endregion
-    
+
     #region Private Methods
-    
+
     private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFrameMs)
     {
         _timePassedMs += timeStepSizeMs + howFarIntoNextFrameMs;
-        
+
         //#if DEBUG
         var debugStr = string.IsNullOrEmpty(_profileOutput)
             ? ""
@@ -90,7 +89,7 @@ internal class Renderer : IRenderer, IEventSink
         _canvas.Text(1, 0, $"Greenery | T {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
         //#endif
     }
-    
+
     private void RenderOutline(IReadOnlyList<Circuitry.Cell> outline)
     {
         for (var i = 0; i < outline.Count; i += 1)
@@ -104,7 +103,7 @@ internal class Renderer : IRenderer, IEventSink
                 ConsoleColor.Black);
         }
     }
-    
+
     private void RenderWire(IReadOnlyList<Circuitry.Cell> outline, bool isActive, float progress)
     {
         var sparkIdx = Convert.ToInt32(outline.Count * progress);
@@ -113,14 +112,14 @@ internal class Renderer : IRenderer, IEventSink
             var (x, y, c) = outline[i];
             var deltaX = Convert.ToInt32(x - CameraPos.X);
             var deltaY = Convert.ToInt32(y - CameraPos.Y);
-            
+
             if (isActive && i == sparkIdx)
                 _canvas.Set(deltaX, deltaY, c, ConsoleColor.Blue, DefaultBg);
             else
                 _canvas.Set(deltaX, deltaY, c, ConsoleColor.Black, DefaultBg);
         }
     }
-    
+
     private bool IsInCamera(float x, float y)
     {
         return x >= CameraPos.X
@@ -128,6 +127,6 @@ internal class Renderer : IRenderer, IEventSink
                && y >= CameraPos.Y
                && y <= CameraSize.Y - CameraPos.Y;
     }
-    
+
     #endregion
 }

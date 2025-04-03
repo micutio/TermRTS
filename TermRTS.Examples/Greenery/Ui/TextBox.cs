@@ -12,23 +12,7 @@ internal enum InputState
 
 public class TextBox : IEventSink
 {
-    #region Private Fields
-
-    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-
-    private readonly char[] _msg = new char[80];
-    private int _idx;
-    private InputState _state = InputState.Idle;
-
-    #endregion
-
-    #region Properties
-
-    public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
-
-    public bool IsOngoingInput => _state == InputState.OngoingInput;
-
-    #endregion
+    #region IEventSink Members
 
     public void ProcessEvent(IEvent evt)
     {
@@ -68,6 +52,8 @@ public class TextBox : IEventSink
         }
     }
 
+    #endregion
+
     private void FinalizeMessage()
     {
         _idx = 0;
@@ -81,4 +67,22 @@ public class TextBox : IEventSink
             ? []
             : new ArraySegment<char>(_msg, 0, _idx);
     }
+
+    #region Private Fields
+
+    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+
+    private readonly char[] _msg = new char[80];
+    private int _idx;
+    private InputState _state = InputState.Idle;
+
+    #endregion
+
+    #region Properties
+
+    public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
+
+    public bool IsOngoingInput => _state == InputState.OngoingInput;
+
+    #endregion
 }

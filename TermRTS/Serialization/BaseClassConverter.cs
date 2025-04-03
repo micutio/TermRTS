@@ -5,22 +5,20 @@ using System.Text.Json.Serialization;
 namespace TermRTS.Serialization;
 
 /// <summary>
-/// Static untyped variant of <see cref="BaseClassConverter{TBaseType}"/> to act as a factory for
-/// easier instantiation.
+///     Static untyped variant of <see cref="BaseClassConverter{TBaseType}" /> to act as a factory for
+///     easier instantiation.
 /// </summary>
 public static class BaseClassConverter
 {
     /// <summary>
-    /// Shorthand to create a new converter for a given baseclass
+    ///     Shorthand to create a new converter for a given baseclass
     /// </summary>
     /// <typeparam name="T">Type of interface or abstract class</typeparam>
-    /// <returns>New BaseClassConverter instance for <see cref="T"/></returns>
+    /// <returns>New BaseClassConverter instance for <see cref="T" /></returns>
     public static BaseClassConverter<T> GetForType<T>() where T : class
     {
         return new BaseClassConverter<T>(GetAllSubTypes<T>());
     }
-
-    #region Private Members
 
     private static Type[] GetAllSubTypes<TSuperType>()
     {
@@ -32,8 +30,6 @@ public static class BaseClassConverter
             .ToArray();
         return types;
     }
-
-    #endregion
 }
 
 public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<TBaseType>
@@ -47,8 +43,6 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         // only responsible for the abstract base
         return typeof(TBaseType) == typeToConvert;
     }
-
-    #region JsonConverter<> Members
 
     public override TBaseType Read(
         ref Utf8JsonReader reader,
@@ -102,6 +96,4 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
             throw new JsonException($"{type.Name} with matching base type {typeof(TBaseType).Name} is not registered.");
         }
     }
-
-    #endregion
 }

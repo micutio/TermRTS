@@ -223,12 +223,8 @@ public class MappedCollectionStorage : IStorage
 
     #endregion
 
-    #region Internal Members
-
     internal List<ComponentBase> GetSerializableComponents()
     {
         return All().ToList();
     }
-
-    #endregion
 }

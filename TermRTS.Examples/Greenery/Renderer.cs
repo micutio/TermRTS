@@ -26,42 +26,6 @@ public enum RenderMode
 
 public class Renderer : IRenderer, IEventSink
 {
-    #region Private Fields
-
-    private readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
-    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
-
-    // updated from canvas and viewport size
-    [JsonIgnore] private Vector2 _viewportSize;
-
-    private readonly Vector2 _worldSize;
-
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-
-    private RenderMode _renderMode = RenderMode.ElevationColor;
-    private bool _initVisualMatrix = true;
-
-    private string _profileOutput;
-    private double _timePassedMs;
-
-    // Extend of the visible world; render from _cameraPos until _max
-    private int _cameraPosX;
-    private int _cameraPosY;
-    private int _maxX;
-
-    private int _maxY;
-
-    // Offsets for the Map rendering, to accommodate left and top indicators
-    private int _mapOffsetX;
-    private int _mapOffsetY;
-
-    #endregion
-
     #region Constructor
 
     public Renderer(int worldWidth, int worldHeight, TextBox textbox)
@@ -84,73 +48,6 @@ public class Renderer : IRenderer, IEventSink
 
         SetElevationLevelColorVisual();
         Console.CursorVisible = false;
-    }
-
-    #endregion
-
-    #region Private Properties
-
-    private RenderMode RenderMode
-    {
-        get => _renderMode;
-        set
-        {
-            _renderMode = value;
-            switch (_renderMode)
-            {
-                case RenderMode.ElevationColor:
-                    SetElevationLevelColorVisual();
-                    break;
-                case RenderMode.ElevationMonochrome:
-                    SetElevationLevelMonochromeVisual();
-                    break;
-                case RenderMode.HeatMapColor:
-                    SetHeatmapColorVisual();
-                    break;
-                case RenderMode.HeatMapMonochrome:
-                    SetHeatmapMonochromeVisual();
-                    break;
-                case RenderMode.TerrainColor:
-                    SetTerrainColorVisual();
-                    break;
-                case RenderMode.ReliefColor:
-                case RenderMode.ContourColor:
-                    SetTerrainColorVisual();
-                    _initVisualMatrix = true;
-                    break;
-                case RenderMode.TerrainMonochrome:
-                    SetTerrainMonochromeVisual();
-                    break;
-                case RenderMode.ReliefMonochrome:
-                case RenderMode.ContourMonochrome:
-                    SetTerrainMonochromeVisual();
-                    _initVisualMatrix = true;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-    }
-
-
-    private int CameraPosX
-    {
-        get => _cameraPosX;
-        set
-        {
-            _cameraPosX = value;
-            UpdateMaxX();
-        }
-    }
-
-    private int CameraPosY
-    {
-        get => _cameraPosY;
-        set
-        {
-            _cameraPosY = value;
-            UpdateMaxY();
-        }
     }
 
     #endregion
@@ -314,8 +211,6 @@ public class Renderer : IRenderer, IEventSink
     }
 
     #endregion
-
-    #region Private Members
 
     private void UpdateMaxX()
     {
@@ -777,6 +672,107 @@ public class Renderer : IRenderer, IEventSink
             15 => Cp437.BoxVerticalHorizontal, // 1111, all
             _ => '?'
         };
+    }
+
+    #region Private Fields
+
+    private readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
+    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
+
+    // updated from canvas and viewport size
+    [JsonIgnore] private Vector2 _viewportSize;
+
+    private readonly Vector2 _worldSize;
+
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+
+    private RenderMode _renderMode = RenderMode.ElevationColor;
+    private bool _initVisualMatrix = true;
+
+    private string _profileOutput;
+    private double _timePassedMs;
+
+    // Extend of the visible world; render from _cameraPos until _max
+    private int _cameraPosX;
+    private int _cameraPosY;
+    private int _maxX;
+
+    private int _maxY;
+
+    // Offsets for the Map rendering, to accommodate left and top indicators
+    private int _mapOffsetX;
+    private readonly int _mapOffsetY;
+
+    #endregion
+
+    #region Private Properties
+
+    private RenderMode RenderMode
+    {
+        get => _renderMode;
+        set
+        {
+            _renderMode = value;
+            switch (_renderMode)
+            {
+                case RenderMode.ElevationColor:
+                    SetElevationLevelColorVisual();
+                    break;
+                case RenderMode.ElevationMonochrome:
+                    SetElevationLevelMonochromeVisual();
+                    break;
+                case RenderMode.HeatMapColor:
+                    SetHeatmapColorVisual();
+                    break;
+                case RenderMode.HeatMapMonochrome:
+                    SetHeatmapMonochromeVisual();
+                    break;
+                case RenderMode.TerrainColor:
+                    SetTerrainColorVisual();
+                    break;
+                case RenderMode.ReliefColor:
+                case RenderMode.ContourColor:
+                    SetTerrainColorVisual();
+                    _initVisualMatrix = true;
+                    break;
+                case RenderMode.TerrainMonochrome:
+                    SetTerrainMonochromeVisual();
+                    break;
+                case RenderMode.ReliefMonochrome:
+                case RenderMode.ContourMonochrome:
+                    SetTerrainMonochromeVisual();
+                    _initVisualMatrix = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+
+
+    private int CameraPosX
+    {
+        get => _cameraPosX;
+        set
+        {
+            _cameraPosX = value;
+            UpdateMaxX();
+        }
+    }
+
+    private int CameraPosY
+    {
+        get => _cameraPosY;
+        set
+        {
+            _cameraPosY = value;
+            UpdateMaxY();
+        }
     }
 
     #endregion

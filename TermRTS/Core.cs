@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json.Serialization;
 
 namespace TermRTS;
 
@@ -29,19 +28,6 @@ internal record CoreState(
 /// </summary>
 public class Core : IEventSink
 {
-    #region Private Fields
-
-    private readonly IRenderer _renderer;
-    private readonly List<ISimSystem> _systems = [];
-    private readonly List<EntityBase> _entities = [];
-    private readonly MappedCollectionStorage _components = new();
-    private readonly List<EntityBase> _newEntities = [];
-    private readonly List<ComponentBase> _newComponents = [];
-
-    private bool _isGameRunning = true;
-
-    #endregion
-
     #region Constructors
 
     /// <summary>
@@ -83,8 +69,6 @@ public class Core : IEventSink
     }
 
     #endregion
-
-    #region Public Members
 
     /// <summary>
     ///     A method to check whether the simulation is still running.
@@ -235,10 +219,6 @@ public class Core : IEventSink
         _systems.Remove(system);
     }
 
-    #endregion
-
-    #region Internal Members
-
     internal CoreState GetSerializableCoreState()
     {
         return new CoreState(
@@ -260,6 +240,17 @@ public class Core : IEventSink
         _components.Clear();
         _components.AddComponents(coreState.Components);
     }
+
+    #region Private Fields
+
+    private readonly IRenderer _renderer;
+    private readonly List<ISimSystem> _systems = [];
+    private readonly List<EntityBase> _entities = [];
+    private readonly MappedCollectionStorage _components = new();
+    private readonly List<EntityBase> _newEntities = [];
+    private readonly List<ComponentBase> _newComponents = [];
+
+    private bool _isGameRunning = true;
 
     #endregion
 }

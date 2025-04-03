@@ -4,6 +4,8 @@ namespace TermRTS.Examples.Greenery.System;
 
 public class FovSystem : ISimSystem
 {
+    #region ISimSystem Members
+
     public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
     {
         // TODO: Switch Fov algorithms at runtime.
@@ -29,4 +31,6 @@ public class FovSystem : ISimSystem
             foreach (var (x, y) in droneFov) fov.Cells[x, y] = true;
         }
     }
+
+    #endregion
 }

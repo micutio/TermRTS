@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using TermRTS.Event;
 using TermRTS.Events;
@@ -16,37 +15,6 @@ internal record SchedulerState(
 
 public class Scheduler : IEventSink
 {
-    #region Private Fields
-
-    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-
-    // time constants
-    private readonly TimeSpan _msPerUpdate;
-    private readonly ulong _timeStepSizeMs;
-
-    // time keeping tools
-    private readonly Stopwatch _loopTimer = new();
-    private readonly Stopwatch _tickTimer = new();
-    private readonly Stopwatch _renderTimer = new();
-    private readonly Stopwatch _pauseTimer = new();
-    private TimeSpan _lag = TimeSpan.Zero;
-
-    // statistics recording for profiling
-    private readonly Profiler _profiler;
-
-    // the meaty bits - actual simulation loop logic
-
-    // channel for emitting events
-    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-
-    // serialized via property
-    private readonly EventQueue<IEvent, ulong> _eventQueue = new();
-    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks = new();
-
-    private readonly Core _core;
-
-    #endregion
-
     #region Constructors
 
     /// <summary>
@@ -75,24 +43,6 @@ public class Scheduler : IEventSink
     }
 
     #endregion
-
-    #region Properties
-
-    /// <summary>
-    ///     Property for read-only access to current simulation time.
-    /// </summary>
-    public ulong TimeMs { get; private set; }
-
-    /// <summary>
-    ///     Reader for channel to receive Profile events on.
-    /// </summary>
-    public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
-
-    public bool IsActive => _core.IsRunning();
-
-    #endregion
-
-    #region Public Members
 
     /// <summary>
     ///     Add a new event source to the scheduler. Using a channel the event source can send in new
@@ -208,10 +158,6 @@ public class Scheduler : IEventSink
         _channel.Writer.Complete();
     }
 
-    #endregion
-
-    #region Internal Members
-
     internal SchedulerState GetSchedulerState()
     {
         return new SchedulerState(
@@ -233,10 +179,6 @@ public class Scheduler : IEventSink
         _eventQueue.Clear();
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems) _eventQueue.TryAdd((eventItem, priority));
     }
-
-    #endregion
-
-    #region Private Members
 
     /// <summary>
     ///     Pause execution of the scheduler for a given time period.
@@ -283,6 +225,51 @@ public class Scheduler : IEventSink
         await foreach (var item in input.ReadAllAsync())
             _eventQueue.TryAdd(item);
     }
+
+    #region Private Fields
+
+    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
+
+    // time constants
+    private readonly TimeSpan _msPerUpdate;
+    private readonly ulong _timeStepSizeMs;
+
+    // time keeping tools
+    private readonly Stopwatch _loopTimer = new();
+    private readonly Stopwatch _tickTimer = new();
+    private readonly Stopwatch _renderTimer = new();
+    private readonly Stopwatch _pauseTimer = new();
+    private TimeSpan _lag = TimeSpan.Zero;
+
+    // statistics recording for profiling
+    private readonly Profiler _profiler;
+
+    // the meaty bits - actual simulation loop logic
+
+    // channel for emitting events
+    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+
+    // serialized via property
+    private readonly EventQueue<IEvent, ulong> _eventQueue = new();
+    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks = new();
+
+    private readonly Core _core;
+
+    #endregion
+
+    #region Properties
+
+    /// <summary>
+    ///     Property for read-only access to current simulation time.
+    /// </summary>
+    public ulong TimeMs { get; private set; }
+
+    /// <summary>
+    ///     Reader for channel to receive Profile events on.
+    /// </summary>
+    public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
+
+    public bool IsActive => _core.IsRunning();
 
     #endregion
 }

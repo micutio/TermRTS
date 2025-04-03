@@ -12,7 +12,7 @@ public class CommandRunner : IEventSink
     private const string ErrorTooManyArgs = "< Too many arguments!";
     private const string ErrorTooFewArgs = "< Too few arguments!";
     private const string ErrorUnknownCmd = "< Unknown command!";
-    
+
     // Available commands
     private const string CmdGo = "go";
     private const string CmdRender = "render";
@@ -26,23 +26,27 @@ public class CommandRunner : IEventSink
     private const string SubCmdRenderReliefMonochrome = "relief_mono";
     private const string SubCmdRenderContourColor = "contour_col";
     private const string SubCmdRenderContourMonochrome = "contour_mono";
-    
+
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-    
+
     public ChannelReader<(IEvent, ulong)> CommandEventReader => _channel.Reader;
-    
+
+    #region IEventSink Members
+
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt) Run(new Scanner(cmdEvt.Command).ScanTokens());
     }
-    
+
+    #endregion
+
     // TODO: Create a notification system that can display the responses
     private string Run(IReadOnlyList<Token> cmdTokens)
     {
         if (cmdTokens.Count == 0) return ErrorEmptyCmd;
-        
+
         if (cmdTokens[0].TokenType != TokenType.Identifier) return ErrorNoIdentifier;
-        
+
         return cmdTokens[0].Lexeme switch
         {
             CmdGo => CommandGo(cmdTokens),
@@ -50,31 +54,31 @@ public class CommandRunner : IEventSink
             _ => ErrorUnknownCmd
         };
     }
-    
+
     private string CommandGo(IReadOnlyList<Token> tokens)
     {
         if (tokens.Count < 1) return ErrorTooFewArgs;
-        
+
         if (tokens.Count > 3) return ErrorTooManyArgs;
-        
+
         if (tokens[1].TokenType != TokenType.Number || tokens[2].TokenType != TokenType.Number)
             return "Error: both following arguments must be numbers";
-        
+
         var x = Convert.ToSingle(tokens[1].Literal);
         var y = Convert.ToSingle(tokens[2].Literal);
-        
+
         // TODO: Make EntityId dynamic!
         _channel.Writer.TryWrite((new MoveEvent(3, new Vector2(x, y)), 0L));
         return string.Empty;
     }
-    
+
     // TODO: Change argument to listview
     private string CommandRenderMode(IReadOnlyList<Token> tokens)
     {
         if (tokens.Count < 1) return ErrorTooFewArgs;
-        
+
         if (tokens.Count > 2) return ErrorTooManyArgs;
-        
+
         switch (tokens[1].Lexeme)
         {
             case SubCmdRenderElevationColor:
@@ -109,7 +113,7 @@ public class CommandRunner : IEventSink
                 break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }
-        
+
         return string.Empty;
     }
 }

@@ -14,24 +14,34 @@ public interface IAnimal
 
 public class Dog(string name, string breed) : IAnimal
 {
-    public string Name { get; set; } = name;
     public string Breed { get; init; } = breed;
+
+    #region IAnimal Members
+
+    public string Name { get; set; } = name;
 
     public string MakeSound()
     {
         return "Woof!";
     }
+
+    #endregion
 }
 
 public class Cat(string name, string color) : IAnimal
 {
-    public string Name { get; set; } = name;
     public string Color { get; init; } = color;
+
+    #region IAnimal Members
+
+    public string Name { get; set; } = name;
 
     public string MakeSound()
     {
         return "Meow!";
     }
+
+    #endregion
 }
 
 public class BaseClassConverterTest(ITestOutputHelper testOutputHelper)

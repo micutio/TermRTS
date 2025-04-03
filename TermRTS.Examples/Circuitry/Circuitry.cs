@@ -14,6 +14,8 @@ internal class Circuitry : IRunnableExample
         _log = LogManager.GetLogger(GetType());
     }
 
+    #region IRunnableExample Members
+
     /// <summary>
     ///     Main method of the app.
     /// </summary>
@@ -72,6 +74,8 @@ internal class Circuitry : IRunnableExample
 
         _log.Info("Shutting down Circuitry example!");
     }
+
+    #endregion
 
     #region Internal Types
 
@@ -349,6 +353,8 @@ internal class Circuitry : IRunnableExample
         private readonly Random _rng = new();
         private ulong _timeSinceLastAttempt;
 
+        #region ISimSystem Members
+
         public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
         {
             foreach (var bus in storage.GetAllForType<Bus>())
@@ -379,6 +385,8 @@ internal class Circuitry : IRunnableExample
                 bus.Progress = (progressInM + deltaDistInM) / bus.AvgWireLength;
             }
         }
+
+        #endregion
     }
 
     #endregion
