@@ -11,11 +11,11 @@ public class FovSystem : ISimSystem
         if (world == null) return;
         var fov = storage.GetSingleForType<FovComponent>();
         if (fov == null) return;
-        
-        for (var y = 0; y < fov.Height; y++)
-        for (var x = 0; x < fov.Width; x++)
+
+        for (var y = 0; y < fov.WorldHeight; y++)
+        for (var x = 0; x < fov.WorldWidth; x++)
             fov.Cells[x, y] = false;
-        
+
         foreach (var dronePos in storage.GetAllForType<DroneComponent>().Select(drone => drone.Position))
         {
             var droneX = (int)dronePos.X;

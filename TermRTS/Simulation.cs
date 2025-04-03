@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using log4net;
 using TermRTS.Serialization;
@@ -58,13 +59,11 @@ public class Simulation(Scheduler scheduler)
         // TODO: Remove temporary serialization test
         var jsonStr = SerializeSimulationStateToJson();
         if (!string.IsNullOrEmpty(jsonStr))
-            SaveJsonToFile("/home/michael/savegame.json", jsonStr);
+            // SaveJsonToFile("/home/michael/savegame.json", jsonStr);
+            SaveJsonToFile("c:/Users/WA_MICHA/savegame.json", jsonStr);
         LoadSimulationStateFromJson(jsonStr);
         var newJsonStr = SerializeSimulationStateToJson();
-        if (!string.Equals(jsonStr, newJsonStr))
-        {
-            Console.Error.WriteLine("ERROR: SERIALIZATION FAILED");
-        }
+        if (!string.Equals(jsonStr, newJsonStr)) Log.Error("ERROR: SERIALIZATION FAILED");
     }
 
     /// <summary>

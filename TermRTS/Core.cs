@@ -84,7 +84,7 @@ public class Core : IEventSink
 
     #endregion
 
-    #region ICore Members
+    #region Public Members
 
     /// <summary>
     ///     A method to check whether the simulation is still running.
@@ -178,10 +178,6 @@ public class Core : IEventSink
     {
         _renderer.Shutdown();
     }
-
-    #endregion
-
-    #region Public Members
 
     /// <summary>
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.

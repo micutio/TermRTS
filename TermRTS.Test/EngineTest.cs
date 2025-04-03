@@ -102,7 +102,31 @@ public class EngineTest
         simulation.Run();
 
         // It should terminate after 12 ticks of 16ms simulated time each.
-        ulong finalTime = 12 * 16;
+        const ulong finalTime = 12 * 16;
         Assert.Equal(finalTime, scheduler.TimeMs);
+    }
+
+    [Theory]
+    [ClassData(typeof(EngineTestTheoryData))]
+    public void TestSerialization(Core core)
+    {
+        // Setup Scheduler
+        var watcherSystem = new WatcherSystem(12);
+        var scheduler = new Scheduler(core);
+        scheduler.AddEventSources(watcherSystem.EventOutput);
+        scheduler.AddEventSink(core, EventType.Shutdown);
+        core.AddSimSystem(watcherSystem);
+        core.AddEntity(new NullEntity());
+        // Setup Simulation
+        var sim = new Simulation(scheduler);
+        var expectedJson = sim.SerializeSimulationStateToJson();
+
+        Assert.NotNull(expectedJson);
+
+        sim.LoadSimulationStateFromJson(expectedJson);
+        var actualJson = sim.SerializeSimulationStateToJson();
+
+        Assert.NotNull(actualJson);
+        Assert.Equal(expectedJson, actualJson);
     }
 }

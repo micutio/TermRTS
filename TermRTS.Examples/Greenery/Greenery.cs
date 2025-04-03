@@ -96,8 +96,6 @@ public class Greenery : IRunnableExample
         // Run it
         simulation.Run();
 
-        // After the app is terminated, clear the console.
-        Console.Clear();
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) Console.Title = previousTitle;
     }
 }

@@ -16,11 +16,20 @@ public class EntityBase
     #region Constructors
 
     /// <summary>
-    ///     Constructor
+    /// Create a new EntityBase with incremental running Id.
     /// </summary>
     public EntityBase()
     {
         Id = Interlocked.Increment(ref _runningId);
+    }
+
+    [JsonConstructor]
+    internal EntityBase(int id)
+    {
+        Id = id;
+        // Set the running id to be greater than the current id,
+        // to avoid collisions for future Id initialisations.
+        _runningId = Interlocked.Increment(ref id);
     }
 
     #endregion
