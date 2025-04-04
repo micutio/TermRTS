@@ -54,11 +54,19 @@ public class DroneComponent : ComponentBase
 
     #endregion
 
-    public Vector2 Position
+    #region Nested type: Direction
+
+    private enum Direction
     {
-        get => _position.Get();
-        set => _position.Set(value);
+        North,
+        East,
+        South,
+        West
     }
+
+    #endregion
+
+    #region Public Methods
 
     public void ResetPath()
     {
@@ -117,6 +125,10 @@ public class DroneComponent : ComponentBase
         CachedPathVisual.AddRange(visual);
     }
 
+    #endregion
+
+    #region Private Methods
+
     private static char GenerateTerminatorChar(float thisX, float thisY, float nextX, float nextY)
     {
         if (Math.Abs(thisX - nextX) > 0.0001)
@@ -169,19 +181,15 @@ public class DroneComponent : ComponentBase
         };
     }
 
-    #region Nested type: Direction
-
-    private enum Direction
-    {
-        North,
-        East,
-        South,
-        West
-    }
-
     #endregion
 
     #region Properties
+
+    public Vector2 Position
+    {
+        get => _position.Get();
+        set => _position.Set(value);
+    }
 
     public List<Vector2>? Path { get; set; } // TODO: Change into Queue!
 
