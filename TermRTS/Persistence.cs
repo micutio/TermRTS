@@ -7,34 +7,6 @@ namespace TermRTS;
 
 public class Persistence
 {
-    #region Fields
-
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
-
-    private readonly JsonSerializerOptions _serializerOptions = new()
-    {
-        WriteIndented = true,
-        IncludeFields = true,
-        Converters =
-        {
-            // handle all subclasses of various interfaces and abstract classes
-            BaseClassConverter.GetForType<ComponentBase>(),
-            BaseClassConverter.GetForType<IDoubleBufferedProperty>(),
-            BaseClassConverter.GetForType<IEventSink>(),
-            BaseClassConverter.GetForType<IEvent>(),
-            BaseClassConverter.GetForType<ISimSystem>(),
-            BaseClassConverter.GetForType<IRenderer>(),
-            // handle all byte[,] matrices
-            new ByteArray2DConverter(),
-            // handle all bool[,] matrices
-            new BooleanArray2DConverter()
-        }
-    };
-
-    #endregion
-
-    #region Public Members
-
     /// <summary>
     ///     Persist the current simulation state to the file system.
     /// </summary>
@@ -67,7 +39,8 @@ public class Persistence
         SchedulerState? newSchedulerState;
         try
         {
-            newSchedulerState = JsonSerializer.Deserialize<SchedulerState>(jsonStr, _serializerOptions);
+            newSchedulerState =
+                JsonSerializer.Deserialize<SchedulerState>(jsonStr, _serializerOptions);
         }
         catch (Exception e)
         {
@@ -85,10 +58,6 @@ public class Persistence
         Log.ErrorFormat("Error: simulation state parsed from json is invalid.");
         Environment.Exit(1);
     }
-
-    #endregion
-
-    #region Internal Members
 
     internal static void SaveJsonToFile(string filePath, string jsonStr)
     {
@@ -123,6 +92,30 @@ public class Persistence
 
         return jsonStr;
     }
+
+    #region Fields
+
+    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
+
+    private readonly JsonSerializerOptions _serializerOptions = new()
+    {
+        WriteIndented = true,
+        IncludeFields = true,
+        Converters =
+        {
+            // handle all subclasses of various interfaces and abstract classes
+            BaseClassConverter.GetForType<ComponentBase>(),
+            BaseClassConverter.GetForType<IDoubleBufferedProperty>(),
+            BaseClassConverter.GetForType<IEventSink>(),
+            BaseClassConverter.GetForType<IEvent>(),
+            BaseClassConverter.GetForType<ISimSystem>(),
+            BaseClassConverter.GetForType<IRenderer>(),
+            // handle all byte[,] matrices
+            new ByteArray2DConverter(),
+            // handle all bool[,] matrices
+            new BooleanArray2DConverter()
+        }
+    };
 
     #endregion
 }

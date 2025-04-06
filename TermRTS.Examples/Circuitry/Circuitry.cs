@@ -125,7 +125,8 @@ internal class Circuitry : IRunnableExample
 
         public ArraySegment<Cell> UpperWall()
         {
-            return new ArraySegment<Cell>(Outline, 4, Convert.ToInt32(Position2.X - Position1.X) - 1);
+            return new ArraySegment<Cell>(Outline, 4,
+                Convert.ToInt32(Position2.X - Position1.X) - 1);
         }
 
         public ArraySegment<Cell> LowerWall()

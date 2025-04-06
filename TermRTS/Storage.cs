@@ -49,7 +49,7 @@ public interface IStorage
 // TODO: Make implementation thread-safe
 public class MappedCollectionStorage : IStorage
 {
-    #region Private Fields
+    #region Fields
 
     private static readonly ILog Log = LogManager.GetLogger(typeof(MappedCollectionStorage));
 
@@ -133,9 +133,11 @@ public class MappedCollectionStorage : IStorage
 
     public IEnumerable<T> GetAllForType<T>()
     {
-        if (_cachedGetForTypeQueries.TryGetValue(typeof(T), out var cachedQuery)) return cachedQuery.Cast<T>();
+        if (_cachedGetForTypeQueries.TryGetValue(typeof(T), out var cachedQuery))
+            return cachedQuery.Cast<T>();
 
-        if (!_componentStores.TryGetValue(typeof(T), out var components)) return Enumerable.Empty<T>();
+        if (!_componentStores.TryGetValue(typeof(T), out var components))
+            return Enumerable.Empty<T>();
 
         var query = components
             .Values
@@ -162,7 +164,8 @@ public class MappedCollectionStorage : IStorage
 
     public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
     {
-        if (!_componentStores.TryGetValue(typeof(T), out var componentsByType)) return Enumerable.Empty<T>();
+        if (!_componentStores.TryGetValue(typeof(T), out var componentsByType))
+            return Enumerable.Empty<T>();
 
         return !componentsByType.TryGetValue(entityId, out var componentsByTypeAndEntity)
             ? Enumerable.Empty<T>()

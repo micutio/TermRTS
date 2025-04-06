@@ -242,7 +242,7 @@ public class Core : IEventSink
         _components.AddComponents(coreState.Components);
     }
 
-    #region Private Fields
+    #region Fields
 
     private readonly IRenderer _renderer;
     private readonly List<ISimSystem> _systems = [];

@@ -68,7 +68,7 @@ public class TextBox : IEventSink
             : new ArraySegment<char>(_msg, 0, _idx);
     }
 
-    #region Private Fields
+    #region Fields
 
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
 

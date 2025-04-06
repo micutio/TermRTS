@@ -21,7 +21,8 @@ public class Array2DConverterTest
     [Fact]
     public void TestConvertBooleanMatrix()
     {
-        var booleans = new[,] { { true, false, true }, { false, false, true }, { false, true, true } };
+        var booleans = new[,]
+            { { true, false, true }, { false, false, true }, { false, true, true } };
 
         var options = new JsonSerializerOptions { WriteIndented = true };
         options.Converters.Add(new BooleanArray2DConverter());

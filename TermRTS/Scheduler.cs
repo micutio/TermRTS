@@ -182,7 +182,8 @@ public class Scheduler : IEventSink
         _pauseTimer.Reset();
 
         _eventQueue.Clear();
-        foreach (var (eventItem, priority) in schedulerState.EventQueueItems) _eventQueue.TryAdd((eventItem, priority));
+        foreach (var (eventItem, priority) in schedulerState.EventQueueItems)
+            _eventQueue.TryAdd((eventItem, priority));
     }
 
     #endregion
@@ -237,7 +238,7 @@ public class Scheduler : IEventSink
 
     #endregion
 
-    #region Private Fields
+    #region Fields
 
     private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
 

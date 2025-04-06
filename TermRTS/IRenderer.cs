@@ -11,7 +11,8 @@ public interface IRenderer
     ///     How much extra time was needed for the last simulation tick.
     ///     Given in percent of <see cref="timeStepSizeMs" />.
     /// </param>
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent);
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs,
+        double howFarIntoNextFramePercent);
 
     /// <summary>
     ///     Called at the end of the rendering step each simulation tick. This allows to apply the

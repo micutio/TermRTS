@@ -18,7 +18,8 @@ public class FovSystem : ISimSystem
         for (var x = 0; x < fov.WorldWidth; x++)
             fov.Cells[x, y] = false;
 
-        foreach (var dronePos in storage.GetAllForType<DroneComponent>().Select(drone => drone.Position))
+        foreach (var dronePos in storage.GetAllForType<DroneComponent>()
+                     .Select(drone => drone.Position))
         {
             var droneX = (int)dronePos.X;
             var droneY = (int)dronePos.Y;

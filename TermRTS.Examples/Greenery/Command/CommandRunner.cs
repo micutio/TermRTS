@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
+using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
 
@@ -41,7 +42,8 @@ public class CommandRunner : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt) Run(new Scanner(cmdEvt.Command).ScanTokens());
+        if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt)
+            Run(new Scanner(cmdEvt.Command).ScanTokens());
     }
 
     #endregion
@@ -93,7 +95,8 @@ public class CommandRunner : IEventSink
                 _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationColor), 0L));
                 break;
             case SubCmdRenderElevationMonochrome:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationMonochrome), 0L));
+                _channel.Writer.TryWrite(
+                    (new RenderOptionEvent(RenderMode.ElevationMonochrome), 0L));
                 break;
             case SubCmdRenderHeatmapColor:
                 _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.HeatMapColor), 0L));

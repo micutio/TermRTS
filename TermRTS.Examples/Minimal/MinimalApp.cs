@@ -7,7 +7,8 @@ internal class NullRenderer : IRenderer
 {
     #region IRenderer Members
 
-    public void RenderComponents(in IStorage components, double timeStepSizeMs, double howFarIntoNextFramePercent)
+    public void RenderComponents(in IStorage components, double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
     }

@@ -5,13 +5,16 @@ namespace TermRTS.Serialization;
 
 public class BooleanArray2DConverter : JsonConverter<bool[,]>
 {
-    public override bool[,] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override bool[,] Read(ref Utf8JsonReader reader, Type typeToConvert,
+        JsonSerializerOptions options)
     {
-        if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("Expected start of array.");
+        if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException("Expected start of array.");
 
         reader.Read(); // Move to the first inner array
 
-        if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("Expected start of inner array.");
+        if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException("Expected start of inner array.");
 
         var rows = new List<bool[]>();
         while (reader.TokenType == JsonTokenType.StartArray)
@@ -21,7 +24,8 @@ public class BooleanArray2DConverter : JsonConverter<bool[,]>
 
             while (reader.TokenType != JsonTokenType.EndArray)
             {
-                if (reader.TokenType != JsonTokenType.False && reader.TokenType != JsonTokenType.True)
+                if (reader.TokenType != JsonTokenType.False &&
+                    reader.TokenType != JsonTokenType.True)
                     throw new JsonException("Expected boolean type (true or false).");
                 row.Add(reader.GetBoolean());
                 reader.Read();
@@ -39,7 +43,8 @@ public class BooleanArray2DConverter : JsonConverter<bool[,]>
 
         for (var i = 0; i < rowCount; i++)
         {
-            if (rows[i].Length != colCount) throw new JsonException("Inner arrays must have the same length.");
+            if (rows[i].Length != colCount)
+                throw new JsonException("Inner arrays must have the same length.");
             for (var j = 0; j < colCount; j++) result[i, j] = rows[i][j];
         }
 

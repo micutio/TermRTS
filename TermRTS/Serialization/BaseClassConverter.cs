@@ -26,7 +26,9 @@ public static class BaseClassConverter
             .CurrentDomain
             .GetAssemblies()
             .SelectMany(x => x.GetTypes())
-            .Where(x => typeof(TSuperType).IsAssignableFrom(x) && x is { IsInterface: false, IsAbstract: false })
+            .Where(x =>
+                typeof(TSuperType).IsAssignableFrom(x) &&
+                x is { IsInterface: false, IsAbstract: false })
             .ToArray();
         return types;
     }
@@ -93,7 +95,8 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         }
         else
         {
-            throw new JsonException($"{type.Name} with matching base type {typeof(TBaseType).Name} is not registered.");
+            throw new JsonException(
+                $"{type.Name} with matching base type {typeof(TBaseType).Name} is not registered.");
         }
     }
 }

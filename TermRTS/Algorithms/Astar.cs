@@ -32,7 +32,7 @@ public class AStar
 
     #endregion
 
-    #region Private Fields
+    #region Fields
 
     // Location of the goal.
     private readonly Vector2 _goal;

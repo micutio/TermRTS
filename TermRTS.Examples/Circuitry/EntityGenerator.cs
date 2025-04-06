@@ -16,7 +16,7 @@ internal class EntityGenerator
         return new EntityGenerator();
     }
 
-    #region Private Fields
+    #region Fields
 
     // readonly utilities and internal state
     private readonly Dictionary<Circuitry.Chip, ISet<Circuitry.Chip>> _adjacency;
@@ -132,7 +132,8 @@ internal class EntityGenerator
             Circuitry.Chip? newChip = null;
             while (isInvalid && tries < 10)
             {
-                newChip = new Circuitry.Chip(chipEntity.Id, new Vector2(x, y), new Vector2(x + w, y + h));
+                newChip = new Circuitry.Chip(chipEntity.Id, new Vector2(x, y),
+                    new Vector2(x + w, y + h));
                 isInvalid = _generatedChipComponents.Exists(c => newChip.IsIntersecting(c));
                 tries += 1;
             }
@@ -291,7 +292,8 @@ internal class EntityGenerator
             aStar.Weight = (loc, neighbor) =>
             {
                 // penalise occupied locations
-                var isOccupied = IsOccupied(Convert.ToInt32(neighbor.X), Convert.ToInt32(neighbor.Y));
+                var isOccupied =
+                    IsOccupied(Convert.ToInt32(neighbor.X), Convert.ToInt32(neighbor.Y));
                 var isNeighborEndPoint = neighbor.Equals(origin) || neighbor.Equals(goal);
                 var occupationPenalty = isOccupied && !isNeighborEndPoint
                     ? float.PositiveInfinity
@@ -315,7 +317,8 @@ internal class EntityGenerator
             if (path == null) continue;
 
             var wire =
-                new Circuitry.Wire(path.ToList().ConvertAll(vec => (Convert.ToInt32(vec.X), Convert.ToInt32(vec.Y))));
+                new Circuitry.Wire(path.ToList()
+                    .ConvertAll(vec => (Convert.ToInt32(vec.X), Convert.ToInt32(vec.Y))));
             foreach (var (x, y, _) in wire.Outline) Occupy(x, y);
             wires.Add(wire);
         }

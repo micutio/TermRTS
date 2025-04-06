@@ -1,10 +1,6 @@
 ﻿// https://craftinginterpreters.com/scanning.html
 
-namespace TermRTS.Examples.Greenery.Command;
-
-// TODO: Parse text input into tokens.
-// TODO: Return error message for invalid outputs.
-// TODO: Think about UI for text input and output.
+namespace TermRTS.Algorithms;
 
 public enum TokenType
 {
@@ -37,8 +33,7 @@ public readonly record struct Token(TokenType TokenType, string Lexeme, object? 
 }
 
 /// <summary>
-///     Parses text to commands
-///     - or tokens?
+///     Parses text to tokens.
 /// </summary>
 public class Scanner(char[] source)
 {

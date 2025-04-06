@@ -5,13 +5,16 @@ namespace TermRTS.Serialization;
 
 public class ByteArray2DConverter : JsonConverter<byte[,]>
 {
-    public override byte[,] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override byte[,] Read(ref Utf8JsonReader reader, Type typeToConvert,
+        JsonSerializerOptions options)
     {
-        if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("Expected start of array.");
+        if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException("Expected start of array.");
 
         reader.Read(); // Move to the first inner array
 
-        if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("Expected start of inner array.");
+        if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException("Expected start of inner array.");
 
         var rows = new List<byte[]>();
         while (reader.TokenType == JsonTokenType.StartArray)
@@ -21,7 +24,8 @@ public class ByteArray2DConverter : JsonConverter<byte[,]>
 
             while (reader.TokenType != JsonTokenType.EndArray)
             {
-                if (reader.TokenType != JsonTokenType.Number) throw new JsonException("Expected number.");
+                if (reader.TokenType != JsonTokenType.Number)
+                    throw new JsonException("Expected number.");
                 row.Add(reader.GetByte());
                 reader.Read();
             }
@@ -38,7 +42,8 @@ public class ByteArray2DConverter : JsonConverter<byte[,]>
 
         for (var i = 0; i < rowCount; i++)
         {
-            if (rows[i].Length != colCount) throw new JsonException("Inner arrays must have the same length.");
+            if (rows[i].Length != colCount)
+                throw new JsonException("Inner arrays must have the same length.");
             for (var j = 0; j < colCount; j++) result[i, j] = rows[i][j];
         }
 

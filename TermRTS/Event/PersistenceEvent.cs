@@ -6,7 +6,8 @@ public enum PersistenceOption
     Save
 }
 
-public readonly record struct PersistenceEvent(PersistenceOption option, string jsonFilePath) : IEvent
+public readonly record struct PersistenceEvent(PersistenceOption option, string jsonFilePath)
+    : IEvent
 {
     #region IEvent Members
 

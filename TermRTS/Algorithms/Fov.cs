@@ -118,7 +118,8 @@ public static class Fov
             visibleCells.Add((tx, ty));
 
             if (isWall(tx, ty))
-                CastOctant(visibleCells, startX, startY, range, x + 1, slopeStart, prevSlope, octant, isWall);
+                CastOctant(visibleCells, startX, startY, range, x + 1, slopeStart, prevSlope,
+                    octant, isWall);
             else
                 slopeStart = currentSlope;
         }

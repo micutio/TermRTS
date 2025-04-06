@@ -22,7 +22,8 @@ public class FovComponent : ComponentBase
     }
 
     [JsonConstructor]
-    internal FovComponent(int entityId, int worldWidth, int worldHeight, bool[,] cells) : base(entityId)
+    internal FovComponent(int entityId, int worldWidth, int worldHeight, bool[,] cells) :
+        base(entityId)
     {
         Cells = cells;
         WorldWidth = worldWidth;
@@ -38,7 +39,7 @@ public class DroneComponent : ComponentBase
 {
     public const float Velocity = 1.0f; // [m/s]
 
-    #region Private Fields
+    #region Fields
 
     private readonly DoubleBuffered<Vector2> _position;
 

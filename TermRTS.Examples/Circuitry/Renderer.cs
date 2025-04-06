@@ -51,7 +51,8 @@ internal class Renderer : IRenderer, IEventSink
     {
         RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
 
-        foreach (var chipOutline in storage.GetAllForType<Circuitry.Chip>().Select(chip => chip.Outline))
+        foreach (var chipOutline in storage.GetAllForType<Circuitry.Chip>()
+                     .Select(chip => chip.Outline))
             RenderOutline(chipOutline);
 
         foreach (var bus in storage.GetAllForType<Circuitry.Bus>())

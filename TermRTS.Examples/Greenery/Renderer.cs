@@ -673,7 +673,7 @@ public class Renderer : IRenderer, IEventSink
         };
     }
 
-    #region Private Fields
+    #region Fields
 
     private readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;

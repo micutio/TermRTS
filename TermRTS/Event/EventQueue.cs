@@ -56,7 +56,7 @@ public class EventQueue<TElement, TPriority>
         }
     }
 
-    #region Private Fields
+    #region Fields
 
     private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
     private long _index;

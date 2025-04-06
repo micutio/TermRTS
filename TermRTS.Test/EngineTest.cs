@@ -7,7 +7,8 @@ public class NullRenderer : IRenderer
 {
     #region IRenderer Members
 
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs, double howFarIntoNextFramePercent)
+    public void RenderComponents(in IStorage storage, double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
     {
     }
 
