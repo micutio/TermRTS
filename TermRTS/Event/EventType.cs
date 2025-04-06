@@ -6,5 +6,6 @@ public enum EventType
     KeyInput,
     MouseInput,
     Profile,
+    Persistence,
     Shutdown
 }

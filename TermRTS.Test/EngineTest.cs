@@ -125,14 +125,15 @@ public class EngineTest
         scheduler.AddEventSink(core, EventType.Shutdown);
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
-        // Setup Simulation
+        // Setup Simulation and Persistence
         var sim = new Simulation(scheduler);
-        var expectedJson = sim.SerializeSimulationStateToJson();
+        var persistence = new Persistence();
+        var expectedJson = persistence.SerializeSimulationStateToJson(ref scheduler);
 
         Assert.NotNull(expectedJson);
 
-        sim.LoadSimulationStateFromJson(expectedJson);
-        var actualJson = sim.SerializeSimulationStateToJson();
+        persistence.LoadSimulationStateFromJson(ref scheduler, expectedJson);
+        var actualJson = persistence.SerializeSimulationStateToJson(ref scheduler);
 
         Assert.NotNull(actualJson);
         Assert.Equal(expectedJson, actualJson);

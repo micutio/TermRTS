@@ -1,4 +1,4 @@
-﻿namespace TermRTS.Events;
+﻿namespace TermRTS.Event;
 
 public readonly record struct ProfileEvent(string ProfileInfo) : IEvent
 {

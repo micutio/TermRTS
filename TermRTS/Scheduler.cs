@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
 using TermRTS.Event;
-using TermRTS.Events;
 
 namespace TermRTS;
 
@@ -43,6 +42,8 @@ public class Scheduler : IEventSink
     }
 
     #endregion
+
+    #region Public Methods
 
     /// <summary>
     ///     Add a new event source to the scheduler. Using a channel the event source can send in new
@@ -158,6 +159,10 @@ public class Scheduler : IEventSink
         _channel.Writer.Complete();
     }
 
+    #endregion
+
+    #region Internal Methods for Serialization
+
     internal SchedulerState GetSchedulerState()
     {
         return new SchedulerState(
@@ -179,6 +184,10 @@ public class Scheduler : IEventSink
         _eventQueue.Clear();
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems) _eventQueue.TryAdd((eventItem, priority));
     }
+
+    #endregion
+
+    #region Private Methods
 
     /// <summary>
     ///     Pause execution of the scheduler for a given time period.
@@ -225,6 +234,8 @@ public class Scheduler : IEventSink
         await foreach (var item in input.ReadAllAsync())
             _eventQueue.TryAdd(item);
     }
+
+    #endregion
 
     #region Private Fields
 

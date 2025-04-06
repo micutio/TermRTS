@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Threading.Channels;
+using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
 
 namespace TermRTS.Examples.Greenery.Command;
@@ -20,12 +22,16 @@ public class CommandRunner : IEventSink
     private const string SubCmdRenderElevationMonochrome = "elevation_mono";
     private const string SubCmdRenderHeatmapColor = "heat_col";
     private const string SubCmdRenderHeatmapMonochrome = "heat_mono";
+
     private const string SubCmdRenderTerrainColor = "terrain_col";
     private const string SubCmdRenderTerrainMonochrome = "terrain_mono";
     private const string SubCmdRenderReliefColor = "relief_col";
     private const string SubCmdRenderReliefMonochrome = "relief_mono";
     private const string SubCmdRenderContourColor = "contour_col";
     private const string SubCmdRenderContourMonochrome = "contour_mono";
+
+    private const string CmdSave = "save";
+    private const string CmdLoad = "load";
 
     private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
 
@@ -51,6 +57,8 @@ public class CommandRunner : IEventSink
         {
             CmdGo => CommandGo(cmdTokens),
             CmdRender => CommandRenderMode(cmdTokens),
+            CmdLoad => CommandLoad(),
+            CmdSave => CommandSave(),
             _ => ErrorUnknownCmd
         };
     }
@@ -115,5 +123,25 @@ public class CommandRunner : IEventSink
         }
 
         return string.Empty;
+    }
+
+    private string CommandSave()
+    {
+        _channel.Writer.TryWrite((new PersistenceEvent(PersistenceOption.Save, GetFilePath()), 0L));
+        return string.Empty;
+    }
+
+    private string CommandLoad()
+    {
+        _channel.Writer.TryWrite((new PersistenceEvent(PersistenceOption.Load, GetFilePath()), 0L));
+        return string.Empty;
+    }
+
+    private static string GetFilePath()
+    {
+        // TODO: Use XDG defaults
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "c:/Users/WA_MICHA/savegame.json"
+            : "/home/michael/savegame.json";
     }
 }

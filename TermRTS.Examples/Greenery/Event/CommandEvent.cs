@@ -1,4 +1,6 @@
-﻿namespace TermRTS.Examples.Greenery.Event;
+﻿using TermRTS.Event;
+
+namespace TermRTS.Examples.Greenery.Event;
 
 public readonly record struct CommandEvent(char[] Command) : IEvent
 {

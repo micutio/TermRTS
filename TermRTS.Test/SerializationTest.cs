@@ -5,14 +5,15 @@ public class SerializationTest
     [Fact]
     public void TestSchedulerSerialization()
     {
-        var sim = new Simulation(new Scheduler(new Core(new NullRenderer())));
+        var scheduler = new Scheduler(new Core(new NullRenderer()));
+        var persistence = new Persistence();
 
-        var expectedJsonStr = sim.SerializeSimulationStateToJson();
+        var expectedJsonStr = persistence.SerializeSimulationStateToJson(ref scheduler);
         Assert.NotNull(expectedJsonStr);
 
-        sim.LoadSimulationStateFromJson(expectedJsonStr);
+        persistence.LoadSimulationStateFromJson(ref scheduler, expectedJsonStr);
 
-        var actualJsonStr = sim.SerializeSimulationStateToJson();
+        var actualJsonStr = persistence.SerializeSimulationStateToJson(ref scheduler);
         Assert.NotNull(actualJsonStr);
 
         Assert.Equal(expectedJsonStr, actualJsonStr);

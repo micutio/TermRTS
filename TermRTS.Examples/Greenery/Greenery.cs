@@ -82,6 +82,7 @@ public class Greenery : IRunnableExample
         input.Run();
 
         var simulation = new Simulation(scheduler);
+        simulation.EnableSerialization();
 
         // Graceful shutdown on canceling via CTRL+C.
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)

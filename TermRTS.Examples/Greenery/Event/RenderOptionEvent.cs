@@ -1,4 +1,6 @@
-﻿namespace TermRTS.Examples.Greenery.Event;
+﻿using TermRTS.Event;
+
+namespace TermRTS.Examples.Greenery.Event;
 
 public readonly record struct RenderOptionEvent(RenderMode RenderMode) : IEvent
 {
