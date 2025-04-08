@@ -67,7 +67,23 @@ public class DroneComponent : ComponentBase
 
     #endregion
 
-    #region Public Methods
+    #region Properties
+
+    public Vector2 Position
+    {
+        get => _position.Get();
+        set => _position.Set(value);
+    }
+
+    public List<Vector2>? Path { get; set; } // TODO: Change into Queue!
+
+    public int? PathIndex { get; set; }
+
+    public List<(int, int, char)> CachedPathVisual { get; } = [];
+
+    #endregion
+
+    #region Public Members
 
     public void ResetPath()
     {
@@ -128,7 +144,7 @@ public class DroneComponent : ComponentBase
 
     #endregion
 
-    #region Private Methods
+    #region Private Members
 
     private static char GenerateTerminatorChar(float thisX, float thisY, float nextX, float nextY)
     {
@@ -181,22 +197,6 @@ public class DroneComponent : ComponentBase
             _ => '?'
         };
     }
-
-    #endregion
-
-    #region Properties
-
-    public Vector2 Position
-    {
-        get => _position.Get();
-        set => _position.Set(value);
-    }
-
-    public List<Vector2>? Path { get; set; } // TODO: Change into Queue!
-
-    public int? PathIndex { get; set; }
-
-    public List<(int, int, char)> CachedPathVisual { get; } = [];
 
     #endregion
 }
