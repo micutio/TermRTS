@@ -17,21 +17,42 @@ public class Simulation(Scheduler scheduler) : IEventSink
     public void ProcessEvent(IEvent evt)
     {
         if (evt.Type() != EventType.Persistence ||
-            evt is not PersistenceEvent persistenceEvent) return;
+            evt is not PersistenceEvent persistEvent) return;
 
-        switch (persistenceEvent.option)
+        switch (persistEvent.option)
         {
             case PersistenceOption.Load:
                 // TODO: Handle exceptions in loading from file
-                var loadedJsonStr = Persistence.LoadJsonFromFile(persistenceEvent.jsonFilePath);
+                var loadError =
+                    Persistence.LoadJsonFromFile(persistEvent.jsonFilePath, out var loadedJsonStr);
+                if (!string.IsNullOrEmpty(loadError))
+                {
+                    // TODO: Send error message to in-game log!
+                }
+
                 // TODO: Handle exceptions in de-serialisation
-                _persistence.LoadSimulationStateFromJson(ref _scheduler, loadedJsonStr);
+                var deserializeError =
+                    _persistence.LoadSimulationStateFromJson(ref _scheduler, loadedJsonStr);
+                if (!string.IsNullOrEmpty(deserializeError))
+                    // TODO: Send error message to in-game log!
+                    return;
+
                 break;
             case PersistenceOption.Save:
                 // TODO: Handle exceptions in serialisation
-                var savedJsonStr = _persistence.SerializeSimulationStateToJson(ref _scheduler);
+                var serializeError =
+                    _persistence.SerializeSimulationStateToJson(ref _scheduler,
+                        out var savedJsonStr);
+                if (!string.IsNullOrEmpty(serializeError))
+                    // TODO: Send error message to in-game log!
+                    return;
+
                 // TODO: Handle exceptions in saving to file
-                Persistence.SaveJsonToFile(persistenceEvent.jsonFilePath, savedJsonStr);
+                var saveError = Persistence.SaveJsonToFile(persistEvent.jsonFilePath, savedJsonStr);
+                if (!string.IsNullOrEmpty(saveError))
+                    // TODO: Send error message to in-game log!
+                    return;
+
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -47,15 +68,6 @@ public class Simulation(Scheduler scheduler) : IEventSink
         _scheduler.Prepare();
         while (_scheduler.IsActive) _scheduler.SimulationStep();
         _scheduler.Shutdown();
-
-        // TODO: Remove temporary serialization test
-        // var jsonStr = SerializeSimulationStateToJson();
-        // if (!string.IsNullOrEmpty(jsonStr))
-        //     // SaveJsonToFile("/home/michael/savegame.json", jsonStr);
-        //     SaveJsonToFile("c:/Users/WA_MICHA/savegame.json", jsonStr);
-        // LoadSimulationStateFromJson(jsonStr);
-        // var newJsonStr = SerializeSimulationStateToJson();
-        // if (!string.Equals(jsonStr, newJsonStr)) Log.Error("ERROR: SERIALIZATION FAILED");
     }
 
     public void EnableSerialization()

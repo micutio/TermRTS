@@ -8,14 +8,19 @@ public class SerializationTest
         var scheduler = new Scheduler(new Core(new NullRenderer()));
         var persistence = new Persistence();
 
-        var expectedJsonStr = persistence.SerializeSimulationStateToJson(ref scheduler);
+        var serializationError1 =
+            persistence.SerializeSimulationStateToJson(ref scheduler, out var expectedJsonStr);
+
+        Assert.Null(serializationError1);
         Assert.NotNull(expectedJsonStr);
 
         persistence.LoadSimulationStateFromJson(ref scheduler, expectedJsonStr);
 
-        var actualJsonStr = persistence.SerializeSimulationStateToJson(ref scheduler);
-        Assert.NotNull(actualJsonStr);
+        var serializationError2 =
+            persistence.SerializeSimulationStateToJson(ref scheduler, out var actualJsonStr);
 
+        Assert.Null(serializationError2);
+        Assert.NotNull(actualJsonStr);
         Assert.Equal(expectedJsonStr, actualJsonStr);
     }
 }
