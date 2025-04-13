@@ -1,4 +1,3 @@
-using System.Runtime.Serialization;
 using System.Security;
 using System.Text.Json;
 using log4net;
@@ -45,7 +44,7 @@ public class Persistence
                 "Error parsing simulation state from null json: {0}\ncaused by jsonStr={1}",
                 e,
                 jsonStr);
-            return $"Error parsing simulation state from null json";
+            return "Error parsing simulation state from null json";
         }
         catch (JsonException e)
         {
@@ -75,7 +74,7 @@ public class Persistence
     }
 
     /// <summary>
-    /// Save a simulation state to the local file system.
+    ///     Save a simulation state to the local file system.
     /// </summary>
     /// <param name="filePath">Path to the json file to save to.</param>
     /// <param name="jsonStr">Simulation state in form of a json string.</param>

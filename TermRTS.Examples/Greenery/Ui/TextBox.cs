@@ -1,6 +1,5 @@
 using System.Threading.Channels;
 using TermRTS.Event;
-using TermRTS.Examples.Greenery.Event;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
