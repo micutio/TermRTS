@@ -41,10 +41,9 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() != EventType.KeyInput) return;
+        if (evt is not Event<ConsoleKeyInfo>(var consoleKeyInfo)) return;
 
-        var keyEvent = (KeyInputEvent)evt;
-        switch (keyEvent.Info.Key)
+        switch (consoleKeyInfo.Key)
         {
             case ConsoleKey.A:
                 _velocity.X -= 1;
@@ -133,8 +132,8 @@ public class BounceApp : IRunnableExample
         core.AddComponent(bounceBall);
 
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSink(core, EventType.Shutdown);
-        scheduler.AddEventSink(bouncePhysics, EventType.KeyInput);
+        scheduler.AddEventSink(core, typeof(Shutdown));
+        scheduler.AddEventSink(bouncePhysics, typeof(ConsoleKeyInfo));
 
         var input = new ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);

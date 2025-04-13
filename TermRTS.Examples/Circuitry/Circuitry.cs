@@ -48,22 +48,22 @@ internal class Circuitry : IRunnableExample
 
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
-        scheduler.AddEventSink(renderer, EventType.Profile);
+        scheduler.AddEventSink(renderer, typeof(Profile));
 
         var input = new ConsoleInput();
         scheduler.AddEventSources(input.KeyEventReader);
-        scheduler.AddEventSink(input, EventType.Shutdown);
+        scheduler.AddEventSink(input, typeof(Shutdown));
         input.Run();
 
         // Graceful shutdown on canceling via CTRL+C
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
+            scheduler.EnqueueEvent((new Event<Shutdown>(), 0L));
         };
 
         // Shutdown after one hour
-        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 60));
+        scheduler.EnqueueEvent((new Event<Shutdown>(), 1000 * 60 * 60));
 
         // Run it
         var simulation = new Simulation(scheduler);

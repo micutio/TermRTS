@@ -28,7 +28,7 @@ public class Scheduler : IEventSink
         _msPerUpdate = TimeSpan.FromMilliseconds(msPerUpdate);
         _timeStepSizeMs = timeStepSizeMs;
         _core = core;
-        AddEventSink(_core, EventType.Shutdown);
+        AddEventSink(_core, typeof(Shutdown));
 
         TimeMs = 0L;
     }
@@ -57,22 +57,22 @@ public class Scheduler : IEventSink
     /// <summary>
     ///     Add a new event sink, which will receive events of the specified type.
     /// </summary>
-    public void AddEventSink(IEventSink sink, EventType type)
+    public void AddEventSink(IEventSink sink, Type payloadType)
     {
-        var isFound = _eventSinks.TryGetValue(type, out var sinks);
+        var isFound = _eventSinks.TryGetValue(payloadType, out var sinks);
         if (!isFound || sinks == null)
             sinks = new List<IEventSink>();
 
         sinks.Add(sink);
-        _eventSinks[type] = sinks;
+        _eventSinks[payloadType] = sinks;
     }
 
     /// <summary>
     ///     Remove an event sink from the scheduler. The given sink will no longer receive any events.
     /// </summary>
-    public void RemoveEventSink(IEventSink sink, EventType type)
+    public void RemoveEventSink(IEventSink sink, Type payloadType)
     {
-        _eventSinks[type].Remove(sink);
+        _eventSinks[payloadType].Remove(sink);
     }
 
     /// <summary>
@@ -150,7 +150,7 @@ public class Scheduler : IEventSink
             Convert.ToUInt64(renderTime.TotalMilliseconds));
         // Push out profiling results every 10 samples
         if (_profiler.SampleSize % 10 == 0)
-            _channel.Writer.TryWrite((new ProfileEvent(_profiler.ToString()), 0L));
+            _channel.Writer.TryWrite((new Event<Profile>(new Profile(_profiler.ToString())), 0L));
 #endif
     }
 
@@ -217,11 +217,11 @@ public class Scheduler : IEventSink
     {
         while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
-            _eventQueue.TryTake(out var eventItem);
+            if (!_eventQueue.TryTake(out var eventItem)) continue;
 
-            if (!_eventSinks.ContainsKey(eventItem.Item1.Type())) continue;
+            if (!_eventSinks.TryGetValue(eventItem.Item1.EvtType, out var sink)) continue;
 
-            foreach (var eventSink in _eventSinks[eventItem.Item1.Type()])
+            foreach (var eventSink in sink)
                 eventSink.ProcessEvent(eventItem.Item1);
         }
     }
@@ -263,7 +263,7 @@ public class Scheduler : IEventSink
 
     // serialized via property
     private readonly EventQueue<IEvent, ulong> _eventQueue = new();
-    private readonly Dictionary<EventType, List<IEventSink>> _eventSinks = new();
+    private readonly Dictionary<Type, List<IEventSink>> _eventSinks = new();
 
     private readonly Core _core;
 

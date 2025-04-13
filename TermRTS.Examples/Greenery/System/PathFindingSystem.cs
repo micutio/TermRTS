@@ -13,9 +13,9 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() != EventType.Custom || evt is not MoveEvent moveEvent) return;
-        _newTargetPositions.Remove(moveEvent.EntityId);
-        _newTargetPositions.Add(moveEvent.EntityId, moveEvent.TargetPosition);
+        if (evt is not Event<Move>(var move)) return;
+        _newTargetPositions.Remove(move.EntityId);
+        _newTargetPositions.Add(move.EntityId, move.TargetPosition);
     }
 
     #endregion

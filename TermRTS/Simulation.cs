@@ -16,15 +16,14 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() != EventType.Persistence ||
-            evt is not PersistenceEvent persistEvent) return;
+        if (evt is not Event<Persist>(var (persistOption, jsonFilePath)))
+            return;
 
-        switch (persistEvent.option)
+        switch (persistOption)
         {
             case PersistenceOption.Load:
                 // TODO: Handle exceptions in loading from file
-                var loadError =
-                    Persistence.LoadJsonFromFile(persistEvent.jsonFilePath, out var loadedJsonStr);
+                var loadError = Persistence.LoadJsonFromFile(jsonFilePath, out var loadedJsonStr);
                 if (!string.IsNullOrEmpty(loadError))
                 {
                     // TODO: Send error message to in-game log!
@@ -48,7 +47,8 @@ public class Simulation(Scheduler scheduler) : IEventSink
                     return;
 
                 // TODO: Handle exceptions in saving to file
-                var saveError = Persistence.SaveJsonToFile(persistEvent.jsonFilePath, savedJsonStr);
+                var saveError =
+                    Persistence.SaveJsonToFile(jsonFilePath, savedJsonStr);
                 if (!string.IsNullOrEmpty(saveError))
                     // TODO: Send error message to in-game log!
                     return;
@@ -72,7 +72,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     public void EnableSerialization()
     {
-        _scheduler.AddEventSink(this, EventType.Persistence);
+        _scheduler.AddEventSink(this, typeof(Persist));
     }
 
     #region Fields

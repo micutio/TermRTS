@@ -55,7 +55,7 @@ public class WatcherSystem : ISimSystem
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-            _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
+            _eventChannel.Writer.TryWrite((new Event<Shutdown>(), 0));
     }
 
     #endregion
@@ -72,7 +72,7 @@ public class EngineTest
         core.Tick(16L);
         core.Tick(16L);
         core.Tick(16L);
-        core.ProcessEvent(new PlainEvent(EventType.Shutdown));
+        core.ProcessEvent(new Event<Shutdown>());
         Assert.False(core.IsRunning());
     }
 
@@ -84,7 +84,7 @@ public class EngineTest
         var watcherSystem = new WatcherSystem(12);
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
-        scheduler.AddEventSink(core, EventType.Shutdown);
+        scheduler.AddEventSink(core, typeof(Shutdown));
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
 
@@ -103,8 +103,8 @@ public class EngineTest
     {
         // Setup Scheduler
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSink(core, EventType.Shutdown);
-        scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 12 * 16));
+        scheduler.AddEventSink(core, typeof(Shutdown));
+        scheduler.EnqueueEvent((new Event<Shutdown>(), 12 * 16));
 
         // Run it
         var simulation = new Simulation(scheduler);
@@ -123,7 +123,7 @@ public class EngineTest
         var watcherSystem = new WatcherSystem(12);
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
-        scheduler.AddEventSink(core, EventType.Shutdown);
+        scheduler.AddEventSink(core, typeof(Shutdown));
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
         // Setup Simulation and Persistence

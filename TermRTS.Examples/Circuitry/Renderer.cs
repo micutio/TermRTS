@@ -35,11 +35,8 @@ internal class Renderer : IRenderer, IEventSink
     /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
-        _profileOutput = evt.Type() switch
-        {
-            EventType.Profile => ((ProfileEvent)evt).ProfileInfo,
-            _ => _profileOutput
-        };
+        if (evt is not Event<Profile> (var profile)) return;
+        _profileOutput = profile.ProfileInfo;
     }
 
     #endregion

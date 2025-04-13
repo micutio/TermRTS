@@ -33,7 +33,7 @@ public class ConsoleInput : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() != EventType.Shutdown) return;
+        if (evt is not Event<Shutdown>) return;
 
         _keepRunning = false;
         _thread.Join();
@@ -68,7 +68,7 @@ public class ConsoleInput : IEventSink
             if (TerminatorKey != null && keyInfo.Key == TerminatorKey)
             {
                 _keepRunning = false;
-                _channel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0L));
+                _channel.Writer.TryWrite((new Event<Shutdown>(), 0L));
             }
 
             FireKeyEvent(keyInfo);
@@ -79,6 +79,7 @@ public class ConsoleInput : IEventSink
 
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
     {
-        _channel.Writer.TryWrite((new KeyInputEvent(keyInfo), 0L));
+        var keyEvent = new Event<ConsoleKeyInfo>(keyInfo);
+        _channel.Writer.TryWrite((keyEvent, 0L));
     }
 }

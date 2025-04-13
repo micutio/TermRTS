@@ -53,20 +53,9 @@ public class Core : IEventSink
     /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
-        switch (evt.Type())
-        {
-            case EventType.KeyInput:
-                break;
-            case EventType.MouseInput:
-                break;
-            case EventType.Profile:
-                break;
-            case EventType.Shutdown:
-                _isGameRunning = false;
-                return;
-            default:
-                throw new UnreachableException();
-        }
+        if (evt is not Event<Shutdown>) return;
+
+        _isGameRunning = false;
     }
 
     #endregion

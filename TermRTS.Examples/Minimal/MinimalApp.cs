@@ -45,10 +45,10 @@ internal class WatcherSystem : ISimSystem
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
-            _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Shutdown), 0));
+            _eventChannel.Writer.TryWrite((new Event<Shutdown>(), 0));
 
         if (_remainingTicks % 60 == 0)
-            _eventChannel.Writer.TryWrite((new PlainEvent(EventType.Profile), 60));
+            _eventChannel.Writer.TryWrite((new Event<Profile>(), 60));
     }
 
     #endregion
@@ -67,7 +67,7 @@ internal class MinimalApp : IRunnableExample
 
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
-        scheduler.AddEventSink(core, EventType.Shutdown);
+        scheduler.AddEventSink(core, typeof(Shutdown));
 
         // Alternative solution: enqueue an event which fires after a given time
         // scheduler.EnqueueEvent((new PlainEvent(EventType.Profile), 12 * 16));

@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 using ConsoleRenderer;
 using log4net;
 using TermRTS.Event;
-using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
 
@@ -56,17 +55,11 @@ public class Renderer : IRenderer, IEventSink
     public void ProcessEvent(IEvent evt)
     {
 #if DEBUG
-        _profileOutput = evt.Type() switch
-        {
-            EventType.Profile => ((ProfileEvent)evt).ProfileInfo,
-            _ => _profileOutput
-        };
+        if (evt is Event<Profile> (var profileContent)) _profileOutput = profileContent.ProfileInfo;
 #endif
 
-        if (!_textbox.IsOngoingInput && evt.Type() == EventType.KeyInput)
-        {
-            var keyEvent = (KeyInputEvent)evt;
-            switch (keyEvent.Info.Key)
+        if (!_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyContent))
+            switch (keyContent.Key)
             {
                 case ConsoleKey.UpArrow:
                     MoveCameraUp();
@@ -81,10 +74,9 @@ public class Renderer : IRenderer, IEventSink
                     MoveCameraRight();
                     return;
             }
-        }
 
-        if (evt.Type() == EventType.Custom && evt is RenderOptionEvent roe)
-            RenderMode = roe.RenderMode;
+        if (evt is Event<RenderMode> (var renderMode))
+            RenderMode = renderMode;
     }
 
     #endregion

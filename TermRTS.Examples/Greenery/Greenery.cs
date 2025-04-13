@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
+using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
@@ -64,20 +65,20 @@ public class Greenery : IRunnableExample
 
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(scheduler.ProfileEventReader);
-        scheduler.AddEventSink(renderer, EventType.Profile);
+        scheduler.AddEventSink(renderer, typeof(Profile));
 
         // Listen to commands
-        scheduler.AddEventSink(renderer, EventType.Custom); // render option events
+        scheduler.AddEventSink(renderer, typeof(RenderMode)); // render option events
         scheduler.AddEventSources(_commandRunner.CommandEventReader);
-        scheduler.AddEventSink(_commandRunner, EventType.Custom);
-        scheduler.AddEventSink(pathFindingSystem, EventType.Custom);
+        scheduler.AddEventSink(_commandRunner, typeof(Event.Command));
+        scheduler.AddEventSink(pathFindingSystem, typeof(Move));
 
         // Init input
         var input = new ConsoleInput(ConsoleKey.Escape);
         scheduler.AddEventSources(input.KeyEventReader);
-        scheduler.AddEventSink(input, EventType.Shutdown);
-        scheduler.AddEventSink(renderer, EventType.KeyInput);
-        scheduler.AddEventSink(_textbox, EventType.KeyInput);
+        scheduler.AddEventSink(input, typeof(Shutdown));
+        scheduler.AddEventSink(renderer, typeof(ConsoleKeyInfo));
+        scheduler.AddEventSink(_textbox, typeof(ConsoleKeyInfo));
         scheduler.AddEventSources(_textbox.MessageEventReader);
         input.Run();
 
@@ -88,7 +89,7 @@ public class Greenery : IRunnableExample
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 0L));
+            scheduler.EnqueueEvent((new Event<Shutdown>(), 0L));
             Console.Clear();
             Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
         };

@@ -42,8 +42,9 @@ public class CommandRunner : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() == EventType.Custom && evt is CommandEvent cmdEvt)
-            Run(new Scanner(cmdEvt.Command).ScanTokens());
+        if (evt is not Event<Event.Command>(var command)) return;
+
+        Run(new Scanner(command.Cmd).ScanTokens());
     }
 
     #endregion
@@ -78,7 +79,7 @@ public class CommandRunner : IEventSink
         var y = Convert.ToSingle(tokens[2].Literal);
 
         // TODO: Make EntityId dynamic!
-        _channel.Writer.TryWrite((new MoveEvent(3, new Vector2(x, y)), 0L));
+        _channel.Writer.TryWrite((new Event<Move>(new Move(3, new Vector2(x, y))), 0L));
         return string.Empty;
     }
 
@@ -92,35 +93,35 @@ public class CommandRunner : IEventSink
         switch (tokens[1].Lexeme)
         {
             case SubCmdRenderElevationColor:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ElevationColor), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.ElevationColor), 0L));
                 break;
             case SubCmdRenderElevationMonochrome:
                 _channel.Writer.TryWrite(
-                    (new RenderOptionEvent(RenderMode.ElevationMonochrome), 0L));
+                    (new Event<RenderMode>(RenderMode.ElevationMonochrome), 0L));
                 break;
             case SubCmdRenderHeatmapColor:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.HeatMapColor), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.HeatMapColor), 0L));
                 break;
             case SubCmdRenderHeatmapMonochrome:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.HeatMapMonochrome), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.HeatMapMonochrome), 0L));
                 break;
             case SubCmdRenderTerrainColor:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.TerrainColor), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.TerrainColor), 0L));
                 break;
             case SubCmdRenderTerrainMonochrome:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.TerrainMonochrome), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.TerrainMonochrome), 0L));
                 break;
             case SubCmdRenderReliefColor:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ReliefColor), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.ReliefColor), 0L));
                 break;
             case SubCmdRenderReliefMonochrome:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ReliefMonochrome), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.ReliefMonochrome), 0L));
                 break;
             case SubCmdRenderContourColor:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ContourColor), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.ContourColor), 0L));
                 break;
             case SubCmdRenderContourMonochrome:
-                _channel.Writer.TryWrite((new RenderOptionEvent(RenderMode.ContourMonochrome), 0L));
+                _channel.Writer.TryWrite((new Event<RenderMode>(RenderMode.ContourMonochrome), 0L));
                 break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }
@@ -130,13 +131,15 @@ public class CommandRunner : IEventSink
 
     private string CommandSave()
     {
-        _channel.Writer.TryWrite((new PersistenceEvent(PersistenceOption.Save, GetFilePath()), 0L));
+        var persistEvent = new Event<Persist>(new Persist(PersistenceOption.Save, GetFilePath()));
+        _channel.Writer.TryWrite((persistEvent, 0L));
         return string.Empty;
     }
 
     private string CommandLoad()
     {
-        _channel.Writer.TryWrite((new PersistenceEvent(PersistenceOption.Load, GetFilePath()), 0L));
+        var persistEvent = new Event<Persist>(new Persist(PersistenceOption.Load, GetFilePath()));
+        _channel.Writer.TryWrite((persistEvent, 0L));
         return string.Empty;
     }
 

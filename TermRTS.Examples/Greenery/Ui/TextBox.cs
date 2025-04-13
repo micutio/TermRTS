@@ -16,11 +16,9 @@ public class TextBox : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt.Type() != EventType.KeyInput) return;
+        if (evt is not Event<ConsoleKeyInfo>(var keyEvent)) return;
 
-        var keyEvent = (KeyInputEvent)evt;
-
-        if (keyEvent.Info.Key.Equals(ConsoleKey.Enter))
+        if (keyEvent.Key.Equals(ConsoleKey.Enter))
             switch (_state)
             {
                 case InputState.Idle:
@@ -36,7 +34,7 @@ public class TextBox : IEventSink
         if (!IsOngoingInput) return;
 
         // var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
-        switch (keyEvent.Info.Key)
+        switch (keyEvent.Key)
         {
             case ConsoleKey.Spacebar:
                 _msg[_idx] = ' ';
@@ -46,7 +44,7 @@ public class TextBox : IEventSink
                 _idx = Math.Max(_idx - 1, 0);
                 break;
             default:
-                _msg[_idx] = keyEvent.Info.KeyChar;
+                _msg[_idx] = keyEvent.KeyChar;
                 _idx += 1;
                 break;
         }
@@ -58,7 +56,8 @@ public class TextBox : IEventSink
     {
         _idx = 0;
         _state = InputState.Idle;
-        _channel.Writer.TryWrite((new CommandEvent(_msg), 0L));
+        var commandEvent = new Event<Event.Command>(new Event.Command(_msg));
+        _channel.Writer.TryWrite((commandEvent, 0L));
     }
 
     public ArraySegment<char> GetCurrentInput()

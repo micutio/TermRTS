@@ -3,14 +3,6 @@ using TermRTS.Event;
 
 namespace TermRTS.Examples.Greenery.Event;
 
-public readonly record struct MoveEvent(int EntityId, Vector2 TargetPosition) : IEvent
+public readonly record struct Move(int EntityId, Vector2 TargetPosition)
 {
-    #region IEvent Members
-
-    public EventType Type()
-    {
-        return EventType.Custom;
-    }
-
-    #endregion
 }
