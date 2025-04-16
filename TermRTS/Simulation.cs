@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using log4net;
 using TermRTS.Event;
 
@@ -12,6 +13,21 @@ namespace TermRTS;
 /// </summary>
 public class Simulation(Scheduler scheduler) : IEventSink
 {
+    #region Fields
+
+    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
+    private readonly Persistence _persistence = new();
+    private Scheduler _scheduler = scheduler;
+    private Channel<(IEvent, ulong)> _logOutputChannel;
+
+    #endregion
+
+    #region Properties
+
+    public ChannelReader<(IEvent, ulong)> LogOutputChannel => _logOutputChannel.Reader;
+
+    #endregion
+
     #region IEventSink Members
 
     public void ProcessEvent(IEvent evt)
@@ -22,37 +38,34 @@ public class Simulation(Scheduler scheduler) : IEventSink
         switch (persistOption)
         {
             case PersistenceOption.Load:
-                // TODO: Handle exceptions in loading from file
                 var loadError = Persistence.LoadJsonFromFile(jsonFilePath, out var loadedJsonStr);
                 if (!string.IsNullOrEmpty(loadError))
-                {
-                    // TODO: Send error message to in-game log!
-                }
+                    _logOutputChannel
+                        .Writer
+                        .TryWrite((new Event<SystemLog>(new SystemLog(loadError)), 0L));
 
-                // TODO: Handle exceptions in de-serialisation
                 var deserializeError =
                     _persistence.LoadSimulationStateFromJson(ref _scheduler, loadedJsonStr);
                 if (!string.IsNullOrEmpty(deserializeError))
-                    // TODO: Send error message to in-game log!
-                    return;
-
+                    _logOutputChannel
+                        .Writer
+                        .TryWrite((new Event<SystemLog>(new SystemLog(deserializeError)), 0L));
                 break;
             case PersistenceOption.Save:
-                // TODO: Handle exceptions in serialisation
                 var serializeError =
-                    _persistence.SerializeSimulationStateToJson(ref _scheduler,
-                        out var savedJsonStr);
+                    _persistence
+                        .SerializeSimulationStateToJson(ref _scheduler, out var savedJsonStr);
                 if (!string.IsNullOrEmpty(serializeError))
-                    // TODO: Send error message to in-game log!
-                    return;
+                    _logOutputChannel
+                        .Writer
+                        .TryWrite((new Event<SystemLog>(new SystemLog(serializeError)), 0L));
 
-                // TODO: Handle exceptions in saving to file
                 var saveError =
                     Persistence.SaveJsonToFile(jsonFilePath, savedJsonStr);
                 if (!string.IsNullOrEmpty(saveError))
-                    // TODO: Send error message to in-game log!
-                    return;
-
+                    _logOutputChannel
+                        .Writer
+                        .TryWrite((new Event<SystemLog>(new SystemLog(saveError)), 0L));
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -61,6 +74,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     #endregion
 
+    #region Public Members
 
     public void Run()
     {
@@ -74,12 +88,6 @@ public class Simulation(Scheduler scheduler) : IEventSink
     {
         _scheduler.AddEventSink(this, typeof(Persist));
     }
-
-    #region Fields
-
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
-    private readonly Persistence _persistence = new();
-    private Scheduler _scheduler = scheduler;
 
     #endregion
 }
