@@ -24,7 +24,6 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     #endregion
 
-
     #region Properties
 
     public ChannelReader<ScheduledEvent> LogOutputChannel => _logOutputChannel.Reader;
