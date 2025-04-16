@@ -26,14 +26,14 @@ internal class NullRenderer : IRenderer
 
 internal class WatcherSystem : ISimSystem
 {
-    private readonly Channel<(IEvent, ulong)> _eventChannel;
-    public readonly ChannelReader<(IEvent, ulong)> EventOutput;
+    private readonly Channel<ScheduledEvent> _eventChannel;
+    public readonly ChannelReader<ScheduledEvent> EventOutput;
     private int _remainingTicks;
 
     public WatcherSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<(IEvent, ulong)>();
+        _eventChannel = Channel.CreateUnbounded<ScheduledEvent>();
         EventOutput = _eventChannel.Reader;
     }
 
@@ -45,10 +45,10 @@ internal class WatcherSystem : ISimSystem
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
-            _eventChannel.Writer.TryWrite((new Event<Shutdown>(), 0));
+            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
 
         if (_remainingTicks % 60 == 0)
-            _eventChannel.Writer.TryWrite((new Event<Profile>(), 60));
+            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Profile(), 60UL));
     }
 
     #endregion

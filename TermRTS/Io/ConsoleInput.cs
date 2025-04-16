@@ -10,18 +10,18 @@ namespace TermRTS.Io;
 /// </summary>
 public class ConsoleInput : IEventSink
 {
-    private readonly Channel<(IEvent, ulong)> _channel;
+    private readonly Channel<ScheduledEvent> _channel;
     private readonly Thread _thread;
     private bool _keepRunning;
 
     public ConsoleInput(ConsoleKey? terminatorKey = null)
     {
-        _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+        _channel = Channel.CreateUnbounded<ScheduledEvent>();
         _thread = new Thread(ListenForKeyInput);
         TerminatorKey = terminatorKey;
     }
 
-    public ChannelReader<(IEvent, ulong)> KeyEventReader => _channel.Reader;
+    public ChannelReader<ScheduledEvent> KeyEventReader => _channel.Reader;
 
     #region Properties
 
@@ -68,7 +68,7 @@ public class ConsoleInput : IEventSink
             if (TerminatorKey != null && keyInfo.Key == TerminatorKey)
             {
                 _keepRunning = false;
-                _channel.Writer.TryWrite((new Event<Shutdown>(), 0L));
+                _channel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
             }
 
             FireKeyEvent(keyInfo);
@@ -79,7 +79,6 @@ public class ConsoleInput : IEventSink
 
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
     {
-        var keyEvent = new Event<ConsoleKeyInfo>(keyInfo);
-        _channel.Writer.TryWrite((keyEvent, 0L));
+        _channel.Writer.TryWrite(ScheduledEvent.From(keyInfo));
     }
 }

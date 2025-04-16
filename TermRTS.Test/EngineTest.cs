@@ -37,14 +37,14 @@ public class NullEntity : EntityBase
 
 public class WatcherSystem : ISimSystem
 {
-    private readonly Channel<(IEvent, ulong)> _eventChannel;
-    public readonly ChannelReader<(IEvent, ulong)> EventOutput;
+    private readonly Channel<ScheduledEvent> _eventChannel;
+    public readonly ChannelReader<ScheduledEvent> EventOutput;
     private int _remainingTicks;
 
     public WatcherSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<(IEvent, ulong)>();
+        _eventChannel = Channel.CreateUnbounded<ScheduledEvent>();
         EventOutput = _eventChannel.Reader;
     }
 
@@ -55,7 +55,7 @@ public class WatcherSystem : ISimSystem
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-            _eventChannel.Writer.TryWrite((new Event<Shutdown>(), 0));
+            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
     }
 
     #endregion
@@ -104,7 +104,7 @@ public class EngineTest
         // Setup Scheduler
         var scheduler = new Scheduler(core);
         scheduler.AddEventSink(core, typeof(Shutdown));
-        scheduler.EnqueueEvent((new Event<Shutdown>(), 12 * 16));
+        scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
 
         // Run it
         var simulation = new Simulation(scheduler);

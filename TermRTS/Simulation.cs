@@ -18,13 +18,13 @@ public class Simulation(Scheduler scheduler) : IEventSink
     private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
     private readonly Persistence _persistence = new();
     private Scheduler _scheduler = scheduler;
-    private Channel<(IEvent, ulong)> _logOutputChannel;
+    private readonly Channel<ScheduledEvent> _logOutputChannel = Channel.CreateUnbounded<ScheduledEvent>();
 
     #endregion
 
     #region Properties
 
-    public ChannelReader<(IEvent, ulong)> LogOutputChannel => _logOutputChannel.Reader;
+    public ChannelReader<ScheduledEvent> LogOutputChannel => _logOutputChannel.Reader;
 
     #endregion
 
@@ -42,14 +42,14 @@ public class Simulation(Scheduler scheduler) : IEventSink
                 if (!string.IsNullOrEmpty(loadError))
                     _logOutputChannel
                         .Writer
-                        .TryWrite((new Event<SystemLog>(new SystemLog(loadError)), 0L));
+                        .TryWrite(ScheduledEvent.From(new SystemLog(loadError)));
 
                 var deserializeError =
                     _persistence.LoadSimulationStateFromJson(ref _scheduler, loadedJsonStr);
                 if (!string.IsNullOrEmpty(deserializeError))
                     _logOutputChannel
                         .Writer
-                        .TryWrite((new Event<SystemLog>(new SystemLog(deserializeError)), 0L));
+                        .TryWrite(ScheduledEvent.From(new SystemLog(deserializeError)));
                 break;
             case PersistenceOption.Save:
                 var serializeError =
@@ -58,14 +58,14 @@ public class Simulation(Scheduler scheduler) : IEventSink
                 if (!string.IsNullOrEmpty(serializeError))
                     _logOutputChannel
                         .Writer
-                        .TryWrite((new Event<SystemLog>(new SystemLog(serializeError)), 0L));
+                        .TryWrite(ScheduledEvent.From(new SystemLog(serializeError)));
 
                 var saveError =
                     Persistence.SaveJsonToFile(jsonFilePath, savedJsonStr);
                 if (!string.IsNullOrEmpty(saveError))
                     _logOutputChannel
                         .Writer
-                        .TryWrite((new Event<SystemLog>(new SystemLog(saveError)), 0L));
+                        .TryWrite(ScheduledEvent.From(new SystemLog(saveError)));
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

@@ -14,6 +14,37 @@ internal record SchedulerState(
 
 public class Scheduler : IEventSink
 {
+    #region Fields
+
+    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
+
+    // time constants
+    private readonly TimeSpan _msPerUpdate;
+    private readonly ulong _timeStepSizeMs;
+
+    // time keeping tools
+    private readonly Stopwatch _loopTimer = new();
+    private readonly Stopwatch _tickTimer = new();
+    private readonly Stopwatch _renderTimer = new();
+    private readonly Stopwatch _pauseTimer = new();
+    private TimeSpan _lag = TimeSpan.Zero;
+
+    // statistics recording for profiling
+    private readonly Profiler _profiler;
+
+    // the meaty bits - actual simulation loop logic
+
+    // channel for emitting events
+    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
+
+    // serialized via property
+    private readonly EventQueue<IEvent, ulong> _eventQueue = new();
+    private readonly Dictionary<Type, List<IEventSink>> _eventSinks = new();
+
+    private readonly Core _core;
+
+    #endregion
+
     #region Constructors
 
     /// <summary>
@@ -46,10 +77,10 @@ public class Scheduler : IEventSink
     #region Public Methods
 
     /// <summary>
-    ///     Add a new event source to the scheduler. Using a channel the event source can send in new
-    ///     events in an asynchronous fashion.
+    ///     Add a new event source to the scheduler. Using a channel the event source can send in
+    ///     new events asynchronously.
     /// </summary>
-    public void AddEventSources(params ChannelReader<(IEvent, ulong)>[] sources)
+    public void AddEventSources(params ChannelReader<ScheduledEvent>[] sources)
     {
         Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
     }
@@ -78,12 +109,13 @@ public class Scheduler : IEventSink
     /// <summary>
     ///     This method offers a manual way of schedule
     /// </summary>
-    /// <param name="item">
+    /// <param name="evt">
     ///     A tuple of the event and due-time, given as absolute timestamp in ms
     /// </param>
-    public void EnqueueEvent((IEvent, ulong) item)
+    public void EnqueueEvent(ScheduledEvent evt)
     {
-        _eventQueue.TryAdd(item);
+        if (!_eventQueue.TryAdd((evt.Event, evt.ScheduledTime)))
+            throw new Exception($"Cannot add event to queue: {evt.Event}");
     }
 
     public void Prepare()
@@ -150,7 +182,7 @@ public class Scheduler : IEventSink
             Convert.ToUInt64(renderTime.TotalMilliseconds));
         // Push out profiling results every 10 samples
         if (_profiler.SampleSize % 10 == 0)
-            _channel.Writer.TryWrite((new Event<Profile>(new Profile(_profiler.ToString())), 0L));
+            _channel.Writer.TryWrite(ScheduledEvent.From(new Profile(_profiler.ToString())));
 #endif
     }
 
@@ -183,7 +215,10 @@ public class Scheduler : IEventSink
 
         _eventQueue.Clear();
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems)
-            _eventQueue.TryAdd((eventItem, priority));
+        {
+            if (!_eventQueue.TryAdd((eventItem, priority)))
+                throw new Exception($"Cannot add event to queue: {eventItem}");
+        }
     }
 
     #endregion
@@ -230,42 +265,11 @@ public class Scheduler : IEventSink
     ///     Redirect event messages from an input ChannelReader directly into the event queue.
     /// </summary>
     /// <param name="input">Channel reader providing event messages</param>
-    private async Task Redirect(ChannelReader<(IEvent, ulong)> input)
+    private async Task Redirect(ChannelReader<ScheduledEvent> input)
     {
         await foreach (var item in input.ReadAllAsync())
-            _eventQueue.TryAdd(item);
+            EnqueueEvent(item);
     }
-
-    #endregion
-
-    #region Fields
-
-    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-
-    // time constants
-    private readonly TimeSpan _msPerUpdate;
-    private readonly ulong _timeStepSizeMs;
-
-    // time keeping tools
-    private readonly Stopwatch _loopTimer = new();
-    private readonly Stopwatch _tickTimer = new();
-    private readonly Stopwatch _renderTimer = new();
-    private readonly Stopwatch _pauseTimer = new();
-    private TimeSpan _lag = TimeSpan.Zero;
-
-    // statistics recording for profiling
-    private readonly Profiler _profiler;
-
-    // the meaty bits - actual simulation loop logic
-
-    // channel for emitting events
-    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
-
-    // serialized via property
-    private readonly EventQueue<IEvent, ulong> _eventQueue = new();
-    private readonly Dictionary<Type, List<IEventSink>> _eventSinks = new();
-
-    private readonly Core _core;
 
     #endregion
 
@@ -279,7 +283,7 @@ public class Scheduler : IEventSink
     /// <summary>
     ///     Reader for channel to receive Profile events on.
     /// </summary>
-    public ChannelReader<(IEvent, ulong)> ProfileEventReader => _channel.Reader;
+    public ChannelReader<ScheduledEvent> ProfileEventReader => _channel.Reader;
 
     public bool IsActive => _core.IsRunning();
 

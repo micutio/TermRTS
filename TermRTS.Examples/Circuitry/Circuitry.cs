@@ -59,11 +59,12 @@ internal class Circuitry : IRunnableExample
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EnqueueEvent((new Event<Shutdown>(), 0L));
+            scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
         };
 
         // Shutdown after one hour
-        scheduler.EnqueueEvent((new Event<Shutdown>(), 1000 * 60 * 60));
+        const ulong oneHour = 1000UL * 60UL * 60UL;
+        scheduler.EnqueueEvent(new ScheduledEvent(new Event<Shutdown>(), oneHour));
 
         // Run it
         var simulation = new Simulation(scheduler);

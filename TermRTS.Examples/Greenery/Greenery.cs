@@ -89,7 +89,7 @@ public class Greenery : IRunnableExample
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EnqueueEvent((new Event<Shutdown>(), 0L));
+            scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
             Console.Clear();
             Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
         };

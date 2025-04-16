@@ -2,6 +2,13 @@ namespace TermRTS.Event;
 
 public class EventQueue<TElement, TPriority>
 {
+    #region Fields
+
+    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
+    private long _index;
+
+    #endregion
+
     #region Constructor
 
     /// <summary>
@@ -21,7 +28,6 @@ public class EventQueue<TElement, TPriority>
     }
 
     #endregion
-
 
     #region Properties
 
@@ -55,13 +61,6 @@ public class EventQueue<TElement, TPriority>
                 .ToList();
         }
     }
-
-    #region Fields
-
-    private readonly PriorityQueue<TElement, (TPriority, long)> _queue;
-    private long _index;
-
-    #endregion
 
     #region Public Methods
 
@@ -101,7 +100,7 @@ public class EventQueue<TElement, TPriority>
         }
     }
 
-    public void Clear()
+    internal void Clear()
     {
         lock (SyncRoot)
         {

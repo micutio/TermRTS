@@ -55,8 +55,7 @@ public class TextBox : IEventSink
     {
         _idx = 0;
         _state = InputState.Idle;
-        var commandEvent = new Event<Event.Command>(new Event.Command(_msg));
-        _channel.Writer.TryWrite((commandEvent, 0L));
+        _channel.Writer.TryWrite(ScheduledEvent.From(new Event.Command(_msg)));
     }
 
     public ArraySegment<char> GetCurrentInput()
@@ -68,7 +67,7 @@ public class TextBox : IEventSink
 
     #region Fields
 
-    private readonly Channel<(IEvent, ulong)> _channel = Channel.CreateUnbounded<(IEvent, ulong)>();
+    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
 
     private readonly char[] _msg = new char[80];
     private int _idx;
@@ -78,7 +77,7 @@ public class TextBox : IEventSink
 
     #region Properties
 
-    public ChannelReader<(IEvent, ulong)> MessageEventReader => _channel.Reader;
+    public ChannelReader<ScheduledEvent> MessageEventReader => _channel.Reader;
 
     public bool IsOngoingInput => _state == InputState.OngoingInput;
 
