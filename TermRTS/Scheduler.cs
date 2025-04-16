@@ -14,6 +14,35 @@ internal record SchedulerState(
 
 public class Scheduler : IEventSink
 {
+    #region Constructors
+
+    /// <summary>
+    ///     Constructor.
+    /// </summary>
+    /// <param name="msPerUpdate">How much time is allocated for processing each frame</param>
+    /// <param name="timeStepSizeMs">How much time is processed during one simulation tick</param>
+    /// <param name="core">Game core object, which is performing the actual simulation ticks</param>
+    public Scheduler(Core core, double msPerUpdate = 16.0d, ulong timeStepSizeMs = 16L)
+    {
+        _profiler = new Profiler(timeStepSizeMs);
+        _msPerUpdate = TimeSpan.FromMilliseconds(msPerUpdate);
+        _timeStepSizeMs = timeStepSizeMs;
+        _core = core;
+        AddEventSink(_core, typeof(Shutdown));
+
+        TimeMs = 0L;
+    }
+
+    #endregion
+
+    #region IEventSink Members
+
+    public void ProcessEvent(IEvent evt)
+    {
+    }
+
+    #endregion
+
     #region Fields
 
     private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
@@ -42,35 +71,6 @@ public class Scheduler : IEventSink
     private readonly Dictionary<Type, List<IEventSink>> _eventSinks = new();
 
     private readonly Core _core;
-
-    #endregion
-
-    #region Constructors
-
-    /// <summary>
-    ///     Constructor.
-    /// </summary>
-    /// <param name="msPerUpdate">How much time is allocated for processing each frame</param>
-    /// <param name="timeStepSizeMs">How much time is processed during one simulation tick</param>
-    /// <param name="core">Game core object, which is performing the actual simulation ticks</param>
-    public Scheduler(Core core, double msPerUpdate = 16.0d, ulong timeStepSizeMs = 16L)
-    {
-        _profiler = new Profiler(timeStepSizeMs);
-        _msPerUpdate = TimeSpan.FromMilliseconds(msPerUpdate);
-        _timeStepSizeMs = timeStepSizeMs;
-        _core = core;
-        AddEventSink(_core, typeof(Shutdown));
-
-        TimeMs = 0L;
-    }
-
-    #endregion
-
-    #region IEventSink Members
-
-    public void ProcessEvent(IEvent evt)
-    {
-    }
 
     #endregion
 
@@ -215,10 +215,8 @@ public class Scheduler : IEventSink
 
         _eventQueue.Clear();
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems)
-        {
             if (!_eventQueue.TryAdd((eventItem, priority)))
                 throw new Exception($"Cannot add event to queue: {eventItem}");
-        }
     }
 
     #endregion

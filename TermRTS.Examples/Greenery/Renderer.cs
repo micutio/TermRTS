@@ -81,128 +81,6 @@ public class Renderer : IRenderer, IEventSink
 
     #endregion
 
-    #region IRenderer Members
-
-    public void RenderComponents(
-        in IStorage storage,
-        double timeStepSizeMs,
-        double howFarIntoNextFramePercent)
-    {
-        _mapOffsetX = _maxY switch
-        {
-            < 10 => 1,
-            < 100 => 2,
-            < 1000 => 3,
-            < 10000 => 4,
-            _ => 5
-        };
-
-        // Update viewport on Terminal resizing
-        if (Math.Abs(_canvas.Width - (_viewportSize.X + _mapOffsetX)) > 0.9
-            || Math.Abs(_canvas.Height - (_viewportSize.Y + _mapOffsetY)) > 0.9)
-        {
-            _viewportSize.X = _canvas.Width - _mapOffsetX;
-            _viewportSize.Y = _canvas.Height - _mapOffsetY;
-            UpdateMaxX();
-            UpdateMaxY();
-        }
-
-        // Step 1: Render world
-        var world = storage.GetSingleForType<WorldComponent>();
-        if (world == null) return;
-        var fov = storage.GetSingleForType<FovComponent>();
-        if (fov == null) return;
-
-        switch (RenderMode)
-        {
-            case RenderMode.ElevationColor:
-            case RenderMode.ElevationMonochrome:
-            case RenderMode.HeatMapColor:
-            case RenderMode.HeatMapMonochrome:
-            case RenderMode.TerrainColor:
-            case RenderMode.TerrainMonochrome:
-                RenderWorldByElevationVisuals(world, fov);
-                break;
-            case RenderMode.ReliefColor:
-            case RenderMode.ReliefMonochrome:
-                if (_initVisualMatrix)
-                {
-                    SetWorldReliefVisual(world);
-                    _initVisualMatrix = false;
-                }
-
-                RenderWorldByVisualMatrix(fov);
-                break;
-            case RenderMode.ContourColor:
-            case RenderMode.ContourMonochrome:
-                if (_initVisualMatrix)
-                {
-                    SetWorldContourLines(world);
-                    _initVisualMatrix = false;
-                }
-
-                RenderWorldByVisualMatrix(fov);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-
-
-        // Step 2: Render drone
-
-        foreach (var drone in storage.GetAllForType<DroneComponent>())
-        {
-            if (drone.Path != null)
-                foreach (var (x, y, c) in drone.CachedPathVisual)
-                    if (IsInCamera(x, y))
-                        _canvas.Set(
-                            x - CameraPosX + _mapOffsetX,
-                            y - CameraPosY + _mapOffsetY,
-                            c,
-                            ConsoleColor.Red,
-                            DefaultBg);
-
-            var droneX = Convert.ToInt32(drone.Position.X);
-            var droneY = Convert.ToInt32(drone.Position.Y);
-            if (IsInCamera(droneX, droneY))
-                _canvas.Set(
-                    droneX - CameraPosX + _mapOffsetX,
-                    droneY - CameraPosY + _mapOffsetY,
-                    '@',
-                    DefaultBg,
-                    ConsoleColor.Red);
-        }
-
-        RenderCoordinates();
-
-        // Step 2: Render textbox if its contents have changed.
-        if (_textbox.IsOngoingInput)
-            RenderTextbox();
-        else
-            for (var i = 0; i <= _viewportSize.X; i += 1)
-                _canvas.Set(i, (int)_viewportSize.Y, ' ', DefaultFg, DefaultBg);
-
-        // Step 3: Render profiling info on top of the world
-#if DEBUG
-        if (!_textbox.IsOngoingInput)
-            RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
-#endif
-    }
-
-    public void FinalizeRender()
-    {
-        _canvas.Render();
-    }
-
-    public void Shutdown()
-    {
-        Console.ResetColor();
-        Console.Clear();
-        Log.Info("Shutting down renderer.");
-    }
-
-    #endregion
-
     private void UpdateMaxX()
     {
         _maxX = Convert.ToInt32(Math.Min(_cameraPosX + _viewportSize.X, _worldSize.X));
@@ -664,6 +542,128 @@ public class Renderer : IRenderer, IEventSink
             _ => '?'
         };
     }
+
+    #region IRenderer Members
+
+    public void RenderComponents(
+        in IStorage storage,
+        double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
+    {
+        _mapOffsetX = _maxY switch
+        {
+            < 10 => 1,
+            < 100 => 2,
+            < 1000 => 3,
+            < 10000 => 4,
+            _ => 5
+        };
+
+        // Update viewport on Terminal resizing
+        if (Math.Abs(_canvas.Width - (_viewportSize.X + _mapOffsetX)) > 0.9
+            || Math.Abs(_canvas.Height - (_viewportSize.Y + _mapOffsetY)) > 0.9)
+        {
+            _viewportSize.X = _canvas.Width - _mapOffsetX;
+            _viewportSize.Y = _canvas.Height - _mapOffsetY;
+            UpdateMaxX();
+            UpdateMaxY();
+        }
+
+        // Step 1: Render world
+        var world = storage.GetSingleForType<WorldComponent>();
+        if (world == null) return;
+        var fov = storage.GetSingleForType<FovComponent>();
+        if (fov == null) return;
+
+        switch (RenderMode)
+        {
+            case RenderMode.ElevationColor:
+            case RenderMode.ElevationMonochrome:
+            case RenderMode.HeatMapColor:
+            case RenderMode.HeatMapMonochrome:
+            case RenderMode.TerrainColor:
+            case RenderMode.TerrainMonochrome:
+                RenderWorldByElevationVisuals(world, fov);
+                break;
+            case RenderMode.ReliefColor:
+            case RenderMode.ReliefMonochrome:
+                if (_initVisualMatrix)
+                {
+                    SetWorldReliefVisual(world);
+                    _initVisualMatrix = false;
+                }
+
+                RenderWorldByVisualMatrix(fov);
+                break;
+            case RenderMode.ContourColor:
+            case RenderMode.ContourMonochrome:
+                if (_initVisualMatrix)
+                {
+                    SetWorldContourLines(world);
+                    _initVisualMatrix = false;
+                }
+
+                RenderWorldByVisualMatrix(fov);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
+
+        // Step 2: Render drone
+
+        foreach (var drone in storage.GetAllForType<DroneComponent>())
+        {
+            if (drone.Path != null)
+                foreach (var (x, y, c) in drone.CachedPathVisual)
+                    if (IsInCamera(x, y))
+                        _canvas.Set(
+                            x - CameraPosX + _mapOffsetX,
+                            y - CameraPosY + _mapOffsetY,
+                            c,
+                            ConsoleColor.Red,
+                            DefaultBg);
+
+            var droneX = Convert.ToInt32(drone.Position.X);
+            var droneY = Convert.ToInt32(drone.Position.Y);
+            if (IsInCamera(droneX, droneY))
+                _canvas.Set(
+                    droneX - CameraPosX + _mapOffsetX,
+                    droneY - CameraPosY + _mapOffsetY,
+                    '@',
+                    DefaultBg,
+                    ConsoleColor.Red);
+        }
+
+        RenderCoordinates();
+
+        // Step 2: Render textbox if its contents have changed.
+        if (_textbox.IsOngoingInput)
+            RenderTextbox();
+        else
+            for (var i = 0; i <= _viewportSize.X; i += 1)
+                _canvas.Set(i, (int)_viewportSize.Y, ' ', DefaultFg, DefaultBg);
+
+        // Step 3: Render profiling info on top of the world
+#if DEBUG
+        if (!_textbox.IsOngoingInput)
+            RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
+#endif
+    }
+
+    public void FinalizeRender()
+    {
+        _canvas.Render();
+    }
+
+    public void Shutdown()
+    {
+        Console.ResetColor();
+        Console.Clear();
+        Log.Info("Shutting down renderer.");
+    }
+
+    #endregion
 
     #region Fields
 

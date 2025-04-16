@@ -13,14 +13,17 @@ namespace TermRTS;
 /// </summary>
 public class Simulation(Scheduler scheduler) : IEventSink
 {
-    #region Fields
+    #region Private Fields
 
     private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
     private readonly Persistence _persistence = new();
     private Scheduler _scheduler = scheduler;
-    private readonly Channel<ScheduledEvent> _logOutputChannel = Channel.CreateUnbounded<ScheduledEvent>();
+
+    private readonly Channel<ScheduledEvent> _logOutputChannel =
+        Channel.CreateUnbounded<ScheduledEvent>();
 
     #endregion
+
 
     #region Properties
 
@@ -87,6 +90,11 @@ public class Simulation(Scheduler scheduler) : IEventSink
     public void EnableSerialization()
     {
         _scheduler.AddEventSink(this, typeof(Persist));
+    }
+
+    public void EnableSystemLog()
+    {
+        _scheduler.AddEventSink(this, typeof(SystemLog));
     }
 
     #endregion
