@@ -9,34 +9,82 @@ namespace TermRTS;
 public class Persistence
 {
     /// <summary>
-    ///     Persist the current simulation state to the file system.
+    ///     Serialize the current simulation state into a json string.
     /// </summary>
-    public string? SerializeSimulationStateToJson(ref Scheduler scheduler, out string? jsonStr)
+    /// <param name="scheduler">
+    ///     Reference to the scheduler, of which the state is to be serialized.
+    /// </param>
+    /// <param name="jsonStr">
+    ///     A json representation of the simulation/scheduler state.
+    ///     This returns <c>null</c> if the serialization failed.
+    /// </param>
+    /// <param name="response">
+    ///     Either confirmation if successful, or error information if failed.
+    /// </param>
+    /// <returns>
+    ///     <c>true</c> if serialization successful, <c>false</c> otherwise.
+    /// </returns>
+    public bool PutSimStateToJson(
+        ref Scheduler scheduler,
+        out string? jsonStr,
+        out string response)
     {
-        jsonStr = null;
         try
         {
             jsonStr = JsonSerializer.Serialize(scheduler.GetSchedulerState(), _serializerOptions);
+            response = "sim state serialized to json";
+            return true;
         }
         catch (NotSupportedException e)
         {
             Log.ErrorFormat("Error serializing simulation state to json: {0}", e);
-            return "Error serializing simulation state to json";
+            jsonStr = null;
+            response = "Error serializing simulation state to json";
+            return false;
         }
-
-        return null;
     }
 
-    public string? LoadSimulationStateFromJson(ref Scheduler scheduler, string? jsonStr)
+    /// <summary>
+    ///     Deserialize a simulation state from into a json string.
+    /// </summary>
+    /// <param name="scheduler">
+    ///     Reference to the scheduler, to which to restore the state
+    /// </param>
+    /// <param name="jsonStr">
+    ///     A json representation of the simulation/scheduler state.
+    /// </param>
+    /// <param name="response">
+    ///     Either confirmation if successful, or error information if failed.
+    /// </param>
+    /// <returns>
+    ///     <c>true</c> if deserialization successful, <c>false</c> otherwise.
+    /// </returns>
+    public bool GetSimStateFromJson(
+        ref Scheduler scheduler,
+        string? jsonStr,
+        out string response
+    )
     {
         if (string.IsNullOrWhiteSpace(jsonStr))
-            return $"Error reading simulation state: empty json string: {jsonStr}";
+        {
+            response = $"Error reading simulation state: empty json string: {jsonStr}";
+            return false;
+        }
 
         SchedulerState? newSchedulerState;
         try
         {
             newSchedulerState =
                 JsonSerializer.Deserialize<SchedulerState>(jsonStr, _serializerOptions);
+            if (newSchedulerState != null)
+            {
+                scheduler.ReplaceSchedulerState(newSchedulerState);
+                response = "sim state deserialized from json";
+                return true;
+            }
+
+            Log.ErrorFormat("Error parsing simulation state from NULL json: {0}", jsonStr);
+            response = "Error: simulation state parsed from json is invalid.";
         }
         catch (ArgumentNullException e)
         {
@@ -44,7 +92,7 @@ public class Persistence
                 "Error parsing simulation state from null json: {0}\ncaused by jsonStr={1}",
                 e,
                 jsonStr);
-            return "Error parsing simulation state from null json";
+            response = "Error parsing simulation state from null json";
         }
         catch (JsonException e)
         {
@@ -52,45 +100,49 @@ public class Persistence
                 "Error parsing simulation state from invalid json: {0}\ncaused by jsonStr={1}",
                 e,
                 jsonStr);
-            return "Error parsing simulation state from invalid json";
+            response = "Error parsing simulation state from invalid json";
         }
         catch (NotSupportedException e)
         {
             Log.ErrorFormat(
-                "Error parsing simulation state from incompatible json: {0}\ncaused by jsonStr={1}",
+                "Error parsing simulation state from json: {0}\ncaused by jsonStr={1}",
                 e,
                 jsonStr);
-            return $"Error parsing simulation state from incompatible json: {e.Message} {jsonStr}";
+            response =
+                $"Error parsing simulation state from incompatible json: {e.Message} {jsonStr}";
         }
 
-        if (newSchedulerState == null)
-        {
-            Log.ErrorFormat("Error parsing simulation state from NULL json: {0}", jsonStr);
-            return "Error: simulation state parsed from json is invalid.";
-        }
-
-        scheduler.ReplaceSchedulerState(newSchedulerState);
-        return null;
+        return false;
     }
 
     /// <summary>
-    ///     Save a simulation state to the local file system.
+    ///     Save a json string to the file system.
     /// </summary>
+    /// <param name="jsonStr">
+    ///     A json representation of the simulation/scheduler state.
+    /// </param>
     /// <param name="filePath">Path to the json file to save to.</param>
-    /// <param name="jsonStr">Simulation state in form of a json string.</param>
-    /// <returns></returns>
-    internal static string? SaveJsonToFile(string filePath, string? jsonStr)
+    /// <param name="response">
+    ///     Either confirmation if successful, or error information if failed.
+    /// </param>
+    /// <returns>
+    ///     <c>true</c> if saving successful, <c>false</c> otherwise.
+    /// </returns>
+    internal static bool SaveJsonToFile(string? jsonStr, string filePath, out string response)
     {
         try
         {
             File.WriteAllText(filePath, jsonStr);
-            return null;
+            response = "sim state saved to file";
+            return true;
         }
         catch (ArgumentNullException e)
         {
-            Log.ErrorFormat("Error writing json to file, invalid path: {0},\ncaused by {1}", e,
+            Log.ErrorFormat(
+                "Error writing json to file, invalid path: {0},\ncaused by {1}",
+                e,
                 filePath);
-            return $"File path is null: {filePath}";
+            response = $"File path is null: {filePath}";
         }
         catch (ArgumentException e)
         {
@@ -101,64 +153,74 @@ public class Persistence
                 e,
                 filePath,
                 Path.GetInvalidFileNameChars());
-            return "Invalid file path for storing simulation state.";
+            response = "Invalid file path for storing simulation state.";
         }
         catch (PathTooLongException e)
         {
             Log.ErrorFormat("File path is too long: {0}\ncaused by {1}", e, filePath);
-            return "File path is too long";
+            response = "File path is too long";
         }
         catch (DirectoryNotFoundException e)
         {
             Log.ErrorFormat("Directory not found: {0}\ncaused by {1}", e, filePath);
-            return "File path is not a valid directory";
+            response = "File path is not a valid directory";
         }
         catch (FileNotFoundException e)
         {
             Log.ErrorFormat("File not found: {0}\ncaused by {1}", e, filePath);
-            return "File does not exist";
+            response = "File does not exist";
         }
         catch (IOException e)
         {
             Log.ErrorFormat("IOException: {0}\ncaused by {1}", e, filePath);
-            return "Error writing simulation state to file";
+            response = "Error writing simulation state to file";
         }
         catch (UnauthorizedAccessException e)
         {
             Log.ErrorFormat("Invalid access to file: {0}\ncaused by {1}", e, filePath);
-            return $"Invalid user rights to access file path: {filePath}";
+            response = $"Invalid user rights to access file path: {filePath}";
         }
         catch (SecurityException e)
         {
             Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
-            return $"Security error accessing file path: {filePath}";
+            response = $"Security error accessing file path: {filePath}";
         }
         catch (NotSupportedException e)
         {
             Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
-            return $"File is not supported: {filePath}";
+            response = $"File is not supported: {filePath}";
         }
+
+        return false;
     }
 
     /// <summary>
-    ///     Load a saved simulation state from the file system.
+    ///     Load a saved simulation state from the file system into a json string.
     /// </summary>
-    /// <param name="filePath">Path to the file to load from.</param>
-    /// <param name="jsonStr">Simulation state in form of a json string.</param>
-    /// <returns>A string with error information if loading fails, null otherwise.</returns>
-    internal static string? LoadJsonFromFile(string filePath, out string? jsonStr)
+    /// <param name="jsonStr">
+    ///     A json representation of the simulation/scheduler state.
+    /// </param>
+    /// <param name="filePath">Path to the json file to load from.</param>
+    /// <param name="response">
+    ///     Either confirmation if successful, or error information if failed.
+    /// </param>
+    /// <returns>
+    ///     <c>true</c> if loading successful, <c>false</c> otherwise.
+    /// </returns>
+    internal static bool LoadJsonFromFile(out string? jsonStr, string filePath, out string response)
     {
         jsonStr = null;
         try
         {
             jsonStr = File.ReadAllText(filePath);
-            return null;
+            response = "sim state loaded from file";
+            return true;
         }
         catch (ArgumentNullException e)
         {
             Log.ErrorFormat("Error reading json from file, invalid path: {0},\ncaused by {1}", e,
                 filePath);
-            return $"File path is null: {filePath}";
+            response = $"File path is null: {filePath}";
         }
         catch (ArgumentException e)
         {
@@ -169,43 +231,45 @@ public class Persistence
                 e,
                 filePath,
                 Path.GetInvalidFileNameChars());
-            return "Invalid file path for storing simulation state.";
+            response = "Invalid file path for storing simulation state.";
         }
         catch (PathTooLongException e)
         {
             Log.ErrorFormat("File path is too long: {0}\ncaused by {1}", e, filePath);
-            return "File path is too long";
+            response = "File path is too long";
         }
         catch (DirectoryNotFoundException e)
         {
             Log.ErrorFormat("Directory not found: {0}\ncaused by {1}", e, filePath);
-            return "File path is not a valid directory";
+            response = "File path is not a valid directory";
         }
         catch (FileNotFoundException e)
         {
             Log.ErrorFormat("File not found: {0}\ncaused by {1}", e, filePath);
-            return "File does not exist";
+            response = "File does not exist";
         }
         catch (IOException e)
         {
             Log.ErrorFormat("IOException: {0}\ncaused by {1}", e, filePath);
-            return "Error writing simulation state to file";
+            response = "Error writing simulation state to file";
         }
         catch (UnauthorizedAccessException e)
         {
             Log.ErrorFormat("Invalid access to file: {0}\ncaused by {1}", e, filePath);
-            return $"Invalid user rights to access file path: {filePath}";
+            response = $"Invalid user rights to access file path: {filePath}";
         }
         catch (SecurityException e)
         {
             Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
-            return $"Security error accessing file path: {filePath}";
+            response = $"Security error accessing file path: {filePath}";
         }
         catch (NotSupportedException e)
         {
             Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
-            return $"File is not supported: {filePath}";
+            response = $"File is not supported: {filePath}";
         }
+
+        return false;
     }
 
     #region Fields

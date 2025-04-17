@@ -129,21 +129,21 @@ public class EngineTest
         // Setup Simulation and Persistence
         var sim = new Simulation(scheduler);
         var persistence = new Persistence();
-        var serializationError1 =
-            persistence.SerializeSimulationStateToJson(ref scheduler, out var expectedJson);
+        var serializationSuccess =
+            persistence.PutSimStateToJson(ref scheduler, out var expectedJson, out _);
 
-        Assert.Null(serializationError1);
+        Assert.True(serializationSuccess);
         Assert.NotNull(expectedJson);
 
-        var deserializationError =
-            persistence.LoadSimulationStateFromJson(ref scheduler, expectedJson);
+        var deserializationSuccess =
+            persistence.GetSimStateFromJson(ref scheduler, expectedJson, out _);
 
-        Assert.Null(deserializationError);
+        Assert.True(deserializationSuccess);
 
-        var serializationError2 =
-            persistence.SerializeSimulationStateToJson(ref scheduler, out var actualJson);
+        var serializationSuccess2 =
+            persistence.PutSimStateToJson(ref scheduler, out var actualJson, out _);
 
-        Assert.Null(serializationError2);
+        Assert.True(serializationSuccess2);
         Assert.NotNull(actualJson);
         Assert.Equal(expectedJson, actualJson);
     }

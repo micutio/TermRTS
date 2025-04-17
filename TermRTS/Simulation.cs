@@ -7,8 +7,7 @@ namespace TermRTS;
 /// <summary>
 ///     Top-level class representing a simulation or game.
 ///     Main purpose is to encapsulate the Scheduler and Core to allow for convenient de/serialisation.
-///     TODO: Error handling and visible feedback problem solution for user.
-///     See
+///     See link below:
 ///     https://madhawapolkotuwa.medium.com/mastering-json-serialization-in-c-with-system-text-json-01f4cec0440d
 /// </summary>
 public class Simulation(Scheduler scheduler) : IEventSink
@@ -26,7 +25,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     #region Properties
 
-    public ChannelReader<ScheduledEvent> LogOutputChannel => _logOutputChannel.Reader;
+    private ChannelReader<ScheduledEvent> LogOutputChannel => _logOutputChannel.Reader;
 
     #endregion
 
@@ -34,40 +33,43 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt is not Event<Persist>(var (persistOption, jsonFilePath)))
+        if (evt is not Event<Persist>(var (persistOption, filePath)))
             return;
 
         switch (persistOption)
         {
             case PersistenceOption.Load:
-                var loadError = Persistence.LoadJsonFromFile(jsonFilePath, out var loadedJsonStr);
-                if (!string.IsNullOrEmpty(loadError))
-                    _logOutputChannel
-                        .Writer
-                        .TryWrite(ScheduledEvent.From(new SystemLog(loadError)));
+                var isLoadSuccess =
+                    Persistence
+                        .LoadJsonFromFile(out var loadedJsonStr, filePath, out var loadResponse);
+                _logOutputChannel
+                    .Writer
+                    .TryWrite(ScheduledEvent.From(new SystemLog(loadResponse)));
+                if (!isLoadSuccess) break;
 
-                var deserializeError =
-                    _persistence.LoadSimulationStateFromJson(ref _scheduler, loadedJsonStr);
-                if (!string.IsNullOrEmpty(deserializeError))
-                    _logOutputChannel
-                        .Writer
-                        .TryWrite(ScheduledEvent.From(new SystemLog(deserializeError)));
+                _persistence.GetSimStateFromJson(ref _scheduler, loadedJsonStr,
+                    out var getResponse);
+                _logOutputChannel
+                    .Writer
+                    .TryWrite(ScheduledEvent.From(new SystemLog(getResponse)));
                 break;
-            case PersistenceOption.Save:
-                var serializeError =
-                    _persistence
-                        .SerializeSimulationStateToJson(ref _scheduler, out var savedJsonStr);
-                if (!string.IsNullOrEmpty(serializeError))
-                    _logOutputChannel
-                        .Writer
-                        .TryWrite(ScheduledEvent.From(new SystemLog(serializeError)));
 
-                var saveError =
-                    Persistence.SaveJsonToFile(jsonFilePath, savedJsonStr);
-                if (!string.IsNullOrEmpty(saveError))
+            case PersistenceOption.Save:
+                var isSerializeSuccess =
+                    _persistence.PutSimStateToJson(
+                        ref _scheduler,
+                        out var savedJsonStr,
+                        out var putResponse);
+                _logOutputChannel
+                    .Writer
+                    .TryWrite(ScheduledEvent.From(new SystemLog(putResponse)));
+                if (!isSerializeSuccess) break;
+
+                Persistence.SaveJsonToFile(savedJsonStr, filePath, out var saveResponse);
+                if (!string.IsNullOrEmpty(saveResponse))
                     _logOutputChannel
                         .Writer
-                        .TryWrite(ScheduledEvent.From(new SystemLog(saveError)));
+                        .TryWrite(ScheduledEvent.From(new SystemLog(saveResponse)));
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -93,7 +95,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     public void EnableSystemLog()
     {
-        _scheduler.AddEventSink(this, typeof(SystemLog));
+        _scheduler.AddEventSources(LogOutputChannel);
     }
 
     #endregion
