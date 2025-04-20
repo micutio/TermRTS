@@ -12,17 +12,6 @@ namespace TermRTS;
 /// </summary>
 public class Simulation(Scheduler scheduler) : IEventSink
 {
-    #region Private Fields
-
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
-    private readonly Persistence _persistence = new();
-    private Scheduler _scheduler = scheduler;
-
-    private readonly Channel<ScheduledEvent> _logOutputChannel =
-        Channel.CreateUnbounded<ScheduledEvent>();
-
-    #endregion
-
     #region Properties
 
     private ChannelReader<ScheduledEvent> LogOutputChannel => _logOutputChannel.Reader;
@@ -75,6 +64,17 @@ public class Simulation(Scheduler scheduler) : IEventSink
                 throw new ArgumentOutOfRangeException();
         }
     }
+
+    #endregion
+
+    #region Fields
+
+    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
+    private readonly Persistence _persistence = new();
+    private Scheduler _scheduler = scheduler;
+
+    private readonly Channel<ScheduledEvent> _logOutputChannel =
+        Channel.CreateUnbounded<ScheduledEvent>();
 
     #endregion
 

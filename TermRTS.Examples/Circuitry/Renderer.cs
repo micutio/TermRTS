@@ -7,17 +7,6 @@ namespace TermRTS.Examples.Circuitry;
 
 internal class Renderer : IRenderer, IEventSink
 {
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly ILog _log;
-    private string _profileOutput;
-    private double _timePassedMs;
-
-    public Vector2 CameraPos = new(0, 0);
-    public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
-    public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
-
     #region Constructor
 
     public Renderer()
@@ -38,6 +27,21 @@ internal class Renderer : IRenderer, IEventSink
         if (evt is not Event<Profile> (var profile)) return;
         _profileOutput = profile.ProfileInfo;
     }
+
+    #endregion
+
+    #region Fields
+
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly ILog _log;
+    private string _profileOutput;
+    private double _timePassedMs;
+
+    public Vector2 CameraPos = new(0, 0);
+    public Vector2 CameraSize = new(Console.WindowWidth, Console.WindowHeight);
+    public Vector2 Size = new(Console.WindowWidth, Console.WindowHeight);
 
     #endregion
 

@@ -175,7 +175,7 @@ internal class EntityGenerator
             var availableChips =
                 _generatedChipComponents
                     .FindAll(c =>
-                        !thisChip.Equals(c) && !IsConnected(thisChip, c)).ToList();
+                        !thisChip.Equals(c) && !IsConnected(thisChip, c));
 
             var nearestChip =
                 availableChips.MinBy(c =>

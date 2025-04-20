@@ -11,13 +11,12 @@ public class EventQueue<TElement, TPriority>
     {
         var comparer = Comparer<TPriority>.Default;
         _queue = new PriorityQueue<TElement, (TPriority, long)>(
-            Comparer<(TPriority, long)>.Create(
-                (x, y) =>
-                {
-                    var result = comparer.Compare(x.Item1, y.Item1);
-                    if (result == 0) result = x.Item2.CompareTo(y.Item2);
-                    return result;
-                }));
+            Comparer<(TPriority, long)>.Create((x, y) =>
+            {
+                var result = comparer.Compare(x.Item1, y.Item1);
+                if (result == 0) result = x.Item2.CompareTo(y.Item2);
+                return result;
+            }));
     }
 
     #endregion

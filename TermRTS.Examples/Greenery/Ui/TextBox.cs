@@ -32,7 +32,6 @@ public class TextBox : IEventSink
 
         if (!IsOngoingInput) return;
 
-        // var isShift = (keyEvent.Info.Modifiers & ConsoleModifiers.Shift) != 0;
         switch (keyEvent.Key)
         {
             case ConsoleKey.Spacebar:
@@ -58,11 +57,11 @@ public class TextBox : IEventSink
         _channel.Writer.TryWrite(ScheduledEvent.From(new Event.Command(_msg)));
     }
 
-    public ArraySegment<char> GetCurrentInput()
+    public ReadOnlySpan<char> GetCurrentInput()
     {
         return _idx == 0
-            ? []
-            : new ArraySegment<char>(_msg, 0, _idx);
+            ? new ReadOnlySpan<char>(_msg, 0, 0)
+            : new ReadOnlySpan<char>(_msg, 0, _idx);
     }
 
     #region Fields

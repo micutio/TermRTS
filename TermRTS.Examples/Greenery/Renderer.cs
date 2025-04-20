@@ -22,6 +22,11 @@ public enum RenderMode
     ReliefMonochrome
 }
 
+// TODO:
+// - Extract Map and Textbox from the renderer into separate classes/structs
+// - Remove OffsetX and OffsetY from map
+// - Pack all ui elements into list
+// - Rename RenderMode to MapMode
 public class Renderer : IRenderer, IEventSink
 {
     #region Constructor
@@ -46,6 +51,108 @@ public class Renderer : IRenderer, IEventSink
 
         SetElevationLevelColorVisual();
         Console.CursorVisible = false;
+    }
+
+    #endregion
+
+    #region Fields
+
+    private readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
+    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleCanvas _canvas;
+    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
+    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
+
+    // updated from canvas and viewport size
+    [JsonIgnore] private Vector2 _viewportSize;
+
+    private readonly Vector2 _worldSize;
+
+    // TODO: Find a more modular way of handling this.
+    private readonly TextBox _textbox;
+
+    private RenderMode _renderMode = RenderMode.ElevationColor;
+    private bool _initVisualMatrix = true;
+
+    private string _profileOutput;
+    private double _timePassedMs;
+
+    // Extend of the visible world; render from _cameraPos until _max
+    private int _cameraPosX;
+    private int _cameraPosY;
+    private int _maxX;
+    private int _maxY;
+
+    // Offsets for the Map rendering, to accommodate left and top indicators
+    private int _mapOffsetX;
+    private readonly int _mapOffsetY;
+
+    #endregion
+
+    #region Private Properties
+
+    private RenderMode RenderMode
+    {
+        get => _renderMode;
+        set
+        {
+            _renderMode = value;
+            switch (_renderMode)
+            {
+                case RenderMode.ElevationColor:
+                    SetElevationLevelColorVisual();
+                    break;
+                case RenderMode.ElevationMonochrome:
+                    SetElevationLevelMonochromeVisual();
+                    break;
+                case RenderMode.HeatMapColor:
+                    SetHeatmapColorVisual();
+                    break;
+                case RenderMode.HeatMapMonochrome:
+                    SetHeatmapMonochromeVisual();
+                    break;
+                case RenderMode.TerrainColor:
+                    SetTerrainColorVisual();
+                    break;
+                case RenderMode.ReliefColor:
+                case RenderMode.ContourColor:
+                    SetTerrainColorVisual();
+                    _initVisualMatrix = true;
+                    break;
+                case RenderMode.TerrainMonochrome:
+                    SetTerrainMonochromeVisual();
+                    break;
+                case RenderMode.ReliefMonochrome:
+                case RenderMode.ContourMonochrome:
+                    SetTerrainMonochromeVisual();
+                    _initVisualMatrix = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+
+
+    private int CameraPosX
+    {
+        get => _cameraPosX;
+        set
+        {
+            _cameraPosX = value;
+            UpdateMaxX();
+        }
+    }
+
+    private int CameraPosY
+    {
+        get => _cameraPosY;
+        set
+        {
+            _cameraPosY = value;
+            UpdateMaxY();
+        }
     }
 
     #endregion
@@ -80,6 +187,130 @@ public class Renderer : IRenderer, IEventSink
     }
 
     #endregion
+
+    #region IRenderer Members
+
+    public void RenderComponents(
+        in IStorage storage,
+        double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
+    {
+        _mapOffsetX = _maxY switch
+        {
+            < 10 => 1,
+            < 100 => 2,
+            < 1000 => 3,
+            < 10000 => 4,
+            _ => 5
+        };
+
+        // Update viewport on Terminal resizing
+        if (Math.Abs(_canvas.Width - (_viewportSize.X + _mapOffsetX)) > 0.9
+            || Math.Abs(_canvas.Height - (_viewportSize.Y + _mapOffsetY)) > 0.9)
+        {
+            _viewportSize.X = _canvas.Width - _mapOffsetX;
+            _viewportSize.Y = _canvas.Height - _mapOffsetY;
+            UpdateMaxX();
+            UpdateMaxY();
+        }
+
+        // Step 1: Render world
+        var world = storage.GetSingleForType<WorldComponent>();
+        if (world == null) return;
+        var fov = storage.GetSingleForType<FovComponent>();
+        if (fov == null) return;
+
+        switch (RenderMode)
+        {
+            case RenderMode.ElevationColor:
+            case RenderMode.ElevationMonochrome:
+            case RenderMode.HeatMapColor:
+            case RenderMode.HeatMapMonochrome:
+            case RenderMode.TerrainColor:
+            case RenderMode.TerrainMonochrome:
+                RenderWorldByElevationVisuals(world, fov);
+                break;
+            case RenderMode.ReliefColor:
+            case RenderMode.ReliefMonochrome:
+                if (_initVisualMatrix)
+                {
+                    SetWorldReliefVisual(world);
+                    _initVisualMatrix = false;
+                }
+
+                RenderWorldByVisualMatrix(fov);
+                break;
+            case RenderMode.ContourColor:
+            case RenderMode.ContourMonochrome:
+                if (_initVisualMatrix)
+                {
+                    SetWorldContourLines(world);
+                    _initVisualMatrix = false;
+                }
+
+                RenderWorldByVisualMatrix(fov);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
+
+        // Step 2: Render drone
+
+        foreach (var drone in storage.GetAllForType<DroneComponent>())
+        {
+            if (drone.Path != null)
+                foreach (var (x, y, c) in drone.CachedPathVisual)
+                    if (IsInCamera(x, y))
+                        _canvas.Set(
+                            x - CameraPosX + _mapOffsetX,
+                            y - CameraPosY + _mapOffsetY,
+                            c,
+                            ConsoleColor.Red,
+                            DefaultBg);
+
+            var droneX = Convert.ToInt32(drone.Position.X);
+            var droneY = Convert.ToInt32(drone.Position.Y);
+            if (IsInCamera(droneX, droneY))
+                _canvas.Set(
+                    droneX - CameraPosX + _mapOffsetX,
+                    droneY - CameraPosY + _mapOffsetY,
+                    '@',
+                    DefaultBg,
+                    ConsoleColor.Red);
+        }
+
+        RenderCoordinates();
+
+        // Step 2: Render textbox if its contents have changed.
+        if (_textbox.IsOngoingInput)
+            RenderTextbox();
+        else
+            for (var i = 0; i <= _viewportSize.X; i += 1)
+                _canvas.Set(i, (int)_viewportSize.Y, ' ', DefaultFg, DefaultBg);
+
+        // Step 3: Render profiling info on top of the world
+#if DEBUG
+        if (!_textbox.IsOngoingInput)
+            RenderDebugInfo(timeStepSizeMs, howFarIntoNextFramePercent);
+#endif
+    }
+
+    public void FinalizeRender()
+    {
+        _canvas.Render();
+    }
+
+    public void Shutdown()
+    {
+        Console.ResetColor();
+        Console.Clear();
+        Log.Info("Shutting down renderer.");
+    }
+
+    #endregion
+
+    #region Private Members
 
     private void UpdateMaxX()
     {
@@ -212,7 +443,7 @@ public class Renderer : IRenderer, IEventSink
         }
     }
 
-    private void RenderInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
+    private void RenderDebugInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
         _timePassedMs += timeStepSizeMs + timeStepSizeMs * howFarIntoNextFramePercent;
 
@@ -227,19 +458,23 @@ public class Renderer : IRenderer, IEventSink
 
     private void RenderTextbox()
     {
+        // TODO: Cache x and y, update whenever viewport size changes
         var x = Convert.ToInt32(_viewportSize.X - 1 + _mapOffsetX);
         var y = Convert.ToInt32(_viewportSize.Y - 1 + _mapOffsetY);
         var fg = DefaultFg;
         var bg = DefaultBg;
 
+        // render blank line
         for (var i = 0; i < x; i += 1)
             _canvas.Set(i, y, ' ', bg, fg);
 
+        // render prompt
         _canvas.Set(0, y, '>', bg, fg);
         _canvas.Set(1, y, ' ', bg, fg);
 
+        // render text
         var input = _textbox.GetCurrentInput();
-        for (var i = 0; i < input.Count; i += 1)
+        for (var i = 0; i < input.Length; i += 1)
         {
             var c = input[i];
             _canvas.Set(2 + i, y, c, bg, fg);
@@ -541,229 +776,6 @@ public class Renderer : IRenderer, IEventSink
             15 => Cp437.BoxVerticalHorizontal, // 1111, all
             _ => '?'
         };
-    }
-
-    #region IRenderer Members
-
-    public void RenderComponents(
-        in IStorage storage,
-        double timeStepSizeMs,
-        double howFarIntoNextFramePercent)
-    {
-        _mapOffsetX = _maxY switch
-        {
-            < 10 => 1,
-            < 100 => 2,
-            < 1000 => 3,
-            < 10000 => 4,
-            _ => 5
-        };
-
-        // Update viewport on Terminal resizing
-        if (Math.Abs(_canvas.Width - (_viewportSize.X + _mapOffsetX)) > 0.9
-            || Math.Abs(_canvas.Height - (_viewportSize.Y + _mapOffsetY)) > 0.9)
-        {
-            _viewportSize.X = _canvas.Width - _mapOffsetX;
-            _viewportSize.Y = _canvas.Height - _mapOffsetY;
-            UpdateMaxX();
-            UpdateMaxY();
-        }
-
-        // Step 1: Render world
-        var world = storage.GetSingleForType<WorldComponent>();
-        if (world == null) return;
-        var fov = storage.GetSingleForType<FovComponent>();
-        if (fov == null) return;
-
-        switch (RenderMode)
-        {
-            case RenderMode.ElevationColor:
-            case RenderMode.ElevationMonochrome:
-            case RenderMode.HeatMapColor:
-            case RenderMode.HeatMapMonochrome:
-            case RenderMode.TerrainColor:
-            case RenderMode.TerrainMonochrome:
-                RenderWorldByElevationVisuals(world, fov);
-                break;
-            case RenderMode.ReliefColor:
-            case RenderMode.ReliefMonochrome:
-                if (_initVisualMatrix)
-                {
-                    SetWorldReliefVisual(world);
-                    _initVisualMatrix = false;
-                }
-
-                RenderWorldByVisualMatrix(fov);
-                break;
-            case RenderMode.ContourColor:
-            case RenderMode.ContourMonochrome:
-                if (_initVisualMatrix)
-                {
-                    SetWorldContourLines(world);
-                    _initVisualMatrix = false;
-                }
-
-                RenderWorldByVisualMatrix(fov);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-
-
-        // Step 2: Render drone
-
-        foreach (var drone in storage.GetAllForType<DroneComponent>())
-        {
-            if (drone.Path != null)
-                foreach (var (x, y, c) in drone.CachedPathVisual)
-                    if (IsInCamera(x, y))
-                        _canvas.Set(
-                            x - CameraPosX + _mapOffsetX,
-                            y - CameraPosY + _mapOffsetY,
-                            c,
-                            ConsoleColor.Red,
-                            DefaultBg);
-
-            var droneX = Convert.ToInt32(drone.Position.X);
-            var droneY = Convert.ToInt32(drone.Position.Y);
-            if (IsInCamera(droneX, droneY))
-                _canvas.Set(
-                    droneX - CameraPosX + _mapOffsetX,
-                    droneY - CameraPosY + _mapOffsetY,
-                    '@',
-                    DefaultBg,
-                    ConsoleColor.Red);
-        }
-
-        RenderCoordinates();
-
-        // Step 2: Render textbox if its contents have changed.
-        if (_textbox.IsOngoingInput)
-            RenderTextbox();
-        else
-            for (var i = 0; i <= _viewportSize.X; i += 1)
-                _canvas.Set(i, (int)_viewportSize.Y, ' ', DefaultFg, DefaultBg);
-
-        // Step 3: Render profiling info on top of the world
-#if DEBUG
-        if (!_textbox.IsOngoingInput)
-            RenderInfo(timeStepSizeMs, howFarIntoNextFramePercent);
-#endif
-    }
-
-    public void FinalizeRender()
-    {
-        _canvas.Render();
-    }
-
-    public void Shutdown()
-    {
-        Console.ResetColor();
-        Console.Clear();
-        Log.Info("Shutting down renderer.");
-    }
-
-    #endregion
-
-    #region Fields
-
-    private readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
-    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
-
-    // updated from canvas and viewport size
-    [JsonIgnore] private Vector2 _viewportSize;
-
-    private readonly Vector2 _worldSize;
-
-    // TODO: Find a more modular way of handling this.
-    private readonly TextBox _textbox;
-
-    private RenderMode _renderMode = RenderMode.ElevationColor;
-    private bool _initVisualMatrix = true;
-
-    private string _profileOutput;
-    private double _timePassedMs;
-
-    // Extend of the visible world; render from _cameraPos until _max
-    private int _cameraPosX;
-    private int _cameraPosY;
-    private int _maxX;
-
-    private int _maxY;
-
-    // Offsets for the Map rendering, to accommodate left and top indicators
-    private int _mapOffsetX;
-    private readonly int _mapOffsetY;
-
-    #endregion
-
-    #region Private Properties
-
-    private RenderMode RenderMode
-    {
-        get => _renderMode;
-        set
-        {
-            _renderMode = value;
-            switch (_renderMode)
-            {
-                case RenderMode.ElevationColor:
-                    SetElevationLevelColorVisual();
-                    break;
-                case RenderMode.ElevationMonochrome:
-                    SetElevationLevelMonochromeVisual();
-                    break;
-                case RenderMode.HeatMapColor:
-                    SetHeatmapColorVisual();
-                    break;
-                case RenderMode.HeatMapMonochrome:
-                    SetHeatmapMonochromeVisual();
-                    break;
-                case RenderMode.TerrainColor:
-                    SetTerrainColorVisual();
-                    break;
-                case RenderMode.ReliefColor:
-                case RenderMode.ContourColor:
-                    SetTerrainColorVisual();
-                    _initVisualMatrix = true;
-                    break;
-                case RenderMode.TerrainMonochrome:
-                    SetTerrainMonochromeVisual();
-                    break;
-                case RenderMode.ReliefMonochrome:
-                case RenderMode.ContourMonochrome:
-                    SetTerrainMonochromeVisual();
-                    _initVisualMatrix = true;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-    }
-
-
-    private int CameraPosX
-    {
-        get => _cameraPosX;
-        set
-        {
-            _cameraPosX = value;
-            UpdateMaxX();
-        }
-    }
-
-    private int CameraPosY
-    {
-        get => _cameraPosY;
-        set
-        {
-            _cameraPosY = value;
-            UpdateMaxY();
-        }
     }
 
     #endregion
