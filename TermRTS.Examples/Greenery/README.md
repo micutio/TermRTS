@@ -1,4 +1,4 @@
-﻿# Greenery - A simulation Game about Infrastructure and Base Building
+# Greenery - A simulation Game about Infrastructure and Base Building
 
 ## Plan
 

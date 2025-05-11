@@ -14,8 +14,13 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
+    private const int WorldWidth = 300;
+
+    private const int WorldHeight = 150;
+
     // private readonly ILog _log;
     private readonly CommandRunner _commandRunner = new();
+    private readonly MapView _mapView = new(WorldWidth, WorldHeight);
     private readonly TextBox _textbox = new();
 
     #region IRunnableExample Members
@@ -31,11 +36,8 @@ public class Greenery : IRunnableExample
 
         var seed = 0; //rng.Next();
 
-        var worldWidth = 300;
-        var worldHeight = 150;
-
         // Set up engine
-        var renderer = new Renderer(worldWidth, worldHeight, _textbox);
+        var renderer = new Renderer(_mapView, _textbox);
         var core = new Core(renderer);
 
         var worldGen = new VoronoiWorld(50, seed);
@@ -43,14 +45,14 @@ public class Greenery : IRunnableExample
         var worldComponent =
             new WorldComponent(
                 worldEntity.Id,
-                worldWidth,
-                worldHeight,
-                worldGen.Generate(worldWidth, worldHeight));
+                WorldWidth,
+                WorldHeight,
+                worldGen.Generate(WorldWidth, WorldHeight));
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
 
         var fovEntity = new EntityBase();
-        var fovComponent = new FovComponent(fovEntity.Id, worldWidth, worldHeight);
+        var fovComponent = new FovComponent(fovEntity.Id, WorldWidth, WorldHeight);
         core.AddEntity(fovEntity);
         core.AddComponent(fovComponent);
 
@@ -59,7 +61,7 @@ public class Greenery : IRunnableExample
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
 
-        var pathFindingSystem = new PathFindingSystem(worldWidth, worldHeight);
+        var pathFindingSystem = new PathFindingSystem(WorldWidth, WorldHeight);
         core.AddSimSystem(pathFindingSystem);
         core.AddSimSystem(new FovSystem());
 

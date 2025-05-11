@@ -4,6 +4,7 @@ using System.Threading.Channels;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
+using TermRTS.Examples.Greenery.Ui;
 
 namespace TermRTS.Examples.Greenery.Command;
 

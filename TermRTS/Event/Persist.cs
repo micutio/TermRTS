@@ -1,4 +1,4 @@
-﻿namespace TermRTS.Event;
+namespace TermRTS.Event;
 
 public enum PersistenceOption
 {
