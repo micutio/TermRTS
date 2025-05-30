@@ -9,7 +9,7 @@ namespace TermRTS.Examples.Greenery;
 // - Extract Map and Textbox from the renderer into separate classes/structs
 // - Remove OffsetX and OffsetY from map
 // - Pack all ui elements into list
-// - Rename RenderMode to MapMode
+// - Rename RenderMode to MapRenderMode
 public class Renderer : IRenderer, IEventSink
 {
     #region Fields
@@ -54,12 +54,12 @@ public class Renderer : IRenderer, IEventSink
 
         if (!_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyContent))
         {
-            // TODO: Pass event on to MapView
+            // TODO: Remove this if-query and create separate event input for mapview.
         }
 
         if (evt is Event<RenderMode> (var renderMode))
         {
-            // TODO: Pass event on to MapView
+            // TODO: Remove this if-query and create separate event input for mapview.
         }
     }
 
@@ -127,6 +127,7 @@ public class Renderer : IRenderer, IEventSink
         _canvas.Text(0, _canvas.Height - 1, $"{hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
     }
 
+    // TODO: Move method to TextBox class.
     private void RenderTextbox()
     {
         // TODO: Cache x and y, update whenever viewport size changes

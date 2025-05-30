@@ -74,7 +74,6 @@ public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
 
     #endregion
 
-
     #region Private Properties
 
     private RenderMode RenderMode
