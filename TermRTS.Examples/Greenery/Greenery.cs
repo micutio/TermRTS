@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Event;
@@ -20,8 +21,12 @@ public class Greenery : IRunnableExample
 
     // private readonly ILog _log;
     private readonly CommandRunner _commandRunner = new();
+
+    // TODO: Move into Renderer
     private readonly MapView _mapView = new(WorldWidth, WorldHeight);
-    private readonly TextBox _textbox = new();
+
+    // TODO: Move into Renderer
+    private readonly TextBox<ConsoleCanvas> _textbox = new();
 
     #region IRunnableExample Members
 
@@ -80,7 +85,6 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSources(input.KeyEventReader);
         scheduler.AddEventSink(input, typeof(Shutdown));
         scheduler.AddEventSink(renderer, typeof(ConsoleKeyInfo));
-        scheduler.AddEventSink(_textbox, typeof(ConsoleKeyInfo));
         scheduler.AddEventSources(_textbox.MessageEventReader);
         input.Run();
 

@@ -2,6 +2,8 @@ namespace TermRTS;
 
 public interface IRenderer
 {
+    // TODO: Split render into update and render?
+
     /// <summary>
     ///     Called for each entity in the engine, at the end of each simulation tick
     /// </summary>

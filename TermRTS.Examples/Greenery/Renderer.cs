@@ -2,6 +2,7 @@ using ConsoleRenderer;
 using log4net;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Ui;
+using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -10,7 +11,7 @@ namespace TermRTS.Examples.Greenery;
 // - Remove OffsetX and OffsetY from map
 // - Pack all ui elements into list
 // - Rename RenderMode to MapRenderMode
-public class Renderer : IRenderer, IEventSink
+public class Renderer : UiRootBase<ConsoleCanvas>, IEventSink
 {
     #region Fields
 
@@ -21,7 +22,7 @@ public class Renderer : IRenderer, IEventSink
 
     // TODO: Find a more modular way of handling this.
     private readonly MapView _mapView;
-    private readonly TextBox _textbox;
+    private readonly TextBox<ConsoleCanvas> _textbox;
 
     private string _profileOutput;
     private double _timePassedMs;
@@ -30,7 +31,7 @@ public class Renderer : IRenderer, IEventSink
 
     #region Constructor
 
-    public Renderer(MapView mapView, TextBox textbox)
+    public Renderer(MapView mapView, TextBox<ConsoleCanvas> textbox)
     {
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;

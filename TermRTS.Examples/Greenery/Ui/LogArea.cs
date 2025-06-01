@@ -1,22 +1,14 @@
 using ConsoleRenderer;
 using TermRTS.Event;
+using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
-public class LogArea : IEventSink
+public class LogArea : UiElementBase<ConsoleCanvas>, IEventSink
 {
     #region Fields
 
     private readonly Queue<string> _logEntries = [];
-
-    #endregion
-
-    #region Properties
-
-    private int MinX { get; set; }
-    private int MinY { get; set; }
-    private int MaxX { get; set; }
-    private int MaxY { get; set; }
 
     #endregion
 
@@ -27,16 +19,45 @@ public class LogArea : IEventSink
         if (evt is not Event<SystemLog>(var logContent)) return;
 
         _logEntries.Enqueue(logContent.Content);
+        IsRequireReRender = true;
     }
 
     #endregion
 
-    #region Public Members
+    #region UiElementBase Members
 
-    public void Render(ref ConsoleCanvas canvas)
+    public override void UpdateFromComponents(
+        in IStorage componentStorage,
+        double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
     {
-        // TODO: Finalize idea
-        // 
+        // Does not require components to work.
+    }
+
+    public override void Render(ref ConsoleCanvas canvas)
+    {
+        // TODO:
+        throw new NotImplementedException();
+    }
+
+    protected override void OnXChanged(int newX)
+    {
+        IsRequireReRender = true;
+    }
+
+    protected override void OnYChanged(int newY)
+    {
+        IsRequireReRender = true;
+    }
+
+    protected override void OnWidthChanged(int newWidth)
+    {
+        IsRequireReRender = true;
+    }
+
+    protected override void OnHeightChanged(int newHeight)
+    {
+        IsRequireReRender = true;
     }
 
     #endregion

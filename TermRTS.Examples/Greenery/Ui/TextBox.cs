@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using TermRTS.Event;
+using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
@@ -9,61 +10,8 @@ internal enum InputState
     OngoingInput
 }
 
-public class TextBox : IEventSink
+public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
 {
-    #region IEventSink Members
-
-    public void ProcessEvent(IEvent evt)
-    {
-        if (evt is not Event<ConsoleKeyInfo>(var keyEvent)) return;
-
-        if (keyEvent.Key.Equals(ConsoleKey.Enter))
-            switch (_state)
-            {
-                case InputState.Idle:
-                    _state = InputState.OngoingInput;
-                    Array.Clear(_msg, 0, 80);
-                    return;
-                case InputState.OngoingInput:
-                    FinalizeMessage();
-                    _state = InputState.Idle;
-                    return;
-            }
-
-        if (!IsOngoingInput) return;
-
-        switch (keyEvent.Key)
-        {
-            case ConsoleKey.Spacebar:
-                _msg[_idx] = ' ';
-                _idx += 1;
-                break;
-            case ConsoleKey.Backspace:
-                _idx = Math.Max(_idx - 1, 0);
-                break;
-            default:
-                _msg[_idx] = keyEvent.KeyChar;
-                _idx += 1;
-                break;
-        }
-    }
-
-    #endregion
-
-    private void FinalizeMessage()
-    {
-        _idx = 0;
-        _state = InputState.Idle;
-        _channel.Writer.TryWrite(ScheduledEvent.From(new Event.Command(_msg)));
-    }
-
-    public ReadOnlySpan<char> GetCurrentInput()
-    {
-        return _idx == 0
-            ? new ReadOnlySpan<char>(_msg, 0, 0)
-            : new ReadOnlySpan<char>(_msg, 0, _idx);
-    }
-
     #region Fields
 
     private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
@@ -79,6 +27,101 @@ public class TextBox : IEventSink
     public ChannelReader<ScheduledEvent> MessageEventReader => _channel.Reader;
 
     public bool IsOngoingInput => _state == InputState.OngoingInput;
+
+    #endregion
+
+    #region IEventSink Members
+
+    public override void HandleKeyInput(ref ConsoleKeyInfo keyInfo)
+    {
+        if (keyInfo.Key == ConsoleKey.Enter)
+            switch (_state)
+            {
+                case InputState.Idle:
+                    _state = InputState.OngoingInput;
+                    Array.Clear(_msg, 0, 80);
+                    return;
+                case InputState.OngoingInput:
+                    FinalizeMessage();
+                    _state = InputState.Idle;
+                    return;
+                default:
+                    return;
+            }
+
+        if (!IsOngoingInput) return;
+
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.Spacebar:
+                _msg[_idx] = ' ';
+                _idx += 1;
+                break;
+            case ConsoleKey.Backspace:
+                _idx = Math.Max(_idx - 1, 0);
+                break;
+            default:
+                _msg[_idx] = keyInfo.KeyChar;
+                _idx += 1;
+                break;
+        }
+    }
+
+    #endregion
+
+    #region UiElementBase Members
+
+    public override void UpdateFromComponents(
+        in IStorage componentStorage,
+        double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
+    {
+        // Does not require components to work.
+    }
+
+    public override void Render(ref TCanvas canvas)
+    {
+        // TODO:
+        throw new NotImplementedException();
+    }
+
+    protected override void OnXChanged(int newX)
+    {
+        IsRequireReRender = true;
+    }
+
+    protected override void OnYChanged(int newY)
+    {
+        IsRequireReRender = true;
+    }
+
+    protected override void OnWidthChanged(int newWidth)
+    {
+        IsRequireReRender = true;
+    }
+
+    protected override void OnHeightChanged(int newHeight)
+    {
+        IsRequireReRender = true;
+    }
+
+    #endregion
+
+    #region Members
+
+    private void FinalizeMessage()
+    {
+        _idx = 0;
+        _state = InputState.Idle;
+        _channel.Writer.TryWrite(ScheduledEvent.From(new Event.Command(_msg)));
+    }
+
+    public ReadOnlySpan<char> GetCurrentInput()
+    {
+        return _idx == 0
+            ? new ReadOnlySpan<char>(_msg, 0, 0)
+            : new ReadOnlySpan<char>(_msg, 0, _idx);
+    }
 
     #endregion
 }

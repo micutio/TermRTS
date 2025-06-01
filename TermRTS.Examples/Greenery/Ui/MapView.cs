@@ -20,7 +20,7 @@ public enum RenderMode
     ReliefMonochrome
 }
 
-public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
+public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSink
 {
     #region Fields
 
@@ -142,8 +142,19 @@ public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
 
     #region IUiElement<ConsoleCanvas> Members
 
+    public override void UpdateFromComponents(
+        in IStorage componentStorage,
+        double timeStepSizeMs,
+        double howFarIntoNextFramePercent)
+    {
+        // TODO:
+        throw new NotImplementedException();
+    }
+
     public override void Render(ref ConsoleCanvas canvas)
     {
+        // TODO:
+        throw new NotImplementedException();
     }
 
     protected override void OnXChanged(int newX)
@@ -154,6 +165,7 @@ public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
 
     protected override void OnYChanged(int newY)
     {
+        // TODO:
         throw new NotImplementedException();
     }
 
@@ -161,12 +173,16 @@ public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
     {
         _mapViewPortWidth = newWidth - _mapOffsetX;
         UpdateCameraX2();
+        IsRequireReRender = true;
+        IsRequireRootReRender = true;
     }
 
     protected override void OnHeightChanged(int newHeight)
     {
         _mapViewPortHeight = newHeight - _mapOffsetY;
         UpdateCameraY2();
+        IsRequireReRender = true;
+        IsRequireRootReRender = true;
     }
 
     #endregion
@@ -175,30 +191,7 @@ public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt is Event<RenderMode> (var renderMode))
-        {
-            RenderMode = renderMode;
-            return;
-        }
-
-        if (evt is Event<ConsoleKeyInfo> (var keyContent))
-            switch (keyContent.Key)
-            {
-                case ConsoleKey.UpArrow:
-                    MoveCameraUp();
-                    return;
-                case ConsoleKey.DownArrow:
-                    MoveCameraDown();
-                    return;
-                case ConsoleKey.LeftArrow:
-                    MoveCameraLeft();
-                    return;
-                case ConsoleKey.RightArrow:
-                    MoveCameraRight();
-                    return;
-                default:
-                    return;
-            }
+        if (evt is Event<RenderMode> (var renderMode)) RenderMode = renderMode;
     }
 
     #endregion
@@ -294,6 +287,32 @@ public class MapView : IUiElement<ConsoleCanvas>, IRenderer, IEventSink
 
     public void Shutdown()
     {
+    }
+
+    #endregion
+
+
+    #region KeyInputProcessorBase Members
+
+    public override void HandleKeyInput(ref ConsoleKeyInfo keyInfo)
+    {
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.UpArrow:
+                MoveCameraUp();
+                return;
+            case ConsoleKey.DownArrow:
+                MoveCameraDown();
+                return;
+            case ConsoleKey.LeftArrow:
+                MoveCameraLeft();
+                return;
+            case ConsoleKey.RightArrow:
+                MoveCameraRight();
+                return;
+            default:
+                return;
+        }
     }
 
     #endregion

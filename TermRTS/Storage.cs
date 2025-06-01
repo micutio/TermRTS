@@ -8,6 +8,8 @@ using EntityComponents = Dictionary<int, List<ComponentBase>>;
 
 #region IStorage Interface
 
+// TODO: Split into readonly and writable storage!
+
 /// <summary>
 ///     Interface for component storage, associating by component type and entity id.
 ///     It's supposed to store all components of a type in contiguous memory to allow fast access for

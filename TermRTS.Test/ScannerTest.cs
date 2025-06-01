@@ -46,7 +46,7 @@ internal static class TokenExtension
 {
     internal static bool IsEqual(this Token token, Token other)
     {
-        var isEqual = token.TokenType.Equals(other.TokenType)
+        var isEqual = token.TokenType == other.TokenType
                       && token.Lexeme.Equals(other.Lexeme)
                       && Equals(token.Literal, other.Literal);
 
