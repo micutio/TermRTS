@@ -1,6 +1,6 @@
 namespace TermRTS.Ui;
 
-public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>
+public abstract class UiRootBase : UiElementBase
 {
     // TODO: Possibly create a stack to keep track of focused elements.
     //       If one of the child elements claims focus to this, then this claims focus to its
@@ -8,7 +8,7 @@ public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>
 
     #region Fields
 
-    private readonly List<UiElementBase<TCanvas>> _uiElements = [];
+    private readonly List<UiElementBase> _uiElements = [];
 
     #endregion
 
@@ -36,23 +36,22 @@ public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>
     ///     Render the root and all of its elements.
     ///     Only triggered if either the root
     /// </summary>
-    /// <param name="canvas"></param>
-    public override void Render(in TCanvas canvas)
+    public override void Render()
     {
         var isRequireReRender = IsRequireReRender
                                 || _uiElements.Any(x => x.IsRequireRootReRender);
         if (isRequireReRender)
         {
-            RenderUiBase(in canvas);
+            RenderUiBase();
 
-            foreach (var uiElement in _uiElements) uiElement.Render(in canvas);
+            foreach (var uiElement in _uiElements) uiElement.Render();
         }
         else
         {
             foreach (var uiElement in _uiElements)
                 if (uiElement.IsRequireReRender)
                 {
-                    uiElement.Render(in canvas);
+                    uiElement.Render();
                     uiElement.IsRequireReRender = false;
                     uiElement.IsRequireRootReRender = false;
                 }
@@ -74,14 +73,14 @@ public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>
     ///     <see cref="UiElementBase{TCanvas}.IsRequireRootReRender" />
     /// </summary>
     /// <param name="canvas"></param>
-    protected abstract void RenderUiBase(in TCanvas canvas);
+    protected abstract void RenderUiBase();
 
-    public void AddUiElement(UiElementBase<TCanvas> uiElement)
+    public void AddUiElement(UiElementBase uiElement)
     {
         _uiElements.Add(uiElement);
     }
 
-    public void RemoveUiElement(UiElementBase<TCanvas> uiElement)
+    public void RemoveUiElement(UiElementBase uiElement)
     {
         _uiElements.Remove(uiElement);
     }

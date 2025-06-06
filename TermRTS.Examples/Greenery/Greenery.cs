@@ -22,12 +22,6 @@ public class Greenery : IRunnableExample
     // private readonly ILog _log;
     private readonly CommandRunner _commandRunner = new();
 
-    // TODO: Move into Renderer
-    private readonly MapView _mapView = new(WorldWidth, WorldHeight);
-
-    // TODO: Move into Renderer
-    private readonly TextBox<ConsoleCanvas> _textbox = new();
-
     #region IRunnableExample Members
 
     public void Run()
@@ -42,7 +36,7 @@ public class Greenery : IRunnableExample
         var seed = 0; //rng.Next();
 
         // Set up engine
-        var renderer = new Renderer(_mapView, _textbox);
+        var renderer = new Renderer(WorldWidth, WorldHeight);
         var core = new Core(renderer);
 
         var worldGen = new VoronoiWorld(50, seed);
@@ -85,7 +79,7 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSources(input.KeyEventReader);
         scheduler.AddEventSink(input, typeof(Shutdown));
         scheduler.AddEventSink(renderer, typeof(ConsoleKeyInfo));
-        scheduler.AddEventSources(_textbox.MessageEventReader);
+        scheduler.AddEventSources(renderer.Textbox.MessageEventReader);
         input.Run();
 
         var simulation = new Simulation(scheduler);

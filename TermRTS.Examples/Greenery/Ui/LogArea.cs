@@ -4,7 +4,7 @@ using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
-public class LogArea : UiElementBase<ConsoleCanvas>, IEventSink
+public class LogArea : UiElementBase, IEventSink
 {
     #region Fields
 
@@ -34,7 +34,7 @@ public class LogArea : UiElementBase<ConsoleCanvas>, IEventSink
         // Does not require components to work.
     }
 
-    public override void Render(ref ConsoleCanvas canvas)
+    public override void Render()
     {
         // TODO:
         throw new NotImplementedException();

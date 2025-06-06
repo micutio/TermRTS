@@ -11,7 +11,7 @@ namespace TermRTS.Examples.Greenery;
 // - Pack all ui elements into list
 // - Rename RenderMode to MapRenderMode
 // - Implement handling of focus requests
-public class Renderer : UiRootBase<ConsoleCanvas>, IRenderer, IEventSink
+public class Renderer : UiRootBase, IRenderer, IEventSink
 {
     #region Fields
 
@@ -21,7 +21,7 @@ public class Renderer : UiRootBase<ConsoleCanvas>, IRenderer, IEventSink
 
     private readonly ConsoleCanvas _canvas;
     private readonly MapView _mapview;
-    private readonly TextBox<ConsoleCanvas> _textbox;
+    private readonly TextBox _textbox;
 
     private string _profileOutput;
     private double _timePassedMs;
@@ -32,19 +32,25 @@ public class Renderer : UiRootBase<ConsoleCanvas>, IRenderer, IEventSink
 
     #region Constructor
 
-    public Renderer(MapView mapview, TextBox<ConsoleCanvas> textbox)
+    public Renderer(int worldWidth, int worldHeight)
     {
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
-        AddUiElement(mapview);
-        AddUiElement(textbox);
-        _mapview = mapview;
-        _textbox = textbox;
+        _mapview = new MapView(_canvas, worldWidth, worldHeight);
+        _textbox = new TextBox(_canvas);
+        AddUiElement(_mapview);
+        AddUiElement(_textbox);
         _profileOutput = string.Empty;
 
         Console.CursorVisible = false;
     }
+
+    #endregion
+
+    #region Properties
+
+    public TextBox Textbox => _textbox;
 
     #endregion
 
@@ -91,7 +97,7 @@ public class Renderer : UiRootBase<ConsoleCanvas>, IRenderer, IEventSink
         double howFarIntoNextFramePercent)
     {
         // Call UiElementBase.Render(), which calls `RenderUiBase()`.
-        Render(in _canvas); // 
+        Render(); // 
     }
 
     #endregion
@@ -108,7 +114,7 @@ public class Renderer : UiRootBase<ConsoleCanvas>, IRenderer, IEventSink
         _howFarIntoNextFramePercent = howFarIntoNextFramePercent;
     }
 
-    protected override void RenderUiBase(in ConsoleCanvas canvas)
+    protected override void RenderUiBase()
     {
         // Update viewport on Terminal resizing
         if (Math.Abs(_canvas.Width - _mapview.Width) > 0.9

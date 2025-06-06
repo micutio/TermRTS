@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Ui;
 
@@ -10,7 +11,7 @@ internal enum InputState
     OngoingInput
 }
 
-public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
+public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
 {
     #region Fields
 
@@ -82,7 +83,7 @@ public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
         // Does not require components to work.
     }
 
-    public override void Render(in TCanvas canvas)
+    public override void Render()
     {
         if (!IsOngoingInput) return;
 

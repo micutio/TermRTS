@@ -20,7 +20,7 @@ public enum RenderMode
     ReliefMonochrome
 }
 
-public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IEventSink
+public class MapView : KeyInputProcessorBase, IEventSink
 {
     #region Fields
 
@@ -53,9 +53,9 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IEventSink
 
     #region Constructor
 
-    public MapView(int worldWidth, int worldHeight)
+    public MapView(ConsoleCanvas canvas, int worldWidth, int worldHeight)
     {
-        _canvas = new ConsoleCanvas().Render();
+        _canvas = canvas;
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
 
@@ -141,7 +141,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IEventSink
 
     #endregion
 
-    #region IUiElement<ConsoleCanvas> Members
+    #region IUiElement Members
 
     public override void UpdateFromComponents(
         in IStorage componentStorage,
@@ -152,7 +152,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IEventSink
         throw new NotImplementedException();
     }
 
-    public override void Render(in ConsoleCanvas canvas)
+    public override void Render()
     {
         // TODO:
         throw new NotImplementedException();

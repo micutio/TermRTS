@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace TermRTS.Ui;
 
-public abstract class KeyInputProcessorBase<TCanvas> : UiElementBase<TCanvas>
+public abstract class KeyInputProcessorBase : UiElementBase
 {
     #region Fields
 
@@ -44,7 +44,7 @@ public abstract class KeyInputProcessorBase<TCanvas> : UiElementBase<TCanvas>
     public abstract void HandleKeyInput(ref ConsoleKeyInfo keyInfo);
 }
 
-public abstract class UiElementBase<TCanvas>
+public abstract class UiElementBase
 {
     #region Fields
 
@@ -118,7 +118,7 @@ public abstract class UiElementBase<TCanvas>
         double timeStepSizeMs,
         double howFarIntoNextFramePercent);
 
-    public abstract void Render(in TCanvas canvas);
+    public abstract void Render();
 
     #endregion
 
