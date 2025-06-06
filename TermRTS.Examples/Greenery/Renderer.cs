@@ -7,9 +7,6 @@ using TermRTS.Ui;
 namespace TermRTS.Examples.Greenery;
 
 // TODO:
-// - Remove OffsetX and OffsetY from map
-// - Pack all ui elements into list
-// - Rename RenderMode to MapRenderMode
 // - Implement handling of focus requests
 public class Renderer : UiRootBase, IRenderer, IEventSink
 {
@@ -69,7 +66,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             // TODO: Remove this if-query and create separate event input for mapview.
         }
 
-        if (evt is Event<RenderMode> (var renderMode))
+        if (evt is Event<MapRenderMode> (var renderMode))
         {
             // TODO: Remove this if-query and create separate event input for mapview.
         }
@@ -96,7 +93,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        // Call UiElementBase.Render(), which calls `RenderUiBase()`.
+        // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
         Render(); // 
     }
 
@@ -124,8 +121,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             _mapview.Height = _canvas.Height;
         }
 
-        // TODO: Step 2: Render text box
-        // Render textbox if its contents have changed.
         if (!_textbox.IsOngoingInput)
             for (var i = 0; i < _canvas.Width; i += 1)
                 _canvas.Set(i, _canvas.Height - 1, ' ', DefaultFg, DefaultBg);
@@ -153,11 +148,13 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void OnWidthChanged(int newWidth)
     {
+        // TODO: Adjust width of mapview, textbox and logarea
         throw new NotImplementedException();
     }
 
     protected override void OnHeightChanged(int newHeight)
     {
+        // TODO: Adjust height of mapview, textbox and logarea
         throw new NotImplementedException();
     }
 

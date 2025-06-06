@@ -94,34 +94,34 @@ public class CommandRunner : IEventSink
         switch (tokens[1].Lexeme)
         {
             case SubCmdRenderElevationColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.ElevationColor));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ElevationColor));
                 break;
             case SubCmdRenderElevationMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.ElevationMonochrome));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ElevationMonochrome));
                 break;
             case SubCmdRenderHeatmapColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.HeatMapColor));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.HeatMapColor));
                 break;
             case SubCmdRenderHeatmapMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.HeatMapMonochrome));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.HeatMapMonochrome));
                 break;
             case SubCmdRenderTerrainColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.TerrainColor));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.TerrainColor));
                 break;
             case SubCmdRenderTerrainMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.TerrainMonochrome));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.TerrainMonochrome));
                 break;
             case SubCmdRenderReliefColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.ReliefColor));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ReliefColor));
                 break;
             case SubCmdRenderReliefMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.ReliefMonochrome));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ReliefMonochrome));
                 break;
             case SubCmdRenderContourColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.ContourColor));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ContourColor));
                 break;
             case SubCmdRenderContourMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(RenderMode.ContourMonochrome));
+                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ContourMonochrome));
                 break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }

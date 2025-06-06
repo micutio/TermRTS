@@ -80,6 +80,7 @@ public abstract class UiRootBase : UiElementBase
         _uiElements.Add(uiElement);
     }
 
+    // TODO: Should this be allowed? Will require much bookkeeping
     public void RemoveUiElement(UiElementBase uiElement)
     {
         _uiElements.Remove(uiElement);

@@ -69,7 +69,7 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSink(renderer, typeof(Profile));
 
         // Listen to commands
-        scheduler.AddEventSink(renderer, typeof(RenderMode)); // render option events
+        scheduler.AddEventSink(renderer, typeof(MapRenderMode)); // render option events
         scheduler.AddEventSources(_commandRunner.CommandEventReader);
         scheduler.AddEventSink(_commandRunner, typeof(Event.Command));
         scheduler.AddEventSink(pathFindingSystem, typeof(Move));

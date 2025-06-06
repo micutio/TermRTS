@@ -6,7 +6,7 @@ using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
-public enum RenderMode
+public enum MapRenderMode
 {
     ElevationColor,
     ElevationMonochrome,
@@ -32,7 +32,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private readonly Vector2 _worldSize;
 
-    private RenderMode _renderMode = RenderMode.ElevationColor;
+    private MapRenderMode _mapRenderMode = MapRenderMode.ElevationColor;
     private bool _initVisualMatrix = true;
 
     // TODO: Rename all these dumb positioning variables!
@@ -77,39 +77,39 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #region Private Properties
 
-    private RenderMode RenderMode
+    private MapRenderMode MapRenderMode
     {
-        get => _renderMode;
+        get => _mapRenderMode;
         set
         {
-            _renderMode = value;
-            switch (_renderMode)
+            _mapRenderMode = value;
+            switch (_mapRenderMode)
             {
-                case RenderMode.ElevationColor:
+                case MapRenderMode.ElevationColor:
                     SetElevationLevelColorVisual();
                     break;
-                case RenderMode.ElevationMonochrome:
+                case MapRenderMode.ElevationMonochrome:
                     SetElevationLevelMonochromeVisual();
                     break;
-                case RenderMode.HeatMapColor:
+                case MapRenderMode.HeatMapColor:
                     SetHeatmapColorVisual();
                     break;
-                case RenderMode.HeatMapMonochrome:
+                case MapRenderMode.HeatMapMonochrome:
                     SetHeatmapMonochromeVisual();
                     break;
-                case RenderMode.TerrainColor:
+                case MapRenderMode.TerrainColor:
                     SetTerrainColorVisual();
                     break;
-                case RenderMode.ReliefColor:
-                case RenderMode.ContourColor:
+                case MapRenderMode.ReliefColor:
+                case MapRenderMode.ContourColor:
                     SetTerrainColorVisual();
                     _initVisualMatrix = true;
                     break;
-                case RenderMode.TerrainMonochrome:
+                case MapRenderMode.TerrainMonochrome:
                     SetTerrainMonochromeVisual();
                     break;
-                case RenderMode.ReliefMonochrome:
-                case RenderMode.ContourMonochrome:
+                case MapRenderMode.ReliefMonochrome:
+                case MapRenderMode.ContourMonochrome:
                     SetTerrainMonochromeVisual();
                     _initVisualMatrix = true;
                     break;
@@ -191,7 +191,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt is Event<RenderMode> (var renderMode)) RenderMode = renderMode;
+        if (evt is Event<MapRenderMode> (var renderMode)) MapRenderMode = renderMode;
     }
 
     #endregion
@@ -221,18 +221,18 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var fov = storage.GetSingleForType<FovComponent>();
         if (fov == null) return;
 
-        switch (RenderMode)
+        switch (MapRenderMode)
         {
-            case RenderMode.ElevationColor:
-            case RenderMode.ElevationMonochrome:
-            case RenderMode.HeatMapColor:
-            case RenderMode.HeatMapMonochrome:
-            case RenderMode.TerrainColor:
-            case RenderMode.TerrainMonochrome:
+            case MapRenderMode.ElevationColor:
+            case MapRenderMode.ElevationMonochrome:
+            case MapRenderMode.HeatMapColor:
+            case MapRenderMode.HeatMapMonochrome:
+            case MapRenderMode.TerrainColor:
+            case MapRenderMode.TerrainMonochrome:
                 RenderWorldByElevationVisuals(world, fov);
                 break;
-            case RenderMode.ReliefColor:
-            case RenderMode.ReliefMonochrome:
+            case MapRenderMode.ReliefColor:
+            case MapRenderMode.ReliefMonochrome:
                 if (_initVisualMatrix)
                 {
                     SetWorldReliefVisual(world);
@@ -241,8 +241,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
                 RenderWorldByVisualMatrix(fov);
                 break;
-            case RenderMode.ContourColor:
-            case RenderMode.ContourMonochrome:
+            case MapRenderMode.ContourColor:
+            case MapRenderMode.ContourMonochrome:
                 if (_initVisualMatrix)
                 {
                     SetWorldContourLines(world);
@@ -252,7 +252,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 RenderWorldByVisualMatrix(fov);
                 break;
             default:
-                throw new ArgumentOutOfRangeException(RenderMode.ToString());
+                throw new ArgumentOutOfRangeException(MapRenderMode.ToString());
         }
 
 
@@ -572,7 +572,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             else
                 c = Cp437.Interpunct;
 
-            var colFg = RenderMode == RenderMode.ReliefMonochrome
+            var colFg = MapRenderMode == MapRenderMode.ReliefMonochrome
                 ? DefaultFg
                 : _visualByElevation[world.Cells[x, y]].Item2;
 
@@ -605,7 +605,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             if (_visualByPosition[x, y].Item1 == 'X') continue;
             var c = GetCliffAdjacentChar(cell, x, y, world);
 
-            var colFg = RenderMode == RenderMode.ContourMonochrome
+            var colFg = MapRenderMode == MapRenderMode.ContourMonochrome
                 ? DefaultFg
                 : _visualByElevation[world.Cells[x, y]].Item2;
 
@@ -621,7 +621,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             if (_visualByPosition[x, y].Item1 != 'X') continue;
             var c = GetCliffChar(cell, x, y, world);
 
-            var colFg = RenderMode == RenderMode.ContourMonochrome
+            var colFg = MapRenderMode == MapRenderMode.ContourMonochrome
                 ? DefaultFg
                 : _visualByElevation[world.Cells[x, y]].Item2;
 
