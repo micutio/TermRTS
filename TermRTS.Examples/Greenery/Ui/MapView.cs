@@ -20,7 +20,7 @@ public enum RenderMode
     ReliefMonochrome
 }
 
-public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSink
+public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IEventSink
 {
     #region Fields
 
@@ -35,6 +35,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
     private RenderMode _renderMode = RenderMode.ElevationColor;
     private bool _initVisualMatrix = true;
 
+    // TODO: Rename all these dumb positioning variables!
     // Extend of the visible world; render from _cameraPos until _max
     private int _cameraX1;
     private int _cameraY1;
@@ -45,8 +46,8 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
     private int _mapViewPortHeight;
 
     // Offsets for the Map rendering, to accommodate left and top indicators
-    private int _mapOffsetX;
-    private readonly int _mapOffsetY;
+    private int _spaceForScaleX;
+    private readonly int _spaceForScaleY;
 
     #endregion
 
@@ -66,7 +67,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
         CameraPosX = 0;
         CameraPosY = 0;
 
-        _mapOffsetY = 1; // TODO: Rename!
+        _spaceForScaleY = 1; // TODO: Rename!
 
         SetElevationLevelColorVisual();
         Console.CursorVisible = false;
@@ -151,7 +152,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
         throw new NotImplementedException();
     }
 
-    public override void Render(ref ConsoleCanvas canvas)
+    public override void Render(in ConsoleCanvas canvas)
     {
         // TODO:
         throw new NotImplementedException();
@@ -160,18 +161,17 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
     protected override void OnXChanged(int newX)
     {
         // TODO: 
-        throw new NotImplementedException();
+        IsRequireReRender = true;
     }
 
     protected override void OnYChanged(int newY)
     {
-        // TODO:
-        throw new NotImplementedException();
+        IsRequireReRender = true;
     }
 
     protected override void OnWidthChanged(int newWidth)
     {
-        _mapViewPortWidth = newWidth - _mapOffsetX;
+        _mapViewPortWidth = newWidth - _spaceForScaleX;
         UpdateCameraX2();
         IsRequireReRender = true;
         IsRequireRootReRender = true;
@@ -179,7 +179,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
 
     protected override void OnHeightChanged(int newHeight)
     {
-        _mapViewPortHeight = newHeight - _mapOffsetY;
+        _mapViewPortHeight = newHeight - _spaceForScaleY;
         UpdateCameraY2();
         IsRequireReRender = true;
         IsRequireRootReRender = true;
@@ -196,6 +196,8 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
 
     #endregion
 
+    // TODO: Remove IRenderer Members, not implementing that anymore.
+
     #region IRenderer Members
 
     public void RenderComponents(
@@ -204,7 +206,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
         double howFarIntoNextFramePercent)
     {
         // TODO: Update only on move
-        _mapOffsetX = _cameraY2 switch
+        _spaceForScaleX = _cameraY2 switch
         {
             < 10 => 1,
             < 100 => 2,
@@ -261,8 +263,8 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
                 foreach (var (x, y, c) in drone.CachedPathVisual)
                     if (IsInCamera(x, y))
                         _canvas.Set(
-                            x - CameraPosX + _mapOffsetX,
-                            y - CameraPosY + _mapOffsetY,
+                            x - CameraPosX + _spaceForScaleX,
+                            y - CameraPosY + _spaceForScaleY,
                             c,
                             ConsoleColor.Red,
                             DefaultBg);
@@ -271,22 +273,14 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
             var droneY = Convert.ToInt32(drone.Position.Y);
             if (IsInCamera(droneX, droneY))
                 _canvas.Set(
-                    droneX - CameraPosX + _mapOffsetX,
-                    droneY - CameraPosY + _mapOffsetY,
+                    droneX - CameraPosX + _spaceForScaleX,
+                    droneY - CameraPosY + _spaceForScaleY,
                     '@',
                     DefaultBg,
                     ConsoleColor.Red);
         }
 
         RenderCoordinates();
-    }
-
-    public void FinalizeRender()
-    {
-    }
-
-    public void Shutdown()
-    {
     }
 
     #endregion
@@ -378,8 +372,8 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
             colFg = fov.Cells[x, y] ? colFg : DefaultFg;
             colBg = fov.Cells[x, y] ? colBg : DefaultBg;
             _canvas.Set(
-                x - CameraPosX + _mapOffsetX,
-                y - CameraPosY + _mapOffsetY,
+                x - CameraPosX + _spaceForScaleX,
+                y - CameraPosY + _spaceForScaleY,
                 c,
                 colFg,
                 colBg);
@@ -394,8 +388,8 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
             var (c, colFg, _) = _visualByPosition[x, y];
             colFg = fov.Cells[x, y] ? colFg : DefaultFg;
             _canvas.Set(
-                x - CameraPosX + _mapOffsetX,
-                y - CameraPosY + _mapOffsetY,
+                x - CameraPosX + _spaceForScaleX,
+                y - CameraPosY + _spaceForScaleY,
                 c,
                 colFg,
                 DefaultBg);
@@ -404,7 +398,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
 
     private void RenderCoordinates()
     {
-        for (var x = 0; x < _mapOffsetX; x++)
+        for (var x = 0; x < _spaceForScaleX; x++)
             _canvas.Set(x, 0, Cp437.BlockFull, DefaultBg);
 
         // Horizontal
@@ -412,7 +406,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
         {
             var isTick = x > 0 && x % 10 == 0;
             var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(x - CameraPosX + _mapOffsetX, 0, Cp437.BlockFull, fg);
+            _canvas.Set(x - CameraPosX + _spaceForScaleX, 0, Cp437.BlockFull, fg);
         }
 
         for (var x = CameraPosX; x < _cameraX2; x++)
@@ -420,7 +414,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
             var isTick = x > 0 && x % 10 == 0;
             if (isTick)
                 _canvas.Text(
-                    x - CameraPosX + _mapOffsetX,
+                    x - CameraPosX + _spaceForScaleX,
                     0, Convert.ToString(x),
                     false,
                     DefaultBg,
@@ -429,11 +423,11 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
 
         // Vertical
         for (var y = CameraPosY; y < _cameraY2; y++)
-        for (var x = 0; x < _mapOffsetX; x++)
+        for (var x = 0; x < _spaceForScaleX; x++)
         {
             var isTick = y > 0 && y % 5 == 0;
             var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(x, y - CameraPosY + _mapOffsetY, Cp437.BlockFull, fg);
+            _canvas.Set(x, y - CameraPosY + _spaceForScaleY, Cp437.BlockFull, fg);
         }
 
         for (var y = CameraPosY; y < _cameraY2; y++)
@@ -442,7 +436,7 @@ public class MapView : KeyInputProcessorBase<ConsoleCanvas>, IRenderer, IEventSi
             if (isTick)
                 _canvas.Text(
                     0,
-                    y - CameraPosY + _mapOffsetY,
+                    y - CameraPosY + _spaceForScaleY,
                     Convert.ToString(y),
                     false,
                     DefaultBg,

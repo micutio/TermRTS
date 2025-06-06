@@ -3,6 +3,10 @@ namespace TermRTS;
 public interface IRenderer
 {
     // TODO: Split render into update and render?
+    //       Idea: ECS, but for graphics
+    //             - Components are UI element data
+    //             - Systems perform the rendering
+    //             - Entities ???
 
     /// <summary>
     ///     Called for each entity in the engine, at the end of each simulation tick

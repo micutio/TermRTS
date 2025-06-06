@@ -118,7 +118,7 @@ public abstract class UiElementBase<TCanvas>
         double timeStepSizeMs,
         double howFarIntoNextFramePercent);
 
-    public abstract void Render(ref TCanvas canvas);
+    public abstract void Render(in TCanvas canvas);
 
     #endregion
 

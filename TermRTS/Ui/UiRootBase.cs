@@ -1,18 +1,14 @@
 namespace TermRTS.Ui;
 
-public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>, IRenderer
+public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>
 {
+    // TODO: Possibly create a stack to keep track of focused elements.
+    //       If one of the child elements claims focus to this, then this claims focus to its
+    //       parent and so on.
+
+    #region Fields
+
     private readonly List<UiElementBase<TCanvas>> _uiElements = [];
-
-
-    #region IRenderer Members
-
-    public abstract void RenderComponents(in IStorage storage, double timeStepSizeMs,
-        double howFarIntoNextFramePercent);
-
-    public abstract void FinalizeRender();
-
-    public abstract void Shutdown();
 
     #endregion
 
@@ -41,22 +37,22 @@ public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>, IRenderer
     ///     Only triggered if either the root
     /// </summary>
     /// <param name="canvas"></param>
-    public override void Render(ref TCanvas canvas)
+    public override void Render(in TCanvas canvas)
     {
         var isRequireReRender = IsRequireReRender
                                 || _uiElements.Any(x => x.IsRequireRootReRender);
         if (isRequireReRender)
         {
-            RenderUiBase(ref canvas);
+            RenderUiBase(in canvas);
 
-            foreach (var uiElement in _uiElements) uiElement.Render(ref canvas);
+            foreach (var uiElement in _uiElements) uiElement.Render(in canvas);
         }
         else
         {
             foreach (var uiElement in _uiElements)
                 if (uiElement.IsRequireReRender)
                 {
-                    uiElement.Render(ref canvas);
+                    uiElement.Render(in canvas);
                     uiElement.IsRequireReRender = false;
                     uiElement.IsRequireRootReRender = false;
                 }
@@ -78,7 +74,7 @@ public abstract class UiRootBase<TCanvas> : UiElementBase<TCanvas>, IRenderer
     ///     <see cref="UiElementBase{TCanvas}.IsRequireRootReRender" />
     /// </summary>
     /// <param name="canvas"></param>
-    protected abstract void RenderUiBase(ref TCanvas canvas);
+    protected abstract void RenderUiBase(in TCanvas canvas);
 
     public void AddUiElement(UiElementBase<TCanvas> uiElement)
     {

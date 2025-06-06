@@ -14,8 +14,10 @@ public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
 {
     #region Fields
 
-    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
+    private readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    private readonly ConsoleColor DefaultFg = Console.ForegroundColor;
 
+    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
     private readonly char[] _msg = new char[80];
     private int _idx;
     private InputState _state = InputState.Idle;
@@ -39,6 +41,7 @@ public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
             {
                 case InputState.Idle:
                     _state = InputState.OngoingInput;
+                    IsRequireReRender = true;
                     Array.Clear(_msg, 0, 80);
                     return;
                 case InputState.OngoingInput:
@@ -79,10 +82,29 @@ public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
         // Does not require components to work.
     }
 
-    public override void Render(ref TCanvas canvas)
+    public override void Render(in TCanvas canvas)
     {
-        // TODO:
-        throw new NotImplementedException();
+        if (!IsOngoingInput) return;
+
+        var fg = DefaultFg;
+        var bg = DefaultBg;
+
+        // TODO: How to decouple from canvas class implementations?
+        // render blank line
+        for (var i = 0; i < Width; i += 1)
+            canvas.Set(i, Y, ' ', bg, fg);
+
+        // render prompt
+        canvas.Set(0, Y, '>', bg, fg);
+        canvas.Set(1, Y, ' ', bg, fg);
+
+        // render text
+        var input = GetCurrentInput();
+        for (var i = 0; i < input.Length; i += 1)
+        {
+            var c = input[i];
+            canvas.Set(2 + i, Y, c, bg, fg);
+        }
     }
 
     protected override void OnXChanged(int newX)
@@ -116,7 +138,7 @@ public class TextBox<TCanvas> : KeyInputProcessorBase<TCanvas>
         _channel.Writer.TryWrite(ScheduledEvent.From(new Event.Command(_msg)));
     }
 
-    public ReadOnlySpan<char> GetCurrentInput()
+    private ReadOnlySpan<char> GetCurrentInput()
     {
         return _idx == 0
             ? new ReadOnlySpan<char>(_msg, 0, 0)
