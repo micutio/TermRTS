@@ -288,7 +288,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #region KeyInputProcessorBase Members
 
-    public override void HandleKeyInput(ref ConsoleKeyInfo keyInfo)
+    public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
     {
         switch (keyInfo.Key)
         {

@@ -41,7 +41,7 @@ public abstract class KeyInputProcessorBase : UiElementBase
         _focusSignal.Writer.TryWrite(id);
     }
 
-    public abstract void HandleKeyInput(ref ConsoleKeyInfo keyInfo);
+    public abstract void HandleKeyInput(in ConsoleKeyInfo keyInfo);
 }
 
 public abstract class UiElementBase

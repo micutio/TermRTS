@@ -60,16 +60,15 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 #endif
 
         // TODO: Implement handling of focus requests
+        if (_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyInfo))
+            _textbox.HandleKeyInput(in keyInfo);
 
         if (!_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyContent))
-        {
             // TODO: Remove this if-query and create separate event input for mapview.
-        }
+            _mapview.HandleKeyInput(in keyContent);
 
-        if (evt is Event<MapRenderMode> (var renderMode))
-        {
-            // TODO: Remove this if-query and create separate event input for mapview.
-        }
+        if (evt is Event<MapRenderMode>) _mapview.ProcessEvent(evt);
+        // TODO: Remove this if-query and create separate event input for mapview.
     }
 
     #endregion
