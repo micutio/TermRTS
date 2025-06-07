@@ -137,24 +137,30 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void OnXChanged(int newX)
     {
-        throw new NotImplementedException();
+        // TODO: Implement proper layouting
+        _mapview.X = newX;
+        _textbox.X = newX;
     }
 
     protected override void OnYChanged(int newY)
     {
-        throw new NotImplementedException();
+        // TODO: Implement proper layouting
+        _mapview.Y = newY;
+        _textbox.Y = newY + _mapview.Height;
     }
 
     protected override void OnWidthChanged(int newWidth)
     {
-        // TODO: Adjust width of mapview, textbox and logarea
-        throw new NotImplementedException();
+        // TODO: Implement proper layouting
+        _mapview.Width = newWidth;
+        _textbox.Width = newWidth;
     }
 
     protected override void OnHeightChanged(int newHeight)
     {
-        // TODO: Adjust height of mapview, textbox and logarea
-        throw new NotImplementedException();
+        // TODO: Implement proper layouting
+        _mapview.Height = newHeight - 1;
+        // textbox height remains constant at 1
     }
 
     #endregion

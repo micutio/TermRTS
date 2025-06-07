@@ -35,7 +35,7 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
 
     #region IEventSink Members
 
-    public override void HandleKeyInput(ref ConsoleKeyInfo keyInfo)
+    public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
     {
         if (keyInfo.Key == ConsoleKey.Enter)
             switch (_state)
@@ -92,19 +92,20 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
 
         // TODO: How to decouple from canvas class implementations?
         // render blank line
-        for (var i = 0; i < Width; i += 1)
+        for (var i = X; i < Width; i += 1)
             canvas.Set(i, Y, ' ', bg, fg);
 
         // render prompt
-        canvas.Set(0, Y, '>', bg, fg);
-        canvas.Set(1, Y, ' ', bg, fg);
+        canvas.Set(X, Y, '>', bg, fg);
+        canvas.Set(X + 1, Y, ' ', bg, fg);
 
         // render text
         var input = GetCurrentInput();
+        var startX = X + 2;
         for (var i = 0; i < input.Length; i += 1)
         {
             var c = input[i];
-            canvas.Set(2 + i, Y, c, bg, fg);
+            canvas.Set(startX + i, Y, c, bg, fg);
         }
     }
 
