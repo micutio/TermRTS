@@ -160,7 +160,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         // TODO: Implement proper layouting
         _mapview.Height = newHeight - 1;
-        // textbox height remains constant at 1
+        // _textbox.Height remains constant at 1
     }
 
     #endregion

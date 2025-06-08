@@ -161,6 +161,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     protected override void OnHeightChanged(int newHeight)
     {
+        UpdateSpaceForScaleLeft();
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
@@ -185,16 +186,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        // TODO: Update only on move
-        _spaceForScaleLeft = (_viewportPositionInWorldY + ViewPortHeight) switch
-        {
-            < 10 => 1,
-            < 100 => 2,
-            < 1000 => 3,
-            < 10000 => 4,
-            _ => 5
-        };
-
         // Step 1: Render world
         var world = storage.GetSingleForType<WorldComponent>();
         if (world == null) return;
@@ -235,7 +226,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 throw new ArgumentOutOfRangeException(MapRenderMode.ToString());
         }
 
-
         // Step 2: Render drone
         foreach (var drone in storage.GetAllForType<DroneComponent>())
         {
@@ -265,7 +255,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #endregion
 
-
     #region KeyInputProcessorBase Members
 
     public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
@@ -293,6 +282,18 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #region Private Members
 
+    private void UpdateSpaceForScaleLeft()
+    {
+        _spaceForScaleLeft = (_viewportPositionInWorldY + ViewPortHeight) switch
+        {
+            < 10 => 1,
+            < 100 => 2,
+            < 1000 => 3,
+            < 10000 => 4,
+            _ => 5
+        };
+    }
+
     // TODO: Turn _viewportPositionInWorldY into a property and put this check into the setter!
     private void MoveCameraUp()
     {
@@ -300,6 +301,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         if (newPos == _viewportPositionInWorldY) return;
 
         _viewportPositionInWorldY = newPos;
+        UpdateSpaceForScaleLeft();
         IsRequireReRender = true;
     }
 
@@ -310,6 +312,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         if (newPos == _viewportPositionInWorldY) return;
 
         _viewportPositionInWorldY = newPos;
+        UpdateSpaceForScaleLeft();
         IsRequireReRender = true;
     }
 
