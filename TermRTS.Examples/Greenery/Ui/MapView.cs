@@ -24,17 +24,106 @@ public class MapView : KeyInputProcessorBase, IEventSink
 {
     #region Fields
 
+    #region Color Constants
+
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+
+    private static readonly char[] MarkersElevation =
+        ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    private static readonly char[] MarkersTerrain =
+    [
+        Cp437.Tilde,
+        Cp437.Tilde,
+        Cp437.Approximation,
+        Cp437.Approximation,
+        Cp437.SparseShade,
+        Cp437.BoxDoubleUpHorizontal,
+        Cp437.BoxUpHorizontal,
+        Cp437.Intersection,
+        Cp437.Caret,
+        Cp437.TriangleUp
+    ];
+
+    private static readonly char[] MarkersHeatmapColor =
+    [
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade
+    ];
+
+    private static readonly char[] MarkersHeatmapMonochrome =
+    [
+        Cp437.BlockFull,
+        Cp437.SparseShade,
+        Cp437.MediumShade,
+        Cp437.DenseShade,
+        Cp437.SparseShade,
+        Cp437.MediumShade,
+        Cp437.DenseShade,
+        Cp437.MediumShade,
+        Cp437.DenseShade,
+        Cp437.BlockFull
+    ];
+
+    private static readonly (ConsoleColor, ConsoleColor)[] ColorsElevation =
+    [
+        (ConsoleColor.DarkBlue, DefaultBg),
+        (ConsoleColor.Blue, DefaultBg),
+        (ConsoleColor.DarkCyan, DefaultBg),
+        (ConsoleColor.Cyan, DefaultBg),
+        (ConsoleColor.Yellow, DefaultBg),
+        (ConsoleColor.DarkGreen, DefaultBg),
+        (ConsoleColor.Green, DefaultBg),
+        (ConsoleColor.DarkYellow, DefaultBg),
+        (ConsoleColor.DarkGray, DefaultBg),
+        (ConsoleColor.Gray, DefaultBg)
+    ];
+
+    private static readonly (ConsoleColor, ConsoleColor)[] ColorsElevationMonochrome =
+    [
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg),
+        (DefaultFg, DefaultBg)
+    ];
+
+    private static readonly (ConsoleColor, ConsoleColor)[] ColorsHeatmapMonochrome =
+    [
+        (ConsoleColor.Black, ConsoleColor.Black),
+        (ConsoleColor.DarkGray, ConsoleColor.Black),
+        (ConsoleColor.DarkGray, ConsoleColor.Black),
+        (ConsoleColor.DarkGray, ConsoleColor.Black),
+        (ConsoleColor.Gray, ConsoleColor.DarkGray),
+        (ConsoleColor.Gray, ConsoleColor.DarkGray),
+        (ConsoleColor.Gray, ConsoleColor.DarkGray),
+        (ConsoleColor.White, ConsoleColor.DarkGray),
+        (ConsoleColor.White, ConsoleColor.DarkGray),
+        (ConsoleColor.White, ConsoleColor.DarkGray)
+    ];
+
     private readonly ConsoleCanvas _canvas;
-    private readonly (char, ConsoleColor, ConsoleColor)[] _visualByElevation;
-    private readonly (char, ConsoleColor, ConsoleColor)[,] _visualByPosition;
+
+    #endregion
 
     #region Positioning Constants and Variables
 
     // World size
     private readonly int _worldWidth;
-
     private readonly int _worldHeight;
 
     // Offsets for the Map rendering, to accommodate left and top scales
@@ -47,9 +136,14 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #endregion
 
+    // cached world and drone paths
+    private readonly (byte, char)[,] _cachedWorld;
+    private readonly bool[,] _cachedFov;
+    private readonly Dictionary<int, Vector2> _cachedDronePositions;
+    private readonly Dictionary<int, List<(int, int, char)>> _cachedDronePaths;
+
     // rendering options
     private MapRenderMode _mapRenderMode = MapRenderMode.ElevationColor;
-    private bool _initVisualMatrix = true;
 
     #endregion
 
@@ -61,15 +155,17 @@ public class MapView : KeyInputProcessorBase, IEventSink
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
 
-        _visualByElevation = new (char, ConsoleColor, ConsoleColor)[10];
-        _visualByPosition = new (char, ConsoleColor, ConsoleColor)[worldWidth, worldHeight];
+        _cachedWorld = new (byte, char)[worldWidth, worldHeight];
+        _cachedFov = new bool[worldWidth, worldHeight];
+        _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
+        _cachedDronePositions = new Dictionary<int, Vector2>();
+
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
 
         _viewportPositionInWorldX = 0;
         _viewportPositionInWorldY = 0;
 
-        SetElevationLevelColorVisual();
         Console.CursorVisible = false;
     }
 
@@ -83,39 +179,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         set
         {
             _mapRenderMode = value;
-            switch (_mapRenderMode)
-            {
-                case MapRenderMode.ElevationColor:
-                    SetElevationLevelColorVisual();
-                    break;
-                case MapRenderMode.ElevationMonochrome:
-                    SetElevationLevelMonochromeVisual();
-                    break;
-                case MapRenderMode.HeatMapColor:
-                    SetHeatmapColorVisual();
-                    break;
-                case MapRenderMode.HeatMapMonochrome:
-                    SetHeatmapMonochromeVisual();
-                    break;
-                case MapRenderMode.TerrainColor:
-                    SetTerrainColorVisual();
-                    break;
-                case MapRenderMode.ReliefColor:
-                case MapRenderMode.ContourColor:
-                    SetTerrainColorVisual();
-                    _initVisualMatrix = true;
-                    break;
-                case MapRenderMode.TerrainMonochrome:
-                    SetTerrainMonochromeVisual();
-                    break;
-                case MapRenderMode.ReliefMonochrome:
-                case MapRenderMode.ContourMonochrome:
-                    SetTerrainMonochromeVisual();
-                    _initVisualMatrix = true;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            IsRequireReRender = true;
         }
     }
 
@@ -131,14 +195,119 @@ public class MapView : KeyInputProcessorBase, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        // TODO:
-        throw new NotImplementedException();
+        var world = componentStorage.GetSingleForType<WorldComponent>();
+        if (world == null) return;
+        var fov = componentStorage.GetSingleForType<FovComponent>();
+        if (fov == null) return;
+
+        switch (MapRenderMode)
+        {
+            case MapRenderMode.ElevationColor:
+            case MapRenderMode.ElevationMonochrome:
+                SetElevationVisual(world);
+                break;
+            case MapRenderMode.HeatMapColor:
+                SetHeatmapColorVisual(world);
+                break;
+            case MapRenderMode.HeatMapMonochrome:
+                SetHeatmapMonochromeVisual(world);
+                break;
+            case MapRenderMode.ContourColor:
+            case MapRenderMode.ContourMonochrome:
+                SetContourLines(world);
+                break;
+            case MapRenderMode.TerrainColor:
+            case MapRenderMode.TerrainMonochrome:
+                SetTerrainVisual(world);
+                break;
+            case MapRenderMode.ReliefColor:
+            case MapRenderMode.ReliefMonochrome:
+                SetReliefVisual(world);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
+            _cachedFov[x, y] = fov.Cells[x, y];
+
+        foreach (var drone in componentStorage.GetAllForType<DroneComponent>())
+        {
+            if (drone.Path != null)
+            {
+                if (_cachedDronePaths.TryGetValue(drone.EntityId, out var path))
+                {
+                    path.Clear();
+                    path.AddRange(drone.CachedPathVisual);
+                }
+                else
+                {
+                    _cachedDronePaths.Add(drone.EntityId, [..drone.CachedPathVisual]);
+                }
+            }
+
+            _cachedDronePositions[drone.EntityId] = drone.Position;
+        }
     }
 
     public override void Render()
     {
-        // TODO:
-        throw new NotImplementedException();
+        // Step 1: Render World
+        for (var y = _viewportPositionInWorldY; y < ViewPortHeight; y++)
+        for (var x = _viewportPositionInWorldX; x < ViewPortWidth; x++)
+        {
+            var (elevation, c) = _cachedWorld[x, y];
+            var isFov = _cachedFov[x, y];
+            var colors = MapRenderMode switch
+            {
+                MapRenderMode.ElevationColor => ColorsElevation,
+                MapRenderMode.HeatMapColor => ColorsElevation,
+                MapRenderMode.ContourColor => ColorsElevation,
+                MapRenderMode.TerrainColor => ColorsElevation,
+                MapRenderMode.ReliefColor => ColorsElevation,
+                MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
+                MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
+                MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
+                MapRenderMode.TerrainMonochrome => ColorsElevationMonochrome,
+                MapRenderMode.ReliefMonochrome => ColorsElevationMonochrome,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+            var (colFg, colBg) = colors[elevation];
+            _canvas.Set(
+                X + WorldToViewportX(x) + _spaceForScaleLeft,
+                Y + WorldToViewportY(y) + _spaceForScaleTop,
+                c,
+                isFov ? colFg : DefaultFg,
+                isFov ? colBg : DefaultBg);
+        }
+
+        // Step 2: Render drones and drone paths
+        foreach (var path in _cachedDronePaths.Values)
+        foreach (var (pathX, pathY, pathCol) in path)
+            if (IsInCamera(pathX, pathY))
+                _canvas.Set(
+                    X + WorldToViewportX(pathX) + _spaceForScaleLeft,
+                    Y + WorldToViewportY(pathY) + _spaceForScaleTop,
+                    pathCol,
+                    ConsoleColor.Red,
+                    DefaultBg);
+
+        foreach (var pos in _cachedDronePositions.Values)
+        {
+            var droneX = Convert.ToInt32(pos.X);
+            var droneY = Convert.ToInt32(pos.Y);
+            if (IsInCamera(droneX, droneY))
+                _canvas.Set(
+                    X + WorldToViewportX(droneX) + _spaceForScaleLeft,
+                    X + WorldToViewportY(droneY) + _spaceForScaleTop,
+                    '@',
+                    DefaultBg,
+                    ConsoleColor.Red);
+        }
+
+        // Step 3: Render Coordinate Scales at the top and left sides.
+        RenderCoordinates();
     }
 
     protected override void OnXChanged(int newX)
@@ -173,84 +342,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
     public void ProcessEvent(IEvent evt)
     {
         if (evt is Event<MapRenderMode> (var renderMode)) MapRenderMode = renderMode;
-    }
-
-    #endregion
-
-    // TODO: Remove IRenderer Members, not implementing that anymore.
-
-    #region IRenderer Members
-
-    public void RenderComponents(
-        in IStorage storage,
-        double timeStepSizeMs,
-        double howFarIntoNextFramePercent)
-    {
-        // Step 1: Render world
-        var world = storage.GetSingleForType<WorldComponent>();
-        if (world == null) return;
-        var fov = storage.GetSingleForType<FovComponent>();
-        if (fov == null) return;
-
-        switch (MapRenderMode)
-        {
-            case MapRenderMode.ElevationColor:
-            case MapRenderMode.ElevationMonochrome:
-            case MapRenderMode.HeatMapColor:
-            case MapRenderMode.HeatMapMonochrome:
-            case MapRenderMode.TerrainColor:
-            case MapRenderMode.TerrainMonochrome:
-                RenderWorldByElevationVisuals(world, fov);
-                break;
-            case MapRenderMode.ReliefColor:
-            case MapRenderMode.ReliefMonochrome:
-                if (_initVisualMatrix)
-                {
-                    SetWorldReliefVisual(world);
-                    _initVisualMatrix = false;
-                }
-
-                RenderWorldByVisualMatrix(fov);
-                break;
-            case MapRenderMode.ContourColor:
-            case MapRenderMode.ContourMonochrome:
-                if (_initVisualMatrix)
-                {
-                    SetWorldContourLines(world);
-                    _initVisualMatrix = false;
-                }
-
-                RenderWorldByVisualMatrix(fov);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(MapRenderMode.ToString());
-        }
-
-        // Step 2: Render drone
-        foreach (var drone in storage.GetAllForType<DroneComponent>())
-        {
-            if (drone.Path != null)
-                foreach (var (pathX, pathY, pathCol) in drone.CachedPathVisual)
-                    if (IsInCamera(pathX, pathY))
-                        _canvas.Set(
-                            X + WorldToViewportX(pathX) + _spaceForScaleLeft,
-                            Y + WorldToViewportY(pathY) + _spaceForScaleTop,
-                            pathCol,
-                            ConsoleColor.Red,
-                            DefaultBg);
-
-            var droneX = Convert.ToInt32(drone.Position.X);
-            var droneY = Convert.ToInt32(drone.Position.Y);
-            if (IsInCamera(droneX, droneY))
-                _canvas.Set(
-                    X + WorldToViewportX(droneX) + _spaceForScaleLeft,
-                    X + WorldToViewportY(droneY) + _spaceForScaleTop,
-                    '@',
-                    DefaultBg,
-                    ConsoleColor.Red);
-        }
-
-        RenderCoordinates();
     }
 
     #endregion
@@ -385,39 +476,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
         return _viewportPositionInWorldY + y;
     }
 
-    private void RenderWorldByElevationVisuals(in WorldComponent world, in FovComponent fov)
-    {
-        for (var y = _viewportPositionInWorldY; y < ViewPortHeight; y++)
-        for (var x = _viewportPositionInWorldX; x < ViewPortWidth; x++)
-        {
-            var (c, colFg, colBg) = _visualByElevation[world.Cells[x, y]];
-            colFg = fov.Cells[x, y] ? colFg : DefaultFg;
-            colBg = fov.Cells[x, y] ? colBg : DefaultBg;
-            _canvas.Set(
-                X + WorldToViewportX(x) + _spaceForScaleLeft,
-                Y + WorldToViewportY(y) + _spaceForScaleTop,
-                c,
-                colFg,
-                colBg);
-        }
-    }
-
-    private void RenderWorldByVisualMatrix(in FovComponent fov)
-    {
-        for (var y = _viewportPositionInWorldY; y < ViewPortHeight; y++)
-        for (var x = _viewportPositionInWorldX; x < ViewPortWidth; x++)
-        {
-            var (c, colFg, _) = _visualByPosition[x, y];
-            colFg = fov.Cells[x, y] ? colFg : DefaultFg;
-            _canvas.Set(
-                X + WorldToViewportX(x) + _spaceForScaleLeft,
-                Y + WorldToViewportY(y) + _spaceForScaleTop,
-                c,
-                colFg,
-                DefaultBg);
-        }
-    }
-
     private void RenderCoordinates()
     {
         for (var x = 0; x < _spaceForScaleLeft; x++)
@@ -463,116 +521,35 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
     }
 
-    private void SetElevationLevelColorVisual()
+    private void SetElevationVisual(WorldComponent world)
     {
-        _visualByElevation[0] = ('0', ConsoleColor.DarkBlue, DefaultBg);
-        _visualByElevation[1] = ('1', ConsoleColor.Blue, DefaultBg);
-        _visualByElevation[2] = ('2', ConsoleColor.DarkCyan, DefaultBg);
-        _visualByElevation[3] = ('3', ConsoleColor.Cyan, DefaultBg);
-        _visualByElevation[4] = ('4', ConsoleColor.Yellow, DefaultBg);
-        _visualByElevation[5] = ('5', ConsoleColor.DarkGreen, DefaultBg);
-        _visualByElevation[6] = ('6', ConsoleColor.Green, DefaultBg);
-        _visualByElevation[7] = ('7', ConsoleColor.DarkYellow, DefaultBg);
-        _visualByElevation[8] = ('8', ConsoleColor.DarkGray, DefaultBg);
-        _visualByElevation[9] = ('9', ConsoleColor.Gray, DefaultBg);
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
+            _cachedWorld[x, y] = (world.Cells[y, y], MarkersElevation[world.Cells[x, y]]);
     }
 
-    private void SetElevationLevelMonochromeVisual()
+    private void SetHeatmapColorVisual(WorldComponent world)
     {
-        _visualByElevation[0] = ('0', DefaultFg, DefaultBg);
-        _visualByElevation[1] = ('1', DefaultFg, DefaultBg);
-        _visualByElevation[2] = ('2', DefaultFg, DefaultBg);
-        _visualByElevation[3] = ('3', DefaultFg, DefaultBg);
-        _visualByElevation[4] = ('4', DefaultFg, DefaultBg);
-        _visualByElevation[5] = ('5', DefaultFg, DefaultBg);
-        _visualByElevation[6] = ('6', DefaultFg, DefaultBg);
-        _visualByElevation[7] = ('7', DefaultFg, DefaultBg);
-        _visualByElevation[8] = ('8', DefaultFg, DefaultBg);
-        _visualByElevation[9] = ('9', DefaultFg, DefaultBg);
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
+            _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapColor[world.Cells[x, y]]);
     }
 
-    private void SetTerrainColorVisual()
+    private void SetHeatmapMonochromeVisual(WorldComponent world)
     {
-        _visualByElevation[0] = (Cp437.Tilde, ConsoleColor.DarkBlue, DefaultBg);
-        _visualByElevation[1] = (Cp437.Tilde, ConsoleColor.Blue, DefaultBg);
-        _visualByElevation[2] = (Cp437.Approximation, ConsoleColor.DarkCyan, DefaultBg);
-        _visualByElevation[3] = (Cp437.Approximation, ConsoleColor.Cyan, DefaultBg);
-        _visualByElevation[4] = (Cp437.SparseShade, ConsoleColor.Yellow, DefaultBg);
-        _visualByElevation[5] = (Cp437.BoxDoubleUpHorizontal, ConsoleColor.DarkGreen, DefaultBg);
-        _visualByElevation[6] = (Cp437.BoxUpHorizontal, ConsoleColor.Green, DefaultBg);
-        _visualByElevation[7] = (Cp437.Intersection, ConsoleColor.DarkYellow, DefaultBg);
-        _visualByElevation[8] = (Cp437.Caret, ConsoleColor.DarkGray, DefaultBg);
-        _visualByElevation[9] = (Cp437.TriangleUp, ConsoleColor.Gray, DefaultBg);
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
+            _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapMonochrome[world.Cells[x, y]]);
     }
 
-    private void SetTerrainMonochromeVisual()
+    private void SetTerrainVisual(WorldComponent world)
     {
-        _visualByElevation[0] = (Cp437.Tilde, DefaultFg, DefaultBg);
-        _visualByElevation[1] = (Cp437.Tilde, DefaultFg, DefaultBg);
-        _visualByElevation[2] = (Cp437.Approximation, DefaultFg, DefaultBg);
-        _visualByElevation[3] = (Cp437.Approximation, DefaultFg, DefaultBg);
-        _visualByElevation[4] = (Cp437.MediumShade, DefaultFg, DefaultBg);
-        _visualByElevation[5] = (Cp437.BoxDoubleUpHorizontal, DefaultFg, DefaultBg);
-        _visualByElevation[6] = (Cp437.BoxUpHorizontal, DefaultFg, DefaultBg);
-        _visualByElevation[7] = (Cp437.Intersection, DefaultFg, DefaultBg);
-        _visualByElevation[8] = (Cp437.Caret, DefaultFg, DefaultBg);
-        _visualByElevation[9] = (Cp437.TriangleUp, DefaultFg, DefaultBg);
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
+            _cachedWorld[x, y] = (world.Cells[x, y], MarkersTerrain[world.Cells[x, y]]);
     }
 
-    private void SetHeatmapColorVisual()
-    {
-        _visualByElevation[0] = (Cp437.DenseShade, ConsoleColor.DarkBlue, DefaultBg);
-        _visualByElevation[1] = (Cp437.DenseShade, ConsoleColor.Blue, DefaultBg);
-        _visualByElevation[2] = (Cp437.DenseShade, ConsoleColor.DarkCyan, DefaultBg);
-        _visualByElevation[3] = (Cp437.DenseShade, ConsoleColor.Cyan, DefaultBg);
-        _visualByElevation[4] = (Cp437.DenseShade, ConsoleColor.Yellow, DefaultBg);
-        _visualByElevation[5] = (Cp437.DenseShade, ConsoleColor.DarkGreen, DefaultBg);
-        _visualByElevation[6] = (Cp437.DenseShade, ConsoleColor.Green, DefaultBg);
-        _visualByElevation[7] = (Cp437.DenseShade, ConsoleColor.DarkYellow, DefaultBg);
-        _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.DarkGray, DefaultBg);
-        _visualByElevation[9] = (Cp437.DenseShade, ConsoleColor.Gray, DefaultBg);
-
-        /*
-        _visualByElevation[0] = (Cp437.DenseShade, ConsoleColor.DarkBlue, DefaultBg);
-        _visualByElevation[1] = (Cp437.DenseShade, ConsoleColor.Blue, DefaultBg);
-        _visualByElevation[2] = (Cp437.DenseShade, ConsoleColor.DarkCyan, DefaultBg);
-        _visualByElevation[3] = (Cp437.DenseShade, ConsoleColor.Cyan, DefaultBg);
-        _visualByElevation[4] = (Cp437.DenseShade, ConsoleColor.Yellow, DefaultBg);
-        _visualByElevation[5] = (Cp437.DenseShade, ConsoleColor.DarkGreen, DefaultBg);
-        _visualByElevation[6] = (Cp437.DenseShade, ConsoleColor.Green, DefaultBg);
-        _visualByElevation[7] = (Cp437.DenseShade, ConsoleColor.DarkYellow, DefaultBg);
-        _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.DarkGray, DefaultBg);
-        _visualByElevation[9] = (Cp437.DenseShade, ConsoleColor.Gray, DefaultBg);
-        */
-        /*
-        _visualByElevation[0] = (Cp437.SparseShade, ConsoleColor.DarkBlue, DefaultBg);
-        _visualByElevation[1] = (Cp437.SparseShade, ConsoleColor.Blue, DefaultBg);
-        _visualByElevation[2] = (Cp437.SparseShade, ConsoleColor.DarkCyan, DefaultBg);
-        _visualByElevation[3] = (Cp437.SparseShade, ConsoleColor.Cyan, DefaultBg);
-        _visualByElevation[4] = (Cp437.SparseShade, ConsoleColor.Yellow, DefaultBg);
-        _visualByElevation[5] = (Cp437.SparseShade, ConsoleColor.DarkGreen, DefaultBg);
-        _visualByElevation[6] = (Cp437.SparseShade, ConsoleColor.Green, DefaultBg);
-        _visualByElevation[7] = (Cp437.SparseShade, ConsoleColor.DarkYellow, DefaultBg);
-        _visualByElevation[8] = (Cp437.SparseShade, ConsoleColor.DarkGray, DefaultBg);
-        _visualByElevation[9] = (Cp437.SparseShade, ConsoleColor.Gray, DefaultBg);
-        */
-    }
-
-    private void SetHeatmapMonochromeVisual()
-    {
-        _visualByElevation[0] = (Cp437.BlockFull, ConsoleColor.Black, ConsoleColor.Black);
-        _visualByElevation[1] = (Cp437.SparseShade, ConsoleColor.DarkGray, ConsoleColor.Black);
-        _visualByElevation[2] = (Cp437.MediumShade, ConsoleColor.DarkGray, ConsoleColor.Black);
-        _visualByElevation[3] = (Cp437.DenseShade, ConsoleColor.DarkGray, ConsoleColor.Black);
-        _visualByElevation[4] = (Cp437.SparseShade, ConsoleColor.Gray, ConsoleColor.DarkGray);
-        _visualByElevation[5] = (Cp437.MediumShade, ConsoleColor.Gray, ConsoleColor.DarkGray);
-        _visualByElevation[6] = (Cp437.DenseShade, ConsoleColor.Gray, ConsoleColor.DarkGray);
-        _visualByElevation[7] = (Cp437.MediumShade, ConsoleColor.White, ConsoleColor.DarkGray);
-        _visualByElevation[8] = (Cp437.DenseShade, ConsoleColor.White, ConsoleColor.DarkGray);
-        _visualByElevation[9] = (Cp437.BlockFull, ConsoleColor.White, ConsoleColor.DarkGray);
-    }
-
-    private void SetWorldReliefVisual(WorldComponent world)
+    private void SetReliefVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
         for (var x = 0; x < _worldWidth; x++)
@@ -589,15 +566,11 @@ public class MapView : KeyInputProcessorBase, IEventSink
             else
                 c = Cp437.Interpunct;
 
-            var colFg = MapRenderMode == MapRenderMode.ReliefMonochrome
-                ? DefaultFg
-                : _visualByElevation[world.Cells[x, y]].Item2;
-
-            _visualByPosition[x, y] = (c, colFg, DefaultBg);
+            _cachedWorld[x, y] = (world.Cells[x, y], c);
         }
     }
 
-    private void SetWorldContourLines(WorldComponent world)
+    private void SetContourLines(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
         for (var x = 0; x < _worldWidth; x++)
@@ -605,12 +578,12 @@ public class MapView : KeyInputProcessorBase, IEventSink
             var cell = world.Cells[x, y];
             if (cell < 3)
             {
-                _visualByPosition[x, y] = (Cp437.WhiteSpace, DefaultFg, DefaultBg);
+                _cachedWorld[x, y] = (cell, Cp437.WhiteSpace);
                 continue;
             }
 
             var c = GetCharFromCliffs(cell, x, y, world);
-            _visualByPosition[x, y].Item1 = c;
+            _cachedWorld[x, y] = (cell, c);
         }
 
         for (var y = 0; y < _worldHeight; y++)
@@ -619,14 +592,10 @@ public class MapView : KeyInputProcessorBase, IEventSink
             var cell = world.Cells[x, y];
             if (cell < 3) continue;
 
-            if (_visualByPosition[x, y].Item1 == 'X') continue;
+            if (_cachedWorld[x, y].Item2 == 'X') continue;
             var c = GetCliffAdjacentChar(cell, x, y, world);
 
-            var colFg = MapRenderMode == MapRenderMode.ContourMonochrome
-                ? DefaultFg
-                : _visualByElevation[world.Cells[x, y]].Item2;
-
-            _visualByPosition[x, y] = (c, colFg, DefaultBg);
+            _cachedWorld[x, y].Item2 = c;
         }
 
         for (var y = 0; y < _worldHeight; y++)
@@ -635,14 +604,10 @@ public class MapView : KeyInputProcessorBase, IEventSink
             var cell = world.Cells[x, y];
             if (cell < 3) continue;
 
-            if (_visualByPosition[x, y].Item1 != 'X') continue;
+            if (_cachedWorld[x, y].Item2 != 'X') continue;
             var c = GetCliffChar(cell, x, y, world);
 
-            var colFg = MapRenderMode == MapRenderMode.ContourMonochrome
-                ? DefaultFg
-                : _visualByElevation[world.Cells[x, y]].Item2;
-
-            _visualByPosition[x, y] = (c, colFg, DefaultBg);
+            _cachedWorld[x, y].Item2 = c;
         }
     }
 
@@ -673,19 +638,19 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var b = 0b_0000_0000;
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
-        if (north == cell && _visualByPosition[x, y - 1].Item1 == Cp437.UpperX) b |= 0b_0000_1000;
+        if (north == cell && _cachedWorld[x, y - 1].Item2 == Cp437.UpperX) b |= 0b_0000_1000;
 
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
-        if (east == cell && _visualByPosition[x + 1, y].Item1 == Cp437.UpperX) b |= 0b_0000_0100;
+        if (east == cell && _cachedWorld[x + 1, y].Item2 == Cp437.UpperX) b |= 0b_0000_0100;
 
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
-        if (south == cell && _visualByPosition[x, y + 1].Item1 == Cp437.UpperX) b |= 0b_0000_0010;
+        if (south == cell && _cachedWorld[x, y + 1].Item2 == Cp437.UpperX) b |= 0b_0000_0010;
 
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
-        if (west == cell && _visualByPosition[x - 1, y].Item1 == Cp437.UpperX) b |= 0b_0000_0001;
+        if (west == cell && _cachedWorld[x - 1, y].Item2 == Cp437.UpperX) b |= 0b_0000_0001;
 
         return b switch
         {
@@ -699,7 +664,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             7 => Cp437.BoxDownHorizontal, // 0111, east-south-west
             8 => Cp437.WhiteSpace, // 1000, north
             9 => Cp437.BoxUpLeft, // 1001, northwest
-            10 => Cp437.BoxVertical, // 1010, north south
+            10 => Cp437.BoxVertical, // 1010, north-south
             11 => Cp437.BoxVerticalLeft, // 1011, north-south-west
             12 => Cp437.BoxUpRight, // 1100, northeast
             13 => Cp437.BoxUpHorizontal, // 1101, north-east-west
@@ -715,25 +680,25 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var b = 0b_0000_0000;
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
-        if (north == cell && _visualByPosition[x, y - 1].Item1 != Cp437.WhiteSpace)
+        if (north == cell && _cachedWorld[x, y - 1].Item2 != Cp437.WhiteSpace)
             b |= 0b_0000_1000;
 
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
-        if (east == cell && _visualByPosition[x + 1, y].Item1 != Cp437.WhiteSpace)
+        if (east == cell && _cachedWorld[x + 1, y].Item2 != Cp437.WhiteSpace)
             b |= 0b_0000_0100;
 
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
-        if (south == cell && _visualByPosition[x, y + 1].Item1 != Cp437.WhiteSpace)
+        if (south == cell && _cachedWorld[x, y + 1].Item2 != Cp437.WhiteSpace)
             b |= 0b_0000_0010;
 
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
-        if (west == cell && _visualByPosition[x - 1, y].Item1 != Cp437.WhiteSpace)
+        if (west == cell && _cachedWorld[x - 1, y].Item2 != Cp437.WhiteSpace)
             b |= 0b_0000_0001;
 
-        if (b == 0 && _visualByPosition[x, y].Item1 == Cp437.WhiteSpace) return Cp437.WhiteSpace;
+        if (b == 0 && _cachedWorld[x, y].Item2 == Cp437.WhiteSpace) return Cp437.WhiteSpace;
 
         return b switch
         {
@@ -747,7 +712,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             7 => Cp437.BoxDownHorizontal, // 0111, east-south-west
             8 => Cp437.BoxVertical, // 1000, north
             9 => Cp437.BoxUpLeft, // 1001, northwest
-            10 => Cp437.BoxVertical, // 1010, north south
+            10 => Cp437.BoxVertical, // 1010, north-south
             11 => Cp437.BoxVerticalLeft, // 1011, north-south-west
             12 => Cp437.BoxUpRight, // 1100, northeast
             13 => Cp437.BoxUpHorizontal, // 1101, north-east-west
