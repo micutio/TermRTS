@@ -7,7 +7,7 @@ internal class NullRenderer : IRenderer
 {
     #region IRenderer Members
 
-    public void RenderComponents(in IStorage components, double timeStepSizeMs,
+    public void RenderComponents(in IReadonlyStorage components, double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
         // Console.WriteLine($"Rendering null-entity at {howFarIntoNextFrameMs} ms into next frame.");
@@ -39,7 +39,7 @@ internal class WatcherSystem : ISimSystem
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         _remainingTicks -= 1;
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");

@@ -64,7 +64,7 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         var ballComponents = storage.GetAllForType<BounceBall>();
 

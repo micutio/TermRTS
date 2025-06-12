@@ -6,27 +6,14 @@ namespace TermRTS;
 
 using EntityComponents = Dictionary<int, List<ComponentBase>>;
 
-#region IStorage Interface
+#region IStorage Interfaces
 
-// TODO: Split into readonly and writable storage!
-
-/// <summary>
-///     Interface for component storage, associating by component type and entity id.
-///     It's supposed to store all components of a type in contiguous memory to allow fast access for
-///     the <c>SimSystem</c>s.
-/// </summary>
-public interface IStorage
+public interface IStorage : IReadonlyStorage, IWritableStorage
 {
-    public void AddComponent(ComponentBase component);
+}
 
-    public void AddComponents(IEnumerable<ComponentBase> components);
-
-    public void RemoveComponentsByEntity(int entityId);
-
-    public void RemoveComponentsByType(Type type);
-
-    public void RemoveComponentsByEntityAndType(int entityId, Type type);
-
+public interface IReadonlyStorage
+{
     public IEnumerable<ComponentBase> GetAllForEntity(int entityId);
 
     public IEnumerable<T> GetAllForType<T>();
@@ -38,6 +25,24 @@ public interface IStorage
     public void SwapBuffers();
 
     // public IEnumerable<ComponentBase> All();
+}
+
+/// <summary>
+///     Interface for component storage, associating by component type and entity id.
+///     It's supposed to store all components of a type in contiguous memory to allow fast access for
+///     the <c>SimSystem</c>s.
+/// </summary>
+public interface IWritableStorage
+{
+    public void AddComponent(ComponentBase component);
+
+    public void AddComponents(IEnumerable<ComponentBase> components);
+
+    public void RemoveComponentsByEntity(int entityId);
+
+    public void RemoveComponentsByType(Type type);
+
+    public void RemoveComponentsByEntityAndType(int entityId, Type type);
 }
 
 #endregion
@@ -74,54 +79,7 @@ public class MappedCollectionStorage : IStorage
 
     #endregion
 
-    #region IStorage Members
-
-    public void AddComponent(ComponentBase component)
-    {
-        if (!_componentStores.ContainsKey(component.GetType()))
-            _componentStores.Add(component.GetType(), new EntityComponents());
-
-        var entityComponents = _componentStores[component.GetType()];
-        if (!entityComponents.ContainsKey(component.EntityId))
-            entityComponents.Add(component.EntityId, []);
-
-        _componentStores[component.GetType()][component.EntityId].Add(component);
-
-        _cachedGetForTypeQueries.Remove(component.GetType());
-        // componentsDict.Add(component.EntityId, component);
-    }
-
-    public void AddComponents(IEnumerable<ComponentBase> components)
-    {
-        foreach (var component in components) AddComponent(component);
-    }
-
-    public void RemoveComponentsByEntity(int entityId)
-    {
-        foreach (var componentTypeDict in _componentStores
-                     .Values
-                     .Where(componentTypeDict => componentTypeDict.ContainsKey(entityId)))
-            componentTypeDict[entityId].Clear();
-        _cachedGetForTypeQueries.Clear();
-    }
-
-    public void RemoveComponentsByType(Type type)
-    {
-        _componentStores.Remove(type);
-        _cachedGetForTypeQueries.Remove(type);
-    }
-
-    public void RemoveComponentsByEntityAndType(int entityId, Type type)
-    {
-        if (!_componentStores.TryGetValue(type, out var componentsByType))
-            return;
-
-        if (!componentsByType.TryGetValue(entityId, out var componentsByTypeAndEntity))
-            return;
-
-        componentsByTypeAndEntity.Clear();
-        _cachedGetForTypeQueries.Remove(type);
-    }
+    #region IReadonlyStorage Members
 
     public IEnumerable<ComponentBase> GetAllForEntity(int entityId)
     {
@@ -206,6 +164,57 @@ public class MappedCollectionStorage : IStorage
                  from component in componentList
                  select component)
         */
+    }
+
+    #endregion
+
+    #region IWritableStorage Members
+
+    public void AddComponent(ComponentBase component)
+    {
+        if (!_componentStores.ContainsKey(component.GetType()))
+            _componentStores.Add(component.GetType(), new EntityComponents());
+
+        var entityComponents = _componentStores[component.GetType()];
+        if (!entityComponents.ContainsKey(component.EntityId))
+            entityComponents.Add(component.EntityId, []);
+
+        _componentStores[component.GetType()][component.EntityId].Add(component);
+
+        _cachedGetForTypeQueries.Remove(component.GetType());
+        // componentsDict.Add(component.EntityId, component);
+    }
+
+    public void AddComponents(IEnumerable<ComponentBase> components)
+    {
+        foreach (var component in components) AddComponent(component);
+    }
+
+    public void RemoveComponentsByEntity(int entityId)
+    {
+        foreach (var componentTypeDict in _componentStores
+                     .Values
+                     .Where(componentTypeDict => componentTypeDict.ContainsKey(entityId)))
+            componentTypeDict[entityId].Clear();
+        _cachedGetForTypeQueries.Clear();
+    }
+
+    public void RemoveComponentsByType(Type type)
+    {
+        _componentStores.Remove(type);
+        _cachedGetForTypeQueries.Remove(type);
+    }
+
+    public void RemoveComponentsByEntityAndType(int entityId, Type type)
+    {
+        if (!_componentStores.TryGetValue(type, out var componentsByType))
+            return;
+
+        if (!componentsByType.TryGetValue(entityId, out var componentsByTypeAndEntity))
+            return;
+
+        componentsByTypeAndEntity.Clear();
+        _cachedGetForTypeQueries.Remove(type);
     }
 
     #endregion

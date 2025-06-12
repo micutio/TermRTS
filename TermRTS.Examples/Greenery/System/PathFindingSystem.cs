@@ -22,7 +22,7 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         var world = storage.GetSingleForType<WorldComponent>();
         if (world == null) return;

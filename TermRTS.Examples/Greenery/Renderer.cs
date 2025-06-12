@@ -63,12 +63,12 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         if (_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyInfo))
             _textbox.HandleKeyInput(in keyInfo);
 
+        // TODO: Remove this if-query and create separate event input for mapview.
         if (!_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyContent))
-            // TODO: Remove this if-query and create separate event input for mapview.
             _mapview.HandleKeyInput(in keyContent);
 
-        if (evt is Event<MapRenderMode>) _mapview.ProcessEvent(evt);
         // TODO: Remove this if-query and create separate event input for mapview.
+        if (evt is Event<MapRenderMode>) _mapview.ProcessEvent(evt);
     }
 
     #endregion
@@ -88,12 +88,13 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     }
 
     public void RenderComponents(
-        in IStorage storage,
+        in IReadonlyStorage storage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
+        UpdateThisFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
-        Render(); // 
+        Render();
     }
 
     #endregion
@@ -101,7 +102,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     #region UiRootBase Members
 
     protected override void UpdateThisFromComponents(
-        in IStorage componentStorage,
+        in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {

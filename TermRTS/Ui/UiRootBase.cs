@@ -14,8 +14,9 @@ public abstract class UiRootBase : UiElementBase
 
     #region UIElementBase Members
 
+    // TODO: Find better method names to distinguish between UiRoot and UiElement members.
     public override void UpdateFromComponents(
-        in IStorage componentStorage,
+        in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
@@ -60,20 +61,23 @@ public abstract class UiRootBase : UiElementBase
 
     #endregion
 
-    #region Members
+    #region Abstract Members
 
     protected abstract void UpdateThisFromComponents(
-        in IStorage componentStorage,
+        in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent);
 
     /// <summary>
     ///     Update this UiRoot from the components it depends on.
-    ///     This <b>should</b> set <see cref="UiElementBase{TCanvas}.IsRequireReRender" /> and
-    ///     <see cref="UiElementBase{TCanvas}.IsRequireRootReRender" />
+    ///     This <b>should</b> set <see cref="UiElementBase.IsRequireReRender" /> and
+    ///     <see cref="UiElementBase.IsRequireRootReRender" />
     /// </summary>
-    /// <param name="canvas"></param>
     protected abstract void RenderUiBase();
+
+    #endregion
+
+    #region Public Members
 
     public void AddUiElement(UiElementBase uiElement)
     {

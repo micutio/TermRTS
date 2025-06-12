@@ -6,7 +6,7 @@ public class FovSystem : ISimSystem
 {
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         // TODO: Switch Fov algorithms at runtime.
         var world = storage.GetSingleForType<WorldComponent>();

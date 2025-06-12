@@ -9,5 +9,5 @@ namespace TermRTS;
 /// </summary>
 public interface ISimSystem
 {
-    public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage);
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage);
 }

@@ -27,7 +27,7 @@ public class LogArea : UiElementBase, IEventSink
     #region UiElementBase Members
 
     public override void UpdateFromComponents(
-        in IStorage componentStorage,
+        in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {

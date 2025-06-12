@@ -14,7 +14,7 @@ internal class BounceRenderer : IRenderer
 
     #region IRenderer Members
 
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs,
+    public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
         _canvas.Clear();

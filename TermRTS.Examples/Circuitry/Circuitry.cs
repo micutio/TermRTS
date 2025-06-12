@@ -357,7 +357,7 @@ internal class Circuitry : IRunnableExample
 
         #region ISimSystem Members
 
-        public void ProcessComponents(ulong timeStepSizeMs, in IStorage storage)
+        public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
         {
             foreach (var bus in storage.GetAllForType<Bus>())
             {

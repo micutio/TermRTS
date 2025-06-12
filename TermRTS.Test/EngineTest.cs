@@ -7,7 +7,7 @@ public class NullRenderer : IRenderer
 {
     #region IRenderer Members
 
-    public void RenderComponents(in IStorage storage, double timeStepSizeMs,
+    public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
     }
@@ -50,7 +50,7 @@ public class WatcherSystem : ISimSystem
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSize, in IStorage storage)
+    public void ProcessComponents(ulong timeStepSize, in IReadonlyStorage storage)
     {
         _remainingTicks -= 1;
 
@@ -127,7 +127,6 @@ public class EngineTest
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
         // Setup Simulation and Persistence
-        var sim = new Simulation(scheduler);
         var persistence = new Persistence();
         var serializationSuccess =
             persistence.PutSimStateToJson(ref scheduler, out var expectedJson, out _);

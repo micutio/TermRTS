@@ -47,7 +47,7 @@ public class StorageTest
 
     [Theory]
     [ClassData(typeof(StorageTestData))]
-    public void TestInsertion(IStorage storage)
+    public void TestInsertion(IReadonlyStorage storage)
     {
         // Test retrieval by type
         Assert.Equal(7, storage.GetAllForType<ComponentA>().Count());

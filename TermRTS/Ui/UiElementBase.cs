@@ -12,9 +12,9 @@ public abstract class KeyInputProcessorBase : UiElementBase
 
     internal readonly ChannelReader<int> FocusSignalReader;
 
+    // TODO: Do I really need a channel for this?
     /// <summary>
     /// Send <c>true</c> to try and claim focus, <c>false</c> to yield it again.
-    /// TODO: Do I really need a channel for this?
     /// </summary>
     private readonly Channel<int> _focusSignal;
 
@@ -103,18 +103,20 @@ public abstract class UiElementBase
 
     #endregion
 
-    #region Public Methods
+    #region Public Abstract Methods
 
     /// <summary>
     /// Update the UI element from the components it depends on.
     /// This decides whether this component needs to be re-rendered, i.e.: this should set
     /// <see cref="IsRequireReRender"/> and <see cref="IsRequireRootReRender"/>.
-    ///
+    /// 
     /// The update is separated from rendering to allow for parallelisation.
     /// </summary>
     /// <param name="componentStorage"></param>
+    /// <param name="timeStepSizeMs"></param>
+    /// <param name="howFarIntoNextFramePercent"></param>
     public abstract void UpdateFromComponents(
-        in IStorage componentStorage,
+        in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent);
 
@@ -122,7 +124,7 @@ public abstract class UiElementBase
 
     #endregion
 
-    #region Protected Methods
+    #region Protected Abstract Methods
 
     protected abstract void OnXChanged(int newX);
 

@@ -216,7 +216,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
     #region IUiElement Members
 
     public override void UpdateFromComponents(
-        in IStorage componentStorage,
+        in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
