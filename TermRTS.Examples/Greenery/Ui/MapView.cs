@@ -130,7 +130,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private readonly int _spaceForScaleTop = 1;
     private int _spaceForScaleLeft;
 
-    // Left top position of the camera within the world
     private int _viewportPositionInWorldX;
     private int _viewportPositionInWorldY;
 
@@ -163,8 +162,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
 
-        _viewportPositionInWorldX = 0;
-        _viewportPositionInWorldY = 0;
+        ViewportPositionInWorldX = 0;
+        ViewportPositionInWorldY = 0;
 
         Console.CursorVisible = false;
     }
@@ -185,6 +184,32 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private int ViewPortWidth => Width - _spaceForScaleLeft;
     private int ViewPortHeight => Height - _spaceForScaleTop;
+
+    // Left top position of the camera within the world
+    private int ViewportPositionInWorldX
+    {
+        get => _viewportPositionInWorldX;
+        set
+        {
+            if (_viewportPositionInWorldX == value) return;
+
+            _viewportPositionInWorldX = value;
+            IsRequireReRender = true;
+        }
+    }
+
+    private int ViewportPositionInWorldY
+    {
+        get => _viewportPositionInWorldY;
+        set
+        {
+            if (_viewportPositionInWorldY == value) return;
+
+            _viewportPositionInWorldY = value;
+            UpdateSpaceForScaleLeft();
+            IsRequireReRender = true;
+        }
+    }
 
     #endregion
 
@@ -254,8 +279,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     public override void Render()
     {
         // Step 1: Render World
-        for (var y = _viewportPositionInWorldY; y < ViewPortHeight; y++)
-        for (var x = _viewportPositionInWorldX; x < ViewPortWidth; x++)
+        for (var y = ViewportPositionInWorldY; y < ViewPortHeight; y++)
+        for (var x = ViewportPositionInWorldX; x < ViewPortWidth; x++)
         {
             var (elevation, c) = _cachedWorld[x, y];
             var isFov = _cachedFov[x, y];
@@ -375,7 +400,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private void UpdateSpaceForScaleLeft()
     {
-        _spaceForScaleLeft = (_viewportPositionInWorldY + ViewPortHeight) switch
+        _spaceForScaleLeft = (ViewportPositionInWorldY + ViewPortHeight) switch
         {
             < 10 => 1,
             < 100 => 2,
@@ -385,47 +410,25 @@ public class MapView : KeyInputProcessorBase, IEventSink
         };
     }
 
-    // TODO: Turn _viewportPositionInWorldY into a property and put this check into the setter!
     private void MoveCameraUp()
     {
-        var newPos = Math.Max(_viewportPositionInWorldY - 1, 0);
-        if (newPos == _viewportPositionInWorldY) return;
-
-        _viewportPositionInWorldY = newPos;
-        UpdateSpaceForScaleLeft();
-        IsRequireReRender = true;
+        ViewportPositionInWorldY = Math.Max(ViewportPositionInWorldY - 1, 0);
     }
 
-    // TODO: Turn _viewportPositionInWorldY into a property and put this check into the setter!
     private void MoveCameraDown()
     {
-        var newPos = Math.Min(_viewportPositionInWorldY + 1, _worldHeight - 1);
-        if (newPos == _viewportPositionInWorldY) return;
-
-        _viewportPositionInWorldY = newPos;
-        UpdateSpaceForScaleLeft();
-        IsRequireReRender = true;
+        ViewportPositionInWorldY = Math.Min(ViewportPositionInWorldY + 1, _worldHeight - 1);
     }
 
-    // TODO: Turn _viewportPositionInWorldX into a property and put this check into the setter!
     private void MoveCameraLeft()
     {
-        var newPos = Math.Max(_viewportPositionInWorldX - 1, 0);
-        if (newPos == _viewportPositionInWorldX) return;
-
-        _viewportPositionInWorldX = newPos;
-        IsRequireReRender = true;
+        ViewportPositionInWorldX = Math.Max(ViewportPositionInWorldX - 1, 0);
     }
 
-    // TODO: Turn _viewportPositionInWorldX into a property and put this check into the setter!
+    // TODO: Fix bug in case where viewport is larger than world!
     private void MoveCameraRight()
     {
-        // TODO: Fix bug in case where viewport is larger than world!
-        var newPos = Math.Min(_viewportPositionInWorldX + 1, _worldHeight - 1);
-        if (newPos == _viewportPositionInWorldX) return;
-
-        _viewportPositionInWorldX = newPos;
-        IsRequireReRender = true;
+        ViewportPositionInWorldX = Math.Min(ViewportPositionInWorldX + 1, _worldHeight - 1);
     }
 
     /// <summary>
@@ -436,10 +439,10 @@ public class MapView : KeyInputProcessorBase, IEventSink
     /// <returns><c>true</c> if it is within the viewport, <c>false</c> otherwise.</returns>
     private bool IsInCamera(float x, float y)
     {
-        return x >= _viewportPositionInWorldX
-               && x <= _viewportPositionInWorldX + ViewPortWidth
-               && y >= _viewportPositionInWorldY
-               && y <= _viewportPositionInWorldY + ViewPortHeight;
+        return x >= ViewportPositionInWorldX
+               && x <= ViewportPositionInWorldX + ViewPortWidth
+               && y >= ViewportPositionInWorldY
+               && y <= ViewportPositionInWorldY + ViewPortHeight;
     }
 
     /// <summary>
@@ -458,22 +461,22 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private int WorldToViewportX(float x)
     {
-        return Convert.ToInt32(x - _viewportPositionInWorldX);
+        return Convert.ToInt32(x - ViewportPositionInWorldX);
     }
 
     private int WorldToViewportY(float y)
     {
-        return Convert.ToInt32(y - _viewportPositionInWorldY);
+        return Convert.ToInt32(y - ViewportPositionInWorldY);
     }
 
     private int ViewportToWorldX(int x)
     {
-        return _viewportPositionInWorldX + x;
+        return ViewportPositionInWorldX + x;
     }
 
     private float ViewportToWorldY(float y)
     {
-        return _viewportPositionInWorldY + y;
+        return ViewportPositionInWorldY + y;
     }
 
     private void RenderCoordinates()
