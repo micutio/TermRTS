@@ -47,7 +47,7 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
                     return;
                 case InputState.OngoingInput:
                     FinalizeMessage();
-                    _state = InputState.Idle;
+                    IsRequireRootReRender = true;
                     return;
                 default:
                     return;
@@ -55,6 +55,7 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
 
         if (!IsOngoingInput) return;
 
+        IsRequireReRender = true;
         switch (keyInfo.Key)
         {
             case ConsoleKey.Spacebar:

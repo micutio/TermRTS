@@ -34,8 +34,16 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
-        _mapview = new MapView(_canvas, worldWidth, worldHeight);
-        _textbox = new TextBox(_canvas);
+        _mapview = new MapView(_canvas, worldWidth, worldHeight)
+        {
+            Height = _canvas.Height - 1,
+            Width = _canvas.Width
+        };
+        _textbox = new TextBox(_canvas)
+        {
+            Y = _mapview.Height,
+            Width = _canvas.Width
+        };
         AddUiElement(_mapview);
         AddUiElement(_textbox);
         _profileOutput = string.Empty;
@@ -60,12 +68,11 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 #endif
 
         // TODO: Implement handling of focus requests
-        if (_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyInfo))
+        if (evt is Event<ConsoleKeyInfo> (var keyInfo))
+        {
             _textbox.HandleKeyInput(in keyInfo);
-
-        // TODO: Remove this if-query and create separate event input for mapview.
-        if (!_textbox.IsOngoingInput && evt is Event<ConsoleKeyInfo> (var keyContent))
-            _mapview.HandleKeyInput(in keyContent);
+            if (!_textbox.IsOngoingInput) _mapview.HandleKeyInput(in keyInfo);
+        }
 
         // TODO: Remove this if-query and create separate event input for mapview.
         if (evt is Event<MapRenderMode>) _mapview.ProcessEvent(evt);
@@ -92,7 +99,9 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        UpdateThisFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
+        // This calls UiElementBase.UpdateFromComponents,
+        // which calls UiRootBase.UpdateThisFromComponents
+        UpdateFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
         Render();
     }

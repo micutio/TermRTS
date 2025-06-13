@@ -127,7 +127,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private readonly int _worldHeight;
 
     // Offsets for the Map rendering, to accommodate left and top scales
-    private readonly int _spaceForScaleTop = 1;
+    private const int SpaceForScaleTop = 1;
+    private const int SpaceForTextfieldBottom = 1;
     private int _spaceForScaleLeft;
 
     private int _viewportPositionInWorldX;
@@ -182,8 +183,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
     }
 
-    private int ViewPortWidth => Width - _spaceForScaleLeft;
-    private int ViewPortHeight => Height - _spaceForScaleTop;
+    private int ViewportWidth => Width - _spaceForScaleLeft;
+    private int ViewportHeight => Height - SpaceForScaleTop - SpaceForTextfieldBottom;
 
     // Left top position of the camera within the world
     private int ViewportPositionInWorldX
@@ -279,8 +280,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     public override void Render()
     {
         // Step 1: Render World
-        for (var y = ViewportPositionInWorldY; y < ViewPortHeight; y++)
-        for (var x = ViewportPositionInWorldX; x < ViewPortWidth; x++)
+        for (var y = ViewportPositionInWorldY; y < ViewportPositionInWorldY + ViewportHeight; y++)
+        for (var x = ViewportPositionInWorldX; x < ViewportPositionInWorldX + ViewportWidth; x++)
         {
             var (elevation, c) = _cachedWorld[x, y];
             var isFov = _cachedFov[x, y];
@@ -301,7 +302,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             var (colFg, colBg) = colors[elevation];
             _canvas.Set(
                 X + WorldToViewportX(x) + _spaceForScaleLeft,
-                Y + WorldToViewportY(y) + _spaceForScaleTop,
+                Y + WorldToViewportY(y) + SpaceForScaleTop,
                 c,
                 isFov ? colFg : DefaultFg,
                 isFov ? colBg : DefaultBg);
@@ -313,7 +314,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             if (IsInCamera(pathX, pathY))
                 _canvas.Set(
                     X + WorldToViewportX(pathX) + _spaceForScaleLeft,
-                    Y + WorldToViewportY(pathY) + _spaceForScaleTop,
+                    Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                     pathCol,
                     ConsoleColor.Red,
                     DefaultBg);
@@ -325,7 +326,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             if (IsInCamera(droneX, droneY))
                 _canvas.Set(
                     X + WorldToViewportX(droneX) + _spaceForScaleLeft,
-                    X + WorldToViewportY(droneY) + _spaceForScaleTop,
+                    X + WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
                     DefaultBg,
                     ConsoleColor.Red);
@@ -400,7 +401,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private void UpdateSpaceForScaleLeft()
     {
-        _spaceForScaleLeft = (ViewportPositionInWorldY + ViewPortHeight) switch
+        _spaceForScaleLeft = (ViewportPositionInWorldY + ViewportHeight) switch
         {
             < 10 => 1,
             < 100 => 2,
@@ -440,9 +441,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private bool IsInCamera(float x, float y)
     {
         return x >= ViewportPositionInWorldX
-               && x <= ViewportPositionInWorldX + ViewPortWidth
+               && x <= ViewportPositionInWorldX + ViewportWidth
                && y >= ViewportPositionInWorldY
-               && y <= ViewportPositionInWorldY + ViewPortHeight;
+               && y <= ViewportPositionInWorldY + ViewportHeight;
     }
 
     /// <summary>
@@ -474,7 +475,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         return ViewportPositionInWorldX + x;
     }
 
-    private float ViewportToWorldY(float y)
+    private int ViewportToWorldY(int y)
     {
         return ViewportPositionInWorldY + y;
     }
@@ -500,12 +501,12 @@ public class MapView : KeyInputProcessorBase, IEventSink
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
             if (isTick)
-                _canvas.Text(X + x, Y, Convert.ToString(x), false, DefaultBg, DefaultFg);
+                _canvas.Text(X + x, Y, Convert.ToString(worldX), false, DefaultBg, DefaultFg);
         }
 
         // Vertical
         // tick marks
-        for (var y = _spaceForScaleTop; y < Height; y++)
+        for (var y = SpaceForScaleTop; y < ViewportHeight; y++)
         for (var x = 0; x < _spaceForScaleLeft; x++)
         {
             var worldY = ViewportToWorldY(y);
@@ -515,12 +516,12 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
 
         // tick labels
-        for (var y = _spaceForScaleTop; y < Height; y++)
+        for (var y = SpaceForScaleTop; y < ViewportHeight; y++)
         {
             var worldY = ViewportToWorldY(y);
             var isTick = worldY > 0 && worldY % 5 == 0;
             if (isTick)
-                _canvas.Text(X, y, Convert.ToString(y), false, DefaultBg, DefaultFg);
+                _canvas.Text(X, y, Convert.ToString(worldY), false, DefaultBg, DefaultFg);
         }
     }
 
