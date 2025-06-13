@@ -4,6 +4,10 @@ using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
+// TODO: Implementation Ideas
+//       - Ringbuffer, containing lines of text
+//       - Method for adding new text into buffer
+//       - make it scrollable?
 public class LogArea : UiElementBase, IEventSink
 {
     #region Fields
