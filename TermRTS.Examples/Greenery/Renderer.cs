@@ -18,6 +18,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     private readonly ConsoleCanvas _canvas;
     private readonly MapView _mapview;
+    private readonly LogArea _logArea;
     private readonly TextBox _textbox;
 
     private string _profileOutput;
@@ -37,7 +38,13 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         _mapview = new MapView(_canvas, worldWidth, worldHeight)
         {
             Height = _canvas.Height - 1,
-            Width = _canvas.Width
+            Width = (int)(_canvas.Width * 0.7)
+        };
+        _logArea = new LogArea(_canvas, _canvas.Height - 1)
+        {
+            X = _mapview.Width + 1,
+            Height = _canvas.Height - 1,
+            Width = _canvas.Width - _mapview.Width
         };
         _textbox = new TextBox(_canvas)
         {
@@ -45,6 +52,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             Width = _canvas.Width
         };
         AddUiElement(_mapview);
+        AddUiElement(_logArea);
         AddUiElement(_textbox);
         _profileOutput = string.Empty;
 
@@ -55,6 +63,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     #region Properties
 
+    public LogArea LogArea => _logArea;
     public TextBox Textbox => _textbox;
 
     #endregion
@@ -126,8 +135,10 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         if (Math.Abs(_canvas.Width - _mapview.Width) > 0.9
             || Math.Abs(_canvas.Height - _mapview.Height) > 0.9)
         {
-            _mapview.Width = _canvas.Width;
+            _mapview.Width = (int)(_canvas.Width * 0.7);
             _mapview.Height = _canvas.Height;
+            _logArea.Width = _canvas.Width - _mapview.Width;
+            _textbox.Y = _canvas.Height - 1;
         }
 
         if (!_textbox.IsOngoingInput)
@@ -149,6 +160,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         // TODO: Implement proper layouting
         _mapview.X = newX;
+        _logArea.X = newX + _mapview.Width;
         _textbox.X = newX;
     }
 
@@ -156,13 +168,15 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         // TODO: Implement proper layouting
         _mapview.Y = newY;
+        _logArea.Y = newY;
         _textbox.Y = newY + _mapview.Height;
     }
 
     protected override void OnWidthChanged(int newWidth)
     {
         // TODO: Implement proper layouting
-        _mapview.Width = newWidth;
+        _mapview.Width = (int)(newWidth * 0.7);
+        _logArea.Width = newWidth - _mapview.Width;
         _textbox.Width = newWidth;
     }
 
@@ -170,6 +184,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         // TODO: Implement proper layouting
         _mapview.Height = newHeight - 1;
+        _logArea.Height = newHeight - 1;
         // _textbox.Height remains constant at 1
     }
 

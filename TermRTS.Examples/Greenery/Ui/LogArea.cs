@@ -7,29 +7,17 @@ using TermRTS.Ui;
 namespace TermRTS.Examples.Greenery.Ui;
 
 // TODO: Implementation Ideas
-//       - Ringbuffer, containing lines of text
+//       - RingBuffer, containing lines of text
 //       - Method for adding new text into buffer
 //       - make it scrollable?
-public class LogArea : UiElementBase, IEventSink
+public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEventSink
 {
     #region Fields
 
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
 
-    private readonly ConsoleCanvas _canvas;
-
-    private RingBuffer<string> _buffer;
-
-    #endregion
-
-    #region Constructor
-
-    public LogArea(ConsoleCanvas canvas, int capacity)
-    {
-        _canvas = canvas;
-        _buffer = new RingBuffer<string>(capacity);
-    }
+    private RingBuffer<string> _buffer = new(capacity);
 
     #endregion
 
@@ -54,9 +42,9 @@ public class LogArea : UiElementBase, IEventSink
             if (word.Length > fullLineWidth)
             {
                 // split the word
-                var head = word.Substring(0, fullLineWidth);
+                var head = word[..fullLineWidth];
                 // put the rest back on the buffer
-                var tail = word.Substring(fullLineWidth);
+                var tail = word[fullLineWidth..];
                 words.PushFront(tail);
                 // continue with the front
                 word = head;
@@ -64,8 +52,8 @@ public class LogArea : UiElementBase, IEventSink
 
             if (word.Length > fullLineWidth - currentLineWidth)
             {
-                var head = word.Substring(0, fullLineWidth - currentLineWidth);
-                var tail = word.Substring(fullLineWidth - currentLineWidth);
+                var head = word[..(fullLineWidth - currentLineWidth)];
+                var tail = word[(fullLineWidth - currentLineWidth)..];
                 words.PushFront(tail);
                 word = head;
             }
@@ -109,14 +97,14 @@ public class LogArea : UiElementBase, IEventSink
 
     public override void Render()
     {
-        for (var y = 0; y < Height; y++)
-        for (var x = 0; x < Width; x++)
-            _canvas.Set(x, y, Cp437.BlockFull, DefaultFg, DefaultBg);
+        for (var y = Y; y < Height; y++)
+        for (var x = X; x < Width; x++)
+            canvas.Set(x, y, Cp437.BlockFull, DefaultBg, DefaultBg);
 
         var idx = 0;
         foreach (var msg in _buffer)
         {
-            _canvas.Text(X, Y + idx, msg);
+            canvas.Text(X, Y + idx, msg);
             idx++;
         }
     }
