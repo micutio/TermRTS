@@ -15,9 +15,9 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int WorldWidth = 300;
+    private const int WorldWidth = 50;
 
-    private const int WorldHeight = 150;
+    private const int WorldHeight = 50;
 
     // private readonly ILog _log;
     private readonly CommandRunner _commandRunner = new();
@@ -56,7 +56,7 @@ public class Greenery : IRunnableExample
         core.AddComponent(fovComponent);
 
         var droneEntity = new EntityBase();
-        var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(90, 10));
+        var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(20, 20));
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
 

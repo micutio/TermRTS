@@ -97,7 +97,7 @@ public class MappedCollectionStorage : IStorage
             return cachedQuery.Cast<T>();
 
         if (!_componentStores.TryGetValue(typeof(T), out var components))
-            return Enumerable.Empty<T>();
+            return [];
 
         var query = components
             .Values

@@ -91,7 +91,6 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
         var fg = DefaultFg;
         var bg = DefaultBg;
 
-        // TODO: How to decouple from canvas class implementations?
         // render blank line
         for (var i = X; i < Width; i += 1)
             canvas.Set(i, Y, ' ', bg, fg);

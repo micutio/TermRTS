@@ -279,9 +279,13 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     public override void Render()
     {
+        var viewportExtendInWorldX = ViewportPositionInWorldX + ViewportWidth;
+        var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
+        var boundaryX = Math.Min(_worldWidth, viewportExtendInWorldX);
+        var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
         // Step 1: Render World
-        for (var y = ViewportPositionInWorldY; y < ViewportPositionInWorldY + ViewportHeight; y++)
-        for (var x = ViewportPositionInWorldX; x < ViewportPositionInWorldX + ViewportWidth; x++)
+        for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
+        for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
         {
             var (elevation, c) = _cachedWorld[x, y];
             var isFov = _cachedFov[x, y];
@@ -413,23 +417,36 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private void MoveCameraUp()
     {
-        ViewportPositionInWorldY = Math.Max(ViewportPositionInWorldY - 1, 0);
+        ViewportPositionInWorldY = ViewportHeight > _worldHeight
+            ? 0
+            : Math.Max(ViewportPositionInWorldY - 1, 0);
     }
 
     private void MoveCameraDown()
     {
-        ViewportPositionInWorldY = Math.Min(ViewportPositionInWorldY + 1, _worldHeight - 1);
+        var maxViewportY = ViewportPositionInWorldY + ViewportHeight - 1;
+        var maxWorldY = _worldHeight - ViewportHeight - 1;
+        var boundaryY = Math.Min(maxViewportY, maxWorldY);
+        ViewportPositionInWorldY = ViewportHeight > _worldHeight
+            ? 0
+            : Math.Min(ViewportPositionInWorldY + 1, boundaryY);
     }
 
     private void MoveCameraLeft()
     {
-        ViewportPositionInWorldX = Math.Max(ViewportPositionInWorldX - 1, 0);
+        ViewportPositionInWorldX = ViewportWidth > _worldWidth
+            ? 0
+            : Math.Max(ViewportPositionInWorldX - 1, 0);
     }
 
-    // TODO: Fix bug in case where viewport is larger than world!
     private void MoveCameraRight()
     {
-        ViewportPositionInWorldX = Math.Min(ViewportPositionInWorldX + 1, _worldHeight - 1);
+        var maxViewportX = ViewportPositionInWorldX + ViewportWidth - 1;
+        var maxWorldX = _worldWidth - ViewportWidth - 1;
+        var boundaryX = Math.Min(maxViewportX, maxWorldX);
+        ViewportPositionInWorldX = ViewportWidth > _worldWidth
+            ? 0
+            : Math.Min(ViewportPositionInWorldX + 1, boundaryX);
     }
 
     /// <summary>
@@ -506,7 +523,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         // Vertical
         // tick marks
-        for (var y = SpaceForScaleTop; y < ViewportHeight; y++)
+        for (var y = SpaceForScaleTop; y <= ViewportHeight; y++)
         for (var x = 0; x < _spaceForScaleLeft; x++)
         {
             var worldY = ViewportToWorldY(y);
