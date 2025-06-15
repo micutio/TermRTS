@@ -546,7 +546,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
     {
         for (var y = 0; y < _worldHeight; y++)
         for (var x = 0; x < _worldWidth; x++)
-            _cachedWorld[x, y] = (world.Cells[y, y], MarkersElevation[world.Cells[x, y]]);
+            _cachedWorld[x, y] = (world.Cells[x, y], MarkersElevation[world.Cells[x, y]]);
     }
 
     private void SetHeatmapColorVisual(WorldComponent world)
