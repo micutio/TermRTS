@@ -116,8 +116,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
         (ConsoleColor.White, ConsoleColor.DarkGray)
     ];
 
-    private readonly ConsoleCanvas _canvas;
-
     #endregion
 
     #region Positioning Constants and Variables
@@ -135,6 +133,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private int _viewportPositionInWorldY;
 
     #endregion
+
+    // reference to canvas to render on
+    private readonly ConsoleCanvas _canvas;
 
     // cached world and drone paths
     private readonly (byte, char)[,] _cachedWorld;
