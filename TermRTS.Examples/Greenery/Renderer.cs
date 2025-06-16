@@ -21,6 +21,8 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     private readonly LogArea _logArea;
     private readonly TextBox _textbox;
 
+    private int _lastCanvasWidth;
+    private int _lastCanvasHeight;
     private string _profileOutput;
     private double _timePassedMs;
     private double _timeStepSizeMs;
@@ -34,6 +36,8 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;
+        _lastCanvasWidth = _canvas.Width;
+        _lastCanvasHeight = _canvas.Height;
         // _canvas.Interlaced = true;
         _mapview = new MapView(_canvas, worldWidth, worldHeight)
         {
@@ -132,13 +136,18 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     protected override void RenderUiBase()
     {
         // Update viewport on Terminal resizing
-        if (Math.Abs(_canvas.Width - _mapview.Width) > 0.9
-            || Math.Abs(_canvas.Height - _mapview.Height) > 0.9)
+        if (Math.Abs(_canvas.Width - _lastCanvasWidth) > 0.9
+            || Math.Abs(_canvas.Height - _lastCanvasHeight) > 0.9)
         {
+            _lastCanvasWidth = _canvas.Width;
+            _lastCanvasHeight = _canvas.Height;
             _mapview.Width = (int)(_canvas.Width * 0.7);
-            _mapview.Height = _canvas.Height;
+            _mapview.Height = _canvas.Height - 1;
+            _logArea.X = _mapview.Width + 1;
             _logArea.Width = _canvas.Width - _mapview.Width;
+            _logArea.Height = _canvas.Height - 1;
             _textbox.Y = _canvas.Height - 1;
+            _textbox.Width = _mapview.Width;
         }
 
         if (!_textbox.IsOngoingInput)

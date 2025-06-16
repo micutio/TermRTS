@@ -14,6 +14,11 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
 {
     #region Fields
 
+    private const int PaddingTop = 1;
+    private const int PaddingLeft = 1;
+    private const int PaddingRight = 1;
+    private const int PaddingBottom = 1;
+
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
 
@@ -30,7 +35,6 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
     public void AddLogEntry(int lineWidth, string message)
     {
         // TODO: Create algorithm to distribute the string into the current layout.
-        var fullLineWidth = Width;
         var logEntryLine = "";
         var currentLineWidth = 0;
         var wordArray = message.Split([' '], StringSplitOptions.RemoveEmptyEntries);
@@ -39,29 +43,37 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
         {
             var word = words.Front();
             words.PopFront();
-            if (word.Length > fullLineWidth)
+            if (word.Length > lineWidth)
             {
                 // split the word
-                var head = word[..fullLineWidth];
+                var head = word[..lineWidth];
                 // put the rest back on the buffer
-                var tail = word[fullLineWidth..];
+                var tail = word[lineWidth..];
                 words.PushFront(tail);
                 // continue with the front
                 word = head;
             }
 
-            if (word.Length > fullLineWidth - currentLineWidth)
+            // word does not fit into the current line anymore
+            if (word.Length > lineWidth - currentLineWidth)
             {
-                var head = word[..(fullLineWidth - currentLineWidth)];
-                var tail = word[(fullLineWidth - currentLineWidth)..];
+                var head = word[..(lineWidth - currentLineWidth)];
+                var tail = word[(lineWidth - currentLineWidth)..];
                 words.PushFront(tail);
                 word = head;
+                // finish this line and create a new one
+                _buffer.PushBack(logEntryLine);
+                logEntryLine = word + Cp437.WhiteSpace;
+                currentLineWidth = word.Length + 1;
             }
-
-            logEntryLine += word + Cp437.WhiteSpace;
-            currentLineWidth += word.Length + 1;
-            _buffer.PushBack(logEntryLine);
+            else
+            {
+                logEntryLine += word + Cp437.WhiteSpace;
+                currentLineWidth += word.Length + 1;
+            }
         }
+
+        _buffer.PushBack(logEntryLine);
     }
 
 
@@ -69,7 +81,8 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
     {
         var messages = _buffer.ToArray();
         _buffer = new RingBuffer<string>(newHeight);
-        foreach (var msg in messages) AddLogEntry(newWidth, msg);
+        var paddedLineWidth = newWidth + PaddingLeft + PaddingRight;
+        foreach (var msg in messages) AddLogEntry(paddedLineWidth, msg);
     }
 
     #endregion
@@ -79,7 +92,8 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
     public void ProcessEvent(IEvent evt)
     {
         if (evt is not Event<SystemLog>(var logContent)) return;
-        AddLogEntry(Width, logContent.Content);
+        var paddedLineWidth = Width + PaddingLeft + PaddingRight;
+        AddLogEntry(paddedLineWidth, logContent.Content);
         IsRequireReRender = true;
     }
 
@@ -99,7 +113,7 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
     {
         for (var y = Y; y < Height; y++)
         for (var x = X; x < Width; x++)
-            canvas.Set(x, y, Cp437.BlockFull, DefaultBg, DefaultBg);
+            canvas.Set(x, y, Cp437.BlockFull, ConsoleColor.Red, ConsoleColor.Blue);
 
         var idx = 0;
         foreach (var msg in _buffer)
