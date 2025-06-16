@@ -41,22 +41,21 @@ public abstract class UiRootBase : UiElementBase
     {
         var isRequireReRender = IsRequireReRender
                                 || _uiElements.Any(x => x.IsRequireRootReRender);
+
         if (isRequireReRender)
         {
             RenderUiBase();
+            IsRequireReRender = false;
+            IsRequireRootReRender = false;
+        }
 
-            foreach (var uiElement in _uiElements) uiElement.Render();
-        }
-        else
-        {
-            foreach (var uiElement in _uiElements)
-                if (uiElement.IsRequireReRender)
-                {
-                    uiElement.Render();
-                    uiElement.IsRequireReRender = false;
-                    uiElement.IsRequireRootReRender = false;
-                }
-        }
+        foreach (var uiElement in _uiElements)
+            if (uiElement.IsRequireReRender)
+            {
+                uiElement.Render();
+                uiElement.IsRequireReRender = false;
+                uiElement.IsRequireRootReRender = false;
+            }
     }
 
     #endregion

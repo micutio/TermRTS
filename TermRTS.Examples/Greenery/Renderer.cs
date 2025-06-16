@@ -117,6 +117,10 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         UpdateFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
         Render();
+#if DEBUG
+        if (!_textbox.IsOngoingInput)
+            RenderDebugInfo(_timeStepSizeMs, _howFarIntoNextFramePercent);
+#endif
     }
 
     #endregion
@@ -150,15 +154,9 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             _textbox.Width = _mapview.Width;
         }
 
-        if (!_textbox.IsOngoingInput)
-            for (var i = 0; i < _canvas.Width; i += 1)
-                _canvas.Set(i, _canvas.Height - 1, ' ', DefaultFg, DefaultBg);
-
-        // Step 3: Render profiling info.
-#if DEBUG
-        if (!_textbox.IsOngoingInput)
-            RenderDebugInfo(_timeStepSizeMs, _howFarIntoNextFramePercent);
-#endif
+        if (_textbox.IsOngoingInput) return;
+        for (var i = 0; i < _canvas.Width; i += 1)
+            _canvas.Set(i, _canvas.Height - 1, ' ', DefaultFg, DefaultBg);
     }
 
     #endregion
