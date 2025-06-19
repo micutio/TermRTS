@@ -35,26 +35,28 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
     public void AddLogEntry(int lineWidth, string message)
     {
         // TODO: Create algorithm to distribute the string into the current layout.
-        var logEntryLine = "";
-        var currentLineWidth = 0;
+        var logEntryLine = "" + Cp437.Greater + Cp437.WhiteSpace;
+        const int promptSpace = 2;
+        var currentLineWidth = promptSpace; // prompt size
         var wordArray = message.Split([' '], StringSplitOptions.RemoveEmptyEntries);
         var words = new RingBuffer<string>(wordArray.Length, wordArray);
         while (words.Size > 0)
         {
             var word = words.Front();
             words.PopFront();
-            if (word.Length > lineWidth)
+            // word is too long for the entire line
+            if (word.Length > lineWidth + promptSpace)
             {
                 // split the word
-                var head = word[..lineWidth];
+                var head = word[..(lineWidth + promptSpace)];
                 // put the rest back on the buffer
-                var tail = word[lineWidth..];
+                var tail = word[(lineWidth + promptSpace)..];
                 words.PushFront(tail);
                 // continue with the front
                 word = head;
             }
 
-            // word does not fit into the current line anymore
+            // word does not fit into the current line anymore either
             if (word.Length > lineWidth - currentLineWidth)
             {
                 var head = word[..(lineWidth - currentLineWidth)];
@@ -111,14 +113,18 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
 
     public override void Render()
     {
-        for (var y = Y; y < Height; y++)
-        for (var x = X; x < Width; x++)
-            canvas.Set(x, y, Cp437.BlockFull, ConsoleColor.Red, ConsoleColor.Blue);
-
         var idx = 0;
+        // alternate background color with every new log entry
+        var altBackground = true;
         foreach (var msg in _buffer)
         {
-            canvas.Text(X, Y + idx, msg);
+            if (msg[0].Equals(Cp437.Greater)) altBackground = !altBackground;
+            var bgColor = altBackground ? ConsoleColor.Black : ConsoleColor.DarkGray;
+            canvas.Text(X, Y + idx, msg, false, DefaultFg, bgColor);
+
+            // fill the rest of the line with the same background color
+            for (var i = msg.Length; i < Width; i++)
+                canvas.Set(X + i, Y + idx, Cp437.WhiteSpace, DefaultFg, bgColor);
             idx++;
         }
     }

@@ -112,6 +112,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
+        CheckForCanvasSizeChanged();
         // This calls UiElementBase.UpdateFromComponents,
         // which calls UiRootBase.UpdateThisFromComponents
         UpdateFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
@@ -139,21 +140,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void RenderUiBase()
     {
-        // Update viewport on Terminal resizing
-        if (Math.Abs(_canvas.Width - _lastCanvasWidth) > 0.9
-            || Math.Abs(_canvas.Height - _lastCanvasHeight) > 0.9)
-        {
-            _lastCanvasWidth = _canvas.Width;
-            _lastCanvasHeight = _canvas.Height;
-            _mapview.Width = (int)(_canvas.Width * 0.7);
-            _mapview.Height = _canvas.Height - 1;
-            _logArea.X = _mapview.Width + 1;
-            _logArea.Width = _canvas.Width - _mapview.Width;
-            _logArea.Height = _canvas.Height - 1;
-            _textbox.Y = _canvas.Height - 1;
-            _textbox.Width = _mapview.Width;
-        }
-
         if (_textbox.IsOngoingInput) return;
         for (var i = 0; i < _canvas.Width; i += 1)
             _canvas.Set(i, _canvas.Height - 1, ' ', DefaultFg, DefaultBg);
@@ -198,6 +184,25 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     #endregion
 
     #region Private Members
+
+    private void CheckForCanvasSizeChanged()
+    {
+        // Update viewport on Terminal resizing
+        if (!(Math.Abs(_canvas.Width - _lastCanvasWidth) > 0.9)
+            && !(Math.Abs(_canvas.Height - _lastCanvasHeight) > 0.9)) return;
+        _lastCanvasWidth = _canvas.Width;
+        _lastCanvasHeight = _canvas.Height;
+        _mapview.Width = (int)(_canvas.Width * 0.7);
+        _mapview.Height = _canvas.Height - 1;
+        _logArea.X = _mapview.Width + 1;
+        _logArea.Width = _canvas.Width - _mapview.Width;
+        _logArea.Height = _canvas.Height - 1;
+        _textbox.Y = _canvas.Height - 1;
+        _textbox.Width = _mapview.Width;
+
+        IsRequireReRender = true;
+        IsRequireRootReRender = true;
+    }
 
     private void RenderDebugInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
