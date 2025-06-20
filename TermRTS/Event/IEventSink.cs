@@ -1,6 +1,4 @@
-﻿using TermRTS.Event;
-
-namespace TermRTS;
+﻿namespace TermRTS.Event;
 
 public interface IEventSink
 {

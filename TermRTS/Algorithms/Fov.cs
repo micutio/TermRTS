@@ -145,13 +145,13 @@ public static class Example
         var startY = 1;
         var range = 5;
 
-        var basicFOV = Fov.BasicRaycast(startX, startY, range, isWall);
-        var recursiveFOV = Fov.RecursiveShadowcasting(startX, startY, range, isWall);
+        var basicFov = Fov.BasicRaycast(startX, startY, range, isWall);
+        var recursiveFov = Fov.RecursiveShadowcasting(startX, startY, range, isWall);
 
         Console.WriteLine("Basic Raycast FOV:");
-        foreach (var cell in basicFOV) Console.WriteLine($"({cell.x}, {cell.y})");
+        foreach (var cell in basicFov) Console.WriteLine($"({cell.x}, {cell.y})");
 
         Console.WriteLine("\nRecursive Shadowcasting FOV:");
-        foreach (var cell in recursiveFOV) Console.WriteLine($"({cell.x}, {cell.y})");
+        foreach (var cell in recursiveFov) Console.WriteLine($"({cell.x}, {cell.y})");
     }
 }

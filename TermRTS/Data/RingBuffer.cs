@@ -307,7 +307,7 @@ public class RingBuffer<T> : IEnumerable<T>
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return (IEnumerator)GetEnumerator();
+        return GetEnumerator();
     }
 
     private void ThrowIfEmpty(string message = "Cannot access an empty buffer.")

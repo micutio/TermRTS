@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Event;
