@@ -284,6 +284,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
         var boundaryX = Math.Min(_worldWidth, viewportExtendInWorldX);
         var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
+
         // Step 1: Render World
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
         for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
@@ -505,7 +506,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         // Horizontal
         // tick marks
-        for (var x = _spaceForScaleLeft; x < Width; x++)
+        for (var x = _spaceForScaleLeft; x <= ViewportWidth; x++)
         {
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
@@ -514,12 +515,17 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
 
         // tick labels
-        for (var x = _spaceForScaleLeft; x < Width; x++)
+        for (var x = _spaceForScaleLeft; x <= ViewportWidth; x++)
         {
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
-            if (isTick)
-                _canvas.Text(X + x, Y, Convert.ToString(worldX), false, DefaultBg, DefaultFg);
+
+            if (!isTick) continue;
+
+            var spaceForLabel = Width - x;
+            var tickLabel = Convert.ToString(worldX);
+            if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
+            _canvas.Text(X + x, Y, tickLabel, false, DefaultBg, DefaultFg);
         }
 
         // Vertical
@@ -534,7 +540,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
 
         // tick labels
-        for (var y = SpaceForScaleTop; y < ViewportHeight; y++)
+        for (var y = SpaceForScaleTop; y <= ViewportHeight; y++)
         {
             var worldY = ViewportToWorldY(y);
             var isTick = worldY > 0 && worldY % 5 == 0;

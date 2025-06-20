@@ -52,7 +52,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         };
         _textbox = new TextBox(_canvas)
         {
-            Y = _mapview.Height,
+            Y = _mapview.Height - 1,
             Width = _canvas.Width
         };
         AddUiElement(_mapview);
@@ -162,7 +162,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         // TODO: Implement proper layouting
         _mapview.Y = newY;
         _logArea.Y = newY;
-        _textbox.Y = newY + _mapview.Height;
+        _textbox.Y = newY + _mapview.Height - 1;
     }
 
     protected override void OnWidthChanged(int newWidth)
@@ -197,7 +197,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         _logArea.X = _mapview.Width + 1;
         _logArea.Width = _canvas.Width - _mapview.Width;
         _logArea.Height = _canvas.Height - 1;
-        _textbox.Y = _canvas.Height - 1;
+        _textbox.Y = _mapview.Height - 1;
         _textbox.Width = _mapview.Width;
 
         IsRequireReRender = true;

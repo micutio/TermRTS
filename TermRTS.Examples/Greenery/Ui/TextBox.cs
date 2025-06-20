@@ -47,7 +47,7 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
                     return;
                 case InputState.OngoingInput:
                     FinalizeMessage();
-                    IsRequireRootReRender = true;
+                    IsRequireReRender = true;
                     return;
                 default:
                     return;
@@ -86,14 +86,14 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
 
     public override void Render()
     {
-        if (!IsOngoingInput) return;
-
         var fg = DefaultFg;
         var bg = DefaultBg;
 
         // render blank line
         for (var i = X; i < Width; i += 1)
             canvas.Set(i, Y, ' ', bg, fg);
+
+        if (!IsOngoingInput) return;
 
         // render prompt
         canvas.Set(X, Y, '>', bg, fg);
