@@ -24,7 +24,7 @@ jobs:
       with:
         dotnet-version: 9.0.x
     - name: Restore dependencies
-      run: dotnet restore .\TermRTS.slnx
+      run: ls && dotnet restore .\TermRTS.slnx
     - name: Build
       run: dotnet build .\TermRTS.slnx --no-restore
     - name: Test
