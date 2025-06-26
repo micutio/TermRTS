@@ -65,7 +65,10 @@ public class WatcherSystem : ISimSystem
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
+        {
             _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+            Console.WriteLine("No more ticks left. Send SHUTDOWN to scheduler");
+        }
     }
 
     #endregion

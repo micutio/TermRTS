@@ -63,6 +63,22 @@ public class Scheduler
 
     #endregion
 
+    #region Properties
+
+    /// <summary>
+    ///     Property for read-only access to current simulation time.
+    /// </summary>
+    public ulong TimeMs { get; private set; }
+
+    /// <summary>
+    ///     Reader for channel to receive Profile events on.
+    /// </summary>
+    public ChannelReader<ScheduledEvent> ProfileEventReader => _channel.Reader;
+
+    public bool IsActive => _core.IsRunning();
+
+    #endregion
+
     #region Public Methods
 
     /// <summary>
@@ -257,22 +273,6 @@ public class Scheduler
         await foreach (var item in input.ReadAllAsync())
             EnqueueEvent(item);
     }
-
-    #endregion
-
-    #region Properties
-
-    /// <summary>
-    ///     Property for read-only access to current simulation time.
-    /// </summary>
-    public ulong TimeMs { get; private set; }
-
-    /// <summary>
-    ///     Reader for channel to receive Profile events on.
-    /// </summary>
-    public ChannelReader<ScheduledEvent> ProfileEventReader => _channel.Reader;
-
-    public bool IsActive => _core.IsRunning();
 
     #endregion
 }

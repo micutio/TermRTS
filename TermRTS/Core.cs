@@ -67,6 +67,7 @@ public class Core : IEventSink
     {
         if (evt is not Event<Shutdown>) return;
 
+        Console.WriteLine("[Core] Received shutdown event");
         _isGameRunning = false;
     }
 
