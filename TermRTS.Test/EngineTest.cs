@@ -62,6 +62,7 @@ public class WatcherSystem : ISimSystem
     public void ProcessComponents(ulong timeStepSize, in IReadonlyStorage storage)
     {
         _remainingTicks -= 1;
+        Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks == 0)
             _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
