@@ -253,7 +253,7 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
-        Console.WriteLine($"[Scheduler] Event queue size: {_eventQueue.Count}]");
+        Console.WriteLine($"[Scheduler] Event queue size: {_eventQueue.Count}");
         while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
             if (!_eventQueue.TryTake(out var eventItem)) continue;
@@ -272,7 +272,10 @@ public class Scheduler
     private async Task Redirect(ChannelReader<ScheduledEvent> input)
     {
         await foreach (var item in input.ReadAllAsync())
+        {
+            Console.WriteLine($"[Scheduler] Enqueueing event {item}");
             EnqueueEvent(item);
+        }
     }
 
     #endregion
