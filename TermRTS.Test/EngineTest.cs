@@ -55,7 +55,14 @@ public class WatcherSystem : ISimSystem
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+        {
+            var isSuccess = _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+            if (!isSuccess)
+            {
+                Console.Error.WriteLine("Failed to write scheduled event");
+                throw new Exception();
+            }
+        }
     }
 
     #endregion
