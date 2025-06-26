@@ -27,7 +27,16 @@ public class EngineTestTheoryData : TheoryData<Core>
 {
     public EngineTestTheoryData()
     {
-        Add(new Core(new NullRenderer()));
+        Add(
+            new Core(new NullRenderer())
+            {
+                IsParallelized = true
+            });
+        Add(
+            new Core(new NullRenderer())
+            {
+                IsParallelized = false
+            });
     }
 }
 
@@ -55,14 +64,7 @@ public class WatcherSystem : ISimSystem
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-        {
-            var isSuccess = _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
-            if (!isSuccess)
-            {
-                Console.Error.WriteLine("Failed to write scheduled event");
-                throw new Exception();
-            }
-        }
+            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
     }
 
     #endregion
