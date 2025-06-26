@@ -253,6 +253,7 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
+        Console.WriteLine($"[Scheduler] Event queue size: {_eventQueue.Count}]");
         while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
             if (!_eventQueue.TryTake(out var eventItem)) continue;
