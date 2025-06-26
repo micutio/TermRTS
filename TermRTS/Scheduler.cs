@@ -150,6 +150,7 @@ public class Scheduler
         // Reduce possible lag by processing consecutive ticks without rendering
         var tickCount = 0;
         _tickTimer.Restart();
+        Console.WriteLine($"[Scheduler] Lag: {_lag.Milliseconds}ms");
         while (_lag >= _msPerUpdate)
         {
             _core.Tick(_timeStepSizeMs);
