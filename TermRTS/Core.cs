@@ -56,7 +56,7 @@ public class Core : IEventSink
 
     #region Properties
 
-    public bool IsParallelized { get; set; } = true;
+    public bool IsParallelized { get; set; } = false;
 
     #endregion
 
