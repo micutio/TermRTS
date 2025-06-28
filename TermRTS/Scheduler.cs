@@ -87,7 +87,7 @@ public class Scheduler
     /// </summary>
     public void AddEventSources(params ChannelReader<ScheduledEvent>[] sources)
     {
-        Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
+        _ = Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
     }
 
     /// <summary>

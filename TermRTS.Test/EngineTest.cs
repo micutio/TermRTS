@@ -64,12 +64,11 @@ public class WatcherSystem : ISimSystem
         _remainingTicks -= 1;
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
-        if (_remainingTicks == 0)
-        {
-            // _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
-            _eventChannel.Writer.WriteAsync(ScheduledEvent.From(new Shutdown()));
-            Console.WriteLine("No more ticks left. Send SHUTDOWN to scheduler");
-        }
+        if (_remainingTicks != 0) return;
+
+        // _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+        _ = _eventChannel.Writer.WriteAsync(ScheduledEvent.From(new Shutdown()));
+        Console.WriteLine("No more ticks left. Send SHUTDOWN to scheduler");
     }
 
     #endregion
