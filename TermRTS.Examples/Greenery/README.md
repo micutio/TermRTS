@@ -6,8 +6,8 @@
 
 - [x] field of view implementations
 - [ ] customizable keyboard shortcuts
-- [ ] saving and loading of game state
-- [ ] organised and scalable HUD
+- [x] saving and loading of game state
+- [x] organised and scalable HUD
 
 ### Game-specific tech [Greenery]
 
