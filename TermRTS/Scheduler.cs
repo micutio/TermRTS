@@ -117,10 +117,13 @@ public class Scheduler
     /// <param name="evt">
     ///     A tuple of the event and due-time, given as absolute timestamp in ms
     /// </param>
-    public void EnqueueEvent(ScheduledEvent evt)
+    public Task EnqueueEvent(ScheduledEvent evt)
     {
-        if (!_eventQueue.TryAdd((evt.Event, evt.ScheduledTime)))
-            throw new Exception($"Cannot add event to queue: {evt.Event}");
+        return Task.Run(() =>
+        {
+            if (!_eventQueue.TryAdd((evt.Event, evt.ScheduledTime)))
+                throw new Exception($"Cannot add event to queue: {evt.Event}");
+        });
     }
 
     public void Prepare()
@@ -275,7 +278,7 @@ public class Scheduler
         await foreach (var item in input.ReadAllAsync())
         {
             Console.WriteLine($"[Scheduler] Enqueueing event {item}");
-            EnqueueEvent(item);
+            await EnqueueEvent(item);
         }
     }
 
