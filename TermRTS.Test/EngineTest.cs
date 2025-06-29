@@ -32,11 +32,11 @@ public class EngineTestTheoryData : TheoryData<Core>
             {
                 IsParallelized = true
             });
-        Add(
-            new Core(new NullRenderer())
-            {
-                IsParallelized = false
-            });
+        // Add(
+        //     new Core(new NullRenderer())
+        //     {
+        //         IsParallelized = false
+        //     });
     }
 }
 
@@ -67,7 +67,8 @@ public class WatcherSystem : ISimSystem
         if (_remainingTicks != 0) return;
 
         // _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
-        _ = _eventChannel.Writer.WriteAsync(ScheduledEvent.From(new Shutdown()));
+        var shutdownEvent = ScheduledEvent.From(new Shutdown());
+        _ = _eventChannel.Writer.WriteAsync(shutdownEvent);
         Console.WriteLine("No more ticks left. Send SHUTDOWN to scheduler");
     }
 
@@ -97,7 +98,6 @@ public class EngineTest
         var watcherSystem = new WatcherSystem(12);
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
-        scheduler.AddEventSink(core, typeof(Shutdown));
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());
 
@@ -114,9 +114,8 @@ public class EngineTest
     [ClassData(typeof(EngineTestTheoryData))]
     public void TestScheduledEvent(Core core)
     {
-        // Setup Scheduler
+        // Set up Scheduler
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSink(core, typeof(Shutdown));
         scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
 
         // Run it

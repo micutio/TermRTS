@@ -67,7 +67,6 @@ internal class MinimalApp : IRunnableExample
 
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
-        scheduler.AddEventSink(core, typeof(Shutdown));
 
         // Alternative solution: enqueue an event which fires after a given time
         // scheduler.EnqueueEvent((new PlainEvent(EventType.Profile), 12 * 16));

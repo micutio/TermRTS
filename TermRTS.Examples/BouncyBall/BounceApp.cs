@@ -132,7 +132,6 @@ public class BounceApp : IRunnableExample
         core.AddComponent(bounceBall);
 
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSink(core, typeof(Shutdown));
         scheduler.AddEventSink(bouncePhysics, typeof(ConsoleKeyInfo));
 
         var input = new ConsoleInput();
