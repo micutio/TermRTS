@@ -61,7 +61,7 @@ public class WatcherSystem : ISimSystem
 
     public void ProcessComponents(ulong timeStepSize, in IReadonlyStorage storage)
     {
-        _remainingTicks -= 1;
+        Interlocked.Decrement(ref _remainingTicks);
         Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks != 0) return;
