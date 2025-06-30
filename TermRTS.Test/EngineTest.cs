@@ -95,19 +95,19 @@ public class EngineTest
     [ClassData(typeof(EngineTestTheoryData))]
     public void TestSchedulerSetup(Core core)
     {
-        // Setup Scheduler
-        var watcherSystem = new WatcherSystem(12);
-        var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(watcherSystem.EventOutput);
-        core.AddSimSystem(watcherSystem);
-        core.AddEntity(new NullEntity());
-
         // TODO: Fix parallelized run.
 
         // Do not run this test parallelized since this fails on Windows and Linux for some reason
         // in GitHub Actions. Seems to work fine on desktop, but can be reproduced by debugging
         // and pausing the run for a second.
         core.IsParallelized = false;
+
+        // Setup Scheduler
+        var watcherSystem = new WatcherSystem(12);
+        var scheduler = new Scheduler(core);
+        scheduler.AddEventSources(watcherSystem.EventOutput);
+        core.AddSimSystem(watcherSystem);
+        core.AddEntity(new NullEntity());
 
         // Run it
         var simulation = new Simulation(scheduler);
