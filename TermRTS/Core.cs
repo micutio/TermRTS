@@ -118,13 +118,13 @@ public class Core : IEventSink
             // Is it possible to set the thread count for parallel processing?
             foreach (var sys in _systems.AsParallel())
             {
-                Console.WriteLine($"processing '{sys}' in parallel");
+                Console.WriteLine($"processing {sys} [{sys.GetHashCode()}] in parallel");
                 sys.ProcessComponents(timeStepSizeMs, _components);
             }
         else
             foreach (var sys in _systems)
             {
-                Console.WriteLine($"processing '{sys}' in sequence");
+                Console.WriteLine($"processing {sys} [{sys.GetHashCode()}] in sequence");
                 sys.ProcessComponents(timeStepSizeMs, _components);
             }
 

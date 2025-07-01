@@ -35,9 +35,9 @@ public class EngineTestParallel : TheoryData<Core>
     }
 }
 
-public class EngineTestSerial : TheoryData<Core>
+public class EngineTestSequential : TheoryData<Core>
 {
-    public EngineTestSerial()
+    public EngineTestSequential()
     {
         Add(
             new Core(new NullRenderer())
@@ -51,13 +51,13 @@ public class NullEntity : EntityBase
 {
 }
 
-public class WatcherSystem : ISimSystem
+public class TerminatorSystem : ISimSystem
 {
     private readonly Channel<ScheduledEvent> _eventChannel;
     public readonly ChannelReader<ScheduledEvent> EventOutput;
     private int _remainingTicks;
 
-    public WatcherSystem(int remainingTicks)
+    public TerminatorSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
         _eventChannel = Channel.CreateUnbounded<ScheduledEvent>();
@@ -83,11 +83,25 @@ public class WatcherSystem : ISimSystem
     #endregion
 }
 
+/// <summary>
+/// A system that wastes a certain amount of time to simulate work.
+/// </summary>
+public class BusySystem(double workTimeMs) : ISimSystem
+{
+    private readonly TimeSpan _workTime = TimeSpan.FromMilliseconds(workTimeMs);
+
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    {
+        var start = DateTime.Now;
+        while (DateTime.Now - start < _workTime) ;
+    }
+}
+
 public class EngineTest
 {
     [Theory]
     [ClassData(typeof(EngineTestParallel))]
-    [ClassData(typeof(EngineTestSerial))]
+    [ClassData(typeof(EngineTestSequential))]
     public void TestSetup(Core core)
     {
         Assert.True(core.IsRunning());
@@ -104,14 +118,48 @@ public class EngineTest
     /// and pausing the run for a second.
     // TODO: Fix parallelized run.
     [Theory]
-    [ClassData(typeof(EngineTestSerial))]
+    [ClassData(typeof(EngineTestSequential))]
+    [ClassData(typeof(EngineTestParallel))]
     public void TestSchedulerSetup(Core core)
     {
         // Setup Scheduler
-        var watcherSystem = new WatcherSystem(12);
+        var watcherSystem = new TerminatorSystem(12);
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
+
         core.AddSimSystem(watcherSystem);
+        core.AddSimSystem(new BusySystem(2.0d));
+        core.AddSimSystem(new BusySystem(1.0d));
+        core.AddSimSystem(new BusySystem(3.0d));
+        core.AddSimSystem(new BusySystem(4.0d));
+
+        core.AddEntity(new NullEntity());
+
+        // Run it
+        var simulation = new Simulation(scheduler);
+        simulation.Run();
+
+        // It should terminate after 12 ticks of 16ms simulated time each.
+        const ulong finalTime = 12 * 16;
+        Assert.Equal(finalTime, scheduler.TimeMs);
+    }
+
+    [Theory]
+    [ClassData(typeof(EngineTestSequential))]
+    [ClassData(typeof(EngineTestParallel))]
+    public void TestBusyCore(Core core)
+    {
+        // Setup Scheduler
+        var watcherSystem = new TerminatorSystem(12);
+        var scheduler = new Scheduler(core);
+        scheduler.AddEventSources(watcherSystem.EventOutput);
+
+        core.AddSimSystem(watcherSystem);
+        core.AddSimSystem(new BusySystem(2.0d));
+        core.AddSimSystem(new BusySystem(1.0d));
+        core.AddSimSystem(new BusySystem(3.0d));
+        core.AddSimSystem(new BusySystem(4.0d));
+
         core.AddEntity(new NullEntity());
 
         // Run it
@@ -125,7 +173,7 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(EngineTestParallel))]
-    [ClassData(typeof(EngineTestSerial))]
+    [ClassData(typeof(EngineTestSequential))]
     public void TestScheduledEvent(Core core)
     {
         // Set up Scheduler
@@ -143,11 +191,11 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(EngineTestParallel))]
-    [ClassData(typeof(EngineTestSerial))]
+    [ClassData(typeof(EngineTestSequential))]
     public void TestSerialization(Core core)
     {
         // Setup Scheduler
-        var watcherSystem = new WatcherSystem(12);
+        var watcherSystem = new TerminatorSystem(12);
         var scheduler = new Scheduler(core);
         scheduler.AddEventSources(watcherSystem.EventOutput);
         scheduler.AddEventSink(core, typeof(Shutdown));
