@@ -23,15 +23,22 @@ public class NullRenderer : IRenderer
     #endregion
 }
 
-public class EngineTestTheoryData : TheoryData<Core>
+public class EngineTestParallel : TheoryData<Core>
 {
-    public EngineTestTheoryData()
+    public EngineTestParallel()
     {
         Add(
             new Core(new NullRenderer())
             {
                 IsParallelized = true
             });
+    }
+}
+
+public class EngineTestSerial : TheoryData<Core>
+{
+    public EngineTestSerial()
+    {
         Add(
             new Core(new NullRenderer())
             {
@@ -79,7 +86,8 @@ public class WatcherSystem : ISimSystem
 public class EngineTest
 {
     [Theory]
-    [ClassData(typeof(EngineTestTheoryData))]
+    [ClassData(typeof(EngineTestParallel))]
+    [ClassData(typeof(EngineTestSerial))]
     public void TestSetup(Core core)
     {
         Assert.True(core.IsRunning());
@@ -91,17 +99,14 @@ public class EngineTest
         Assert.False(core.IsRunning());
     }
 
+    /// Do not run this test parallelized since this fails on Windows and Linux for some reason
+    /// in GitHub Actions. Seems to work fine on desktop, but can be reproduced by debugging
+    /// and pausing the run for a second.
+    // TODO: Fix parallelized run.
     [Theory]
-    [ClassData(typeof(EngineTestTheoryData))]
+    [ClassData(typeof(EngineTestSerial))]
     public void TestSchedulerSetup(Core core)
     {
-        // TODO: Fix parallelized run.
-
-        // Do not run this test parallelized since this fails on Windows and Linux for some reason
-        // in GitHub Actions. Seems to work fine on desktop, but can be reproduced by debugging
-        // and pausing the run for a second.
-        core.IsParallelized = false;
-
         // Setup Scheduler
         var watcherSystem = new WatcherSystem(12);
         var scheduler = new Scheduler(core);
@@ -119,7 +124,8 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(EngineTestTheoryData))]
+    [ClassData(typeof(EngineTestParallel))]
+    [ClassData(typeof(EngineTestSerial))]
     public void TestScheduledEvent(Core core)
     {
         // Set up Scheduler
@@ -136,7 +142,8 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(EngineTestTheoryData))]
+    [ClassData(typeof(EngineTestParallel))]
+    [ClassData(typeof(EngineTestSerial))]
     public void TestSerialization(Core core)
     {
         // Setup Scheduler
