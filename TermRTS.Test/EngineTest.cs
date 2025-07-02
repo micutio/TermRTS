@@ -53,7 +53,7 @@ public class TerminatorSystem : ISimSystem
     public TerminatorSystem(int remainingTicks)
     {
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<ScheduledEvent>();
+        _eventChannel = Channel.CreateBounded<ScheduledEvent>(1);
         EventOutput = _eventChannel.Reader;
     }
 
