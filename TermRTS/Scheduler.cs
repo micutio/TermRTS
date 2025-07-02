@@ -117,13 +117,10 @@ public class Scheduler
     /// <param name="evt">
     ///     A tuple of the event and due-time, given as absolute timestamp in ms
     /// </param>
-    public Task EnqueueEvent(ScheduledEvent evt)
+    public void EnqueueEvent(ScheduledEvent evt)
     {
-        return Task.Run(() =>
-        {
-            if (!_eventQueue.TryAdd((evt.Event, evt.ScheduledTime)))
-                throw new Exception($"Cannot add event to queue: {evt.Event}");
-        });
+        if (!_eventQueue.TryAdd((evt.Event, evt.ScheduledTime)))
+            throw new Exception($"Cannot add event to queue: {evt.Event}");
     }
 
     public void Prepare()
@@ -273,10 +270,7 @@ public class Scheduler
     /// <param name="input">Channel reader providing event messages</param>
     private async Task Redirect(ChannelReader<ScheduledEvent> input)
     {
-        await foreach (var item in input.ReadAllAsync())
-        {
-            await EnqueueEvent(item);
-        }
+        await foreach (var item in input.ReadAllAsync()) EnqueueEvent(item);
     }
 
     #endregion
