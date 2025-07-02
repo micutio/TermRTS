@@ -90,7 +90,7 @@ public class EngineTest
 {
     [Theory]
     [ClassData(typeof(TestCoresSequentialAndParallel))]
-    public void TestSetup(Core core)
+    public void TestCoreShutdown(Core core)
     {
         Assert.True(core.IsRunning());
         core.Tick(16L);
@@ -103,7 +103,7 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(TestCoresSequentialAndParallel))]
-    public void TestSchedulerSetup(Core core)
+    public void TestSchedulerShutdown(Core core)
     {
         // Setup Scheduler
         var watcherSystem = new TerminatorSystem(12);
@@ -155,7 +155,7 @@ public class EngineTest
 
     [Theory]
     [ClassData(typeof(TestCoresSequentialAndParallel))]
-    public void TestScheduledEvent(Core core)
+    public void TestDelayedEventScheduling(Core core)
     {
         // Set up Scheduler
         var scheduler = new Scheduler(core);
