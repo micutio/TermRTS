@@ -23,22 +23,15 @@ public class NullRenderer : IRenderer
     #endregion
 }
 
-public class EngineTestParallel : TheoryData<Core>
+public class TestCoresSequentialAndParallel : TheoryData<Core>
 {
-    public EngineTestParallel()
+    public TestCoresSequentialAndParallel()
     {
         Add(
             new Core(new NullRenderer())
             {
                 IsParallelized = true
             });
-    }
-}
-
-public class EngineTestSequential : TheoryData<Core>
-{
-    public EngineTestSequential()
-    {
         Add(
             new Core(new NullRenderer())
             {
@@ -72,10 +65,8 @@ public class TerminatorSystem : ISimSystem
 
         if (_remainingTicks != 0) return;
 
-        // _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
-        var shutdownEvent = ScheduledEvent.From(new Shutdown());
-        var task = _eventChannel.Writer.WriteAsync(shutdownEvent);
-        task.AsTask().Wait();
+        var isSuccess = _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+        Assert.True(isSuccess);
     }
 
     #endregion
@@ -98,8 +89,7 @@ public class BusySystem(double workTimeMs) : ISimSystem
 public class EngineTest
 {
     [Theory]
-    [ClassData(typeof(EngineTestParallel))]
-    [ClassData(typeof(EngineTestSequential))]
+    [ClassData(typeof(TestCoresSequentialAndParallel))]
     public void TestSetup(Core core)
     {
         Assert.True(core.IsRunning());
@@ -111,13 +101,8 @@ public class EngineTest
         Assert.False(core.IsRunning());
     }
 
-    /// Do not run this test parallelized since this fails on Windows and Linux for some reason
-    /// in GitHub Actions. Seems to work fine on desktop, but can be reproduced by debugging
-    /// and pausing the run for a second.
-    // TODO: Fix parallelized run.
     [Theory]
-    [ClassData(typeof(EngineTestSequential))]
-    [ClassData(typeof(EngineTestParallel))]
+    [ClassData(typeof(TestCoresSequentialAndParallel))]
     public void TestSchedulerSetup(Core core)
     {
         // Setup Scheduler
@@ -143,8 +128,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(EngineTestSequential))]
-    [ClassData(typeof(EngineTestParallel))]
+    [ClassData(typeof(TestCoresSequentialAndParallel))]
     public void TestBusyCore(Core core)
     {
         // Setup Scheduler
@@ -170,8 +154,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(EngineTestParallel))]
-    [ClassData(typeof(EngineTestSequential))]
+    [ClassData(typeof(TestCoresSequentialAndParallel))]
     public void TestScheduledEvent(Core core)
     {
         // Set up Scheduler
@@ -188,8 +171,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(EngineTestParallel))]
-    [ClassData(typeof(EngineTestSequential))]
+    [ClassData(typeof(TestCoresSequentialAndParallel))]
     public void TestSerialization(Core core)
     {
         // Setup Scheduler
