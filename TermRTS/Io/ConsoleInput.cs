@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading.Channels;
 using TermRTS.Event;
 
 namespace TermRTS.Io;
@@ -10,18 +9,17 @@ namespace TermRTS.Io;
 /// </summary>
 public class ConsoleInput : IEventSink
 {
-    private readonly Channel<ScheduledEvent> _channel;
+    private readonly SchedulerEventQueue _evtQueue;
     private readonly Thread _thread;
     private bool _keepRunning;
 
-    public ConsoleInput(ConsoleKey? terminatorKey = null)
+    public ConsoleInput(SchedulerEventQueue evtQueue, ConsoleKey? terminatorKey = null)
     {
-        _channel = Channel.CreateUnbounded<ScheduledEvent>();
+        _evtQueue = evtQueue;
         _thread = new Thread(ListenForKeyInput);
         TerminatorKey = terminatorKey;
     }
 
-    public ChannelReader<ScheduledEvent> KeyEventReader => _channel.Reader;
 
     #region Properties
 
@@ -68,17 +66,15 @@ public class ConsoleInput : IEventSink
             if (TerminatorKey != null && keyInfo.Key == TerminatorKey)
             {
                 _keepRunning = false;
-                _channel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+                _evtQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
             }
 
             FireKeyEvent(keyInfo);
         }
-
-        _channel.Writer.Complete();
     }
 
     private void FireKeyEvent(ConsoleKeyInfo keyInfo)
     {
-        _channel.Writer.TryWrite(ScheduledEvent.From(keyInfo));
+        _evtQueue.EnqueueEvent(ScheduledEvent.From(keyInfo));
     }
 }

@@ -47,11 +47,9 @@ internal class Circuitry : IRunnableExample
         core.AddSimSystem(new BusSystem());
 
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(renderer, typeof(Profile));
 
-        var input = new ConsoleInput();
-        scheduler.AddEventSources(input.KeyEventReader);
+        var input = new ConsoleInput(scheduler.EventQueue);
         scheduler.AddEventSink(input, typeof(Shutdown));
         input.Run();
 
@@ -59,12 +57,12 @@ internal class Circuitry : IRunnableExample
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
+            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
         };
 
         // Shutdown after one hour
         const ulong oneHour = 1000UL * 60UL * 60UL;
-        scheduler.EnqueueEvent(new ScheduledEvent(new Event<Shutdown>(), oneHour));
+        scheduler.EventQueue.EnqueueEvent(new ScheduledEvent(new Event<Shutdown>(), oneHour));
 
         // Run it
         var simulation = new Simulation(scheduler);

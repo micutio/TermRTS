@@ -134,8 +134,7 @@ public class BounceApp : IRunnableExample
         var scheduler = new Scheduler(core);
         scheduler.AddEventSink(bouncePhysics, typeof(ConsoleKeyInfo));
 
-        var input = new ConsoleInput();
-        scheduler.AddEventSources(input.KeyEventReader);
+        var input = new ConsoleInput(scheduler.EventQueue);
         input.Run();
 
         var simulation = new Simulation(scheduler);

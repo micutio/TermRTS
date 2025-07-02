@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using TermRTS.Event;
 
 namespace TermRTS.Examples.Minimal;
@@ -26,15 +25,13 @@ internal class NullRenderer : IRenderer
 
 internal class WatcherSystem : ISimSystem
 {
-    private readonly Channel<ScheduledEvent> _eventChannel;
-    public readonly ChannelReader<ScheduledEvent> EventOutput;
+    private readonly SchedulerEventQueue _evtQueue;
     private int _remainingTicks;
 
-    public WatcherSystem(int remainingTicks)
+    public WatcherSystem(SchedulerEventQueue evtQueue, int remainingTicks)
     {
+        _evtQueue = evtQueue;
         _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateUnbounded<ScheduledEvent>();
-        EventOutput = _eventChannel.Reader;
     }
 
     #region ISimSystem Members
@@ -44,10 +41,10 @@ internal class WatcherSystem : ISimSystem
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
+            _evtQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
 
         if (_remainingTicks % 60 == 0)
-            _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Profile(), 60UL));
+            _evtQueue.EnqueueEvent(ScheduledEvent.From(new Profile(), 60UL));
     }
 
     #endregion
@@ -60,12 +57,11 @@ internal class MinimalApp : IRunnableExample
     public void Run()
     {
         var core = new Core(new NullRenderer());
-        var watcherSystem = new WatcherSystem(12);
+        var scheduler = new Scheduler(core);
+        var watcherSystem = new WatcherSystem(scheduler.EventQueue, 12);
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new EntityBase());
 
-        var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(watcherSystem.EventOutput);
 
         // Alternative solution: enqueue an event which fires after a given time
         // scheduler.EnqueueEvent((new PlainEvent(EventType.Profile), 12 * 16));

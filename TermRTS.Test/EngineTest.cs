@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using TermRTS.Event;
 
 namespace TermRTS.Test;
@@ -44,18 +43,9 @@ public class NullEntity : EntityBase
 {
 }
 
-public class TerminatorSystem : ISimSystem
+public class TerminatorSystem(SchedulerEventQueue queue, int remainingTicks) : ISimSystem
 {
-    private readonly Channel<ScheduledEvent> _eventChannel;
-    public readonly ChannelReader<ScheduledEvent> EventOutput;
-    private int _remainingTicks;
-
-    public TerminatorSystem(int remainingTicks)
-    {
-        _remainingTicks = remainingTicks;
-        _eventChannel = Channel.CreateBounded<ScheduledEvent>(1);
-        EventOutput = _eventChannel.Reader;
-    }
+    private int _remainingTicks = remainingTicks;
 
     #region ISimSystem Members
 
@@ -65,8 +55,7 @@ public class TerminatorSystem : ISimSystem
 
         if (_remainingTicks != 0) return;
 
-        var isSuccess = _eventChannel.Writer.TryWrite(ScheduledEvent.From(new Shutdown()));
-        Assert.True(isSuccess);
+        queue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
     }
 
     #endregion
@@ -106,9 +95,8 @@ public class EngineTest
     public void TestSchedulerShutdown(Core core)
     {
         // Setup Scheduler
-        var watcherSystem = new TerminatorSystem(12);
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(watcherSystem.EventOutput);
+        var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
 
         core.AddSimSystem(watcherSystem);
         core.AddSimSystem(new BusySystem(2.0d));
@@ -132,9 +120,8 @@ public class EngineTest
     public void TestBusyCore(Core core)
     {
         // Setup Scheduler
-        var watcherSystem = new TerminatorSystem(12);
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(watcherSystem.EventOutput);
+        var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
 
         core.AddSimSystem(watcherSystem);
         core.AddSimSystem(new BusySystem(2.0d));
@@ -159,7 +146,7 @@ public class EngineTest
     {
         // Set up Scheduler
         var scheduler = new Scheduler(core);
-        scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
+        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
 
         // Run it
         var simulation = new Simulation(scheduler);
@@ -175,9 +162,8 @@ public class EngineTest
     public void TestSerialization(Core core)
     {
         // Setup Scheduler
-        var watcherSystem = new TerminatorSystem(12);
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(watcherSystem.EventOutput);
+        var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
         scheduler.AddEventSink(core, typeof(Shutdown));
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new NullEntity());

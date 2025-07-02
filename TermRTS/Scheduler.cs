@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Threading.Channels;
 using TermRTS.Event;
 
 namespace TermRTS;
@@ -8,6 +7,23 @@ internal record SchedulerState(
     ulong TimeMs,
     List<(IEvent, ulong)> EventQueueItems,
     CoreState CoreState);
+
+public class SchedulerEventQueue
+{
+    internal readonly EventQueue<IEvent, ulong> Instance = new();
+
+    /// <summary>
+    ///     This method offers a manual way of schedule
+    /// </summary>
+    /// <param name="evt">
+    ///     A tuple of the event and due-time, given as absolute timestamp in ms
+    /// </param>
+    public void EnqueueEvent(ScheduledEvent evt)
+    {
+        if (!Instance.TryAdd((evt.Event, evt.ScheduledTime)))
+            throw new Exception($"Cannot add event to queue: {evt.Event}");
+    }
+}
 
 public class Scheduler
 {
@@ -31,13 +47,8 @@ public class Scheduler
 
     // the meaty bits - actual simulation loop logic
 
-    // channel for emitting events
-    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
-
-    // serialized via property
-    private readonly EventQueue<IEvent, ulong> _eventQueue = new();
+    private readonly SchedulerEventQueue _schedulerEventQueue = new();
     private readonly Dictionary<Type, List<IEventSink>> _eventSinks = new();
-
     private readonly Core _core;
 
     #endregion
@@ -70,25 +81,13 @@ public class Scheduler
     /// </summary>
     public ulong TimeMs { get; private set; }
 
-    /// <summary>
-    ///     Reader for channel to receive Profile events on.
-    /// </summary>
-    public ChannelReader<ScheduledEvent> ProfileEventReader => _channel.Reader;
-
     public bool IsActive => _core.IsRunning();
+
+    public SchedulerEventQueue EventQueue => _schedulerEventQueue;
 
     #endregion
 
     #region Public Methods
-
-    /// <summary>
-    ///     Add a new event source to the scheduler. Using a channel the event source can send in
-    ///     new events asynchronously.
-    /// </summary>
-    public void AddEventSources(params ChannelReader<ScheduledEvent>[] sources)
-    {
-        _ = Task.Run(async () => { await Task.WhenAll(sources.Select(Redirect).ToArray()); });
-    }
 
     /// <summary>
     ///     Add a new event sink, which will receive events of the specified type.
@@ -111,18 +110,6 @@ public class Scheduler
         _eventSinks[payloadType].Remove(sink);
     }
 
-    /// <summary>
-    ///     This method offers a manual way of schedule
-    /// </summary>
-    /// <param name="evt">
-    ///     A tuple of the event and due-time, given as absolute timestamp in ms
-    /// </param>
-    public void EnqueueEvent(ScheduledEvent evt)
-    {
-        if (!_eventQueue.TryAdd((evt.Event, evt.ScheduledTime)))
-            throw new Exception($"Cannot add event to queue: {evt.Event}");
-    }
-
     public void Prepare()
     {
         if (_core.IsRunning()) _core.SpawnNewEntities();
@@ -132,7 +119,7 @@ public class Scheduler
     /// <summary>
     ///     The core loop for advancing the simulation.
     /// </summary>
-    public void SimulationStep()
+    internal void SimulationStep()
     {
         var loopTime = _loopTimer.Elapsed;
         _loopTimer.Restart();
@@ -187,13 +174,9 @@ public class Scheduler
             Convert.ToUInt64(renderTime.TotalMilliseconds));
         // Push out profiling results every 10 samples
         if (_profiler.SampleSize % 10 == 0)
-            _channel.Writer.TryWrite(ScheduledEvent.From(new Profile(_profiler.ToString())));
+            _schedulerEventQueue.EnqueueEvent(
+                ScheduledEvent.From(new Profile(_profiler.ToString())));
 #endif
-    }
-
-    public void Shutdown()
-    {
-        _channel.Writer.Complete();
     }
 
     #endregion
@@ -204,7 +187,7 @@ public class Scheduler
     {
         return new SchedulerState(
             TimeMs,
-            _eventQueue.GetSerializableElements(),
+            _schedulerEventQueue.Instance.GetSerializableElements(),
             _core.GetSerializableCoreState()
         );
     }
@@ -218,9 +201,9 @@ public class Scheduler
         _renderTimer.Reset();
         _pauseTimer.Reset();
 
-        _eventQueue.Clear();
+        _schedulerEventQueue.Instance.Clear();
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems)
-            if (!_eventQueue.TryAdd((eventItem, priority)))
+            if (!_schedulerEventQueue.Instance.TryAdd((eventItem, priority)))
                 throw new Exception($"Cannot add event to queue: {eventItem}");
     }
 
@@ -253,24 +236,15 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
-        while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
+        while (_schedulerEventQueue.Instance.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
-            if (!_eventQueue.TryTake(out var eventItem)) continue;
+            if (!_schedulerEventQueue.Instance.TryTake(out var eventItem)) continue;
 
             if (!_eventSinks.TryGetValue(eventItem.Item1.EvtType, out var sink)) continue;
 
             foreach (var eventSink in sink)
                 eventSink.ProcessEvent(eventItem.Item1);
         }
-    }
-
-    /// <summary>
-    ///     Redirect event messages from an input ChannelReader directly into the event queue.
-    /// </summary>
-    /// <param name="input">Channel reader providing event messages</param>
-    private async Task Redirect(ChannelReader<ScheduledEvent> input)
-    {
-        await foreach (var item in input.ReadAllAsync()) EnqueueEvent(item);
     }
 
     #endregion

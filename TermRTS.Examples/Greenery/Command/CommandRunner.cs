@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Threading.Channels;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
@@ -8,7 +7,7 @@ using TermRTS.Examples.Greenery.Ui;
 
 namespace TermRTS.Examples.Greenery.Command;
 
-public class CommandRunner : IEventSink
+public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
 {
     // Replies
     private const string ErrorEmptyCmd = "< Cannot run empty command";
@@ -34,10 +33,6 @@ public class CommandRunner : IEventSink
 
     private const string CmdSave = "save";
     private const string CmdLoad = "load";
-
-    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
-
-    public ChannelReader<ScheduledEvent> CommandEventReader => _channel.Reader;
 
     #region IEventSink Members
 
@@ -80,7 +75,7 @@ public class CommandRunner : IEventSink
         var y = Convert.ToSingle(tokens[2].Literal);
 
         // TODO: Make EntityId dynamic!
-        _channel.Writer.TryWrite(ScheduledEvent.From(new Move(3, new Vector2(x, y))));
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new Move(3, new Vector2(x, y))));
         return string.Empty;
     }
 
@@ -94,34 +89,34 @@ public class CommandRunner : IEventSink
         switch (tokens[1].Lexeme)
         {
             case SubCmdRenderElevationColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ElevationColor));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ElevationColor));
                 break;
             case SubCmdRenderElevationMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ElevationMonochrome));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ElevationMonochrome));
                 break;
             case SubCmdRenderHeatmapColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.HeatMapColor));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.HeatMapColor));
                 break;
             case SubCmdRenderHeatmapMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.HeatMapMonochrome));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.HeatMapMonochrome));
                 break;
             case SubCmdRenderTerrainColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.TerrainColor));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.TerrainColor));
                 break;
             case SubCmdRenderTerrainMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.TerrainMonochrome));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.TerrainMonochrome));
                 break;
             case SubCmdRenderReliefColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ReliefColor));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ReliefColor));
                 break;
             case SubCmdRenderReliefMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ReliefMonochrome));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ReliefMonochrome));
                 break;
             case SubCmdRenderContourColor:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ContourColor));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ContourColor));
                 break;
             case SubCmdRenderContourMonochrome:
-                _channel.Writer.TryWrite(ScheduledEvent.From(MapRenderMode.ContourMonochrome));
+                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ContourMonochrome));
                 break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }
@@ -131,17 +126,15 @@ public class CommandRunner : IEventSink
 
     private string CommandSave()
     {
-        _channel
-            .Writer
-            .TryWrite(ScheduledEvent.From(new Persist(PersistenceOption.Save, GetFilePath())));
+        evtQueue.EnqueueEvent(
+            ScheduledEvent.From(new Persist(PersistenceOption.Save, GetFilePath())));
         return string.Empty;
     }
 
     private string CommandLoad()
     {
-        _channel
-            .Writer
-            .TryWrite(ScheduledEvent.From(new Persist(PersistenceOption.Load, GetFilePath())));
+        evtQueue.EnqueueEvent(
+            ScheduledEvent.From(new Persist(PersistenceOption.Load, GetFilePath())));
         return string.Empty;
     }
 

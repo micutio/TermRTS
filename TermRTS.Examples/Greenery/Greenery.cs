@@ -19,7 +19,7 @@ public class Greenery : IRunnableExample
     private const int WorldHeight = 250;
 
     // private readonly ILog _log;
-    private readonly CommandRunner _commandRunner = new();
+    private CommandRunner _commandRunner;
 
     #region IRunnableExample Members
 
@@ -64,33 +64,30 @@ public class Greenery : IRunnableExample
         core.AddSimSystem(new FovSystem());
 
         var scheduler = new Scheduler(core);
-        scheduler.AddEventSources(scheduler.ProfileEventReader);
         scheduler.AddEventSink(renderer, typeof(Profile));
 
         // Listen to commands
+        _commandRunner = new CommandRunner(scheduler.EventQueue);
         scheduler.AddEventSink(renderer, typeof(MapRenderMode)); // render option events
-        scheduler.AddEventSources(_commandRunner.CommandEventReader);
         scheduler.AddEventSink(_commandRunner, typeof(Event.Command));
         scheduler.AddEventSink(pathFindingSystem, typeof(Move));
 
         // Init input
-        var input = new ConsoleInput(ConsoleKey.Escape);
-        scheduler.AddEventSources(input.KeyEventReader);
+        var input = new ConsoleInput(scheduler.EventQueue, ConsoleKey.Escape);
         scheduler.AddEventSink(input, typeof(Shutdown));
         scheduler.AddEventSink(renderer, typeof(ConsoleKeyInfo));
         scheduler.AddEventSink(renderer.LogArea, typeof(SystemLog));
-        scheduler.AddEventSources(renderer.Textbox.MessageEventReader);
         input.Run();
 
         var simulation = new Simulation(scheduler);
         simulation.EnableSerialization();
-        simulation.EnableSystemLog();
+        simulation.IsSystemLogEnabled = true;
 
         // Graceful shutdown on canceling via CTRL+C.
         Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
+            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
             Console.Clear();
             Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
         };
