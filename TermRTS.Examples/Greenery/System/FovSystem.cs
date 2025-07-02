@@ -4,6 +4,8 @@ namespace TermRTS.Examples.Greenery.System;
 
 public class FovSystem : ISimSystem
 {
+    private readonly Fov _fov = new();
+
     #region ISimSystem Members
 
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
@@ -23,13 +25,12 @@ public class FovSystem : ISimSystem
         {
             var droneX = (int)dronePos.X;
             var droneY = (int)dronePos.Y;
-            var droneFov =
-                Fov.BasicRaycast(
-                    droneX,
-                    droneY,
-                    10,
-                    (x, y) => world.Cells[x, y] > world.Cells[droneX, droneY]);
-            foreach (var (x, y) in droneFov) fov.Cells[x, y] = true;
+            _fov.BasicRaycast(
+                droneX,
+                droneY,
+                10,
+                (x, y) => world.Cells[x, y] > world.Cells[droneX, droneY]);
+            foreach (var (x, y) in _fov.VisibleCells) fov.Cells[x, y] = true;
         }
     }
 
