@@ -67,7 +67,6 @@ public class Core : IEventSink
     {
         if (evt is not Event<Shutdown>) return;
 
-        Console.WriteLine("[Core] Received shutdown event");
         _isGameRunning = false;
     }
 
@@ -111,24 +110,19 @@ public class Core : IEventSink
     /// </param>
     public void Tick(ulong timeStepSizeMs)
     {
-        Console.WriteLine("Core processing systems START");
         // Two-step simulation
         // Step 1: Iterate over each system and apply it to the respective entities.
         if (IsParallelized)
             // Is it possible to set the thread count for parallel processing?
             foreach (var sys in _systems.AsParallel())
             {
-                Console.WriteLine($"processing {sys} [{sys.GetHashCode()}] in parallel");
                 sys.ProcessComponents(timeStepSizeMs, _components);
             }
         else
             foreach (var sys in _systems)
             {
-                Console.WriteLine($"processing {sys} [{sys.GetHashCode()}] in sequence");
                 sys.ProcessComponents(timeStepSizeMs, _components);
             }
-
-        Console.WriteLine("Core processing systems END");
 
         _components.SwapBuffers();
 

@@ -153,7 +153,6 @@ public class Scheduler
         // Reduce possible lag by processing consecutive ticks without rendering
         var tickCount = 0;
         _tickTimer.Restart();
-        Console.WriteLine($"[Scheduler] Lag: {_lag.Milliseconds}ms");
         while (_lag >= _msPerUpdate)
         {
             _core.Tick(_timeStepSizeMs);
@@ -257,7 +256,6 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
-        Console.WriteLine($"[Scheduler] Event queue size: {_eventQueue.Count}");
         while (_eventQueue.TryPeek(out _, out var priority) && priority <= TimeMs)
         {
             if (!_eventQueue.TryTake(out var eventItem)) continue;
@@ -277,7 +275,6 @@ public class Scheduler
     {
         await foreach (var item in input.ReadAllAsync())
         {
-            Console.WriteLine($"[Scheduler] Enqueueing event {item}");
             await EnqueueEvent(item);
         }
     }

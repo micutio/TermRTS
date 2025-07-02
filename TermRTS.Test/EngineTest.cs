@@ -69,7 +69,6 @@ public class TerminatorSystem : ISimSystem
     public void ProcessComponents(ulong timeStepSize, in IReadonlyStorage storage)
     {
         Interlocked.Decrement(ref _remainingTicks);
-        Console.WriteLine($"[WatcherSystem] remaining ticks: {_remainingTicks}");
 
         if (_remainingTicks != 0) return;
 
@@ -77,7 +76,6 @@ public class TerminatorSystem : ISimSystem
         var shutdownEvent = ScheduledEvent.From(new Shutdown());
         var task = _eventChannel.Writer.WriteAsync(shutdownEvent);
         task.AsTask().Wait();
-        Console.WriteLine("No more ticks left. Send SHUTDOWN to scheduler");
     }
 
     #endregion

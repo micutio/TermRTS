@@ -50,6 +50,7 @@ internal static class TokenExtension
                       && token.Lexeme.Equals(other.Lexeme)
                       && Equals(token.Literal, other.Literal);
 
+        // TODO: Implement error handling
         if (!isEqual)
             Console.WriteLine($"ERROR, Mismatching Tokens ("
                               + $"{token.TokenType}, {token.Lexeme}, {token.Literal}) "
