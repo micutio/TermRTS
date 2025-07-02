@@ -35,8 +35,7 @@ public class Greenery : IRunnableExample
         var seed = 0; //rng.Next();
 
         // Set up engine
-        var renderer = new Renderer(WorldWidth, WorldHeight);
-        var core = new Core(renderer);
+        var core = new Core();
 
         var worldGen = new VoronoiWorld(50, seed);
         var worldEntity = new EntityBase();
@@ -64,6 +63,8 @@ public class Greenery : IRunnableExample
         core.AddSimSystem(new FovSystem());
 
         var scheduler = new Scheduler(core);
+        var renderer = new Renderer(scheduler.EventQueue, WorldWidth, WorldHeight);
+        core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 
         // Listen to commands

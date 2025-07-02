@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Ui;
@@ -11,14 +10,13 @@ internal enum InputState
     OngoingInput
 }
 
-public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
+public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : KeyInputProcessorBase
 {
     #region Fields
 
     private readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private readonly ConsoleColor DefaultFg = Console.ForegroundColor;
 
-    private readonly Channel<ScheduledEvent> _channel = Channel.CreateUnbounded<ScheduledEvent>();
     private readonly char[] _msg = new char[80];
     private int _idx;
     private InputState _state = InputState.Idle;
@@ -26,8 +24,6 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
     #endregion
 
     #region Properties
-
-    public ChannelReader<ScheduledEvent> MessageEventReader => _channel.Reader;
 
     public bool IsOngoingInput => _state == InputState.OngoingInput;
 
@@ -137,7 +133,7 @@ public class TextBox(ConsoleCanvas canvas) : KeyInputProcessorBase
     {
         _idx = 0;
         _state = InputState.Idle;
-        _channel.Writer.TryWrite(ScheduledEvent.From(new Event.Command(_msg)));
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.Command(_msg)));
     }
 
     private ReadOnlySpan<char> GetCurrentInput()

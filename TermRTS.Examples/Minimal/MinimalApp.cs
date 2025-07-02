@@ -56,7 +56,10 @@ internal class MinimalApp : IRunnableExample
 
     public void Run()
     {
-        var core = new Core(new NullRenderer());
+        var core = new Core
+        {
+            Renderer = new NullRenderer()
+        };
         var scheduler = new Scheduler(core);
         var watcherSystem = new WatcherSystem(scheduler.EventQueue, 12);
         core.AddSimSystem(watcherSystem);

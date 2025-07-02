@@ -123,7 +123,10 @@ public class BounceApp : IRunnableExample
 
     public void Run()
     {
-        var core = new Core(new BounceRenderer());
+        var core = new Core
+        {
+            Renderer = new BounceRenderer()
+        };
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddSimSystem(bouncePhysics);
         var bounceEntity = new EntityBase();

@@ -460,9 +460,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private bool IsInCamera(float x, float y)
     {
         return x >= ViewportPositionInWorldX
-               && x <= ViewportPositionInWorldX + ViewportWidth
+               && x < ViewportPositionInWorldX + ViewportWidth
                && y >= ViewportPositionInWorldY
-               && y <= ViewportPositionInWorldY + ViewportHeight;
+               && y < ViewportPositionInWorldY + ViewportHeight;
     }
 
     /// <summary>

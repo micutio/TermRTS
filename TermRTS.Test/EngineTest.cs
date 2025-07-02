@@ -27,13 +27,15 @@ public class TestCoresSequentialAndParallel : TheoryData<Core>
     public TestCoresSequentialAndParallel()
     {
         Add(
-            new Core(new NullRenderer())
+            new Core
             {
+                Renderer = new NullRenderer(),
                 IsParallelized = true
             });
         Add(
-            new Core(new NullRenderer())
+            new Core
             {
+                Renderer = new NullRenderer(),
                 IsParallelized = false
             });
     }

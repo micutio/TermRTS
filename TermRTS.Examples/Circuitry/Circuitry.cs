@@ -34,7 +34,10 @@ internal class Circuitry : IRunnableExample
         _log.Info("Launching Circuitry example!");
 
         var renderer = new Renderer();
-        var core = new Core(renderer);
+        var core = new Core
+        {
+            Renderer = renderer
+        };
         EntityGenerator.RandomCircuitBoard()
             .WithRandomSeed(0)
             .WithChipCount(20)

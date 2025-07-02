@@ -5,7 +5,10 @@ public class SerializationTest
     [Fact]
     public void TestSchedulerSerialization()
     {
-        var scheduler = new Scheduler(new Core(new NullRenderer()));
+        var scheduler = new Scheduler(new Core
+        {
+            Renderer = new NullRenderer()
+        });
         var persistence = new Persistence();
 
         var putSuccess1 =

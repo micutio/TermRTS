@@ -30,7 +30,6 @@ public class Core : IEventSink
 {
     #region Fields
 
-    private readonly IRenderer _renderer;
     private readonly List<ISimSystem> _systems = [];
     private readonly List<EntityBase> _entities = [];
     private readonly MappedCollectionStorage _components = new();
@@ -41,20 +40,9 @@ public class Core : IEventSink
 
     #endregion
 
-    #region Constructors
-
-    /// <summary>
-    ///     Constructor
-    /// </summary>
-    /// <param name="renderer"> An object representing the renderer. </param>
-    public Core(IRenderer renderer)
-    {
-        _renderer = renderer;
-    }
-
-    #endregion
-
     #region Properties
+
+    public IRenderer Renderer { get; set; }
 
     public bool IsParallelized { get; set; } = false;
 
@@ -115,14 +103,10 @@ public class Core : IEventSink
         if (IsParallelized)
             // Is it possible to set the thread count for parallel processing?
             foreach (var sys in _systems.AsParallel())
-            {
                 sys.ProcessComponents(timeStepSizeMs, _components);
-            }
         else
             foreach (var sys in _systems)
-            {
                 sys.ProcessComponents(timeStepSizeMs, _components);
-            }
 
         _components.SwapBuffers();
 
@@ -157,8 +141,8 @@ public class Core : IEventSink
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
-        _renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
-        _renderer.FinalizeRender();
+        Renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
+        Renderer.FinalizeRender();
     }
 
     /// <summary>
@@ -166,7 +150,7 @@ public class Core : IEventSink
     /// </summary>
     public void Shutdown()
     {
-        _renderer.Shutdown();
+        Renderer.Shutdown();
     }
 
     /// <summary>

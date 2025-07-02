@@ -32,7 +32,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     #region Constructor
 
-    public Renderer(int worldWidth, int worldHeight)
+    public Renderer(SchedulerEventQueue evtQueue, int worldWidth, int worldHeight)
     {
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;
@@ -50,7 +50,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             Height = _canvas.Height - 1,
             Width = _canvas.Width - _mapview.Width
         };
-        _textbox = new TextBox(_canvas)
+        _textbox = new TextBox(evtQueue, _canvas)
         {
             Y = _mapview.Height - 1,
             Width = _canvas.Width
