@@ -1,15 +1,17 @@
 ﻿namespace TermRTS.Algorithms;
 
+public record struct Pos(int X, int Y);
+
 public static class Fov
 {
     // Basic Raycasting
-    public static HashSet<(int x, int y)> BasicRaycast(
+    public static HashSet<Pos> BasicRaycast(
         int startX,
         int startY,
         int range,
         Func<int, int, bool> isWall)
     {
-        var visibleCells = new HashSet<(int x, int y)>();
+        var visibleCells = new HashSet<Pos>();
 
         for (var angle = 0; angle < 360; angle++)
         {
@@ -30,7 +32,7 @@ public static class Fov
 
                 if (isWall(gridX, gridY)) break; // Stop the ray if it hits a wall
 
-                visibleCells.Add((gridX, gridY));
+                visibleCells.Add(new Pos(gridX, gridY));
             }
         }
 
@@ -39,14 +41,14 @@ public static class Fov
 
 
     // Recursive Shadowcasting (Octant-based)
-    public static HashSet<(int x, int y)> RecursiveShadowcasting(
+    public static HashSet<Pos> RecursiveShadowcasting(
         int startX,
         int startY,
         int range,
         Func<int, int, bool> isWall)
     {
-        var visibleCells = new HashSet<(int x, int y)>();
-        visibleCells.Add((startX, startY)); // Start is always visible
+        var visibleCells = new HashSet<Pos>();
+        visibleCells.Add(new Pos(startX, startY)); // Start is always visible
 
         for (var octant = 0; octant < 8; octant++)
             CastOctant(visibleCells, startX, startY, range, 1, 1.0f, 0.0f, octant, isWall);
@@ -55,7 +57,7 @@ public static class Fov
     }
 
     private static void CastOctant(
-        HashSet<(int x, int y)> visibleCells,
+        HashSet<Pos> visibleCells,
         int startX,
         int startY,
         int range,
@@ -115,7 +117,7 @@ public static class Fov
             }
 
             if (tx < 0 || ty < 0) continue; //Bounds Check
-            visibleCells.Add((tx, ty));
+            visibleCells.Add(new Pos(tx, ty));
 
             if (isWall(tx, ty))
                 CastOctant(visibleCells, startX, startY, range, x + 1, slopeStart, prevSlope,
@@ -149,9 +151,9 @@ public static class Example
         var recursiveFov = Fov.RecursiveShadowcasting(startX, startY, range, isWall);
 
         Console.WriteLine("Basic Raycast FOV:");
-        foreach (var cell in basicFov) Console.WriteLine($"({cell.x}, {cell.y})");
+        foreach (var cell in basicFov) Console.WriteLine($"({cell.X}, {cell.Y})");
 
         Console.WriteLine("\nRecursive Shadowcasting FOV:");
-        foreach (var cell in recursiveFov) Console.WriteLine($"({cell.x}, {cell.y})");
+        foreach (var cell in recursiveFov) Console.WriteLine($"({cell.Y}, {cell.Y})");
     }
 }
