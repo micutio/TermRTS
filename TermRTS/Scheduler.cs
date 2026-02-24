@@ -13,7 +13,7 @@ public class SchedulerEventQueue
     internal readonly EventQueue<IEvent, ulong> Instance = new();
 
     /// <summary>
-    ///     This method offers a manual way of schedule
+    ///     Offers a manual way to schedule an event with an optional due time.
     /// </summary>
     /// <param name="evt">
     ///     A tuple of the event and due-time, given as absolute timestamp in ms
@@ -94,12 +94,13 @@ public class Scheduler
     /// </summary>
     public void AddEventSink(IEventSink sink, Type payloadType)
     {
-        var isFound = _eventSinks.TryGetValue(payloadType, out var sinks);
-        if (!isFound || sinks == null)
-            sinks = new List<IEventSink>();
+        if (!_eventSinks.TryGetValue(payloadType, out var sinks) || sinks == null)
+        {
+            sinks = [];
+            _eventSinks[payloadType] = sinks;
+        }
 
         sinks.Add(sink);
-        _eventSinks[payloadType] = sinks;
     }
 
     /// <summary>
@@ -107,7 +108,12 @@ public class Scheduler
     /// </summary>
     public void RemoveEventSink(IEventSink sink, Type payloadType)
     {
-        _eventSinks[payloadType].Remove(sink);
+        if (!_eventSinks.TryGetValue(payloadType, out var sinks) || sinks == null)
+            return;
+
+        sinks.Remove(sink);
+        if (sinks.Count == 0)
+            _eventSinks.Remove(payloadType);
     }
 
     public void Prepare()
@@ -214,9 +220,10 @@ public class Scheduler
     /// <summary>
     ///     Pause execution of the scheduler for a given time period.
     ///     Due to time constraints and context switching <see cref="Thread.Sleep(TimeSpan)" /> and
-    ///     <see cref="Task.Delay(TimeSpan)" /> become inaccurate below the TimeSlice size of 15(?)/>
+    ///     <see cref="Task.Delay(TimeSpan)" /> become inaccurate below the TimeSlice size of 15(?).
+    ///     For those we use a busy-spinning loop to exactly time the pause.
     /// </summary>
-    /// <param name="timeout"></param>
+    /// <param name="timeout">Duration to pause.</param>
     private void Pause(TimeSpan timeout)
     {
         if (timeout > TimeResolution)
@@ -236,14 +243,14 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
-        while (_schedulerEventQueue.Instance.TryPeek(out _, out var priority) && priority <= TimeMs)
+        while (_schedulerEventQueue.Instance.TryTakeIf(priority => priority <= TimeMs, out var eventItem))
         {
-            if (!_schedulerEventQueue.Instance.TryTake(out var eventItem)) continue;
+            var (evt, _) = eventItem;
+            if (!_eventSinks.TryGetValue(evt.EvtType, out var sinks))
+                continue;
 
-            if (!_eventSinks.TryGetValue(eventItem.Item1.EvtType, out var sink)) continue;
-
-            foreach (var eventSink in sink)
-                eventSink.ProcessEvent(eventItem.Item1);
+            foreach (var sink in sinks)
+                sink.ProcessEvent(evt);
         }
     }
 

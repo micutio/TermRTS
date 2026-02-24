@@ -99,6 +99,38 @@ public class EventQueue<TElement, TPriority>
         }
     }
 
+    /// <summary>
+    ///     Under one lock, peeks at the front; if <paramref name="isDue"/> returns true for the
+    ///     priority, dequeues and returns the item. Reduces lock acquisitions when processing
+    ///     multiple due events.
+    /// </summary>
+    public bool TryTakeIf(Func<TPriority, bool> isDue, out (TElement, TPriority) item)
+    {
+        lock (SyncRoot)
+        {
+            if (!_queue.TryPeek(out var element, out var priorityTuple))
+            {
+                item = default;
+                return false;
+            }
+
+            if (!isDue(priorityTuple.Item1))
+            {
+                item = default;
+                return false;
+            }
+
+            if (_queue.TryDequeue(out element, out priorityTuple))
+            {
+                item = (element, priorityTuple.Item1);
+                return true;
+            }
+
+            item = default;
+            return false;
+        }
+    }
+
     internal void Clear()
     {
         lock (SyncRoot)
