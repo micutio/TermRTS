@@ -24,8 +24,8 @@ jobs:
       with:
         dotnet-version: "10.0.x"
     - name: Restore dependencies
-      run: dotnet restore TermRTS.sln
+      run: dotnet restore TermRTS.slnx
     - name: Build
-      run: dotnet build TermRTS.sln --no-restore
+      run: dotnet build TermRTS.slnx --no-restore
     - name: Test
-      run: dotnet test TermRTS.sln --no-build --verbosity normal
+      run: dotnet test TermRTS.slnx --no-build --verbosity normal
