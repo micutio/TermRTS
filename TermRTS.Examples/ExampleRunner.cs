@@ -14,6 +14,13 @@ internal static class ExampleRunner
 {
     private static int Main(string[] args)
     {
+        if (args.Length == 0)
+        {
+            Console.WriteLine("Usage: dotnet run --project TermRTS.Examples -- <example number>");
+            Console.WriteLine("  1 = Minimal App, 2 = Bouncy Ball, 3 = Circuitry, 4 = Greenery");
+            return 1;
+        }
+
         Console.OutputEncoding = Encoding.UTF8;
         XmlConfigurator.Configure();
         switch (args[0])

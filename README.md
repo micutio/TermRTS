@@ -21,6 +21,7 @@ Available example numbers:
  - [1] Minimal App
  - [2] Bouncy Ball
  - [3] Circuitry
+ - [4] Greenery
 
 ## Development Plan
 
