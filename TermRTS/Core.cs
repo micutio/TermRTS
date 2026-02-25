@@ -42,7 +42,7 @@ public class Core : IEventSink
 
     #region Properties
 
-    public IRenderer Renderer { get; set; }
+    public IRenderer? Renderer { get; set; }
 
     public bool IsParallelized { get; set; } = false;
 
@@ -141,8 +141,8 @@ public class Core : IEventSink
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
-        Renderer.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
-        Renderer.FinalizeRender();
+        Renderer?.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
+        Renderer?.FinalizeRender();
     }
 
     /// <summary>
@@ -150,7 +150,7 @@ public class Core : IEventSink
     /// </summary>
     public void Shutdown()
     {
-        Renderer.Shutdown();
+        Renderer?.Shutdown();
     }
 
     /// <summary>
