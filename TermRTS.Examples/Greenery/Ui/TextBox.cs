@@ -131,9 +131,13 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : KeyIn
 
     private void FinalizeMessage()
     {
+        var len = _idx;
         _idx = 0;
         _state = InputState.Idle;
-        evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.Command(_msg)));
+        var cmd = new char[len];
+        if (len > 0)
+            Array.Copy(_msg, 0, cmd, 0, len);
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.Command(cmd)));
     }
 
     private ReadOnlySpan<char> GetCurrentInput()

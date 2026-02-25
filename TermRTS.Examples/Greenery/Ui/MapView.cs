@@ -332,7 +332,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             if (IsInCamera(droneX, droneY))
                 _canvas.Set(
                     X + WorldToViewportX(droneX) + _spaceForScaleLeft,
-                    X + WorldToViewportY(droneY) + SpaceForScaleTop,
+                    Y + WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
                     DefaultBg,
                     ConsoleColor.Red);
