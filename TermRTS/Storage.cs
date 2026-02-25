@@ -14,15 +14,15 @@ public interface IStorage : IReadonlyStorage, IWritableStorage
 
 public interface IReadonlyStorage
 {
-    public IEnumerable<ComponentBase> GetAllForEntity(int entityId);
+    IEnumerable<ComponentBase> GetAllForEntity(int entityId);
 
-    public IEnumerable<T> GetAllForType<T>();
-    public T? GetSingleForType<T>();
+    IEnumerable<T> GetAllForType<T>();
+    T? GetSingleForType<T>();
 
-    public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId);
-    public T? GetSingleForTypeAndEntity<T>(int entityId);
+    IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId);
+    T? GetSingleForTypeAndEntity<T>(int entityId);
 
-    public void SwapBuffers();
+    void SwapBuffers();
 
     // public IEnumerable<ComponentBase> All();
 }
@@ -34,15 +34,15 @@ public interface IReadonlyStorage
 /// </summary>
 public interface IWritableStorage
 {
-    public void AddComponent(ComponentBase component);
+    void AddComponent(ComponentBase component);
 
-    public void AddComponents(IEnumerable<ComponentBase> components);
+    void AddComponents(IEnumerable<ComponentBase> components);
 
-    public void RemoveComponentsByEntity(int entityId);
+    void RemoveComponentsByEntity(int entityId);
 
-    public void RemoveComponentsByType(Type type);
+    void RemoveComponentsByType(Type type);
 
-    public void RemoveComponentsByEntityAndType(int entityId, Type type);
+    void RemoveComponentsByEntityAndType(int entityId, Type type);
 }
 
 #endregion
@@ -50,8 +50,8 @@ public interface IWritableStorage
 #region Storage Implementation
 
 /// <summary>
-///     Storage of components, associating by component type and entity id.
-///     NOTE: Only supports one component per type per ID!
+///     Storage of components by component type and entity id. Supports multiple components
+///     of the same type per entity (stored in a list per (type, entity)).
 /// </summary>
 // TODO: Make implementation thread-safe
 public class MappedCollectionStorage : IStorage
@@ -83,12 +83,10 @@ public class MappedCollectionStorage : IStorage
 
     public IEnumerable<ComponentBase> GetAllForEntity(int entityId)
     {
-        return _componentStores
-            .Values
-            .Where(v => v.ContainsKey(entityId))
-            .Select(v => v[entityId])
-            .SelectMany(v => v)
-            .AsEnumerable();
+        foreach (var entityComponents in _componentStores.Values)
+            if (entityComponents.TryGetValue(entityId, out var list))
+                foreach (var component in list)
+                    yield return component;
     }
 
     public IEnumerable<T> GetAllForType<T>()
@@ -110,39 +108,29 @@ public class MappedCollectionStorage : IStorage
 
     public T? GetSingleForType<T>()
     {
-        try
-        {
-            if (GetAllForType<T>().First() is { } c) return c;
-        }
-        catch (InvalidOperationException e)
-        {
-            Log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
-        }
+        var first = GetAllForType<T>().FirstOrDefault();
+        if (first is not null) return first;
 
+        Log.Error($"Cannot find component of Type {typeof(T)}");
         return default;
     }
 
     public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
     {
         if (!_componentStores.TryGetValue(typeof(T), out var componentsByType))
-            return Enumerable.Empty<T>();
+            return [];
 
         return !componentsByType.TryGetValue(entityId, out var componentsByTypeAndEntity)
-            ? Enumerable.Empty<T>()
+            ? []
             : componentsByTypeAndEntity.Cast<T>();
     }
 
     public T? GetSingleForTypeAndEntity<T>(int entityId)
     {
-        try
-        {
-            if (GetAllForTypeAndEntity<T>(entityId).First() is { } c) return c;
-        }
-        catch (InvalidOperationException e)
-        {
-            Log.Error($"Cannot find component of Type {typeof(T)}:\n{e}");
-        }
+        var first = GetAllForTypeAndEntity<T>(entityId).FirstOrDefault();
+        if (first is not null) return first;
 
+        Log.Error($"Cannot find component of Type {typeof(T)} for entity {entityId}");
         return default;
     }
 
@@ -172,17 +160,21 @@ public class MappedCollectionStorage : IStorage
 
     public void AddComponent(ComponentBase component)
     {
-        if (!_componentStores.ContainsKey(component.GetType()))
-            _componentStores.Add(component.GetType(), new EntityComponents());
+        var type = component.GetType();
+        if (!_componentStores.TryGetValue(type, out var entityComponents))
+        {
+            entityComponents = new EntityComponents();
+            _componentStores[type] = entityComponents;
+        }
 
-        var entityComponents = _componentStores[component.GetType()];
-        if (!entityComponents.ContainsKey(component.EntityId))
-            entityComponents.Add(component.EntityId, []);
+        if (!entityComponents.TryGetValue(component.EntityId, out var list))
+        {
+            list = [];
+            entityComponents[component.EntityId] = list;
+        }
 
-        _componentStores[component.GetType()][component.EntityId].Add(component);
-
-        _cachedGetForTypeQueries.Remove(component.GetType());
-        // componentsDict.Add(component.EntityId, component);
+        list.Add(component);
+        _cachedGetForTypeQueries.Remove(type);
     }
 
     public void AddComponents(IEnumerable<ComponentBase> components)
@@ -224,6 +216,7 @@ public class MappedCollectionStorage : IStorage
     public void Clear()
     {
         _componentStores.Clear();
+        _cachedGetForTypeQueries.Clear();
     }
 
     #endregion
