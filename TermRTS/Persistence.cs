@@ -45,7 +45,7 @@ public class Persistence
     }
 
     /// <summary>
-    ///     Deserialize a simulation state from into a json string.
+    ///     Deserialize a simulation state from a JSON string.
     /// </summary>
     /// <param name="scheduler">
     ///     Reference to the scheduler, to which to restore the state
@@ -130,6 +130,12 @@ public class Persistence
     /// </returns>
     internal static bool SaveJsonToFile(string? jsonStr, string filePath, out string response)
     {
+        if (string.IsNullOrEmpty(jsonStr))
+        {
+            response = "Cannot save: JSON string is null or empty.";
+            return false;
+        }
+
         try
         {
             File.WriteAllText(filePath, jsonStr);

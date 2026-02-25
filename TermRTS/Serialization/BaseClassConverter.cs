@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -58,7 +58,8 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
             if (doc.RootElement.TryGetProperty(TypeProperty, out var typeProperty))
             {
                 var typeName = typeProperty.GetString();
-                var type = Array.Find(types, t => t.Name == typeName) ??
+                var type = Array.Find(types, t => t.FullName == typeName) ??
+                           Array.Find(types, t => t.Name == typeName) ??
                            throw new JsonException($"{TypeProperty} specifies an invalid type");
 
                 var rootElement = doc.RootElement.GetRawText();
@@ -84,12 +85,13 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         JsonSerializerOptions options)
     {
         var type = value.GetType();
-        if (Array.Exists(types, t => type.Name == t.Name))
+        var discriminator = type.FullName ?? type.Name;
+        if (Array.Exists(types, t => (t.FullName ?? t.Name) == discriminator))
         {
             var jsonElement = JsonSerializer.SerializeToElement(value, type, options);
 
             var jsonObject = JsonObject.Create(jsonElement) ?? throw new JsonException();
-            jsonObject[TypeProperty] = type.Name;
+            jsonObject[TypeProperty] = discriminator;
 
             jsonObject.WriteTo(writer, options);
         }
