@@ -123,9 +123,12 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         int worldHeight,
         in int[,] cellElevations)
     {
-        // 1 For each Land cell with adjacent Water cell, set elevation to 0 a.k.a. "Boundary"
-        //     Push all boundary cells onto a queue.
+        // 1 Initialize all cells to 9; then set boundary (land adjacent to water) to 0 and enqueue.
         var coastalSlopes = new float[worldWidth, worldHeight];
+        for (var y = 0; y < worldHeight; y += 1)
+        for (var x = 0; x < worldWidth; x += 1)
+            coastalSlopes[x, y] = 9.0f;
+
         var q = new Queue<(int, int)>(worldWidth * worldHeight);
         for (var y = 1; y < worldHeight - 1; y += 1)
         for (var x = 1; x < worldWidth - 1; x += 1)
@@ -141,13 +144,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             q.Enqueue((x, y));
         }
 
-        // 2 For all other cells, set elevation to 9
-        for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            if (!q.Contains((x, y)))
-                coastalSlopes[x, y] = 9.0f;
-
-        // 3 WHILE queue is NOT empty: deque cell C and set all neighbours to Min(C.elevation + 1, N.elevation)
+        // 2 BFS: while queue is NOT empty, dequeue cell C and set neighbours to Min(C.elevation + 1, N.elevation)
         //                               enqueue all neighbors with updated elevation
         (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
         while (q.Count > 0)

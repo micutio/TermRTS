@@ -93,9 +93,6 @@ public class Greenery : IRunnableExample
             Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
         };
 
-        // Automatically shut down after 10 minutes.
-        // scheduler.EnqueueEvent((new PlainEvent(EventType.Shutdown), 1000 * 60 * 10));
-
         // Run it
         simulation.Run();
 

@@ -87,6 +87,11 @@ public class DroneComponent : ComponentBase
     public void GeneratePathVisual()
     {
         if (Path == null) throw new ArgumentNullException(nameof(Path));
+        if (Path.Count < 2)
+        {
+            CachedPathVisual.Clear();
+            return;
+        }
 
         var visual = new (int, int, char)[Path.Count];
         var positionCount = Path.Count;
