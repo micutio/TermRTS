@@ -87,7 +87,7 @@ public class DroneComponent : ComponentBase
     public void GeneratePathVisual()
     {
         if (Path == null) throw new ArgumentNullException(nameof(Path));
-        if (Path.Count < 2)
+        if (Path.Count <= 2)
         {
             CachedPathVisual.Clear();
             return;

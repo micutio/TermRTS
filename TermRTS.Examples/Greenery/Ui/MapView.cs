@@ -257,7 +257,11 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         for (var y = 0; y < _worldHeight; y++)
         for (var x = 0; x < _worldWidth; x++)
+        {
+            if (_cachedFov[x, y] == fov.Cells[x, y]) continue;
+            IsRequireReRender = true;
             _cachedFov[x, y] = fov.Cells[x, y];
+        }
 
         foreach (var drone in componentStorage.GetAllForType<DroneComponent>())
         {
@@ -265,12 +269,15 @@ public class MapView : KeyInputProcessorBase, IEventSink
             {
                 if (_cachedDronePaths.TryGetValue(drone.EntityId, out var path))
                 {
+                    if (path.Count != drone.CachedPathVisual.Count) IsRequireReRender = true;
+
                     path.Clear();
                     path.AddRange(drone.CachedPathVisual);
                 }
                 else
                 {
                     _cachedDronePaths.Add(drone.EntityId, [..drone.CachedPathVisual]);
+                    IsRequireReRender = true;
                 }
             }
 
