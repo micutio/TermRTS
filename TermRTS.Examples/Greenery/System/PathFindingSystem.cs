@@ -29,7 +29,7 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 
         foreach (var drone in storage.GetAllForType<DroneComponent>())
         {
-            TryGeneratePath(world, drone);
+            if (drone.Path == null) TryGeneratePath(world, drone);
 
             if (drone.Path == null || drone.PathIndex == null) continue;
 
