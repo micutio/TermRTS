@@ -129,28 +129,28 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
         }
     }
 
-    protected override void OnXChanged(int newX)
+    protected override void OnXChanged()
     {
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
 
-    protected override void OnYChanged(int newY)
+    protected override void OnYChanged()
     {
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
 
-    protected override void OnWidthChanged(int newWidth)
+    protected override void OnWidthChanged()
     {
-        UpdateLayout(newWidth, Height);
+        UpdateLayout(Width, Height);
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
 
-    protected override void OnHeightChanged(int newHeight)
+    protected override void OnHeightChanged()
     {
-        UpdateLayout(Width, newHeight);
+        UpdateLayout(Width, Height);
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }

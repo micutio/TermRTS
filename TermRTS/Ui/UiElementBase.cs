@@ -62,8 +62,8 @@ public abstract class UiElementBase
         get => _x;
         set
         {
-            OnXChanged(value);
             _x = value;
+            OnXChanged();
         }
     }
 
@@ -72,8 +72,8 @@ public abstract class UiElementBase
         get => _y;
         set
         {
-            OnYChanged(value);
             _y = value;
+            OnYChanged();
         }
     }
 
@@ -82,8 +82,8 @@ public abstract class UiElementBase
         get => _width;
         set
         {
-            OnWidthChanged(value);
             _width = value;
+            OnWidthChanged();
         }
     }
 
@@ -92,8 +92,8 @@ public abstract class UiElementBase
         get => _height;
         set
         {
-            OnHeightChanged(value);
             _height = value;
+            OnHeightChanged();
         }
     }
 
@@ -126,13 +126,13 @@ public abstract class UiElementBase
 
     #region Protected Abstract Methods
 
-    protected abstract void OnXChanged(int newX);
+    protected abstract void OnXChanged();
 
-    protected abstract void OnYChanged(int newY);
+    protected abstract void OnYChanged();
 
-    protected abstract void OnWidthChanged(int newWidth);
+    protected abstract void OnWidthChanged();
 
-    protected abstract void OnHeightChanged(int newHeight);
+    protected abstract void OnHeightChanged();
 
     #endregion
 }

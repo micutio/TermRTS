@@ -149,35 +149,35 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     #region UiElementBase Members
 
-    protected override void OnXChanged(int newX)
+    protected override void OnXChanged()
     {
         // TODO: Implement proper layouting
-        _mapview.X = newX;
-        _logArea.X = newX + _mapview.Width;
-        _textbox.X = newX;
+        _mapview.X = X;
+        _logArea.X = X + _mapview.Width;
+        _textbox.X = X;
     }
 
-    protected override void OnYChanged(int newY)
+    protected override void OnYChanged()
     {
         // TODO: Implement proper layouting
-        _mapview.Y = newY;
-        _logArea.Y = newY;
-        _textbox.Y = newY + _mapview.Height - 1;
+        _mapview.Y = Y;
+        _logArea.Y = Y;
+        _textbox.Y = Y + _mapview.Height - 1;
     }
 
-    protected override void OnWidthChanged(int newWidth)
+    protected override void OnWidthChanged()
     {
         // TODO: Implement proper layouting
-        _mapview.Width = (int)(newWidth * 0.7);
-        _logArea.Width = newWidth - _mapview.Width;
-        _textbox.Width = newWidth;
+        _mapview.Width = (int)(Width * 0.7);
+        _logArea.Width = Width - _mapview.Width;
+        _textbox.Width = Width;
     }
 
-    protected override void OnHeightChanged(int newHeight)
+    protected override void OnHeightChanged()
     {
         // TODO: Implement proper layouting
-        _mapview.Height = newHeight - 1;
-        _logArea.Height = newHeight - 1;
+        _mapview.Height = Height - 1;
+        _logArea.Height = Height - 1;
         // _textbox.Height remains constant at 1
     }
 

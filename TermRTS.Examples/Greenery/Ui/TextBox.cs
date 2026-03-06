@@ -105,22 +105,22 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : KeyIn
         }
     }
 
-    protected override void OnXChanged(int newX)
+    protected override void OnXChanged()
     {
         IsRequireReRender = true;
     }
 
-    protected override void OnYChanged(int newY)
+    protected override void OnYChanged()
     {
         IsRequireReRender = true;
     }
 
-    protected override void OnWidthChanged(int newWidth)
+    protected override void OnWidthChanged()
     {
         IsRequireReRender = true;
     }
 
-    protected override void OnHeightChanged(int newHeight)
+    protected override void OnHeightChanged()
     {
         IsRequireReRender = true;
     }

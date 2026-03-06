@@ -349,25 +349,25 @@ public class MapView : KeyInputProcessorBase, IEventSink
         RenderCoordinates();
     }
 
-    protected override void OnXChanged(int newX)
+    protected override void OnXChanged()
     {
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
 
-    protected override void OnYChanged(int newY)
+    protected override void OnYChanged()
     {
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
 
-    protected override void OnWidthChanged(int newWidth)
+    protected override void OnWidthChanged()
     {
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
 
-    protected override void OnHeightChanged(int newHeight)
+    protected override void OnHeightChanged()
     {
         UpdateSpaceForScaleLeft();
         IsRequireReRender = true;
@@ -513,46 +513,47 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         // Horizontal
         // tick marks
-        for (var x = _spaceForScaleLeft; x <= ViewportWidth; x++)
+        for (var x = 0; x <= ViewportWidth; x++)
         {
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
             var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + x, Y, Cp437.BlockFull, fg);
+            _canvas.Set(X + _spaceForScaleLeft + x, Y, Cp437.BlockFull, fg);
         }
 
         // tick labels
-        for (var x = _spaceForScaleLeft; x <= ViewportWidth; x++)
+        for (var x = 0; x <= ViewportWidth; x++)
         {
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
 
             if (!isTick) continue;
 
-            var spaceForLabel = Width - x;
+            var spaceForLabel = Width - x - _spaceForScaleLeft;
             var tickLabel = Convert.ToString(worldX);
             if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
-            _canvas.Text(X + x, Y, tickLabel, false, DefaultBg, DefaultFg);
+            _canvas.Text(X + _spaceForScaleLeft + x, Y, tickLabel, false, DefaultBg, DefaultFg);
         }
 
         // Vertical
         // tick marks
-        for (var y = SpaceForScaleTop; y <= ViewportHeight; y++)
+        for (var y = 0; y <= ViewportHeight; y++)
         for (var x = 0; x < _spaceForScaleLeft; x++)
         {
             var worldY = ViewportToWorldY(y);
             var isTick = worldY > 0 && worldY % 5 == 0;
             var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + x, y, Cp437.BlockFull, fg);
+            _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
         }
 
         // tick labels
-        for (var y = SpaceForScaleTop; y <= ViewportHeight; y++)
+        for (var y = 0; y <= ViewportHeight; y++)
         {
             var worldY = ViewportToWorldY(y);
             var isTick = worldY > 0 && worldY % 5 == 0;
             if (isTick)
-                _canvas.Text(X, y, Convert.ToString(worldY), false, DefaultBg, DefaultFg);
+                _canvas.Text(X, y + SpaceForScaleTop, Convert.ToString(worldY), false, DefaultBg,
+                    DefaultFg);
         }
     }
 
