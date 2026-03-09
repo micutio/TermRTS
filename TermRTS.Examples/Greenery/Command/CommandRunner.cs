@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using TermRTS.Algorithms;
 using TermRTS.Event;
@@ -64,7 +64,7 @@ public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
 
     private string CommandGo(IReadOnlyList<Token> tokens)
     {
-        if (tokens.Count < 1) return ErrorTooFewArgs;
+        if (tokens.Count < 3) return ErrorTooFewArgs;
 
         if (tokens.Count > 3) return ErrorTooManyArgs;
 
@@ -82,7 +82,7 @@ public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
     // TODO: Change argument to listview
     private string CommandRenderMode(IReadOnlyList<Token> tokens)
     {
-        if (tokens.Count < 1) return ErrorTooFewArgs;
+        if (tokens.Count < 2) return ErrorTooFewArgs;
 
         if (tokens.Count > 2) return ErrorTooManyArgs;
 
