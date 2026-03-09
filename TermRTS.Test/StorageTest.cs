@@ -83,6 +83,117 @@ public class StorageTest
         storage.RemoveComponentsByType(typeof(ComponentB));
         Assert.Equal(4, storage.GetAllForType<ComponentA>().Count());
     }
+
+    [Fact]
+    public void GetSingleForType_returns_default_when_no_component_of_type()
+    {
+        var storage = new MappedCollectionStorage();
+        Assert.Null(storage.GetSingleForType<ComponentA>());
+    }
+
+    [Fact]
+    public void GetSingleForType_returns_first_when_one_component_exists()
+    {
+        var storage = new MappedCollectionStorage();
+        var c = new ComponentA(99);
+        storage.AddComponent(c);
+        var single = storage.GetSingleForType<ComponentA>();
+        Assert.NotNull(single);
+        Assert.Equal(99, single!.EntityId);
+    }
+
+    [Theory]
+    [ClassData(typeof(StorageTestData))]
+    public void GetSingleForType_returns_first_when_multiple_exist(IReadonlyStorage storage)
+    {
+        var single = storage.GetSingleForType<ComponentA>();
+        Assert.NotNull(single);
+        Assert.Contains(single, storage.GetAllForType<ComponentA>());
+    }
+
+    [Fact]
+    public void GetSingleForTypeAndEntity_returns_default_when_entity_missing()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        Assert.Null(storage.GetSingleForTypeAndEntity<ComponentA>(999));
+    }
+
+    [Fact]
+    public void GetSingleForTypeAndEntity_returns_default_when_type_missing_for_entity()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        Assert.Null(storage.GetSingleForTypeAndEntity<ComponentB>(1));
+    }
+
+    [Fact]
+    public void GetSingleForTypeAndEntity_returns_component_when_one_exists()
+    {
+        var storage = new MappedCollectionStorage();
+        var c = new ComponentA(42);
+        storage.AddComponent(c);
+        var single = storage.GetSingleForTypeAndEntity<ComponentA>(42);
+        Assert.NotNull(single);
+        Assert.Equal(42, single!.EntityId);
+    }
+
+    [Fact]
+    public void GetSingleForTypeAndEntity_returns_first_when_multiple_exist_for_entity()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        storage.AddComponent(new ComponentA(1));
+        var single = storage.GetSingleForTypeAndEntity<ComponentA>(1);
+        Assert.NotNull(single);
+        Assert.Equal(1, single!.EntityId);
+        Assert.Equal(2, storage.GetAllForTypeAndEntity<ComponentA>(1).Count());
+    }
+
+    [Fact]
+    public void Clear_removes_all_components_and_cache()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        storage.AddComponent(new ComponentB(1));
+        Assert.Single(storage.GetAllForType<ComponentA>());
+        Assert.Single(storage.GetAllForType<ComponentB>());
+
+        storage.Clear();
+
+        Assert.Empty(storage.GetAllForType<ComponentA>());
+        Assert.Empty(storage.GetAllForType<ComponentB>());
+        Assert.Empty(storage.GetAllForEntity(1));
+        Assert.Null(storage.GetSingleForType<ComponentA>());
+        Assert.Null(storage.GetSingleForTypeAndEntity<ComponentA>(1));
+    }
+
+    [Fact]
+    public void Clear_allows_adding_components_afterward()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        storage.Clear();
+        storage.AddComponent(new ComponentA(2));
+        var single = storage.GetSingleForType<ComponentA>();
+        Assert.NotNull(single);
+        Assert.Equal(2, single!.EntityId);
+    }
+
+    [Fact]
+    public void SwapBuffers_updates_read_value_of_double_buffered_component_after_call()
+    {
+        var storage = new MappedCollectionStorage();
+        var component = new ComponentWithDoubleBuffer(1, initial: 10);
+        storage.AddComponent(component);
+
+        Assert.Equal(10, component.GetValue());
+        component.SetValue(42);
+        Assert.Equal(10, component.GetValue());
+
+        storage.SwapBuffers();
+        Assert.Equal(42, component.GetValue());
+    }
 }
 
 internal class ComponentA(int entityId) : ComponentBase(entityId)
@@ -91,4 +202,21 @@ internal class ComponentA(int entityId) : ComponentBase(entityId)
 
 internal class ComponentB(int entityId) : ComponentBase(entityId)
 {
+}
+
+/// <summary>
+///     Component with a double-buffered value for testing SwapBuffers.
+/// </summary>
+internal class ComponentWithDoubleBuffer : ComponentBase
+{
+    private readonly DoubleBuffered<int> _value;
+
+    public ComponentWithDoubleBuffer(int entityId, int initial = 0) : base(entityId)
+    {
+        _value = new DoubleBuffered<int>(initial);
+        RegisterDoubleBufferedProperty(_value);
+    }
+
+    public void SetValue(int v) => _value.Set(v);
+    public int GetValue() => _value.Get();
 }
