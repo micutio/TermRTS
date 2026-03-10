@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using TermRTS.Algorithms;
 
 namespace TermRTS.Test;
@@ -6,7 +6,7 @@ namespace TermRTS.Test;
 public class ScannerTest
 {
     [Fact]
-    public void TestEmptySource()
+    public void Empty_source_produces_empty_scanner()
     {
         var scanner = new Scanner([]);
         Assert.Empty(scanner.ScanTokens());
@@ -14,7 +14,7 @@ public class ScannerTest
 
     [Theory]
     [ClassData(typeof(CharDataGenerator))]
-    public void TestSingleToken((char[], Token) value)
+    public void Single_char_produces_single_result((char[], Token) value)
     {
         var scanner = new Scanner(value.Item1);
         Assert.True(scanner.ScanTokens()[0].IsEqual(value.Item2));
@@ -22,7 +22,7 @@ public class ScannerTest
 
     [Theory]
     [ClassData(typeof(LiteralDataGenerator))]
-    public void TestLiteralToken((string, Token) value)
+    public void Scanning_literal_produces_expected_result((string, Token) value)
     {
         var scanner = new Scanner(value.Item1.ToCharArray());
         Assert.True(scanner.ScanTokens()[0].IsEqual(value.Item2));
@@ -30,12 +30,45 @@ public class ScannerTest
 
     [Theory]
     [ClassData(typeof(TokenListDataGenerator))]
-    public void TestTokenList((string, List<Token> tokenList) value)
+    public void Scanning_tokens_produce_expected_result((string, List<Token> tokenList) value)
     {
         var scanner = new Scanner(value.Item1.ToCharArray());
         var tokens = scanner.ScanTokens();
         Assert.Equal(tokens.Count, value.Item2.Count);
         for (var i = 0; i < tokens.Count; i++) Assert.True(tokens[i].Equals(value.Item2[i]));
+    }
+
+    [Fact]
+    public void Unknown_character_produces_Unknown_token()
+    {
+        var scanner = new Scanner("#".ToCharArray());
+        var tokens = scanner.ScanTokens();
+        Assert.Single(tokens);
+        Assert.Equal(TokenType.Unknown, tokens[0].TokenType);
+        Assert.Equal("#", tokens[0].Lexeme);
+    }
+
+    [Fact]
+    public void Multiple_whitespace_between_tokens_skipped()
+    {
+        var scanner = new Scanner("  +   -   ".ToCharArray());
+        var tokens = scanner.ScanTokens();
+        Assert.Equal(2, tokens.Count);
+        Assert.True(tokens[0].IsEqual(new Token(TokenType.Plus, "+", null)));
+        Assert.True(tokens[1].IsEqual(new Token(TokenType.Minus, "-", null)));
+    }
+
+    [Fact]
+    public void Mixed_operators_and_identifiers()
+    {
+        var scanner = new Scanner("a+b*c".ToCharArray());
+        var tokens = scanner.ScanTokens();
+        Assert.Equal(5, tokens.Count);
+        Assert.Equal(TokenType.Identifier, tokens[0].TokenType);
+        Assert.Equal(TokenType.Plus, tokens[1].TokenType);
+        Assert.Equal(TokenType.Identifier, tokens[2].TokenType);
+        Assert.Equal(TokenType.Star, tokens[3].TokenType);
+        Assert.Equal(TokenType.Identifier, tokens[4].TokenType);
     }
 }
 
