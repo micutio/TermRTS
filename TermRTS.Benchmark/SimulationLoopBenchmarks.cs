@@ -2,6 +2,69 @@ using BenchmarkDotNet.Attributes;
 
 namespace TermRTS.Benchmark;
 
+#region Storage query benchmarks (plan §4)
+
+/// <summary>
+/// GetAllForType and full enumeration; N components of one type. Params: N = 100, 1K, 10K.
+/// </summary>
+[MemoryDiagnoser]
+public class StorageGetAllForTypeBenchmark
+{
+    private MappedCollectionStorage _storage = null!;
+
+    [Params(100, 1_000, 10_000)]
+    public int ComponentCount { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _storage = new MappedCollectionStorage();
+        for (var i = 0; i < ComponentCount; i++)
+            _storage.AddComponent(new BenchmarkComponent(i));
+    }
+
+    [Benchmark(Description = "GetAllForType + enumerate (count)")]
+    public int GetAllForTypeAndEnumerate()
+    {
+        var n = 0;
+        foreach (var _ in _storage.GetAllForType<BenchmarkComponent>())
+            n++;
+        return n;
+    }
+}
+
+/// <summary>
+/// GetSingleForType and TryGetSingleForType with one component of type T (singleton path).
+/// </summary>
+[MemoryDiagnoser]
+public class StorageGetSingleForTypeBenchmark
+{
+    private MappedCollectionStorage _storage = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _storage = new MappedCollectionStorage();
+        _storage.AddComponent(new BenchmarkComponent(1));
+    }
+
+    [Benchmark(Description = "GetSingleForType (singleton)")]
+    public ComponentBase? GetSingle()
+    {
+        return _storage.GetSingleForType<BenchmarkComponent>();
+    }
+
+    [Benchmark(Description = "TryGetSingleForType (singleton)")]
+    public bool TryGetSingle()
+    {
+        return _storage.TryGetSingleForType<BenchmarkComponent>(out _);
+    }
+}
+
+#endregion
+
+#region Core.Tick with real workload (plan §4)
+
 /// <summary>
 /// Baseline: scheduler step overhead with no systems and NullRenderer.
 /// </summary>
@@ -91,6 +154,99 @@ public class CoreTickOnlyBenchmark
 }
 
 /// <summary>
+/// Core.Tick with M components (one per entity) and a system that GetAllForType and touches each. Params: entity count, system count.
+/// </summary>
+[MemoryDiagnoser]
+public class CoreTickWithComponentsBenchmark
+{
+    private Core _core = null!;
+
+    [Params(100, 1000, 5000)]
+    public int EntityCount { get; set; }
+
+    [Params(1, 4)]
+    public int SystemCount { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _core = new Core { Renderer = new NoOpRenderer() };
+        var entities = new NullEntity[EntityCount];
+        for (var i = 0; i < EntityCount; i++)
+        {
+            entities[i] = new NullEntity();
+            _core.AddEntity(entities[i]);
+        }
+        _core.Tick(16); // flush deferred adds
+        for (var i = 0; i < EntityCount; i++)
+            _core.AddComponent(new BenchmarkComponent(entities[i].Id));
+        _core.Tick(16); // flush components
+        for (var i = 0; i < SystemCount; i++)
+            _core.AddSimSystem(new GetAllAndTouchSystem());
+    }
+
+    [Benchmark(Description = "Core.Tick with components + GetAllForType system")]
+    public void Tick()
+    {
+        _core.Tick(16);
+    }
+}
+
+/// <summary>
+/// Every N ticks, mark one entity for removal and add a new one; measures Tick time and memory over many iterations.
+/// </summary>
+[MemoryDiagnoser]
+public class CoreTickWithEntityChurnBenchmark
+{
+    private Core _core = null!;
+    private List<NullEntity> _entities = null!;
+    private int _indexToRemove;
+
+    [Params(50)]
+    public int InitialEntityCount { get; set; }
+
+    [Params(10)]
+    public int TicksPerChurn { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _core = new Core { Renderer = new NoOpRenderer() };
+        _core.AddSimSystem(new GetAllAndTouchSystem());
+        _entities = new List<NullEntity>();
+        for (var i = 0; i < InitialEntityCount; i++)
+        {
+            var e = new NullEntity();
+            _entities.Add(e);
+            _core.AddEntity(e);
+        }
+        _core.Tick(16);
+        for (var i = 0; i < InitialEntityCount; i++)
+            _core.AddComponent(new BenchmarkComponent(_entities[i].Id));
+        _core.Tick(16);
+        _indexToRemove = 0;
+    }
+
+    [Benchmark(Description = "Core.Tick with entity churn")]
+    public void TickWithChurn()
+    {
+        for (var t = 0; t < TicksPerChurn; t++)
+            _core.Tick(16);
+        if (_entities.Count > 0)
+        {
+            _entities[_indexToRemove].IsMarkedForRemoval = true;
+            _core.Tick(16);
+            var e = new NullEntity();
+            _entities[_indexToRemove] = e;
+            _core.AddEntity(e);
+            _core.AddComponent(new BenchmarkComponent(e.Id));
+            _core.Tick(16);
+            _indexToRemove = (_indexToRemove + 1) % _entities.Count;
+        }
+    }
+}
+
+/// <summary>
 /// Optional: step time when render dominates (renderer does fixed work per frame).
 /// </summary>
 [MemoryDiagnoser]
@@ -118,3 +274,5 @@ public class SchedulerStepHeavyRenderBenchmark
             _scheduler.SimulationStep();
     }
 }
+
+#endregion

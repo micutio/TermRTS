@@ -194,6 +194,134 @@ public class StorageTest
         storage.SwapBuffers();
         Assert.Equal(42, component.GetValue());
     }
+
+    // --- Cache invalidation (plan §3) ---
+
+    [Fact]
+    public void Cache_invalidation_after_AddComponent_new_enumeration_includes_new_component()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        var first = storage.GetAllForType<ComponentA>().ToList();
+        Assert.Single(first);
+
+        storage.AddComponent(new ComponentA(2));
+        var second = storage.GetAllForType<ComponentA>().ToList();
+        Assert.Equal(2, second.Count);
+        Assert.Contains(second, c => c.EntityId == 1);
+        Assert.Contains(second, c => c.EntityId == 2);
+    }
+
+    [Fact]
+    public void Cache_invalidation_after_RemoveComponentsByEntity_no_enumeration_returns_that_entity_components()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        storage.AddComponent(new ComponentA(2));
+        storage.AddComponent(new ComponentB(1));
+        Assert.Equal(2, storage.GetAllForType<ComponentA>().Count());
+        Assert.Single(storage.GetAllForType<ComponentB>());
+
+        storage.RemoveComponentsByEntity(1);
+        Assert.Empty(storage.GetAllForEntity(1));
+        var asList = storage.GetAllForType<ComponentA>().ToList();
+        Assert.Single(asList);
+        Assert.Equal(2, asList[0].EntityId);
+        Assert.Empty(storage.GetAllForType<ComponentB>());
+    }
+
+    /// <summary>
+    /// After removing an entity that had components, adding the same type again should yield
+    /// correct count. With the fix, the store does not retain empty lists for removed entities.
+    /// </summary>
+    [Fact]
+    public void RemoveComponentsByEntity_does_not_leave_empty_lists_public_api_check()
+    {
+        var storage = new MappedCollectionStorage();
+        var e1 = new EntityBase();
+        var e2 = new EntityBase();
+        storage.AddComponent(new ComponentA(e1.Id));
+        storage.AddComponent(new ComponentA(e2.Id));
+        Assert.Equal(2, storage.GetAllForType<ComponentA>().Count());
+
+        storage.RemoveComponentsByEntity(e1.Id);
+        Assert.Single(storage.GetAllForType<ComponentA>().ToList());
+
+        storage.AddComponent(new ComponentA(e1.Id));
+        Assert.Equal(2, storage.GetAllForType<ComponentA>().Count());
+        // Stress: remove both, add one new entity's component — count must be 1
+        storage.RemoveComponentsByEntity(e1.Id);
+        storage.RemoveComponentsByEntity(e2.Id);
+        var e3 = new EntityBase();
+        storage.AddComponent(new ComponentA(e3.Id));
+        Assert.Single(storage.GetAllForType<ComponentA>().ToList());
+        Assert.Equal(e3.Id, storage.GetSingleForType<ComponentA>()!.EntityId);
+    }
+
+    // --- TryGetSingle (plan §3) ---
+
+    [Fact]
+    public void TryGetSingleForType_returns_false_and_default_when_absent()
+    {
+        var storage = new MappedCollectionStorage();
+        var found = storage.TryGetSingleForType<ComponentA>(out var component);
+        Assert.False(found);
+        Assert.Null(component);
+    }
+
+    [Fact]
+    public void TryGetSingleForType_returns_true_and_instance_when_one_exists()
+    {
+        var storage = new MappedCollectionStorage();
+        var c = new ComponentA(42);
+        storage.AddComponent(c);
+        var found = storage.TryGetSingleForType<ComponentA>(out var component);
+        Assert.True(found);
+        Assert.NotNull(component);
+        Assert.Equal(42, component!.EntityId);
+    }
+
+    [Theory]
+    [ClassData(typeof(StorageTestData))]
+    public void TryGetSingleForType_returns_true_and_first_when_multiple_exist(IReadonlyStorage storage)
+    {
+        var found = storage.TryGetSingleForType<ComponentA>(out var component);
+        Assert.True(found);
+        Assert.NotNull(component);
+        Assert.Contains(component, storage.GetAllForType<ComponentA>());
+    }
+
+    [Fact]
+    public void TryGetSingleForTypeAndEntity_returns_false_when_entity_missing()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        var found = storage.TryGetSingleForTypeAndEntity<ComponentA>(999, out var component);
+        Assert.False(found);
+        Assert.Null(component);
+    }
+
+    [Fact]
+    public void TryGetSingleForTypeAndEntity_returns_false_when_type_missing_for_entity()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        var found = storage.TryGetSingleForTypeAndEntity<ComponentB>(1, out var component);
+        Assert.False(found);
+        Assert.Null(component);
+    }
+
+    [Fact]
+    public void TryGetSingleForTypeAndEntity_returns_true_and_component_when_exists()
+    {
+        var storage = new MappedCollectionStorage();
+        var c = new ComponentA(42);
+        storage.AddComponent(c);
+        var found = storage.TryGetSingleForTypeAndEntity<ComponentA>(42, out var component);
+        Assert.True(found);
+        Assert.NotNull(component);
+        Assert.Equal(42, component!.EntityId);
+    }
 }
 
 internal class ComponentA(int entityId) : ComponentBase(entityId)

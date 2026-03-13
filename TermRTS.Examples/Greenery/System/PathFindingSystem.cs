@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
@@ -24,8 +24,7 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
-        var world = storage.GetSingleForType<WorldComponent>();
-        if (world == null) return;
+        if (!storage.TryGetSingleForType<WorldComponent>(out var world) || world == null) return;
 
         foreach (var drone in storage.GetAllForType<DroneComponent>())
         {

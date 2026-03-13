@@ -41,7 +41,7 @@ public class EntityBase
     /// <summary>
     ///     Property to indicate whether this entity is to be removed.
     /// </summary>
-    public bool IsMarkedForRemoval { get; set; } = false;
+    public bool IsMarkedForRemoval { get; set; } // = false;
 
     #endregion
 }
@@ -51,13 +51,14 @@ public class EntityBase
 /// </summary>
 public interface IDoubleBufferedProperty
 {
-    public void SwitchBuffer();
+    void SwitchBuffer();
 }
 
 /// <summary>
 ///     Implementation of a property with decoupled read and write operations.
 ///     The property can be reassigned a new value while still exposing the old value publicly.
-///     Only the <see cref="SwitchBuffer" /> method updates the readable value.
+///     Only the <see cref="SwitchBuffer" /> method updates the readable value (commit write → read).
+///     Read side is updated only after SwitchBuffer is called (e.g. at end of tick by <see cref="ComponentBase.SwapBuffers" />).
 /// </summary>
 /// <param name="value">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>

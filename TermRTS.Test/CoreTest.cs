@@ -83,4 +83,29 @@ public class CoreTest
         Assert.Equal(2, spy.Storage.GetAllForEntity(e1.Id).Count());
         Assert.Single(spy.Storage.GetAllForEntity(e2.Id));
     }
+
+    /// <summary>
+    /// Component added for an existing entity (already in the sim) appears on next tick.
+    /// </summary>
+    [Fact]
+    public void Deferred_add_component_for_existing_entity_appears_after_Tick()
+    {
+        var core = new Core { Renderer = new NullRenderer() };
+        var spy = new StorageSpySystem();
+        core.AddSimSystem(spy);
+
+        var entity = new NullEntity();
+        core.AddEntity(entity);
+        core.AddComponent(new ComponentA(entity.Id));
+        core.Tick(1);
+
+        Assert.NotNull(spy.Storage);
+        Assert.Single(spy.Storage!.GetAllForType<ComponentA>());
+
+        core.AddComponent(new ComponentB(entity.Id));
+        Assert.Empty(spy.Storage.GetAllForType<ComponentB>()); // not yet visible
+        core.Tick(1);
+        Assert.Single(spy.Storage.GetAllForType<ComponentB>().ToList());
+        Assert.Equal(entity.Id, spy.Storage.GetSingleForTypeAndEntity<ComponentB>(entity.Id)!.EntityId);
+    }
 }

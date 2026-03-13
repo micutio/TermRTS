@@ -19,8 +19,20 @@ public interface IReadonlyStorage
     IEnumerable<T> GetAllForType<T>();
     T? GetSingleForType<T>();
 
+    /// <summary>
+    ///     Tries to get a single component of type <typeparamref name="T" />. Returns false and sets
+    ///     <paramref name="component" /> to default when none exists; does not log. Use when "missing" is valid.
+    /// </summary>
+    bool TryGetSingleForType<T>(out T? component);
+
     IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId);
     T? GetSingleForTypeAndEntity<T>(int entityId);
+
+    /// <summary>
+    ///     Tries to get a single component of type <typeparamref name="T" /> for the given entity. Returns false
+    ///     and sets <paramref name="component" /> to default when none exists; does not log.
+    /// </summary>
+    bool TryGetSingleForTypeAndEntity<T>(int entityId, out T? component);
 
     void SwapBuffers();
 
@@ -111,8 +123,14 @@ public class MappedCollectionStorage : IStorage
         var first = GetAllForType<T>().FirstOrDefault();
         if (first is not null) return first;
 
-        Log.Error($"Cannot find component of Type {typeof(T)}");
+        Log.Debug($"Cannot find component of Type {typeof(T)}");
         return default;
+    }
+
+    public bool TryGetSingleForType<T>(out T? component)
+    {
+        component = GetAllForType<T>().FirstOrDefault();
+        return component is not null;
     }
 
     public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
@@ -130,8 +148,14 @@ public class MappedCollectionStorage : IStorage
         var first = GetAllForTypeAndEntity<T>(entityId).FirstOrDefault();
         if (first is not null) return first;
 
-        Log.Error($"Cannot find component of Type {typeof(T)} for entity {entityId}");
+        Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
         return default;
+    }
+
+    public bool TryGetSingleForTypeAndEntity<T>(int entityId, out T? component)
+    {
+        component = GetAllForTypeAndEntity<T>(entityId).FirstOrDefault();
+        return component is not null;
     }
 
     public void SwapBuffers()
@@ -184,11 +208,17 @@ public class MappedCollectionStorage : IStorage
 
     public void RemoveComponentsByEntity(int entityId)
     {
-        foreach (var componentTypeDict in _componentStores
-                     .Values
-                     .Where(componentTypeDict => componentTypeDict.ContainsKey(entityId)))
-            componentTypeDict[entityId].Clear();
-        _cachedGetForTypeQueries.Clear();
+        var affectedTypes = new List<Type>();
+        foreach (var (type, entityComponents) in _componentStores)
+        {
+            if (!entityComponents.TryGetValue(entityId, out var list)) continue;
+            list.Clear();
+            entityComponents.Remove(entityId);
+            affectedTypes.Add(type);
+        }
+
+        foreach (var type in affectedTypes)
+            _cachedGetForTypeQueries.Remove(type);
     }
 
     public void RemoveComponentsByType(Type type)

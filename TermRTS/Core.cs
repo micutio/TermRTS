@@ -44,7 +44,7 @@ public class Core : IEventSink
 
     public IRenderer? Renderer { get; set; }
 
-    public bool IsParallelized { get; set; } = false;
+    public bool IsParallelized { get; init; } // = false;
 
     #endregion
 
@@ -100,8 +100,8 @@ public class Core : IEventSink
     {
         // Two-step simulation
         // Step 1: Iterate over each system and apply it to the respective entities.
+        // When IsParallelized is true, systems run with no ordering guarantee; use only for independent systems.
         if (IsParallelized)
-            // Is it possible to set the thread count for parallel processing?
             foreach (var sys in _systems.AsParallel())
                 sys.ProcessComponents(timeStepSizeMs, _components);
         else
