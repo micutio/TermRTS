@@ -99,7 +99,7 @@ public class StorageTest
         storage.AddComponent(c);
         var single = storage.GetSingleForType<ComponentA>();
         Assert.NotNull(single);
-        Assert.Equal(99, single!.EntityId);
+        Assert.Equal(99, single.EntityId);
     }
 
     [Theory]
@@ -135,7 +135,7 @@ public class StorageTest
         storage.AddComponent(c);
         var single = storage.GetSingleForTypeAndEntity<ComponentA>(42);
         Assert.NotNull(single);
-        Assert.Equal(42, single!.EntityId);
+        Assert.Equal(42, single.EntityId);
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class StorageTest
         storage.AddComponent(new ComponentA(1));
         var single = storage.GetSingleForTypeAndEntity<ComponentA>(1);
         Assert.NotNull(single);
-        Assert.Equal(1, single!.EntityId);
+        Assert.Equal(1, single.EntityId);
         Assert.Equal(2, storage.GetAllForTypeAndEntity<ComponentA>(1).Count());
     }
 
@@ -177,14 +177,14 @@ public class StorageTest
         storage.AddComponent(new ComponentA(2));
         var single = storage.GetSingleForType<ComponentA>();
         Assert.NotNull(single);
-        Assert.Equal(2, single!.EntityId);
+        Assert.Equal(2, single.EntityId);
     }
 
     [Fact]
     public void SwapBuffers_updates_read_value_of_double_buffered_component_after_call()
     {
         var storage = new MappedCollectionStorage();
-        var component = new ComponentWithDoubleBuffer(1, initial: 10);
+        var component = new ComponentWithDoubleBuffer(1, 10);
         storage.AddComponent(component);
 
         Assert.Equal(10, component.GetValue());
@@ -217,6 +217,13 @@ internal class ComponentWithDoubleBuffer : ComponentBase
         RegisterDoubleBufferedProperty(_value);
     }
 
-    public void SetValue(int v) => _value.Set(v);
-    public int GetValue() => _value.Get();
+    public void SetValue(int v)
+    {
+        _value.Set(v);
+    }
+
+    public int GetValue()
+    {
+        return _value.Get();
+    }
 }

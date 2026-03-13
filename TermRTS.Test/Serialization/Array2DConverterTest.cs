@@ -1,7 +1,7 @@
 using System.Text.Json;
 using TermRTS.Serialization;
 
-namespace TermRTS.Test;
+namespace TermRTS.Test.Serialization;
 
 public class Array2DConverterTest
 {

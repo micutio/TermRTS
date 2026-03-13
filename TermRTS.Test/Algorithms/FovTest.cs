@@ -1,6 +1,6 @@
 using TermRTS.Algorithms;
 
-namespace TermRTS.Test;
+namespace TermRTS.Test.Algorithms;
 
 public class FovTest
 {

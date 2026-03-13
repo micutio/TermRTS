@@ -1,14 +1,16 @@
 using System.Numerics;
 using TermRTS.Algorithms;
 
-namespace TermRTS.Test;
+namespace TermRTS.Test.Algorithms;
 
 public class AStarTest
 {
     private const float Epsilon = 1e-5f;
 
-    private static bool Vector2Near(Vector2 a, Vector2 b) =>
-        Math.Abs(a.X - b.X) < Epsilon && Math.Abs(a.Y - b.Y) < Epsilon;
+    private static bool Vector2Near(Vector2 a, Vector2 b)
+    {
+        return Math.Abs(a.X - b.X) < Epsilon && Math.Abs(a.Y - b.Y) < Epsilon;
+    }
 
     [Fact]
     public void ComputePath_empty_grid_returns_path_from_start_to_goal()
@@ -29,7 +31,7 @@ public class AStarTest
             var b = path[i + 1];
             var dx = Math.Abs(a.X - b.X);
             var dy = Math.Abs(a.Y - b.Y);
-            Assert.True(Math.Abs((dx + dy) - 1f) < Epsilon,
+            Assert.True(Math.Abs(dx + dy - 1f) < Epsilon,
                 $"Consecutive path cells must be adjacent: {a} -> {b}");
         }
     }
@@ -96,7 +98,8 @@ public class AStarTest
 
         Assert.NotNull(path);
         var fromGoal = astar.CameFrom(goal);
-        Assert.True(Vector2Near(fromGoal, new Vector2(1, 0)) || Vector2Near(fromGoal, new Vector2(0, 1)));
+        Assert.True(Vector2Near(fromGoal, new Vector2(1, 0)) ||
+                    Vector2Near(fromGoal, new Vector2(0, 1)));
         Assert.True(Vector2Near(start, astar.CameFrom(fromGoal)));
     }
 }

@@ -1,6 +1,6 @@
 using TermRTS.Data;
 
-namespace TermRTS.Test;
+namespace TermRTS.Test.Data;
 
 public class RingBufferTest
 {

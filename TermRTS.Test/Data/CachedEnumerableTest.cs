@@ -1,4 +1,4 @@
-namespace TermRTS.Test;
+namespace TermRTS.Test.Data;
 
 /// <summary>
 ///     Tests for CachedEnumerable behavior via MappedCollectionStorage.GetAllForType,

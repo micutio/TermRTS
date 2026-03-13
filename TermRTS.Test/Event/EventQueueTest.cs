@@ -1,6 +1,6 @@
 using TermRTS.Event;
 
-namespace TermRTS.Test;
+namespace TermRTS.Test.Event;
 
 public class EventQueueTest
 {

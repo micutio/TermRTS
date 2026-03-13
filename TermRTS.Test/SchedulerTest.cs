@@ -2,21 +2,6 @@ using TermRTS.Event;
 
 namespace TermRTS.Test;
 
-/// <summary>
-///     Sink that records all events it receives for assertion in tests.
-/// </summary>
-internal sealed class RecordingSink : IEventSink
-{
-    private readonly List<IEvent> _received = [];
-
-    public IReadOnlyList<IEvent> Received => _received;
-
-    public void ProcessEvent(IEvent evt)
-    {
-        _received.Add(evt);
-    }
-}
-
 public class SchedulerTest
 {
     [Fact]

@@ -2,81 +2,6 @@ using TermRTS.Event;
 
 namespace TermRTS.Test;
 
-public class NullRenderer : IRenderer
-{
-    #region IRenderer Members
-
-    public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
-        double howFarIntoNextFramePercent)
-    {
-    }
-
-    public void Shutdown()
-    {
-    }
-
-    void IRenderer.FinalizeRender()
-    {
-    }
-
-    #endregion
-}
-
-public class TestCoresSequentialAndParallel : TheoryData<Core>
-{
-    public TestCoresSequentialAndParallel()
-    {
-        Add(
-            new Core
-            {
-                Renderer = new NullRenderer(),
-                IsParallelized = true
-            });
-        Add(
-            new Core
-            {
-                Renderer = new NullRenderer(),
-                IsParallelized = false
-            });
-    }
-}
-
-public class NullEntity : EntityBase
-{
-}
-
-public class TerminatorSystem(SchedulerEventQueue queue, int remainingTicks) : ISimSystem
-{
-    private int _remainingTicks = remainingTicks;
-
-    #region ISimSystem Members
-
-    public void ProcessComponents(ulong timeStepSize, in IReadonlyStorage storage)
-    {
-        Interlocked.Decrement(ref _remainingTicks);
-
-        if (_remainingTicks != 0) return;
-
-        queue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
-    }
-
-    #endregion
-}
-
-/// <summary>
-/// A system that wastes a certain amount of time to simulate work.
-/// </summary>
-public class BusySystem(double workTimeMs) : ISimSystem
-{
-    private readonly TimeSpan _workTime = TimeSpan.FromMilliseconds(workTimeMs);
-
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
-    {
-        var start = DateTime.Now;
-        while (DateTime.Now - start < _workTime) ;
-    }
-}
-
 public class EngineTest
 {
     [Theory]
@@ -108,9 +33,9 @@ public class EngineTest
 
         core.AddEntity(new NullEntity());
 
-        // Run it
+        // Run it (with timeout so a stuck loop fails instead of hanging CI)
         var simulation = new Simulation(scheduler);
-        simulation.Run();
+        Shared.RunWithTimeout(simulation, TimeSpan.FromSeconds(10));
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         const ulong finalTime = 12 * 16;
@@ -133,9 +58,9 @@ public class EngineTest
 
         core.AddEntity(new NullEntity());
 
-        // Run it
+        // Run it (with timeout so a stuck loop fails instead of hanging CI)
         var simulation = new Simulation(scheduler);
-        simulation.Run();
+        Shared.RunWithTimeout(simulation, TimeSpan.FromSeconds(10));
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         const ulong finalTime = 12 * 16;
@@ -150,9 +75,9 @@ public class EngineTest
         var scheduler = new Scheduler(core);
         scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
 
-        // Run it
+        // Run it (with timeout so a stuck loop fails instead of hanging CI)
         var simulation = new Simulation(scheduler);
-        simulation.Run();
+        Shared.RunWithTimeout(simulation, TimeSpan.FromSeconds(10));
 
         // It should terminate after 12 ticks of 16ms simulated time each.
         const ulong finalTime = 12 * 16;

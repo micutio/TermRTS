@@ -4,7 +4,7 @@ using System.Text.Json;
 using TermRTS.Serialization;
 using Xunit.Abstractions;
 
-namespace TermRTS.Test;
+namespace TermRTS.Test.Serialization;
 
 public interface IAnimal
 {
