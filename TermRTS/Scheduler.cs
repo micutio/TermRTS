@@ -160,17 +160,7 @@ public class Scheduler
 
         var renderTime = _renderTimer.Elapsed;
 
-        // Step 4: Optional pausing for consistent tick times ////////////////////////////////
-        // Get loop time after making up for previous lag
-        var caughtUpLoopTime = _lag + renderTime + tickElapsed;
-
-        // If we spent longer than our allotted time, skip right ahead...
-        if (caughtUpLoopTime >= _msPerUpdate) return;
-
-        // ...otherwise wait until the next frame is due.
-        Pause(_msPerUpdate - caughtUpLoopTime);
-
-        // Step 5: Optional profiling ////////////////////////////////////////////////////////
+        // Optional profiling ////////////////////////////////////////////////////////
 #if DEBUG
         // Record measurements
         var tickTimeMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
@@ -183,6 +173,16 @@ public class Scheduler
             _schedulerEventQueue.EnqueueEvent(
                 ScheduledEvent.From(new Profile(_profiler.ToString())));
 #endif
+
+        // Step 4: Optional pausing for consistent tick times ////////////////////////////////
+        // Get loop time after making up for previous lag
+        var caughtUpLoopTime = _lag + renderTime + tickElapsed;
+
+        // If we spent longer than our allotted time, skip right ahead...
+        if (caughtUpLoopTime >= _msPerUpdate) return;
+
+        // ...otherwise wait until the next frame is due.
+        Pause(_msPerUpdate - caughtUpLoopTime);
     }
 
     #endregion
