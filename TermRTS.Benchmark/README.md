@@ -30,6 +30,19 @@ Results are written to `BenchmarkDotNet.Artifacts/` (gitignored).
 - **SchedulerStepTickLoadBenchmark** – Step time with K BusySystems (0.1 ms each); `[Params(1, 4, 8, 16)]`.
 - **CoreTickOnlyBenchmark** – `Core.Tick(16)` only (no scheduler/render); entities and no-op systems via `[Params]`.
 - **SchedulerStepHeavyRenderBenchmark** – Step time when renderer sleeps 2/5/10 ms per frame.
+- **StorageComparisonBenchmarks** – Compares `MappedCollectionStorage` vs `ContiguousStorage` for all public `IStorage` / `IReadonlyStorage` methods. Both storages are filled with the same data; `[Params(100, 1_000, 10_000)]` for component count. Covers: `GetAllForEntity`, `GetAllForType`, `GetListForType`, `GetSingleForType`, `TryGetSingleForType`, `GetAllForTypeAndEntity`, `GetSingleForTypeAndEntity`, `TryGetSingleForTypeAndEntity`, `SwapBuffers`, `AddComponent`, `RemoveComponentsByEntity`, `RemoveComponentsByType`, `RemoveComponentsByEntityAndType`.
+
+### Running storage comparison only
+
+```bash
+dotnet run -c Release --project TermRTS.Benchmark -- --filter "*StorageComparison*"
+```
+
+Quick run (short job):
+
+```bash
+dotnet run -c Release --project TermRTS.Benchmark -- --filter "*StorageComparison*" --job short
+```
 
 ## Extending
 

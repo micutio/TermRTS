@@ -333,3 +333,170 @@ public class MappedCollectionStorage : IStorage
         return All().ToList();
     }
 }
+
+#region ContiguousStorage (Option B)
+
+/// <summary>
+///     Storage with one contiguous list per component type for cache-friendly by-type iteration.
+///     By-entity and by-type-and-entity lookups scan the list. Implements <see cref="IStorage" />.
+/// </summary>
+public class ContiguousStorage : IStorage
+{
+    private static readonly ILog Log = LogManager.GetLogger(typeof(ContiguousStorage));
+    private readonly Dictionary<Type, List<ComponentBase>> _componentStores = new();
+
+    public IEnumerable<ComponentBase> GetAllForEntity(int entityId)
+    {
+        foreach (var list in _componentStores.Values)
+        foreach (var component in list)
+            if (component.EntityId == entityId)
+                yield return component;
+    }
+
+    public IEnumerable<T> GetAllForType<T>()
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var list))
+            return [];
+        return list.Cast<T>();
+    }
+
+    public IReadOnlyList<T> GetListForType<T>()
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var list))
+            return Array.Empty<T>();
+        return new ComponentListAdapter<T>(list);
+    }
+
+    /// <summary>
+    ///     Returns a read-only span over components of type T (snapshot; one allocation per call).
+    ///     Valid only until next write. Use for cache-friendly iteration when you have ContiguousStorage.
+    /// </summary>
+    public ReadOnlySpan<T> GetSpanForType<T>() where T : class
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var list) || list.Count == 0)
+            return ReadOnlySpan<T>.Empty;
+        var arr = new T[list.Count];
+        for (var i = 0; i < list.Count; i++)
+            arr[i] = (T)(object)list[i];
+        return new ReadOnlySpan<T>(arr);
+    }
+
+    public T? GetSingleForType<T>()
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var list) || list.Count == 0)
+        {
+            Log.Debug($"Cannot find component of Type {typeof(T)}");
+            return default;
+        }
+        return (T?)(object)list[0];
+    }
+
+    public bool TryGetSingleForType<T>(out T? component)
+    {
+        component = default;
+        if (!_componentStores.TryGetValue(typeof(T), out var list) || list.Count == 0)
+            return false;
+        component = (T?)(object)list[0];
+        return true;
+    }
+
+    public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var list))
+            return [];
+        return list.Where(c => c.EntityId == entityId).Cast<T>();
+    }
+
+    public T? GetSingleForTypeAndEntity<T>(int entityId)
+    {
+        if (!_componentStores.TryGetValue(typeof(T), out var list))
+        {
+            Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
+            return default;
+        }
+        foreach (var c in list)
+            if (c.EntityId == entityId)
+                return (T?)(object)c;
+        Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
+        return default;
+    }
+
+    public bool TryGetSingleForTypeAndEntity<T>(int entityId, out T? component)
+    {
+        component = default;
+        if (!_componentStores.TryGetValue(typeof(T), out var list))
+            return false;
+        foreach (var c in list)
+            if (c.EntityId == entityId)
+            {
+                component = (T?)(object)c;
+                return true;
+            }
+        return false;
+    }
+
+    public void SwapBuffers()
+    {
+        foreach (var list in _componentStores.Values)
+        foreach (var component in list)
+            component.SwapBuffers();
+    }
+
+    public void AddComponent(ComponentBase component)
+    {
+        var type = component.GetType();
+        if (!_componentStores.TryGetValue(type, out var list))
+        {
+            list = [];
+            _componentStores[type] = list;
+        }
+        list.Add(component);
+    }
+
+    public void AddComponents(IEnumerable<ComponentBase> components)
+    {
+        foreach (var component in components) AddComponent(component);
+    }
+
+    public void RemoveComponentsByEntity(int entityId)
+    {
+        foreach (var list in _componentStores.Values)
+            list.RemoveAll(c => c.EntityId == entityId);
+    }
+
+    public void RemoveComponentsByType(Type type)
+    {
+        _componentStores.Remove(type);
+    }
+
+    public void RemoveComponentsByEntityAndType(int entityId, Type type)
+    {
+        if (!_componentStores.TryGetValue(type, out var list))
+            return;
+        list.RemoveAll(c => c.EntityId == entityId);
+    }
+
+    public void Clear()
+    {
+        _componentStores.Clear();
+    }
+
+    internal List<ComponentBase> GetSerializableComponents()
+    {
+        var result = new List<ComponentBase>();
+        foreach (var list in _componentStores.Values)
+            result.AddRange(list);
+        return result;
+    }
+}
+
+/// <summary>Thin read-only list view over List&lt;ComponentBase&gt; for GetListForType.</summary>
+internal sealed class ComponentListAdapter<T>(List<ComponentBase> list) : IReadOnlyList<T>
+{
+    public int Count => list.Count;
+    public T this[int index] => (T)(object)list[index];
+    public IEnumerator<T> GetEnumerator() => list.Cast<T>().GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+#endregion
