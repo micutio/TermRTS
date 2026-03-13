@@ -258,6 +258,40 @@ public class StorageTest
         Assert.Equal(e3.Id, storage.GetSingleForType<ComponentA>()!.EntityId);
     }
 
+    // --- GetListForType (list view API) ---
+
+    [Fact]
+    public void GetListForType_returns_empty_list_when_no_components_of_type()
+    {
+        var storage = new MappedCollectionStorage();
+        var list = storage.GetListForType<ComponentA>();
+        Assert.NotNull(list);
+        Assert.Empty(list);
+    }
+
+    [Theory]
+    [ClassData(typeof(StorageTestData))]
+    public void GetListForType_matches_GetAllForType_count_and_content(IReadonlyStorage storage)
+    {
+        var asList = storage.GetListForType<ComponentA>();
+        var asEnum = storage.GetAllForType<ComponentA>().ToList();
+        Assert.Equal(asEnum.Count, asList.Count);
+        for (var i = 0; i < asList.Count; i++)
+            Assert.Same(asEnum[i], asList[i]);
+    }
+
+    [Fact]
+    public void GetListForType_is_invalidated_after_AddComponent()
+    {
+        var storage = new MappedCollectionStorage();
+        storage.AddComponent(new ComponentA(1));
+        var first = storage.GetListForType<ComponentA>();
+        Assert.Single(first);
+        storage.AddComponent(new ComponentA(2));
+        var second = storage.GetListForType<ComponentA>();
+        Assert.Equal(2, second.Count);
+    }
+
     // --- TryGetSingle (plan §3) ---
 
     [Fact]

@@ -17,6 +17,14 @@ public interface IReadonlyStorage
     IEnumerable<ComponentBase> GetAllForEntity(int entityId);
 
     IEnumerable<T> GetAllForType<T>();
+
+    /// <summary>
+    ///     Returns a read-only view of components of type T. The view is valid only until the next
+    ///     write to storage (AddComponent, RemoveComponentsByEntity, etc.). Do not hold across tick
+    ///     boundaries or after any mutation. Use when a system only needs to iterate once per call.
+    /// </summary>
+    IReadOnlyList<T> GetListForType<T>();
+
     T? GetSingleForType<T>();
 
     /// <summary>
@@ -73,6 +81,7 @@ public class MappedCollectionStorage : IStorage
     private static readonly ILog Log = LogManager.GetLogger(typeof(MappedCollectionStorage));
 
     private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
+    private readonly Dictionary<Type, object> _listCache = new();
     private readonly Dictionary<Type, EntityComponents> _componentStores = new();
 
     #endregion
@@ -118,10 +127,40 @@ public class MappedCollectionStorage : IStorage
         return query.Cast<T>();
     }
 
+    public IReadOnlyList<T> GetListForType<T>()
+    {
+        var type = typeof(T);
+        if (_listCache.TryGetValue(type, out var cached) && cached is IReadOnlyList<T> listView)
+            return listView;
+
+        if (!_componentStores.TryGetValue(type, out var components))
+        {
+            var empty = new List<T>(0);
+            _listCache[type] = empty;
+            return empty;
+        }
+
+        var result = new List<T>();
+        foreach (var list in components.Values)
+        foreach (var c in list)
+            result.Add((T)(object)c);
+        _listCache[type] = result;
+        return result;
+    }
+
     public T? GetSingleForType<T>()
     {
-        var first = GetAllForType<T>().FirstOrDefault();
-        if (first is not null) return first;
+        if (!_componentStores.TryGetValue(typeof(T), out var entityComponents))
+        {
+            Log.Debug($"Cannot find component of Type {typeof(T)}");
+            return default;
+        }
+
+        foreach (var list in entityComponents.Values)
+        {
+            if (list.Count > 0)
+                return (T?)(object)list[0];
+        }
 
         Log.Debug($"Cannot find component of Type {typeof(T)}");
         return default;
@@ -129,8 +168,20 @@ public class MappedCollectionStorage : IStorage
 
     public bool TryGetSingleForType<T>(out T? component)
     {
-        component = GetAllForType<T>().FirstOrDefault();
-        return component is not null;
+        component = default;
+        if (!_componentStores.TryGetValue(typeof(T), out var entityComponents))
+            return false;
+
+        foreach (var list in entityComponents.Values)
+        {
+            if (list.Count > 0)
+            {
+                component = (T?)(object)list[0];
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
@@ -145,17 +196,27 @@ public class MappedCollectionStorage : IStorage
 
     public T? GetSingleForTypeAndEntity<T>(int entityId)
     {
-        var first = GetAllForTypeAndEntity<T>(entityId).FirstOrDefault();
-        if (first is not null) return first;
+        if (!_componentStores.TryGetValue(typeof(T), out var entityComponents)
+            || !entityComponents.TryGetValue(entityId, out var list)
+            || list.Count == 0)
+        {
+            Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
+            return default;
+        }
 
-        Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
-        return default;
+        return (T?)(object)list[0];
     }
 
     public bool TryGetSingleForTypeAndEntity<T>(int entityId, out T? component)
     {
-        component = GetAllForTypeAndEntity<T>(entityId).FirstOrDefault();
-        return component is not null;
+        component = default;
+        if (!_componentStores.TryGetValue(typeof(T), out var entityComponents)
+            || !entityComponents.TryGetValue(entityId, out var list)
+            || list.Count == 0)
+            return false;
+
+        component = (T?)(object)list[0];
+        return true;
     }
 
     public void SwapBuffers()
@@ -199,6 +260,7 @@ public class MappedCollectionStorage : IStorage
 
         list.Add(component);
         _cachedGetForTypeQueries.Remove(type);
+        _listCache.Remove(type);
     }
 
     public void AddComponents(IEnumerable<ComponentBase> components)
@@ -218,13 +280,17 @@ public class MappedCollectionStorage : IStorage
         }
 
         foreach (var type in affectedTypes)
+        {
             _cachedGetForTypeQueries.Remove(type);
+            _listCache.Remove(type);
+        }
     }
 
     public void RemoveComponentsByType(Type type)
     {
         _componentStores.Remove(type);
         _cachedGetForTypeQueries.Remove(type);
+        _listCache.Remove(type);
     }
 
     public void RemoveComponentsByEntityAndType(int entityId, Type type)
@@ -237,6 +303,7 @@ public class MappedCollectionStorage : IStorage
 
         componentsByTypeAndEntity.Clear();
         _cachedGetForTypeQueries.Remove(type);
+        _listCache.Remove(type);
     }
 
     #endregion
@@ -247,6 +314,7 @@ public class MappedCollectionStorage : IStorage
     {
         _componentStores.Clear();
         _cachedGetForTypeQueries.Clear();
+        _listCache.Clear();
     }
 
     #endregion
