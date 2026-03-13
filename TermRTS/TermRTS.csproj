@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="TermRTS.Test" />
+        <InternalsVisibleTo Include="TermRTS.Benchmark" />
     </ItemGroup>
 
     <ItemGroup>
