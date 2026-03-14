@@ -222,7 +222,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        if (!componentStorage.TryGetSingleForType<WorldComponent>(out var world) || world == null) return;
+        if (!componentStorage.TryGetSingleForType<WorldComponent>(out var world) ||
+            world == null) return;
         if (!componentStorage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
 
         switch (MapRenderMode)

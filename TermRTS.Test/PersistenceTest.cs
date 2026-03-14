@@ -90,7 +90,8 @@ public class PersistenceTest
         var scheduler = NewScheduler();
         var persistence = new Persistence();
 
-        var success = persistence.PutSimStateToJson(ref scheduler, out var jsonStr, out var response);
+        var success =
+            persistence.PutSimStateToJson(ref scheduler, out var jsonStr, out var response);
 
         Assert.True(success);
         Assert.NotNull(jsonStr);

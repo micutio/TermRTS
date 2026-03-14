@@ -229,7 +229,8 @@ public class StorageTest
     }
 
     [Fact]
-    public void Cache_invalidation_after_RemoveComponentsByEntity_no_enumeration_returns_that_entity_components()
+    public void
+        Cache_invalidation_after_RemoveComponentsByEntity_no_enumeration_returns_that_entity_components()
     {
         var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
@@ -333,7 +334,8 @@ public class StorageTest
 
     [Theory]
     [ClassData(typeof(StorageTestData))]
-    public void TryGetSingleForType_returns_true_and_first_when_multiple_exist(IReadonlyStorage storage)
+    public void TryGetSingleForType_returns_true_and_first_when_multiple_exist(
+        IReadonlyStorage storage)
     {
         var found = storage.TryGetSingleForType<ComponentA>(out var component);
         Assert.True(found);

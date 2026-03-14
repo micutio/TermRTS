@@ -158,10 +158,8 @@ public class MappedCollectionStorage : IStorage
         }
 
         foreach (var list in entityComponents.Values)
-        {
             if (list.Count > 0)
                 return (T?)(object)list[0];
-        }
 
         Log.Debug($"Cannot find component of Type {typeof(T)}");
         return default;
@@ -174,13 +172,11 @@ public class MappedCollectionStorage : IStorage
             return false;
 
         foreach (var list in entityComponents.Values)
-        {
             if (list.Count > 0)
             {
                 component = (T?)(object)list[0];
                 return true;
             }
-        }
 
         return false;
     }
@@ -350,13 +346,10 @@ public class ContiguousStorage : IStorage
     public IEnumerable<ComponentBase> GetAllForEntity(int entityId)
     {
         foreach (var (type, indicesByEntity) in _entityIndices)
-        {
-            if (indicesByEntity.TryGetValue(entityId, out var indices) && _componentStores.TryGetValue(type, out var list))
-            {
+            if (indicesByEntity.TryGetValue(entityId, out var indices) &&
+                _componentStores.TryGetValue(type, out var list))
                 foreach (var index in indices)
                     yield return list[index];
-            }
-        }
     }
 
     public IEnumerable<T> GetAllForType<T>()
@@ -394,6 +387,7 @@ public class ContiguousStorage : IStorage
             Log.Debug($"Cannot find component of Type {typeof(T)}");
             return default;
         }
+
         return (T?)(object)list[0];
     }
 
@@ -409,7 +403,8 @@ public class ContiguousStorage : IStorage
     public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
     {
         var type = typeof(T);
-        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indices))
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) ||
+            !indicesByEntity.TryGetValue(entityId, out var indices))
             return [];
         if (!_componentStores.TryGetValue(type, out var list))
             return [];
@@ -419,16 +414,19 @@ public class ContiguousStorage : IStorage
     public T? GetSingleForTypeAndEntity<T>(int entityId)
     {
         var type = typeof(T);
-        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) ||
+            !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
         {
             Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
             return default;
         }
+
         if (!_componentStores.TryGetValue(type, out var list))
         {
             Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
             return default;
         }
+
         return (T?)(object)list[indices[0]];
     }
 
@@ -436,7 +434,8 @@ public class ContiguousStorage : IStorage
     {
         component = default;
         var type = typeof(T);
-        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) ||
+            !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
             return false;
         if (!_componentStores.TryGetValue(type, out var list))
             return false;
@@ -459,6 +458,7 @@ public class ContiguousStorage : IStorage
             list = [];
             _componentStores[type] = list;
         }
+
         list.Add(component);
 
         // Update entity indices
@@ -467,11 +467,13 @@ public class ContiguousStorage : IStorage
             indicesByEntity = new Dictionary<int, List<int>>();
             _entityIndices[type] = indicesByEntity;
         }
+
         if (!indicesByEntity.TryGetValue(component.EntityId, out var indices))
         {
             indices = [];
             indicesByEntity[component.EntityId] = indices;
         }
+
         indices.Add(list.Count - 1);
     }
 
@@ -484,7 +486,8 @@ public class ContiguousStorage : IStorage
     {
         foreach (var (type, indicesByEntity) in _entityIndices)
         {
-            if (!indicesByEntity.TryGetValue(entityId, out var indicesToRemove) || !_componentStores.TryGetValue(type, out var list))
+            if (!indicesByEntity.TryGetValue(entityId, out var indicesToRemove) ||
+                !_componentStores.TryGetValue(type, out var list))
                 continue;
 
             // Sort indices descending to remove from end first
@@ -498,10 +501,8 @@ public class ContiguousStorage : IStorage
                 {
                     if (otherEntityId == entityId) continue;
                     for (var i = 0; i < otherIndices.Count; i++)
-                    {
                         if (otherIndices[i] > index)
                             otherIndices[i]--;
-                    }
                 }
             }
 
@@ -517,7 +518,8 @@ public class ContiguousStorage : IStorage
 
     public void RemoveComponentsByEntityAndType(int entityId, Type type)
     {
-        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indicesToRemove))
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) ||
+            !indicesByEntity.TryGetValue(entityId, out var indicesToRemove))
             return;
         if (!_componentStores.TryGetValue(type, out var list))
             return;
@@ -533,10 +535,8 @@ public class ContiguousStorage : IStorage
             {
                 if (otherEntityId == entityId) continue;
                 for (var i = 0; i < otherIndices.Count; i++)
-                {
                     if (otherIndices[i] > index)
                         otherIndices[i]--;
-                }
             }
         }
 
@@ -563,8 +563,16 @@ internal sealed class ComponentListAdapter<T>(List<ComponentBase> list) : IReadO
 {
     public int Count => list.Count;
     public T this[int index] => (T)(object)list[index];
-    public IEnumerator<T> GetEnumerator() => list.Cast<T>().GetEnumerator();
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        return list.Cast<T>().GetEnumerator();
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
 }
 
 #endregion

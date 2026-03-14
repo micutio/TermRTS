@@ -106,6 +106,7 @@ public class CoreTest
         Assert.Empty(spy.Storage.GetAllForType<ComponentB>()); // not yet visible
         core.Tick(1);
         Assert.Single(spy.Storage.GetAllForType<ComponentB>().ToList());
-        Assert.Equal(entity.Id, spy.Storage.GetSingleForTypeAndEntity<ComponentB>(entity.Id)!.EntityId);
+        Assert.Equal(entity.Id,
+            spy.Storage.GetSingleForTypeAndEntity<ComponentB>(entity.Id)!.EntityId);
     }
 }

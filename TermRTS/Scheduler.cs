@@ -243,7 +243,8 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
-        while (_schedulerEventQueue.Instance.TryTakeIf(priority => priority <= TimeMs, out var eventItem))
+        while (_schedulerEventQueue.Instance.TryTakeIf(priority => priority <= TimeMs,
+                   out var eventItem))
         {
             var (evt, _) = eventItem;
             if (!_eventSinks.TryGetValue(evt.EvtType, out var sinks))
