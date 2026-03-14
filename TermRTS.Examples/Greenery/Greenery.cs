@@ -85,7 +85,7 @@ public class Greenery : IRunnableExample
         simulation.IsSystemLogEnabled = true;
 
         // Graceful shutdown on canceling via CTRL+C.
-        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));

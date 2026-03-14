@@ -77,11 +77,11 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     public void ProcessEvent(IEvent evt)
     {
 #if DEBUG
-        if (evt is Event<Profile> (var profileContent)) _profileOutput = profileContent.ProfileInfo;
+        if (evt is Event<Profile>(var profileContent)) _profileOutput = profileContent.ProfileInfo;
 #endif
 
         // TODO: Implement handling of focus requests
-        if (evt is Event<ConsoleKeyInfo> (var keyInfo))
+        if (evt is Event<ConsoleKeyInfo>(var keyInfo))
         {
             _textbox.HandleKeyInput(in keyInfo);
             if (!_textbox.IsOngoingInput) _mapview.HandleKeyInput(in keyInfo);

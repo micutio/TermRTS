@@ -1,4 +1,4 @@
-﻿namespace TermRTS;
+namespace TermRTS;
 
 /// <summary>
 ///     The profiler can sample snapshots of simulation tick and render times to compile an overview

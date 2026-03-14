@@ -39,7 +39,7 @@ internal class Renderer : IRenderer, IEventSink
     /// <inheritdoc />
     public void ProcessEvent(IEvent evt)
     {
-        if (evt is not Event<Profile> (var profile)) return;
+        if (evt is not Event<Profile>(var profile)) return;
         _profileOutput = profile.ProfileInfo;
     }
 

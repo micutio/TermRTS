@@ -104,9 +104,9 @@ internal class EntityGenerator
         GenerateChips();
         GenerateBuses();
 
-        entities = [.._chipEntities];
+        entities = [.. _chipEntities];
         entities.AddRange(_busEntities);
-        components = [.._generatedChipComponents];
+        components = [.. _generatedChipComponents];
         components.AddRange(_generatedBusComponents);
     }
 
@@ -145,8 +145,8 @@ internal class EntityGenerator
             _chipEntities.Add(chipEntity);
 
             for (var j = Convert.ToInt32(newChip.Position1.Y); j <= newChip.Position2.Y; j += 1)
-            for (var i = Convert.ToInt32(newChip.Position1.X); i <= newChip.Position2.X; i += 1)
-                Occupy(i, j);
+                for (var i = Convert.ToInt32(newChip.Position1.X); i <= newChip.Position2.X; i += 1)
+                    Occupy(i, j);
         }
 
         // order chips by size, largest first

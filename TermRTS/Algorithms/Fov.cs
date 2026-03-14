@@ -1,4 +1,4 @@
-﻿namespace TermRTS.Algorithms;
+namespace TermRTS.Algorithms;
 
 public record struct Pos(int X, int Y);
 

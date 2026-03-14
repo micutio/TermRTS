@@ -255,12 +255,12 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
 
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-        {
-            if (_cachedFov[x, y] == fov.Cells[x, y]) continue;
-            IsRequireReRender = true;
-            _cachedFov[x, y] = fov.Cells[x, y];
-        }
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                if (_cachedFov[x, y] == fov.Cells[x, y]) continue;
+                IsRequireReRender = true;
+                _cachedFov[x, y] = fov.Cells[x, y];
+            }
 
         foreach (var drone in componentStorage.GetAllForType<DroneComponent>())
         {
@@ -275,7 +275,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 }
                 else
                 {
-                    _cachedDronePaths.Add(drone.EntityId, [..drone.CachedPathVisual]);
+                    _cachedDronePaths.Add(drone.EntityId, [.. drone.CachedPathVisual]);
                     IsRequireReRender = true;
                 }
             }
@@ -293,43 +293,43 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         // Step 1: Render World
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
-        for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
-        {
-            var (elevation, c) = _cachedWorld[x, y];
-            var isFov = _cachedFov[x, y];
-            var colors = MapRenderMode switch
+            for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
             {
-                MapRenderMode.ElevationColor => ColorsElevation,
-                MapRenderMode.HeatMapColor => ColorsElevation,
-                MapRenderMode.ContourColor => ColorsElevation,
-                MapRenderMode.TerrainColor => ColorsElevation,
-                MapRenderMode.ReliefColor => ColorsElevation,
-                MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
-                MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
-                MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
-                MapRenderMode.TerrainMonochrome => ColorsElevationMonochrome,
-                MapRenderMode.ReliefMonochrome => ColorsElevationMonochrome,
-                _ => throw new ArgumentOutOfRangeException()
-            };
-            var (colFg, colBg) = colors[elevation];
-            _canvas.Set(
-                X + WorldToViewportX(x) + _spaceForScaleLeft,
-                Y + WorldToViewportY(y) + SpaceForScaleTop,
-                c,
-                isFov ? colFg : DefaultFg,
-                isFov ? colBg : DefaultBg);
-        }
+                var (elevation, c) = _cachedWorld[x, y];
+                var isFov = _cachedFov[x, y];
+                var colors = MapRenderMode switch
+                {
+                    MapRenderMode.ElevationColor => ColorsElevation,
+                    MapRenderMode.HeatMapColor => ColorsElevation,
+                    MapRenderMode.ContourColor => ColorsElevation,
+                    MapRenderMode.TerrainColor => ColorsElevation,
+                    MapRenderMode.ReliefColor => ColorsElevation,
+                    MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
+                    MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
+                    MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
+                    MapRenderMode.TerrainMonochrome => ColorsElevationMonochrome,
+                    MapRenderMode.ReliefMonochrome => ColorsElevationMonochrome,
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+                var (colFg, colBg) = colors[elevation];
+                _canvas.Set(
+                    X + WorldToViewportX(x) + _spaceForScaleLeft,
+                    Y + WorldToViewportY(y) + SpaceForScaleTop,
+                    c,
+                    isFov ? colFg : DefaultFg,
+                    isFov ? colBg : DefaultBg);
+            }
 
         // Step 2: Render drones and drone paths
         foreach (var path in _cachedDronePaths.Values)
-        foreach (var (pathX, pathY, pathCol) in path)
-            if (IsInCamera(pathX, pathY))
-                _canvas.Set(
-                    X + WorldToViewportX(pathX) + _spaceForScaleLeft,
-                    Y + WorldToViewportY(pathY) + SpaceForScaleTop,
-                    pathCol,
-                    ConsoleColor.Red,
-                    DefaultBg);
+            foreach (var (pathX, pathY, pathCol) in path)
+                if (IsInCamera(pathX, pathY))
+                    _canvas.Set(
+                        X + WorldToViewportX(pathX) + _spaceForScaleLeft,
+                        Y + WorldToViewportY(pathY) + SpaceForScaleTop,
+                        pathCol,
+                        ConsoleColor.Red,
+                        DefaultBg);
 
         foreach (var pos in _cachedDronePositions.Values)
         {
@@ -379,7 +379,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt is Event<MapRenderMode> (var renderMode)) MapRenderMode = renderMode;
+        if (evt is Event<MapRenderMode>(var renderMode)) MapRenderMode = renderMode;
     }
 
     #endregion
@@ -537,13 +537,13 @@ public class MapView : KeyInputProcessorBase, IEventSink
         // Vertical
         // tick marks
         for (var y = 0; y <= ViewportHeight; y++)
-        for (var x = 0; x < _spaceForScaleLeft; x++)
-        {
-            var worldY = ViewportToWorldY(y);
-            var isTick = worldY > 0 && worldY % 5 == 0;
-            var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
-        }
+            for (var x = 0; x < _spaceForScaleLeft; x++)
+            {
+                var worldY = ViewportToWorldY(y);
+                var isTick = worldY > 0 && worldY % 5 == 0;
+                var fg = isTick ? DefaultFg : DefaultBg;
+                _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
+            }
 
         // tick labels
         for (var y = 0; y <= ViewportHeight; y++)
@@ -559,91 +559,91 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private void SetElevationVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-            _cachedWorld[x, y] = (world.Cells[x, y], MarkersElevation[world.Cells[x, y]]);
+            for (var x = 0; x < _worldWidth; x++)
+                _cachedWorld[x, y] = (world.Cells[x, y], MarkersElevation[world.Cells[x, y]]);
     }
 
     private void SetHeatmapColorVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-            _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapColor[world.Cells[x, y]]);
+            for (var x = 0; x < _worldWidth; x++)
+                _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapColor[world.Cells[x, y]]);
     }
 
     private void SetHeatmapMonochromeVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-            _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapMonochrome[world.Cells[x, y]]);
+            for (var x = 0; x < _worldWidth; x++)
+                _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapMonochrome[world.Cells[x, y]]);
     }
 
     private void SetTerrainVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-            _cachedWorld[x, y] = (world.Cells[x, y], MarkersTerrain[world.Cells[x, y]]);
+            for (var x = 0; x < _worldWidth; x++)
+                _cachedWorld[x, y] = (world.Cells[x, y], MarkersTerrain[world.Cells[x, y]]);
     }
 
     private void SetReliefVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-        {
-            char c;
-            if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] &&
-                world.Cells[x, y] > 3)
-                c = Cp437.Slash;
-            else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] &&
-                     world.Cells[x, y] > 3)
-                c = Cp437.BackSlash;
-            else if (world.Cells[x, y] <= 3)
-                c = '~';
-            else
-                c = Cp437.Interpunct;
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                char c;
+                if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] &&
+                    world.Cells[x, y] > 3)
+                    c = Cp437.Slash;
+                else if (IsInBounds(x + 1, y) && world.Cells[x + 1, y] < world.Cells[x, y] &&
+                         world.Cells[x, y] > 3)
+                    c = Cp437.BackSlash;
+                else if (world.Cells[x, y] <= 3)
+                    c = '~';
+                else
+                    c = Cp437.Interpunct;
 
-            _cachedWorld[x, y] = (world.Cells[x, y], c);
-        }
+                _cachedWorld[x, y] = (world.Cells[x, y], c);
+            }
     }
 
     private void SetContourLines(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-        {
-            var cell = world.Cells[x, y];
-            if (cell < 3)
+            for (var x = 0; x < _worldWidth; x++)
             {
-                _cachedWorld[x, y] = (cell, Cp437.WhiteSpace);
-                continue;
+                var cell = world.Cells[x, y];
+                if (cell < 3)
+                {
+                    _cachedWorld[x, y] = (cell, Cp437.WhiteSpace);
+                    continue;
+                }
+
+                var c = GetCharFromCliffs(cell, x, y, world);
+                _cachedWorld[x, y] = (cell, c);
             }
 
-            var c = GetCharFromCliffs(cell, x, y, world);
-            _cachedWorld[x, y] = (cell, c);
-        }
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var cell = world.Cells[x, y];
+                if (cell < 3) continue;
+
+                if (_cachedWorld[x, y].Item2 == 'X') continue;
+                var c = GetCliffAdjacentChar(cell, x, y, world);
+
+                _cachedWorld[x, y].Item2 = c;
+            }
 
         for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-        {
-            var cell = world.Cells[x, y];
-            if (cell < 3) continue;
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var cell = world.Cells[x, y];
+                if (cell < 3) continue;
 
-            if (_cachedWorld[x, y].Item2 == 'X') continue;
-            var c = GetCliffAdjacentChar(cell, x, y, world);
+                if (_cachedWorld[x, y].Item2 != 'X') continue;
+                var c = GetCliffChar(cell, x, y, world);
 
-            _cachedWorld[x, y].Item2 = c;
-        }
-
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
-        {
-            var cell = world.Cells[x, y];
-            if (cell < 3) continue;
-
-            if (_cachedWorld[x, y].Item2 != 'X') continue;
-            var c = GetCliffChar(cell, x, y, world);
-
-            _cachedWorld[x, y].Item2 = c;
-        }
+                _cachedWorld[x, y].Item2 = c;
+            }
     }
 
     private char GetCharFromCliffs(byte cell, int x, int y, WorldComponent world)

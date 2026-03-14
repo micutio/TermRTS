@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 namespace TermRTS.Examples.Greenery.Event;
 

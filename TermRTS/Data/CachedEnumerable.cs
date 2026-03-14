@@ -1,4 +1,4 @@
-﻿namespace TermRTS.Data;
+namespace TermRTS.Data;
 
 internal static class CachedEnumerable
 {
@@ -12,7 +12,7 @@ internal static class CachedEnumerable
     private static IEnumerable<T> ToCachedEnumerableHelper<T>(IEnumerator<T> enumerator,
         List<T> cache)
     {
-        for (var i = 0;; i++)
+        for (var i = 0; ; i++)
             if (i < cache.Count)
             {
                 yield return cache[i];

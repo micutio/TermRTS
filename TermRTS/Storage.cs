@@ -143,8 +143,8 @@ public class MappedCollectionStorage : IStorage
 
         var result = new List<T>();
         foreach (var list in components.Values)
-        foreach (var c in list)
-            result.Add((T)(object)c);
+            foreach (var c in list)
+                result.Add((T)(object)c);
         _listCache[type] = result;
         return result;
     }
@@ -219,9 +219,9 @@ public class MappedCollectionStorage : IStorage
     public void SwapBuffers()
     {
         foreach (var componentByEntity in _componentStores.Values)
-        foreach (var componentList in componentByEntity.Values)
-        foreach (var component in componentList)
-            component.SwapBuffers();
+            foreach (var componentList in componentByEntity.Values)
+                foreach (var component in componentList)
+                    component.SwapBuffers();
 
         // Alternative iteration strategies:
 
@@ -446,8 +446,8 @@ public class ContiguousStorage : IStorage
     public void SwapBuffers()
     {
         foreach (var list in _componentStores.Values)
-        foreach (var component in list)
-            component.SwapBuffers();
+            foreach (var component in list)
+                component.SwapBuffers();
     }
 
     public void AddComponent(ComponentBase component)

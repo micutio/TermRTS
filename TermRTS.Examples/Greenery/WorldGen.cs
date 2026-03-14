@@ -56,28 +56,28 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Step 6: Apply noise and slopes to elevation map.
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-        {
-            var baseElevation = cellElevations[x, y] == 4 ? 5.0 : -3.0;
-            var slopeFactor = coastalSlopes[x, y] / 9.0;
-            var normalizedNoise = noiseField[x, y] / 255.0;
-            var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise;
+            for (var x = 0; x < worldWidth; x += 1)
+            {
+                var baseElevation = cellElevations[x, y] == 4 ? 5.0 : -3.0;
+                var slopeFactor = coastalSlopes[x, y] / 9.0;
+                var normalizedNoise = noiseField[x, y] / 255.0;
+                var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise;
 
-            // debug elevation without noise
-            //var elevation = cellElevations[x, y] + baseElevation * slopeFactor;
-            // debug: check land-water distribution
-            // var elevation = cellElevations[x, y] + baseElevation;
-            // debug: check coastal slope values
-            // var elevation = 9 * coastalSlopes[x, y];
-            cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
-        }
+                // debug elevation without noise
+                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor;
+                // debug: check land-water distribution
+                // var elevation = cellElevations[x, y] + baseElevation;
+                // debug: check coastal slope values
+                // var elevation = 9 * coastalSlopes[x, y];
+                cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
+            }
 
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
         var world = new byte[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            world[x, y] = Convert.ToByte(cellElevations[x, y]);
+            for (var x = 0; x < worldWidth; x += 1)
+                world[x, y] = Convert.ToByte(cellElevations[x, y]);
         return world;
     }
 
@@ -96,24 +96,24 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var jiggleNoise = Noise.Calc2D(worldWidth, worldHeight, scale);
 
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-        {
-            var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-            var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-
-            var minDist = double.MaxValue;
-            for (var i = 0; i < voronoiCells.Count; i += 1)
+            for (var x = 0; x < worldWidth; x += 1)
             {
-                var vX = voronoiCells[i].Item1;
-                var vY = voronoiCells[i].Item2;
-                var dist = Math.Sqrt(Math.Pow(vX - jiggledX, 2.0f) + Math.Pow(vY - jiggledY, 2.0f));
+                var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+                var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
 
-                if (minDist < dist) continue;
+                var minDist = double.MaxValue;
+                for (var i = 0; i < voronoiCells.Count; i += 1)
+                {
+                    var vX = voronoiCells[i].Item1;
+                    var vY = voronoiCells[i].Item2;
+                    var dist = Math.Sqrt(Math.Pow(vX - jiggledX, 2.0f) + Math.Pow(vY - jiggledY, 2.0f));
 
-                minDist = dist;
-                cellElevations[x, y] = landWaterMap[i];
+                    if (minDist < dist) continue;
+
+                    minDist = dist;
+                    cellElevations[x, y] = landWaterMap[i];
+                }
             }
-        }
 
         return cellElevations;
     }
@@ -126,23 +126,23 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // 1 Initialize all cells to 9; then set boundary (land adjacent to water) to 0 and enqueue.
         var coastalSlopes = new float[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            coastalSlopes[x, y] = 9.0f;
+            for (var x = 0; x < worldWidth; x += 1)
+                coastalSlopes[x, y] = 9.0f;
 
         var q = new Queue<(int, int)>(worldWidth * worldHeight);
         for (var y = 1; y < worldHeight - 1; y += 1)
-        for (var x = 1; x < worldWidth - 1; x += 1)
-        {
-            if (cellElevations[x, y] != 4) continue;
+            for (var x = 1; x < worldWidth - 1; x += 1)
+            {
+                if (cellElevations[x, y] != 4) continue;
 
-            if (cellElevations[x, y - 1] != 3 && // north
-                cellElevations[x + 1, y] != 3 && // east
-                cellElevations[x, y + 1] != 3 && // south
-                cellElevations[x - 1, y] != 3) continue; // west
+                if (cellElevations[x, y - 1] != 3 && // north
+                    cellElevations[x + 1, y] != 3 && // east
+                    cellElevations[x, y + 1] != 3 && // south
+                    cellElevations[x - 1, y] != 3) continue; // west
 
-            coastalSlopes[x, y] = 0.0f;
-            q.Enqueue((x, y));
-        }
+                coastalSlopes[x, y] = 0.0f;
+                q.Enqueue((x, y));
+            }
 
         // 2 BFS: while queue is NOT empty, dequeue cell C and set neighbours to Min(C.elevation + 1, N.elevation)
         //                               enqueue all neighbors with updated elevation
@@ -202,31 +202,31 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var minNoiseHeight = float.MaxValue;
 
         for (var y = 0; y < mapHeight; y++)
-        for (var x = 0; x < mapWidth; x++)
-        {
-            float amplitude = 1;
-            float frequency = 1;
-            float noiseHeight = 0;
-
-            for (var i = 0; i < octaves; i++)
+            for (var x = 0; x < mapWidth; x++)
             {
-                var sampleX = Convert.ToInt32(x / scale * frequency + octaveOffsets[i].X);
-                var sampleY = Convert.ToInt32(y / scale * frequency + octaveOffsets[i].Y);
-                var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
+                float amplitude = 1;
+                float frequency = 1;
+                float noiseHeight = 0;
 
-                noiseHeight += perlinValue * amplitude;
-                amplitude *= persistance;
-                frequency *= lacunarity;
+                for (var i = 0; i < octaves; i++)
+                {
+                    var sampleX = Convert.ToInt32(x / scale * frequency + octaveOffsets[i].X);
+                    var sampleY = Convert.ToInt32(y / scale * frequency + octaveOffsets[i].Y);
+                    var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
+
+                    noiseHeight += perlinValue * amplitude;
+                    amplitude *= persistance;
+                    frequency *= lacunarity;
+                }
+
+                maxNoiseHeight = Math.Max(maxNoiseHeight, noiseHeight);
+                minNoiseHeight = Math.Min(minNoiseHeight, noiseHeight);
+                noiseMap[x, y] = noiseHeight;
             }
 
-            maxNoiseHeight = Math.Max(maxNoiseHeight, noiseHeight);
-            minNoiseHeight = Math.Min(minNoiseHeight, noiseHeight);
-            noiseMap[x, y] = noiseHeight;
-        }
-
         for (var y = 0; y < mapHeight; y++)
-        for (var x = 0; x < mapWidth; x++)
-            noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
+            for (var x = 0; x < mapWidth; x++)
+                noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
 
         return noiseMap;
     }
