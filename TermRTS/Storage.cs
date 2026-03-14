@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.Json.Serialization;
 using log4net;
 using TermRTS.Data;
@@ -344,13 +345,18 @@ public class ContiguousStorage : IStorage
 {
     private static readonly ILog Log = LogManager.GetLogger(typeof(ContiguousStorage));
     private readonly Dictionary<Type, List<ComponentBase>> _componentStores = new();
+    private readonly Dictionary<Type, Dictionary<int, List<int>>> _entityIndices = new();
 
     public IEnumerable<ComponentBase> GetAllForEntity(int entityId)
     {
-        foreach (var list in _componentStores.Values)
-        foreach (var component in list)
-            if (component.EntityId == entityId)
-                yield return component;
+        foreach (var (type, indicesByEntity) in _entityIndices)
+        {
+            if (indicesByEntity.TryGetValue(entityId, out var indices) && _componentStores.TryGetValue(type, out var list))
+            {
+                foreach (var index in indices)
+                    yield return list[index];
+            }
+        }
     }
 
     public IEnumerable<T> GetAllForType<T>()
@@ -402,37 +408,40 @@ public class ContiguousStorage : IStorage
 
     public IEnumerable<T> GetAllForTypeAndEntity<T>(int entityId)
     {
-        if (!_componentStores.TryGetValue(typeof(T), out var list))
+        var type = typeof(T);
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indices))
             return [];
-        return list.Where(c => c.EntityId == entityId).Cast<T>();
+        if (!_componentStores.TryGetValue(type, out var list))
+            return [];
+        return indices.Select(i => (T)(object)list[i]);
     }
 
     public T? GetSingleForTypeAndEntity<T>(int entityId)
     {
-        if (!_componentStores.TryGetValue(typeof(T), out var list))
+        var type = typeof(T);
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
         {
             Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
             return default;
         }
-        foreach (var c in list)
-            if (c.EntityId == entityId)
-                return (T?)(object)c;
-        Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
-        return default;
+        if (!_componentStores.TryGetValue(type, out var list))
+        {
+            Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
+            return default;
+        }
+        return (T?)(object)list[indices[0]];
     }
 
     public bool TryGetSingleForTypeAndEntity<T>(int entityId, out T? component)
     {
         component = default;
-        if (!_componentStores.TryGetValue(typeof(T), out var list))
+        var type = typeof(T);
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
             return false;
-        foreach (var c in list)
-            if (c.EntityId == entityId)
-            {
-                component = (T?)(object)c;
-                return true;
-            }
-        return false;
+        if (!_componentStores.TryGetValue(type, out var list))
+            return false;
+        component = (T?)(object)list[indices[0]];
+        return true;
     }
 
     public void SwapBuffers()
@@ -451,6 +460,19 @@ public class ContiguousStorage : IStorage
             _componentStores[type] = list;
         }
         list.Add(component);
+
+        // Update entity indices
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity))
+        {
+            indicesByEntity = new Dictionary<int, List<int>>();
+            _entityIndices[type] = indicesByEntity;
+        }
+        if (!indicesByEntity.TryGetValue(component.EntityId, out var indices))
+        {
+            indices = [];
+            indicesByEntity[component.EntityId] = indices;
+        }
+        indices.Add(list.Count - 1);
     }
 
     public void AddComponents(IEnumerable<ComponentBase> components)
@@ -460,25 +482,71 @@ public class ContiguousStorage : IStorage
 
     public void RemoveComponentsByEntity(int entityId)
     {
-        foreach (var list in _componentStores.Values)
-            list.RemoveAll(c => c.EntityId == entityId);
+        foreach (var (type, indicesByEntity) in _entityIndices)
+        {
+            if (!indicesByEntity.TryGetValue(entityId, out var indicesToRemove) || !_componentStores.TryGetValue(type, out var list))
+                continue;
+
+            // Sort indices descending to remove from end first
+            indicesToRemove.Sort((a, b) => b.CompareTo(a));
+
+            foreach (var index in indicesToRemove)
+            {
+                list.RemoveAt(index);
+                // Update indices for other entities
+                foreach (var (otherEntityId, otherIndices) in indicesByEntity)
+                {
+                    if (otherEntityId == entityId) continue;
+                    for (var i = 0; i < otherIndices.Count; i++)
+                    {
+                        if (otherIndices[i] > index)
+                            otherIndices[i]--;
+                    }
+                }
+            }
+
+            indicesByEntity.Remove(entityId);
+        }
     }
 
     public void RemoveComponentsByType(Type type)
     {
         _componentStores.Remove(type);
+        _entityIndices.Remove(type);
     }
 
     public void RemoveComponentsByEntityAndType(int entityId, Type type)
     {
+        if (!_entityIndices.TryGetValue(type, out var indicesByEntity) || !indicesByEntity.TryGetValue(entityId, out var indicesToRemove))
+            return;
         if (!_componentStores.TryGetValue(type, out var list))
             return;
-        list.RemoveAll(c => c.EntityId == entityId);
+
+        // Sort indices descending
+        indicesToRemove.Sort((a, b) => b.CompareTo(a));
+
+        foreach (var index in indicesToRemove)
+        {
+            list.RemoveAt(index);
+            // Update indices for other entities
+            foreach (var (otherEntityId, otherIndices) in indicesByEntity)
+            {
+                if (otherEntityId == entityId) continue;
+                for (var i = 0; i < otherIndices.Count; i++)
+                {
+                    if (otherIndices[i] > index)
+                        otherIndices[i]--;
+                }
+            }
+        }
+
+        indicesByEntity.Remove(entityId);
     }
 
     public void Clear()
     {
         _componentStores.Clear();
+        _entityIndices.Clear();
     }
 
     internal List<ComponentBase> GetSerializableComponents()

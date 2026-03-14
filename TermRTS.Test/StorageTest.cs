@@ -4,8 +4,8 @@ public class StorageTestData : TheoryData<IStorage>
 {
     public StorageTestData()
     {
-        var storage = new MappedCollectionStorage();
-        storage.AddComponents([
+        var mappedStorage = new MappedCollectionStorage();
+        mappedStorage.AddComponents([
             new ComponentA(1),
             // should be able to store multiple components of the same type per entity
             new ComponentA(1),
@@ -18,7 +18,23 @@ public class StorageTestData : TheoryData<IStorage>
             new ComponentB(4),
             new ComponentB(4)
         ]);
-        Add(storage);
+        Add(mappedStorage);
+
+        var contiguousStorage = new ContiguousStorage();
+        contiguousStorage.AddComponents([
+            new ComponentA(1),
+            // should be able to store multiple components of the same type per entity
+            new ComponentA(1),
+            new ComponentA(1),
+            new ComponentA(2),
+            new ComponentA(3),
+            new ComponentA(3),
+            new ComponentA(4),
+            new ComponentB(1),
+            new ComponentB(4),
+            new ComponentB(4)
+        ]);
+        Add(contiguousStorage);
     }
 }
 
