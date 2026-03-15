@@ -1,4 +1,5 @@
 using TermRTS.Event;
+using TermRTS.Storage;
 
 namespace TermRTS.Examples.Minimal;
 

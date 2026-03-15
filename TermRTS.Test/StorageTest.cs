@@ -1,3 +1,5 @@
+using TermRTS.Storage;
+
 namespace TermRTS.Test;
 
 public class StorageTestData : TheoryData<IStorage>
@@ -47,17 +49,10 @@ public class StorageTestData : TheoryData<IStorage>
 /// </summary>
 public class StorageTest
 {
-    /// Sanity check.
-    [Fact]
-    public void TestTrue()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void TestInitialState(IStorage storage)
     {
-        Assert.True(true);
-    }
-
-    [Fact]
-    public void TestInitialState()
-    {
-        var storage = new MappedCollectionStorage();
         Assert.Empty(storage.GetAllForType<ComponentA>());
     }
 
@@ -100,17 +95,17 @@ public class StorageTest
         Assert.Equal(4, storage.GetAllForType<ComponentA>().Count());
     }
 
-    [Fact]
-    public void GetSingleForType_returns_default_when_no_component_of_type()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetSingleForType_returns_default_when_no_component_of_type(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         Assert.Null(storage.GetSingleForType<ComponentA>());
     }
 
-    [Fact]
-    public void GetSingleForType_returns_first_when_one_component_exists()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetSingleForType_returns_first_when_one_component_exists(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var c = new ComponentA(99);
         storage.AddComponent(c);
         var single = storage.GetSingleForType<ComponentA>();
@@ -127,26 +122,27 @@ public class StorageTest
         Assert.Contains(single, storage.GetAllForType<ComponentA>());
     }
 
-    [Fact]
-    public void GetSingleForTypeAndEntity_returns_default_when_entity_missing()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetSingleForTypeAndEntity_returns_default_when_entity_missing(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         Assert.Null(storage.GetSingleForTypeAndEntity<ComponentA>(999));
     }
 
-    [Fact]
-    public void GetSingleForTypeAndEntity_returns_default_when_type_missing_for_entity()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetSingleForTypeAndEntity_returns_default_when_type_missing_for_entity(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         Assert.Null(storage.GetSingleForTypeAndEntity<ComponentB>(1));
     }
 
-    [Fact]
-    public void GetSingleForTypeAndEntity_returns_component_when_one_exists()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetSingleForTypeAndEntity_returns_component_when_one_exists(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var c = new ComponentA(42);
         storage.AddComponent(c);
         var single = storage.GetSingleForTypeAndEntity<ComponentA>(42);
@@ -154,10 +150,11 @@ public class StorageTest
         Assert.Equal(42, single.EntityId);
     }
 
-    [Fact]
-    public void GetSingleForTypeAndEntity_returns_first_when_multiple_exist_for_entity()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetSingleForTypeAndEntity_returns_first_when_multiple_exist_for_entity(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         storage.AddComponent(new ComponentA(1));
         var single = storage.GetSingleForTypeAndEntity<ComponentA>(1);
@@ -166,10 +163,10 @@ public class StorageTest
         Assert.Equal(2, storage.GetAllForTypeAndEntity<ComponentA>(1).Count());
     }
 
-    [Fact]
-    public void Clear_removes_all_components_and_cache()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void Clear_removes_all_components_and_cache(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         storage.AddComponent(new ComponentB(1));
         Assert.Single(storage.GetAllForType<ComponentA>());
@@ -184,10 +181,10 @@ public class StorageTest
         Assert.Null(storage.GetSingleForTypeAndEntity<ComponentA>(1));
     }
 
-    [Fact]
-    public void Clear_allows_adding_components_afterward()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void Clear_allows_adding_components_afterward(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         storage.Clear();
         storage.AddComponent(new ComponentA(2));
@@ -196,10 +193,11 @@ public class StorageTest
         Assert.Equal(2, single.EntityId);
     }
 
-    [Fact]
-    public void SwapBuffers_updates_read_value_of_double_buffered_component_after_call()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void SwapBuffers_updates_read_value_of_double_buffered_component_after_call(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var component = new ComponentWithDoubleBuffer(1, 10);
         storage.AddComponent(component);
 
@@ -213,10 +211,11 @@ public class StorageTest
 
     // --- Cache invalidation (plan §3) ---
 
-    [Fact]
-    public void Cache_invalidation_after_AddComponent_new_enumeration_includes_new_component()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void Cache_invalidation_after_AddComponent_new_enumeration_includes_new_component(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         var first = storage.GetAllForType<ComponentA>().ToList();
         Assert.Single(first);
@@ -228,11 +227,12 @@ public class StorageTest
         Assert.Contains(second, c => c.EntityId == 2);
     }
 
-    [Fact]
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
     public void
-        Cache_invalidation_after_RemoveComponentsByEntity_no_enumeration_returns_that_entity_components()
+        Cache_invalidation_after_RemoveComponentsByEntity_no_enumeration_returns_that_entity_components(
+            IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         storage.AddComponent(new ComponentA(2));
         storage.AddComponent(new ComponentB(1));
@@ -251,10 +251,11 @@ public class StorageTest
     /// After removing an entity that had components, adding the same type again should yield
     /// correct count. With the fix, the store does not retain empty lists for removed entities.
     /// </summary>
-    [Fact]
-    public void RemoveComponentsByEntity_does_not_leave_empty_lists_public_api_check()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void RemoveComponentsByEntity_does_not_leave_empty_lists_public_api_check(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var e1 = new EntityBase();
         var e2 = new EntityBase();
         storage.AddComponent(new ComponentA(e1.Id));
@@ -277,10 +278,10 @@ public class StorageTest
 
     // --- GetListForType (list view API) ---
 
-    [Fact]
-    public void GetListForType_returns_empty_list_when_no_components_of_type()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetListForType_returns_empty_list_when_no_components_of_type(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var list = storage.GetListForType<ComponentA>();
         Assert.NotNull(list);
         Assert.Empty(list);
@@ -297,10 +298,10 @@ public class StorageTest
             Assert.Same(asEnum[i], asList[i]);
     }
 
-    [Fact]
-    public void GetListForType_is_invalidated_after_AddComponent()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void GetListForType_is_invalidated_after_AddComponent(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         var first = storage.GetListForType<ComponentA>();
         Assert.Single(first);
@@ -311,25 +312,25 @@ public class StorageTest
 
     // --- TryGetSingle (plan §3) ---
 
-    [Fact]
-    public void TryGetSingleForType_returns_false_and_default_when_absent()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void TryGetSingleForType_returns_false_and_default_when_absent(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var found = storage.TryGetSingleForType<ComponentA>(out var component);
         Assert.False(found);
         Assert.Null(component);
     }
 
-    [Fact]
-    public void TryGetSingleForType_returns_true_and_instance_when_one_exists()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void TryGetSingleForType_returns_true_and_instance_when_one_exists(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var c = new ComponentA(42);
         storage.AddComponent(c);
         var found = storage.TryGetSingleForType<ComponentA>(out var component);
         Assert.True(found);
         Assert.NotNull(component);
-        Assert.Equal(42, component!.EntityId);
+        Assert.Equal(42, component.EntityId);
     }
 
     [Theory]
@@ -343,36 +344,38 @@ public class StorageTest
         Assert.Contains(component, storage.GetAllForType<ComponentA>());
     }
 
-    [Fact]
-    public void TryGetSingleForTypeAndEntity_returns_false_when_entity_missing()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void TryGetSingleForTypeAndEntity_returns_false_when_entity_missing(IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         var found = storage.TryGetSingleForTypeAndEntity<ComponentA>(999, out var component);
         Assert.False(found);
         Assert.Null(component);
     }
 
-    [Fact]
-    public void TryGetSingleForTypeAndEntity_returns_false_when_type_missing_for_entity()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void TryGetSingleForTypeAndEntity_returns_false_when_type_missing_for_entity(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         storage.AddComponent(new ComponentA(1));
         var found = storage.TryGetSingleForTypeAndEntity<ComponentB>(1, out var component);
         Assert.False(found);
         Assert.Null(component);
     }
 
-    [Fact]
-    public void TryGetSingleForTypeAndEntity_returns_true_and_component_when_exists()
+    [Theory]
+    [ClassData(typeof(IStorageImplementations))]
+    public void TryGetSingleForTypeAndEntity_returns_true_and_component_when_exists(
+        IStorage storage)
     {
-        var storage = new MappedCollectionStorage();
         var c = new ComponentA(42);
         storage.AddComponent(c);
         var found = storage.TryGetSingleForTypeAndEntity<ComponentA>(42, out var component);
         Assert.True(found);
         Assert.NotNull(component);
-        Assert.Equal(42, component!.EntityId);
+        Assert.Equal(42, component.EntityId);
     }
 }
 

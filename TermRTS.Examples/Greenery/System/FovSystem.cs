@@ -1,4 +1,5 @@
 using TermRTS.Algorithms;
+using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.System;
 
@@ -15,8 +16,8 @@ public class FovSystem : ISimSystem
         if (!storage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
 
         for (var y = 0; y < fov.WorldHeight; y++)
-            for (var x = 0; x < fov.WorldWidth; x++)
-                fov.Cells[x, y] = false;
+        for (var x = 0; x < fov.WorldWidth; x++)
+            fov.Cells[x, y] = false;
 
         foreach (var dronePos in storage.GetAllForType<DroneComponent>()
                      .Select(drone => drone.Position))

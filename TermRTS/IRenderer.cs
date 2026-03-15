@@ -1,3 +1,5 @@
+using TermRTS.Storage;
+
 namespace TermRTS;
 
 public interface IRenderer
@@ -17,17 +19,17 @@ public interface IRenderer
     ///     How much extra time was needed for the last simulation tick.
     ///     Given in percent of <see cref="timeStepSizeMs" />.
     /// </param>
-    public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
+    void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
         double howFarIntoNextFramePercent);
 
     /// <summary>
     ///     Called at the end of the rendering step each simulation tick. This allows to apply the
     ///     effects of any intermediate operations.
     /// </summary>
-    public void FinalizeRender();
+    void FinalizeRender();
 
     /// <summary>
     ///     Called upon engine shutdown. Allow the renderer to perform clean up operations.
     /// </summary>
-    public void Shutdown();
+    void Shutdown();
 }

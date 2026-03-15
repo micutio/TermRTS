@@ -11,7 +11,7 @@ public class SimulationLoopRobustnessTest
     private static readonly TimeSpan DefaultRunTimeout = TimeSpan.FromSeconds(10);
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Shutdown_under_heavy_tick_load_completes_and_time_advances(Core core)
     {
         const int tickCount = 12;
@@ -33,7 +33,7 @@ public class SimulationLoopRobustnessTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Heavy_render_load_does_not_prevent_tick_progression(Core core)
     {
         const int tickCount = 8;
@@ -53,7 +53,7 @@ public class SimulationLoopRobustnessTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Time_advances_over_real_time(Core core)
     {
         const int tickCount = 20;
@@ -69,7 +69,7 @@ public class SimulationLoopRobustnessTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Delayed_shutdown_with_load_respects_event_ordering_and_completes(Core core)
     {
         const ulong shutdownAtMs = 12 * 16;
@@ -87,7 +87,7 @@ public class SimulationLoopRobustnessTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Many_entities_and_systems_stress_no_hang(Core core)
     {
         const int tickCount = 50;

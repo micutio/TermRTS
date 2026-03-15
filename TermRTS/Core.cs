@@ -1,4 +1,5 @@
 using TermRTS.Event;
+using TermRTS.Storage;
 
 namespace TermRTS;
 
@@ -26,13 +27,12 @@ internal record CoreState(
 /// <summary>
 ///     The core of the engine performs the actual tick logic and is controlled by the scheduler.
 /// </summary>
-public class Core : IEventSink
+public class Core(IStorage storage) : IEventSink
 {
     #region Fields
 
     private readonly List<ISimSystem> _systems = [];
     private readonly List<EntityBase> _entities = [];
-    private readonly MappedCollectionStorage _components = new();
     private readonly List<EntityBase> _newEntities = [];
     private readonly List<ComponentBase> _newComponents = [];
 
@@ -44,7 +44,15 @@ public class Core : IEventSink
 
     public IRenderer? Renderer { get; set; }
 
-    public bool IsParallelized { get; init; } // = false;
+    public bool IsParallelized { get; init; } // defaults to `false`
+
+    #endregion
+
+    #region Constructors
+
+    public Core() : this(new ContiguousStorage())
+    {
+    }
 
     #endregion
 
@@ -85,7 +93,7 @@ public class Core : IEventSink
 
         if (_newComponents.Count != 0)
         {
-            foreach (var c in _newComponents) _components.AddComponent(c);
+            foreach (var c in _newComponents) storage.AddComponent(c);
             _newComponents.Clear();
         }
     }
@@ -103,17 +111,14 @@ public class Core : IEventSink
         // When IsParallelized is true, systems run with no ordering guarantee; use only for independent systems.
         if (IsParallelized)
             foreach (var sys in _systems.AsParallel())
-                sys.ProcessComponents(timeStepSizeMs, _components);
+                sys.ProcessComponents(timeStepSizeMs, storage);
         else
             foreach (var sys in _systems)
-                sys.ProcessComponents(timeStepSizeMs, _components);
+                sys.ProcessComponents(timeStepSizeMs, storage);
 
-        _components.SwapBuffers();
+        storage.SwapBuffers();
 
         // Clean up operations: remove 'dead' entities and add new ones
-        // var entityIdsToRemove = _entities.Where(e => e.IsMarkedForRemoval).Select(e => e.Id);
-        // foreach (var id in entityIdsToRemove) _components.RemoveComponentsByEntity(id);
-        // _entities.RemoveAll(e => e.IsMarkedForRemoval);
 
         var i = 0;
         while (i < _entities.Count)
@@ -124,7 +129,7 @@ public class Core : IEventSink
                 continue;
             }
 
-            _components.RemoveComponentsByEntity(_entities[i].Id);
+            storage.RemoveComponentsByEntity(_entities[i].Id);
             _entities.RemoveAt(i);
         }
 
@@ -141,7 +146,7 @@ public class Core : IEventSink
     /// </summary>
     public void Render(double timeStepSizeMs, double howFarIntoNextFramePercent)
     {
-        Renderer?.RenderComponents(_components, timeStepSizeMs, howFarIntoNextFramePercent);
+        Renderer?.RenderComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         Renderer?.FinalizeRender();
     }
 
@@ -213,7 +218,7 @@ public class Core : IEventSink
     {
         return new CoreState(
             _entities,
-            _components.GetSerializableComponents(),
+            storage.GetSerializableComponents(),
             _newEntities,
             _newComponents
         );
@@ -227,7 +232,7 @@ public class Core : IEventSink
         _newEntities.AddRange(coreState.NewEntities);
         _newComponents.Clear();
         _newComponents.AddRange(coreState.NewComponents);
-        _components.Clear();
-        _components.AddComponents(coreState.Components);
+        storage.Clear();
+        storage.AddComponents(coreState.Components);
     }
 }

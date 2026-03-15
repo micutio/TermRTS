@@ -2,6 +2,7 @@ using System.Numerics;
 using log4net;
 using TermRTS.Event;
 using TermRTS.Io;
+using TermRTS.Storage;
 
 namespace TermRTS.Examples.Circuitry;
 
@@ -57,7 +58,7 @@ internal class Circuitry : IRunnableExample
         input.Run();
 
         // Graceful shutdown on canceling via CTRL+C
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));

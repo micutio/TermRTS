@@ -5,7 +5,7 @@ namespace TermRTS.Test;
 public class EngineTest
 {
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void TestCoreShutdown(Core core)
     {
         Assert.True(core.IsRunning());
@@ -18,7 +18,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void TestSchedulerShutdown(Core core)
     {
         // Setup Scheduler
@@ -43,7 +43,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void TestBusyCore(Core core)
     {
         // Setup Scheduler
@@ -68,7 +68,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void TestDelayedEventScheduling(Core core)
     {
         // Set up Scheduler
@@ -85,7 +85,7 @@ public class EngineTest
     }
 
     [Theory]
-    [ClassData(typeof(TestCoresSequentialAndParallel))]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void TestSerialization(Core core)
     {
         // Setup Scheduler

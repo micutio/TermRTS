@@ -1,3 +1,5 @@
+using TermRTS.Storage;
+
 namespace TermRTS.Test;
 
 /// <summary>
@@ -15,10 +17,10 @@ internal sealed class StorageSpySystem : ISimSystem
 
 public class CoreTest
 {
-    [Fact]
-    public void AddEntity_and_AddComponent_appear_in_storage_after_Tick()
+    [Theory]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
+    public void AddEntity_and_AddComponent_appear_in_storage_after_Tick(Core core)
     {
-        var core = new Core { Renderer = new NullRenderer() };
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
@@ -36,10 +38,10 @@ public class CoreTest
         Assert.Single(spy.Storage.GetAllForEntity(entity.Id));
     }
 
-    [Fact]
-    public void Entity_marked_for_removal_is_removed_after_Tick_components_cleaned()
+    [Theory]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
+    public void Entity_marked_for_removal_is_removed_after_Tick_components_cleaned(Core core)
     {
-        var core = new Core { Renderer = new NullRenderer() };
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
@@ -59,10 +61,10 @@ public class CoreTest
         Assert.Empty(spy.Storage.GetAllForType<ComponentA>());
     }
 
-    [Fact]
-    public void AddAllEntities_and_AddAllComponents_appear_after_Tick()
+    [Theory]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
+    public void AddAllEntities_and_AddAllComponents_appear_after_Tick(Core core)
     {
-        var core = new Core { Renderer = new NullRenderer() };
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
@@ -87,10 +89,10 @@ public class CoreTest
     /// <summary>
     /// Component added for an existing entity (already in the sim) appears on next tick.
     /// </summary>
-    [Fact]
-    public void Deferred_add_component_for_existing_entity_appears_after_Tick()
+    [Theory]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
+    public void Deferred_add_component_for_existing_entity_appears_after_Tick(Core core)
     {
-        var core = new Core { Renderer = new NullRenderer() };
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 

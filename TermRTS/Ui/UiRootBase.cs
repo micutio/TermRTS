@@ -1,3 +1,5 @@
+using TermRTS.Storage;
+
 namespace TermRTS.Ui;
 
 public abstract class UiRootBase : UiElementBase
@@ -78,7 +80,7 @@ public abstract class UiRootBase : UiElementBase
 
     #region Public Members
 
-    public void AddUiElement(UiElementBase uiElement)
+    protected void AddUiElement(UiElementBase uiElement)
     {
         _uiElements.Add(uiElement);
     }

@@ -2,6 +2,7 @@ using System.Numerics;
 using ConsoleRenderer;
 using log4net;
 using TermRTS.Event;
+using TermRTS.Storage;
 
 namespace TermRTS.Examples.Circuitry;
 

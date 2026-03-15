@@ -1,4 +1,5 @@
 using TermRTS.Event;
+using TermRTS.Storage;
 
 namespace TermRTS.Test;
 
@@ -62,22 +63,43 @@ public class SlowRenderer(TimeSpan renderDuration) : IRenderer
     }
 }
 
-public class TestCoresSequentialAndParallel : TheoryData<Core>
+public class TestCoreParallelAndStorageConfigs : TheoryData<Core>
 {
-    public TestCoresSequentialAndParallel()
+    public TestCoreParallelAndStorageConfigs()
     {
         Add(
-            new Core
+            new Core(new MappedCollectionStorage())
             {
                 Renderer = new NullRenderer(),
                 IsParallelized = true
             });
         Add(
-            new Core
+            new Core(new MappedCollectionStorage())
             {
                 Renderer = new NullRenderer(),
                 IsParallelized = false
             });
+        Add(
+            new Core(new ContiguousStorage())
+            {
+                Renderer = new NullRenderer(),
+                IsParallelized = true
+            });
+        Add(
+            new Core(new ContiguousStorage())
+            {
+                Renderer = new NullRenderer(),
+                IsParallelized = false
+            });
+    }
+}
+
+public class IStorageImplementations : TheoryData<IStorage>
+{
+    public IStorageImplementations()
+    {
+        Add(new MappedCollectionStorage());
+        Add(new ContiguousStorage());
     }
 }
 
@@ -91,7 +113,7 @@ public class TerminatorSystem(SchedulerEventQueue queue, int remainingTicks) : I
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSize, in IReadonlyStorage storage)
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         Interlocked.Decrement(ref _remainingTicks);
 

@@ -2,6 +2,7 @@ using System.Numerics;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
+using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.System;
 
@@ -95,8 +96,6 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
                 return neighborCell <= 3
                     ? float.PositiveInfinity // do not go into water
                     : float.Pow(2, neighborCell - thisCell);
-
-                // (world.Cells[(int)loc.X, (int)loc.Y] + neighborCell) * 2;
             }
         };
         var path = aStar.ComputePath();

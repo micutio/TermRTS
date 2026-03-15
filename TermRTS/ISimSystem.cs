@@ -1,3 +1,5 @@
+using TermRTS.Storage;
+
 namespace TermRTS;
 
 /// <summary>
@@ -9,5 +11,5 @@ namespace TermRTS;
 /// </summary>
 public interface ISimSystem
 {
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage);
+    void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage);
 }
