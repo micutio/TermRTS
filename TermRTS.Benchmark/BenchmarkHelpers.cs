@@ -6,7 +6,8 @@ namespace TermRTS.Benchmark;
 internal sealed class NoOpRenderer : IRenderer
 {
     public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
-        double howFarIntoNextFramePercent) { }
+        double howFarIntoNextFramePercent)
+    { }
 
     public void FinalizeRender() { }
 

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using log4net;
 using TermRTS.Data;
@@ -89,7 +90,9 @@ public class MappedCollectionStorage : IStorage
     {
         if (!_componentStores.TryGetValue(typeof(T), out var entityComponents))
         {
-            Log.Debug($"Cannot find component of Type {typeof(T)}");
+            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
+                .Append(typeof(T))
+                .ToString());
             return default;
         }
 
@@ -97,7 +100,9 @@ public class MappedCollectionStorage : IStorage
             if (list.Count > 0)
                 return (T?)(object)list[0];
 
-        Log.Debug($"Cannot find component of Type {typeof(T)}");
+        Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
+            .Append(typeof(T))
+            .ToString());
         return default;
     }
 
@@ -133,7 +138,11 @@ public class MappedCollectionStorage : IStorage
             || !entityComponents.TryGetValue(entityId, out var list)
             || list.Count == 0)
         {
-            Log.Debug($"Cannot find component of Type {typeof(T)} for entity {entityId}");
+            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
+                .Append(typeof(T))
+                .Append(" for entity ")
+                .Append(entityId)
+                .ToString());
             return default;
         }
 
