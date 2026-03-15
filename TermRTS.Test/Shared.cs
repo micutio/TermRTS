@@ -94,9 +94,9 @@ public class TestCoreParallelAndStorageConfigs : TheoryData<Core>
     }
 }
 
-public class IStorageImplementations : TheoryData<IStorage>
+public class StorageImplementations : TheoryData<IStorage>
 {
-    public IStorageImplementations()
+    public StorageImplementations()
     {
         Add(new MappedCollectionStorage());
         Add(new ContiguousStorage());

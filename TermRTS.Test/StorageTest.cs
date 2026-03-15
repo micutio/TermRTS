@@ -50,7 +50,7 @@ public class StorageTestData : TheoryData<IStorage>
 public class StorageTest
 {
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void TestInitialState(IStorage storage)
     {
         Assert.Empty(storage.GetAllForType<ComponentA>());
@@ -96,14 +96,14 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetSingleForType_returns_default_when_no_component_of_type(IStorage storage)
     {
         Assert.Null(storage.GetSingleForType<ComponentA>());
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetSingleForType_returns_first_when_one_component_exists(IStorage storage)
     {
         var c = new ComponentA(99);
@@ -123,7 +123,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetSingleForTypeAndEntity_returns_default_when_entity_missing(IStorage storage)
     {
         storage.AddComponent(new ComponentA(1));
@@ -131,7 +131,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetSingleForTypeAndEntity_returns_default_when_type_missing_for_entity(
         IStorage storage)
     {
@@ -140,7 +140,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetSingleForTypeAndEntity_returns_component_when_one_exists(IStorage storage)
     {
         var c = new ComponentA(42);
@@ -151,7 +151,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetSingleForTypeAndEntity_returns_first_when_multiple_exist_for_entity(
         IStorage storage)
     {
@@ -164,7 +164,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void Clear_removes_all_components_and_cache(IStorage storage)
     {
         storage.AddComponent(new ComponentA(1));
@@ -182,7 +182,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void Clear_allows_adding_components_afterward(IStorage storage)
     {
         storage.AddComponent(new ComponentA(1));
@@ -194,7 +194,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void SwapBuffers_updates_read_value_of_double_buffered_component_after_call(
         IStorage storage)
     {
@@ -212,7 +212,7 @@ public class StorageTest
     // --- Cache invalidation (plan §3) ---
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void Cache_invalidation_after_AddComponent_new_enumeration_includes_new_component(
         IStorage storage)
     {
@@ -228,7 +228,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void
         Cache_invalidation_after_RemoveComponentsByEntity_no_enumeration_returns_that_entity_components(
             IStorage storage)
@@ -252,7 +252,7 @@ public class StorageTest
     /// correct count. With the fix, the store does not retain empty lists for removed entities.
     /// </summary>
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void RemoveComponentsByEntity_does_not_leave_empty_lists_public_api_check(
         IStorage storage)
     {
@@ -279,7 +279,7 @@ public class StorageTest
     // --- GetListForType (list view API) ---
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetListForType_returns_empty_list_when_no_components_of_type(IStorage storage)
     {
         var list = storage.GetListForType<ComponentA>();
@@ -299,7 +299,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void GetListForType_is_invalidated_after_AddComponent(IStorage storage)
     {
         storage.AddComponent(new ComponentA(1));
@@ -313,7 +313,7 @@ public class StorageTest
     // --- TryGetSingle (plan §3) ---
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void TryGetSingleForType_returns_false_and_default_when_absent(IStorage storage)
     {
         var found = storage.TryGetSingleForType<ComponentA>(out var component);
@@ -322,7 +322,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void TryGetSingleForType_returns_true_and_instance_when_one_exists(IStorage storage)
     {
         var c = new ComponentA(42);
@@ -345,7 +345,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void TryGetSingleForTypeAndEntity_returns_false_when_entity_missing(IStorage storage)
     {
         storage.AddComponent(new ComponentA(1));
@@ -355,7 +355,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void TryGetSingleForTypeAndEntity_returns_false_when_type_missing_for_entity(
         IStorage storage)
     {
@@ -366,7 +366,7 @@ public class StorageTest
     }
 
     [Theory]
-    [ClassData(typeof(IStorageImplementations))]
+    [ClassData(typeof(StorageImplementations))]
     public void TryGetSingleForTypeAndEntity_returns_true_and_component_when_exists(
         IStorage storage)
     {
