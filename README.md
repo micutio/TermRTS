@@ -25,5 +25,7 @@ Available example numbers:
 
 ## Development Plan
 
- - [ ] serialisation of simulation state to and from save file
+ - [x] serialisation of simulation state to and from save file
  - [ ] concept for integrating menu-based navigation
+ - [ ] automate and write more benchmarks
+
