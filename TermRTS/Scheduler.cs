@@ -94,7 +94,7 @@ public class Scheduler
     /// </summary>
     public void AddEventSink(IEventSink sink, Type payloadType)
     {
-        if (!_eventSinks.TryGetValue(payloadType, out var sinks) || sinks == null)
+        if (!_eventSinks.TryGetValue(payloadType, out var sinks))
         {
             sinks = [];
             _eventSinks[payloadType] = sinks;
@@ -108,7 +108,7 @@ public class Scheduler
     /// </summary>
     public void RemoveEventSink(IEventSink sink, Type payloadType)
     {
-        if (!_eventSinks.TryGetValue(payloadType, out var sinks) || sinks == null)
+        if (!_eventSinks.TryGetValue(payloadType, out var sinks))
             return;
 
         sinks.Remove(sink);

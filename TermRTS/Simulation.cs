@@ -54,10 +54,9 @@ public class Simulation(Scheduler scheduler) : IEventSink
                 if (!isSerializeSuccess) break;
 
                 Persistence.SaveJsonToFile(savedJsonStr, filePath, out var saveResponse);
-                if (!string.IsNullOrEmpty(saveResponse))
-                    if (IsSystemLogEnabled)
-                        _scheduler.EventQueue.EnqueueEvent(
-                            ScheduledEvent.From(new SystemLog(saveResponse)));
+                if (!string.IsNullOrEmpty(saveResponse) && IsSystemLogEnabled)
+                    _scheduler.EventQueue.EnqueueEvent(
+                        ScheduledEvent.From(new SystemLog(saveResponse)));
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

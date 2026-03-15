@@ -41,7 +41,7 @@ public class EntityBase
     /// <summary>
     ///     Property to indicate whether this entity is to be removed.
     /// </summary>
-    public bool IsMarkedForRemoval { get; set; } // = false;
+    public bool IsMarkedForRemoval { get; set; } // initialises to false
 
     #endregion
 }
