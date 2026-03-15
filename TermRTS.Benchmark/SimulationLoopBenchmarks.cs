@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using TermRTS.Storage;
 
 namespace TermRTS.Benchmark;
 

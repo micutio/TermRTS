@@ -1,3 +1,5 @@
+using TermRTS.Storage;
+
 namespace TermRTS.Benchmark;
 
 /// <summary>Renderer that does nothing; used for scheduler step benchmarks.</summary>
@@ -34,11 +36,9 @@ internal sealed class GetAllAndTouchSystem : ISimSystem
 {
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
-        var acc = 0;
         foreach (var c in storage.GetAllForType<BenchmarkComponent>())
         {
             c.Touch++;
-            acc += c.EntityId;
         }
     }
 }
@@ -46,9 +46,8 @@ internal sealed class GetAllAndTouchSystem : ISimSystem
 internal sealed class NullEntity : EntityBase { }
 
 /// <summary>Component type used by storage benchmarks; one per entity or singleton.</summary>
-internal sealed class BenchmarkComponent : ComponentBase
+internal sealed class BenchmarkComponent(int entityId) : ComponentBase(entityId)
 {
-    public BenchmarkComponent(int entityId) : base(entityId) { }
     public int Touch { get; set; }
 }
 
