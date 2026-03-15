@@ -128,8 +128,8 @@ public class ContiguousStorage : IStorage
     public void SwapBuffers()
     {
         foreach (var list in _componentStores.Values)
-        foreach (var component in list)
-            component.SwapBuffers();
+            foreach (var component in list)
+                component.SwapBuffers();
     }
 
     public List<ComponentBase> GetSerializableComponents()
