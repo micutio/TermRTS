@@ -53,6 +53,8 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : KeyIn
         if (!IsOngoingInput) return;
 
         IsRequireReRender = true;
+
+        if (_idx == _msg.Length) return;
         switch (keyInfo.Key)
         {
             case ConsoleKey.Spacebar:
