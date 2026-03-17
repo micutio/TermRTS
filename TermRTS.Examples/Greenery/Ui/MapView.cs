@@ -27,8 +27,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #region Color Constants
 
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private static readonly TerminalColor DefaultBg = new TerminalColor(Console.BackgroundColor);
+    private static readonly TerminalColor DefaultFg = new TerminalColor(Console.ForegroundColor);
 
     private static readonly char[] MarkersElevation =
         ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -75,21 +75,22 @@ public class MapView : KeyInputProcessorBase, IEventSink
         Cp437.BlockFull
     ];
 
-    private static readonly (ConsoleColor, ConsoleColor)[] ColorsElevation =
+    // Elevation colors: ConsoleColor equivalents as RGB (standard 16-color palette)
+    private static readonly (TerminalColor, TerminalColor)[] ColorsElevation =
     [
-        (ConsoleColor.DarkBlue, DefaultBg),
-        (ConsoleColor.Blue, DefaultBg),
-        (ConsoleColor.DarkCyan, DefaultBg),
-        (ConsoleColor.Cyan, DefaultBg),
-        (ConsoleColor.Yellow, DefaultBg),
-        (ConsoleColor.DarkGreen, DefaultBg),
-        (ConsoleColor.Green, DefaultBg),
-        (ConsoleColor.DarkYellow, DefaultBg),
-        (ConsoleColor.DarkGray, DefaultBg),
-        (ConsoleColor.Gray, DefaultBg)
+        (new TerminalColor(0, 0, 128), DefaultBg),   // DarkBlue
+        (new TerminalColor(0, 0, 255), DefaultBg),   // Blue
+        (new TerminalColor(0, 128, 128), DefaultBg), // DarkCyan
+        (new TerminalColor(0, 255, 255), DefaultBg), // Cyan
+        (new TerminalColor(255, 255, 0), DefaultBg),  // Yellow
+        (new TerminalColor(0, 128, 0), DefaultBg),   // DarkGreen
+        (new TerminalColor(0, 255, 0), DefaultBg),   // Green
+        (new TerminalColor(128, 128, 0), DefaultBg), // DarkYellow
+        (new TerminalColor(128, 128, 128), DefaultBg), // DarkGray
+        (new TerminalColor(192, 192, 192), DefaultBg)  // Gray
     ];
 
-    private static readonly (ConsoleColor, ConsoleColor)[] ColorsElevationMonochrome =
+    private static readonly (TerminalColor, TerminalColor)[] ColorsElevationMonochrome =
     [
         (DefaultFg, DefaultBg),
         (DefaultFg, DefaultBg),
@@ -103,18 +104,18 @@ public class MapView : KeyInputProcessorBase, IEventSink
         (DefaultFg, DefaultBg)
     ];
 
-    private static readonly (ConsoleColor, ConsoleColor)[] ColorsHeatmapMonochrome =
+    private static readonly (TerminalColor, TerminalColor)[] ColorsHeatmapMonochrome =
     [
-        (ConsoleColor.Black, ConsoleColor.Black),
-        (ConsoleColor.DarkGray, ConsoleColor.Black),
-        (ConsoleColor.DarkGray, ConsoleColor.Black),
-        (ConsoleColor.DarkGray, ConsoleColor.Black),
-        (ConsoleColor.Gray, ConsoleColor.DarkGray),
-        (ConsoleColor.Gray, ConsoleColor.DarkGray),
-        (ConsoleColor.Gray, ConsoleColor.DarkGray),
-        (ConsoleColor.White, ConsoleColor.DarkGray),
-        (ConsoleColor.White, ConsoleColor.DarkGray),
-        (ConsoleColor.White, ConsoleColor.DarkGray)
+        (new TerminalColor(ConsoleColor.Black), new TerminalColor(ConsoleColor.Black)),
+        (new TerminalColor(ConsoleColor.DarkGray), new TerminalColor(ConsoleColor.Black)),
+        (new TerminalColor(ConsoleColor.DarkGray), new TerminalColor(ConsoleColor.Black)),
+        (new TerminalColor(ConsoleColor.DarkGray), new TerminalColor(ConsoleColor.Black)),
+        (new TerminalColor(ConsoleColor.Gray), new TerminalColor(ConsoleColor.DarkGray)),
+        (new TerminalColor(ConsoleColor.Gray), new TerminalColor(ConsoleColor.DarkGray)),
+        (new TerminalColor(ConsoleColor.Gray), new TerminalColor(ConsoleColor.DarkGray)),
+        (new TerminalColor(ConsoleColor.White), new TerminalColor(ConsoleColor.DarkGray)),
+        (new TerminalColor(ConsoleColor.White), new TerminalColor(ConsoleColor.DarkGray)),
+        (new TerminalColor(ConsoleColor.White), new TerminalColor(ConsoleColor.DarkGray))
     ];
 
     #endregion
@@ -329,7 +330,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                         X + WorldToViewportX(pathX) + _spaceForScaleLeft,
                         Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                         pathCol,
-                        ConsoleColor.Red,
+                        new TerminalColor(ConsoleColor.Red),
                         DefaultBg);
 
         foreach (var pos in _cachedDronePositions.Values)
@@ -342,7 +343,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                     Y + WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
                     DefaultBg,
-                    ConsoleColor.Red);
+                    new TerminalColor(ConsoleColor.Red));
         }
 
         // Step 3: Render Coordinate Scales at the top and left sides.
