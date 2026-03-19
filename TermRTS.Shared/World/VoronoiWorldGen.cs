@@ -1,7 +1,7 @@
 using System.Numerics;
 using SimplexNoise;
 
-namespace TermRTS.Examples.Greenery;
+namespace TermRTS.Shared.World;
 
 // Refer to link below for a nice layered noise map implementation:
 // https://github.com/SebLague/Procedural-Landmass-Generation/blob/master/Proc%20Gen%20E03/Assets/Scripts/Noise.cs
@@ -63,16 +63,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 var normalizedNoise = noiseField[x, y] / 255.0;
                 var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise;
 
-                // debug elevation without noise
-                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor;
-                // debug: check land-water distribution
-                // var elevation = cellElevations[x, y] + baseElevation;
-                // debug: check coastal slope values
-                // var elevation = 9 * coastalSlopes[x, y];
                 cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
             }
-
-        // optional: apply more techniques from "around the world" to get more appealing shapes
 
         var world = new byte[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
@@ -90,7 +82,6 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         IList<(int, int)> voronoiCells,
         IReadOnlyList<int> landWaterMap)
     {
-        // TODO: Refactor into separate water/land field generation function.
         const float scale = .08f;
         var cellElevations = new int[worldWidth, worldHeight];
         var jiggleNoise = Noise.Calc2D(worldWidth, worldHeight, scale);
@@ -123,7 +114,6 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         int worldHeight,
         in int[,] cellElevations)
     {
-        // 1 Initialize all cells to 9; then set boundary (land adjacent to water) to 0 and enqueue.
         var coastalSlopes = new float[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
@@ -144,8 +134,6 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 q.Enqueue((x, y));
             }
 
-        // 2 BFS: while queue is NOT empty, dequeue cell C and set neighbours to Min(C.elevation + 1, N.elevation)
-        //                               enqueue all neighbors with updated elevation
         (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
         while (q.Count > 0)
         {
@@ -182,7 +170,6 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         float lacunarity,
         Vector2 offset)
     {
-        // For now work with a fixed scale
         const float noiseScale = 0.03f;
 
         var noiseMap = new float[mapWidth, mapHeight];
@@ -229,11 +216,6 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
 
         return noiseMap;
-    }
-
-    private static float Lerp(float a, float b, float t)
-    {
-        return a + t * (b - a);
     }
 
     private static float InverseLerp(float a, float b, float t)

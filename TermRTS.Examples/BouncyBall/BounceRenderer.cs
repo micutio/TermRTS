@@ -1,4 +1,5 @@
 using ConsoleRenderer;
+using TermRTS.Shared.Ui;
 using TermRTS.Storage;
 
 namespace TermRTS.Examples.BouncyBall;
@@ -9,8 +10,7 @@ internal class BounceRenderer : IRenderer
 
     public BounceRenderer()
     {
-        _canvas = new ConsoleCanvas().Render();
-        Console.CursorVisible = false;
+        _canvas = ConsoleCanvasSetup.CreateRenderedCanvas();
     }
 
     #region IRenderer Members

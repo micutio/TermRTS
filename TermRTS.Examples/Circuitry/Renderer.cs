@@ -2,6 +2,7 @@ using System.Numerics;
 using ConsoleRenderer;
 using log4net;
 using TermRTS.Event;
+using TermRTS.Shared.Ui;
 using TermRTS.Storage;
 
 namespace TermRTS.Examples.Circuitry;
@@ -27,8 +28,7 @@ internal class Renderer : IRenderer, IEventSink
 
     public Renderer()
     {
-        Console.CursorVisible = false;
-        _canvas = new ConsoleCanvas().Render();
+        _canvas = ConsoleCanvasSetup.CreateRenderedCanvas();
         _log = LogManager.GetLogger(GetType());
         _profileOutput = string.Empty;
     }
@@ -83,13 +83,8 @@ internal class Renderer : IRenderer, IEventSink
         _timePassedMs += timeStepSizeMs + howFarIntoNextFrameMs;
 
         //#if DEBUG
-        var debugStr = string.IsNullOrEmpty(_profileOutput)
-            ? ""
-            : $"| {_profileOutput}";
-        var sec = (int)Math.Floor(_timePassedMs / 1000) % 60;
-        var min = (int)Math.Floor(_timePassedMs / (1000 * 60)) % 60;
-        var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
-        _canvas.Text(1, 0, $"Greenery | T {hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
+        var line = StatusLineText.FormatWithAppLabel("Circuitry", _timePassedMs, _profileOutput);
+        _canvas.Text(1, 0, line);
         //#endif
     }
 

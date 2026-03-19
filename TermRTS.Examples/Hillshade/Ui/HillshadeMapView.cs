@@ -1,7 +1,8 @@
 using System.Numerics;
 using ConsoleRenderer;
-using TermRTS.Examples.Greenery;
 using TermRTS.Io;
+using TermRTS.Shared.Ui;
+using TermRTS.Shared.World;
 using TermRTS.Storage;
 using TermRTS.Ui;
 
@@ -9,14 +10,12 @@ namespace TermRTS.Examples.Hillshade.Ui;
 
 /// <summary>
 ///     Map view that renders terrain with hillshade and raycast shadows driven by a day/night cycle.
-///     Reuses the same layout and viewport logic as Greenery's MapView (camera, coordinate scales).
+///     Shares viewport and panning with <see cref="ViewportMapViewBase" />.
 /// </summary>
-public class HillshadeMapView : KeyInputProcessorBase
+public class HillshadeMapView : ViewportMapViewBase
 {
     #region Constants
 
-    private const int SpaceForScaleTop = 1;
-    private const int SpaceForTextfieldBottom = 1;
     private const int MaxShadowRaySteps = 40;
     private const float Ambient = 0.25f;
     private const float ShadowIntensityFactor = 0.5f;
@@ -31,7 +30,8 @@ public class HillshadeMapView : KeyInputProcessorBase
     /// <summary>Elevations 0 to WaterSurfaceElevation (inclusive) are water; rendered as flat water surface.</summary>
     private const int WaterSurfaceElevation = 3;
 
-    private const bool EnableShadowRaycast = false;
+    // Not `const` so the raycast body stays reachable for the compiler when toggled to true.
+    private static bool EnableShadowRaycast = false;
 
     // Color temperature: phase 0 = sunrise, 0.5 = noon, 1 = sunset; second half is "afternoon" toward night
     private const float WarmTintMaxStrength = 0.35f;
@@ -76,13 +76,7 @@ public class HillshadeMapView : KeyInputProcessorBase
 
     #region Fields
 
-    private readonly int _worldWidth;
-    private readonly int _worldHeight;
-    private readonly ConsoleCanvas _canvas;
     private readonly (char c, TerminalColor fg, TerminalColor bg)[,] _cache;
-    private int _spaceForScaleLeft;
-    private int _viewportPositionInWorldX;
-    private int _viewportPositionInWorldY;
     private float? _lastSunAzimuth;
     private float? _lastSunAltitude;
 
@@ -90,46 +84,10 @@ public class HillshadeMapView : KeyInputProcessorBase
 
     #region Constructor
 
-    public HillshadeMapView(ConsoleCanvas canvas, int worldWidth, int worldHeight)
+    public HillshadeMapView(ConsoleCanvas canvas, int worldWidth, int worldHeight) : base(canvas,
+        worldWidth, worldHeight)
     {
-        _canvas = canvas;
-        _canvas.AutoResize = true;
-        _worldWidth = worldWidth;
-        _worldHeight = worldHeight;
         _cache = new (char, TerminalColor, TerminalColor)[worldWidth, worldHeight];
-        ViewportPositionInWorldX = 0;
-        ViewportPositionInWorldY = 0;
-        Console.CursorVisible = false;
-    }
-
-    #endregion
-
-    #region Private Properties
-
-    private int ViewportWidth => Width - _spaceForScaleLeft;
-    private int ViewportHeight => Height - SpaceForScaleTop - SpaceForTextfieldBottom;
-
-    private int ViewportPositionInWorldX
-    {
-        get => _viewportPositionInWorldX;
-        set
-        {
-            if (_viewportPositionInWorldX == value) return;
-            _viewportPositionInWorldX = value;
-            IsRequireReRender = true;
-        }
-    }
-
-    private int ViewportPositionInWorldY
-    {
-        get => _viewportPositionInWorldY;
-        set
-        {
-            if (_viewportPositionInWorldY == value) return;
-            _viewportPositionInWorldY = value;
-            UpdateSpaceForScaleLeft();
-            IsRequireReRender = true;
-        }
     }
 
     #endregion
@@ -179,15 +137,15 @@ public class HillshadeMapView : KeyInputProcessorBase
     {
         var viewportExtendInWorldX = ViewportPositionInWorldX + ViewportWidth;
         var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
-        var boundaryX = Math.Min(_worldWidth, viewportExtendInWorldX);
-        var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
+        var boundaryX = Math.Min(WorldWidth, viewportExtendInWorldX);
+        var boundaryY = Math.Min(WorldHeight, viewportExtendInWorldY);
 
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
         for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
         {
             var (c, fg, bg) = _cache[x, y];
-            _canvas.Set(
-                X + WorldToViewportX(x) + _spaceForScaleLeft,
+            Canvas.Set(
+                X + WorldToViewportX(x) + SpaceForScaleLeftValue,
                 Y + WorldToViewportY(y) + SpaceForScaleTop,
                 c,
                 fg,
@@ -197,51 +155,47 @@ public class HillshadeMapView : KeyInputProcessorBase
         RenderCoordinates();
     }
 
-    protected override void OnXChanged()
+    /// <summary>Hillshade uses block glyphs for the coordinate ruler (contrast with Greenery whitespace ticks).</summary>
+    protected override void RenderCoordinates()
     {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
+        for (var x = 0; x < SpaceForScaleLeftValue; x++)
+            Canvas.Set(X + x, Y, Cp437.BlockFull, DefaultBg);
 
-    protected override void OnYChanged()
-    {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
-
-    protected override void OnWidthChanged()
-    {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
-
-    protected override void OnHeightChanged()
-    {
-        UpdateSpaceForScaleLeft();
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
-
-    #endregion
-
-    #region KeyInputProcessorBase
-
-    public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
-    {
-        switch (keyInfo.Key)
+        for (var x = 0; x <= ViewportWidth; x++)
         {
-            case ConsoleKey.UpArrow:
-                MoveCameraUp();
-                break;
-            case ConsoleKey.DownArrow:
-                MoveCameraDown();
-                break;
-            case ConsoleKey.LeftArrow:
-                MoveCameraLeft();
-                break;
-            case ConsoleKey.RightArrow:
-                MoveCameraRight();
-                break;
+            var worldX = ViewportToWorldX(x);
+            var isTick = worldX > 0 && worldX % 10 == 0;
+            var fg = isTick ? DefaultFg : DefaultBg;
+            Canvas.Set(X + SpaceForScaleLeftValue + x, Y, Cp437.BlockFull, fg);
+        }
+
+        for (var x = 0; x <= ViewportWidth; x++)
+        {
+            var worldX = ViewportToWorldX(x);
+            var isTick = worldX > 0 && worldX % 10 == 0;
+            if (!isTick) continue;
+            var spaceForLabel = Width - x - SpaceForScaleLeftValue;
+            var tickLabel = Convert.ToString(worldX);
+            if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
+            Canvas.Text(X + SpaceForScaleLeftValue + x, Y, tickLabel, false, DefaultBg, DefaultFg);
+        }
+
+        for (var y = 0; y <= ViewportHeight; y++)
+        for (var x = 0; x < SpaceForScaleLeftValue; x++)
+        {
+            var worldY = ViewportToWorldY(y);
+            var isTick = worldY > 0 && worldY % 5 == 0;
+            var fg = isTick ? DefaultFg : DefaultBg;
+            Canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
+        }
+
+        for (var y = 0; y <= ViewportHeight; y++)
+        {
+            var worldY = ViewportToWorldY(y);
+            var isTick = worldY > 0 && worldY % 5 == 0;
+            if (isTick)
+                Canvas.Text(X, y + SpaceForScaleTop, Convert.ToString(worldY), false, DefaultBg,
+                    DefaultFg);
         }
     }
 
@@ -289,8 +243,8 @@ public class HillshadeMapView : KeyInputProcessorBase
         var waterSurfaceIntensityBase =
             Math.Clamp(ambient + (1f - ambient) * Vector3.Dot(waterSurfaceNormal, sunDir), 0f, 1f);
 
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
         {
             var elevation = world.Cells[x, y];
             var isWater = elevation <= WaterSurfaceElevation;
@@ -305,18 +259,18 @@ public class HillshadeMapView : KeyInputProcessorBase
                 var inShadow = IsInShadow(world, x, y, sunAzimuth);
 
                 float nx = 0, ny = 0;
-                if (x > 0 && x < _worldWidth - 1)
+                if (x > 0 && x < WorldWidth - 1)
                     nx = (world.Cells[x + 1, y] - world.Cells[x - 1, y]) * 0.5f;
                 else if (x > 0)
                     nx = world.Cells[x, y] - world.Cells[x - 1, y];
-                else if (x < _worldWidth - 1)
+                else if (x < WorldWidth - 1)
                     nx = world.Cells[x + 1, y] - world.Cells[x, y];
 
-                if (y > 0 && y < _worldHeight - 1)
+                if (y > 0 && y < WorldHeight - 1)
                     ny = (world.Cells[x, y + 1] - world.Cells[x, y - 1]) * 0.5f;
                 else if (y > 0)
                     ny = world.Cells[x, y] - world.Cells[x, y - 1];
-                else if (y < _worldHeight - 1)
+                else if (y < WorldHeight - 1)
                     ny = world.Cells[x, y + 1] - world.Cells[x, y];
 
                 var normal = new Vector3(-nx, -ny, 1f);
@@ -326,8 +280,8 @@ public class HillshadeMapView : KeyInputProcessorBase
                 else
                     normal /= len;
 
-                    var dot = Vector3.Dot(normal, sunDir);
-                    intensity = Math.Clamp(ambient + (1f - ambient) * dot, 0f, 1f);
+                var dot = Vector3.Dot(normal, sunDir);
+                intensity = Math.Clamp(ambient + (1f - ambient) * dot, 0f, 1f);
                 if (inShadow)
                     intensity *= ShadowIntensityFactor;
             }
@@ -393,6 +347,7 @@ public class HillshadeMapView : KeyInputProcessorBase
     private bool IsInShadow(WorldComponent world, int ox, int oy, float sunAzimuth)
     {
         if (!EnableShadowRaycast) return false;
+
         var stepX = (float)Math.Cos(sunAzimuth);
         var stepY = (float)(-Math.Sin(sunAzimuth));
         var originElev = world.Cells[ox, oy];
@@ -401,7 +356,7 @@ public class HillshadeMapView : KeyInputProcessorBase
         {
             var gx = (int)(ox + n * stepX + 0.5f);
             var gy = (int)(oy + n * stepY + 0.5f);
-            if (gx < 0 || gx >= _worldWidth || gy < 0 || gy >= _worldHeight)
+            if (gx < 0 || gx >= WorldWidth || gy < 0 || gy >= WorldHeight)
                 break;
             if (world.Cells[gx, gy] > originElev)
                 return true;
@@ -419,115 +374,6 @@ public class HillshadeMapView : KeyInputProcessorBase
         var g = (byte)(baseColor.G * factor);
         var b = (byte)(baseColor.B * factor);
         return new TerminalColor(r, g, b);
-    }
-
-    private void UpdateSpaceForScaleLeft()
-    {
-        _spaceForScaleLeft = (ViewportPositionInWorldY + ViewportHeight) switch
-        {
-            < 10 => 1,
-            < 100 => 2,
-            < 1000 => 3,
-            < 10000 => 4,
-            _ => 5
-        };
-    }
-
-    private void MoveCameraUp()
-    {
-        ViewportPositionInWorldY = ViewportHeight > _worldHeight
-            ? 0
-            : Math.Max(ViewportPositionInWorldY - 1, 0);
-    }
-
-    private void MoveCameraDown()
-    {
-        var maxViewportY = ViewportPositionInWorldY + ViewportHeight - 1;
-        var maxWorldY = _worldHeight - ViewportHeight - 1;
-        var boundaryY = Math.Min(maxViewportY, maxWorldY);
-        ViewportPositionInWorldY = ViewportHeight > _worldHeight
-            ? 0
-            : Math.Min(ViewportPositionInWorldY + 1, boundaryY);
-    }
-
-    private void MoveCameraLeft()
-    {
-        ViewportPositionInWorldX = ViewportWidth > _worldWidth
-            ? 0
-            : Math.Max(ViewportPositionInWorldX - 1, 0);
-    }
-
-    private void MoveCameraRight()
-    {
-        var maxViewportX = ViewportPositionInWorldX + ViewportWidth - 1;
-        var maxWorldX = _worldWidth - ViewportWidth - 1;
-        var boundaryX = Math.Min(maxViewportX, maxWorldX);
-        ViewportPositionInWorldX = ViewportWidth > _worldWidth
-            ? 0
-            : Math.Min(ViewportPositionInWorldX + 1, boundaryX);
-    }
-
-    private int WorldToViewportX(float x)
-    {
-        return (int)(x - ViewportPositionInWorldX);
-    }
-
-    private int WorldToViewportY(float y)
-    {
-        return (int)(y - ViewportPositionInWorldY);
-    }
-
-    private int ViewportToWorldX(int x)
-    {
-        return ViewportPositionInWorldX + x;
-    }
-
-    private int ViewportToWorldY(int y)
-    {
-        return ViewportPositionInWorldY + y;
-    }
-
-    private void RenderCoordinates()
-    {
-        for (var x = 0; x < _spaceForScaleLeft; x++)
-            _canvas.Set(X + x, Y, Cp437.BlockFull, DefaultBg);
-
-        for (var x = 0; x <= ViewportWidth; x++)
-        {
-            var worldX = ViewportToWorldX(x);
-            var isTick = worldX > 0 && worldX % 10 == 0;
-            var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + _spaceForScaleLeft + x, Y, Cp437.BlockFull, fg);
-        }
-
-        for (var x = 0; x <= ViewportWidth; x++)
-        {
-            var worldX = ViewportToWorldX(x);
-            var isTick = worldX > 0 && worldX % 10 == 0;
-            if (!isTick) continue;
-            var spaceForLabel = Width - x - _spaceForScaleLeft;
-            var tickLabel = Convert.ToString(worldX);
-            if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
-            _canvas.Text(X + _spaceForScaleLeft + x, Y, tickLabel, false, DefaultBg, DefaultFg);
-        }
-
-        for (var y = 0; y <= ViewportHeight; y++)
-        for (var x = 0; x < _spaceForScaleLeft; x++)
-        {
-            var worldY = ViewportToWorldY(y);
-            var isTick = worldY > 0 && worldY % 5 == 0;
-            var fg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
-        }
-
-        for (var y = 0; y <= ViewportHeight; y++)
-        {
-            var worldY = ViewportToWorldY(y);
-            var isTick = worldY > 0 && worldY % 5 == 0;
-            if (isTick)
-                _canvas.Text(X, y + SpaceForScaleTop, Convert.ToString(worldY), false, DefaultBg,
-                    DefaultFg);
-        }
     }
 
     #endregion

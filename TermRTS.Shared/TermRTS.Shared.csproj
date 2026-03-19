@@ -1,18 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
+        <OutputType>Library</OutputType>
+        <RootNamespace>TermRTS.Shared</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\TermRTS\TermRTS.csproj"/>
-        <ProjectReference Include="..\TermRTS.Shared\TermRTS.Shared.csproj"/>
         <ProjectReference Include="..\..\ConsoleRenderer\ConsoleRenderer\ConsoleRenderer.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="log4net" Version="3.3.0"/>
-        <PackageReference Include="Xdg.Directories" Version="0.1.2"/>
+        <PackageReference Include="SimplexNoise" Version="2.0.0"/>
     </ItemGroup>
 
 </Project>

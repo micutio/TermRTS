@@ -2,6 +2,7 @@ using System.Numerics;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
+using TermRTS.Shared.World;
 using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.System;

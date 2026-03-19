@@ -3,6 +3,8 @@ using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Io;
 using TermRTS.Storage;
+using TermRTS.Shared.Ui;
+using TermRTS.Shared.World;
 using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery.Ui;
@@ -21,7 +23,7 @@ public enum MapRenderMode
     ReliefMonochrome
 }
 
-public class MapView : KeyInputProcessorBase, IEventSink
+public class MapView : ViewportMapViewBase, IEventSink
 {
     #region Fields
 
@@ -120,25 +122,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #endregion
 
-    #region Positioning Constants and Variables
-
-    // World size
-    private readonly int _worldWidth;
-    private readonly int _worldHeight;
-
-    // Offsets for the Map rendering, to accommodate left and top scales
-    private const int SpaceForScaleTop = 1;
-    private const int SpaceForTextfieldBottom = 1;
-    private int _spaceForScaleLeft;
-
-    private int _viewportPositionInWorldX;
-    private int _viewportPositionInWorldY;
-
-    #endregion
-
-    // reference to canvas to render on
-    private readonly ConsoleCanvas _canvas;
-
     // cached world and drone paths
     private readonly (byte, char)[,] _cachedWorld;
     private readonly bool[,] _cachedFov;
@@ -152,24 +135,13 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #region Constructor
 
-    public MapView(ConsoleCanvas canvas, int worldWidth, int worldHeight)
+    public MapView(ConsoleCanvas canvas, int worldWidth, int worldHeight) : base(canvas, worldWidth,
+        worldHeight)
     {
-        _canvas = canvas;
-        _canvas.AutoResize = true;
-        // _canvas.Interlaced = true;
-
         _cachedWorld = new (byte, char)[worldWidth, worldHeight];
         _cachedFov = new bool[worldWidth, worldHeight];
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
-
-        _worldWidth = worldWidth;
-        _worldHeight = worldHeight;
-
-        ViewportPositionInWorldX = 0;
-        ViewportPositionInWorldY = 0;
-
-        Console.CursorVisible = false;
     }
 
     #endregion
@@ -182,35 +154,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
         set
         {
             _mapRenderMode = value;
-            IsRequireReRender = true;
-        }
-    }
-
-    private int ViewportWidth => Width - _spaceForScaleLeft;
-    private int ViewportHeight => Height - SpaceForScaleTop - SpaceForTextfieldBottom;
-
-    // Left top position of the camera within the world
-    private int ViewportPositionInWorldX
-    {
-        get => _viewportPositionInWorldX;
-        set
-        {
-            if (_viewportPositionInWorldX == value) return;
-
-            _viewportPositionInWorldX = value;
-            IsRequireReRender = true;
-        }
-    }
-
-    private int ViewportPositionInWorldY
-    {
-        get => _viewportPositionInWorldY;
-        set
-        {
-            if (_viewportPositionInWorldY == value) return;
-
-            _viewportPositionInWorldY = value;
-            UpdateSpaceForScaleLeft();
             IsRequireReRender = true;
         }
     }
@@ -256,8 +199,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 throw new ArgumentOutOfRangeException();
         }
 
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
         {
             if (_cachedFov[x, y] == fov.Cells[x, y]) continue;
             IsRequireReRender = true;
@@ -290,8 +233,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     {
         var viewportExtendInWorldX = ViewportPositionInWorldX + ViewportWidth;
         var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
-        var boundaryX = Math.Min(_worldWidth, viewportExtendInWorldX);
-        var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
+        var boundaryX = Math.Min(WorldWidth, viewportExtendInWorldX);
+        var boundaryY = Math.Min(WorldHeight, viewportExtendInWorldY);
 
         // Step 1: Render World
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
@@ -314,8 +257,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 _ => throw new ArgumentOutOfRangeException()
             };
             var (colFg, colBg) = colors[elevation];
-            _canvas.Set(
-                X + WorldToViewportX(x) + _spaceForScaleLeft,
+            Canvas.Set(
+                X + WorldToViewportX(x) + SpaceForScaleLeftValue,
                 Y + WorldToViewportY(y) + SpaceForScaleTop,
                 c,
                 isFov ? colFg : DefaultFg,
@@ -326,8 +269,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         foreach (var path in _cachedDronePaths.Values)
         foreach (var (pathX, pathY, pathCol) in path)
             if (IsInCamera(pathX, pathY))
-                _canvas.Set(
-                    X + WorldToViewportX(pathX) + _spaceForScaleLeft,
+                Canvas.Set(
+                    X + WorldToViewportX(pathX) + SpaceForScaleLeftValue,
                     Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                     pathCol,
                     new TerminalColor(ConsoleColor.Red),
@@ -338,8 +281,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
             var droneX = Convert.ToInt32(pos.X);
             var droneY = Convert.ToInt32(pos.Y);
             if (IsInCamera(droneX, droneY))
-                _canvas.Set(
-                    X + WorldToViewportX(droneX) + _spaceForScaleLeft,
+                Canvas.Set(
+                    X + WorldToViewportX(droneX) + SpaceForScaleLeftValue,
                     Y + WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
                     DefaultBg,
@@ -348,31 +291,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         // Step 3: Render Coordinate Scales at the top and left sides.
         RenderCoordinates();
-    }
-
-    protected override void OnXChanged()
-    {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
-
-    protected override void OnYChanged()
-    {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
-
-    protected override void OnWidthChanged()
-    {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
-    }
-
-    protected override void OnHeightChanged()
-    {
-        UpdateSpaceForScaleLeft();
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
     }
 
     #endregion
@@ -386,210 +304,40 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #endregion
 
-    #region KeyInputProcessorBase Members
-
-    public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
-    {
-        switch (keyInfo.Key)
-        {
-            case ConsoleKey.UpArrow:
-                MoveCameraUp();
-                return;
-            case ConsoleKey.DownArrow:
-                MoveCameraDown();
-                return;
-            case ConsoleKey.LeftArrow:
-                MoveCameraLeft();
-                return;
-            case ConsoleKey.RightArrow:
-                MoveCameraRight();
-                return;
-            default:
-                return;
-        }
-    }
-
-    #endregion
-
     #region Private Members
-
-    private void UpdateSpaceForScaleLeft()
-    {
-        _spaceForScaleLeft = (ViewportPositionInWorldY + ViewportHeight) switch
-        {
-            < 10 => 1,
-            < 100 => 2,
-            < 1000 => 3,
-            < 10000 => 4,
-            _ => 5
-        };
-    }
-
-    private void MoveCameraUp()
-    {
-        ViewportPositionInWorldY = ViewportHeight > _worldHeight
-            ? 0
-            : Math.Max(ViewportPositionInWorldY - 1, 0);
-    }
-
-    private void MoveCameraDown()
-    {
-        var maxViewportY = ViewportPositionInWorldY + ViewportHeight - 1;
-        var maxWorldY = _worldHeight - ViewportHeight - 1;
-        var boundaryY = Math.Min(maxViewportY, maxWorldY);
-        ViewportPositionInWorldY = ViewportHeight > _worldHeight
-            ? 0
-            : Math.Min(ViewportPositionInWorldY + 1, boundaryY);
-    }
-
-    private void MoveCameraLeft()
-    {
-        ViewportPositionInWorldX = ViewportWidth > _worldWidth
-            ? 0
-            : Math.Max(ViewportPositionInWorldX - 1, 0);
-    }
-
-    private void MoveCameraRight()
-    {
-        var maxViewportX = ViewportPositionInWorldX + ViewportWidth - 1;
-        var maxWorldX = _worldWidth - ViewportWidth - 1;
-        var boundaryX = Math.Min(maxViewportX, maxWorldX);
-        ViewportPositionInWorldX = ViewportWidth > _worldWidth
-            ? 0
-            : Math.Min(ViewportPositionInWorldX + 1, boundaryX);
-    }
-
-    /// <summary>
-    /// Determine whether a position is within the viewport boundaries.
-    /// </summary>
-    /// <param name="x">x-position relative to world coordinates</param>
-    /// <param name="y">y-position relative to world coordinates</param>
-    /// <returns><c>true</c> if it is within the viewport, <c>false</c> otherwise.</returns>
-    private bool IsInCamera(float x, float y)
-    {
-        return x >= ViewportPositionInWorldX
-               && x < ViewportPositionInWorldX + ViewportWidth
-               && y >= ViewportPositionInWorldY
-               && y < ViewportPositionInWorldY + ViewportHeight;
-    }
-
-    /// <summary>
-    /// Determine whether a position is within the world or not
-    /// </summary>
-    /// <param name="x">x-position relative to world coordinates</param>
-    /// <param name="y">y-position relative to world coordinates</param>
-    /// <returns></returns>
-    private bool IsInBounds(float x, float y)
-    {
-        return x >= 0
-               && x < _worldWidth
-               && y >= 0
-               && y < _worldHeight;
-    }
-
-    private int WorldToViewportX(float x)
-    {
-        return Convert.ToInt32(x - ViewportPositionInWorldX);
-    }
-
-    private int WorldToViewportY(float y)
-    {
-        return Convert.ToInt32(y - ViewportPositionInWorldY);
-    }
-
-    private int ViewportToWorldX(int x)
-    {
-        return ViewportPositionInWorldX + x;
-    }
-
-    private int ViewportToWorldY(int y)
-    {
-        return ViewportPositionInWorldY + y;
-    }
-
-    private void RenderCoordinates()
-    {
-        for (var x = 0; x < _spaceForScaleLeft; x++)
-            _canvas.Set(X + x, Y, Cp437.WhiteSpace, DefaultFg, DefaultBg);
-
-        // Horizontal
-        // tick marks
-        for (var x = 0; x <= ViewportWidth; x++)
-        {
-            var worldX = ViewportToWorldX(x);
-            var isTick = worldX > 0 && worldX % 10 == 0;
-            var bg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + _spaceForScaleLeft + x, Y, Cp437.WhiteSpace, DefaultFg, bg);
-        }
-
-        // tick labels
-        for (var x = 0; x <= ViewportWidth; x++)
-        {
-            var worldX = ViewportToWorldX(x);
-            var isTick = worldX > 0 && worldX % 10 == 0;
-
-            if (!isTick) continue;
-
-            var spaceForLabel = Width - x - _spaceForScaleLeft;
-            var tickLabel = Convert.ToString(worldX);
-            if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
-            _canvas.Text(X + _spaceForScaleLeft + x, Y, tickLabel, false, DefaultBg, DefaultFg);
-        }
-
-        // Vertical
-        // tick marks
-        for (var y = 0; y <= ViewportHeight; y++)
-        for (var x = 0; x < _spaceForScaleLeft; x++)
-        {
-            var worldY = ViewportToWorldY(y);
-            var isTick = worldY > 0 && worldY % 5 == 0;
-            var bg = isTick ? DefaultFg : DefaultBg;
-            _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.WhiteSpace, DefaultFg, bg);
-        }
-
-        // tick labels
-        for (var y = 0; y <= ViewportHeight; y++)
-        {
-            var worldY = ViewportToWorldY(y);
-            var isTick = worldY > 0 && worldY % 5 == 0;
-            if (isTick)
-                _canvas.Text(X, y + SpaceForScaleTop, Convert.ToString(worldY), false, DefaultBg,
-                    DefaultFg);
-        }
-    }
 
     private void SetElevationVisual(WorldComponent world)
     {
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
             _cachedWorld[x, y] = (world.Cells[x, y], MarkersElevation[world.Cells[x, y]]);
     }
 
     private void SetHeatmapColorVisual(WorldComponent world)
     {
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
             _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapColor[world.Cells[x, y]]);
     }
 
     private void SetHeatmapMonochromeVisual(WorldComponent world)
     {
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
             _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapMonochrome[world.Cells[x, y]]);
     }
 
     private void SetTerrainVisual(WorldComponent world)
     {
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
             _cachedWorld[x, y] = (world.Cells[x, y], MarkersTerrain[world.Cells[x, y]]);
     }
 
     private void SetReliefVisual(WorldComponent world)
     {
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
         {
             char c;
             if (IsInBounds(x - 1, y) && world.Cells[x - 1, y] < world.Cells[x, y] &&
@@ -609,8 +357,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private void SetContourLines(WorldComponent world)
     {
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
         {
             var cell = world.Cells[x, y];
             if (cell < 3)
@@ -623,8 +371,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
             _cachedWorld[x, y] = (cell, c);
         }
 
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
         {
             var cell = world.Cells[x, y];
             if (cell < 3) continue;
@@ -635,8 +383,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
             _cachedWorld[x, y].Item2 = c;
         }
 
-        for (var y = 0; y < _worldHeight; y++)
-        for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < WorldHeight; y++)
+        for (var x = 0; x < WorldWidth; x++)
         {
             var cell = world.Cells[x, y];
             if (cell < 3) continue;

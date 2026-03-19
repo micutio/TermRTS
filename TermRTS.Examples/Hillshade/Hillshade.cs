@@ -1,24 +1,16 @@
-using System.Runtime.InteropServices;
 using TermRTS.Event;
-using TermRTS.Examples.Greenery;
 using TermRTS.Examples.Hillshade.System;
 using TermRTS.Io;
+using TermRTS.Shared.Harness;
+using TermRTS.Shared.World;
 
 namespace TermRTS.Examples.Hillshade;
 
 public class Hillshade : IRunnableExample
 {
-    private const int WorldWidth = 300;
-    private const int WorldHeight = 250;
-
     public void Run()
     {
-        var previousTitle = "Powershell";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            previousTitle = Console.Title;
-            Console.Title = "TermRTS - Hillshade";
-        }
+        var previousTitle = ConsoleTitleHelper.SaveAndSet("TermRTS - Hillshade");
 
         const int seed = 0;
         var core = new Core();
@@ -27,9 +19,9 @@ public class Hillshade : IRunnableExample
         var worldEntity = new EntityBase();
         var worldComponent = new WorldComponent(
             worldEntity.Id,
-            WorldWidth,
-            WorldHeight,
-            worldGen.Generate(WorldWidth, WorldHeight));
+            DefaultWorldDimensions.Width,
+            DefaultWorldDimensions.Height,
+            worldGen.Generate(DefaultWorldDimensions.Width, DefaultWorldDimensions.Height));
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
 
@@ -42,7 +34,8 @@ public class Hillshade : IRunnableExample
         core.AddSimSystem(new TimeOfDaySystem());
 
         var scheduler = new Scheduler(core);
-        var renderer = new Renderer(scheduler.EventQueue, WorldWidth, WorldHeight);
+        var renderer = new Renderer(scheduler.EventQueue, DefaultWorldDimensions.Width,
+            DefaultWorldDimensions.Height);
         core.Renderer = renderer;
 
         var input = new ConsoleInput(scheduler.EventQueue, ConsoleKey.Escape);
@@ -50,17 +43,10 @@ public class Hillshade : IRunnableExample
         scheduler.AddEventSink(renderer, typeof(ConsoleKeyInfo));
         input.Run();
 
-        Console.CancelKeyPress += (_, e) =>
-        {
-            e.Cancel = true;
-            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
-            Console.Clear();
-            Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
-        };
+        GracefulShutdown.RegisterCancelHandler(scheduler.EventQueue);
 
         new Simulation(scheduler).Run();
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            Console.Title = previousTitle;
+        ConsoleTitleHelper.Restore(previousTitle);
     }
 }

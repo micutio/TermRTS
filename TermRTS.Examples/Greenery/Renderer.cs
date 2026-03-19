@@ -2,6 +2,7 @@ using ConsoleRenderer;
 using log4net;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Ui;
+using TermRTS.Shared.Ui;
 using TermRTS.Storage;
 using TermRTS.Ui;
 
@@ -35,8 +36,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     public Renderer(SchedulerEventQueue evtQueue, int worldWidth, int worldHeight)
     {
-        _canvas = new ConsoleCanvas().Render();
-        _canvas.AutoResize = true;
+        _canvas = ConsoleCanvasSetup.CreateRenderedCanvas();
         _lastCanvasWidth = _canvas.Width;
         _lastCanvasHeight = _canvas.Height;
         // _canvas.Interlaced = true;
@@ -60,8 +60,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         AddUiElement(_logArea);
         AddUiElement(_textbox);
         _profileOutput = string.Empty;
-
-        Console.CursorVisible = false;
     }
 
     #endregion
@@ -209,13 +207,8 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         _timePassedMs += timeStepSizeMs + timeStepSizeMs * howFarIntoNextFramePercent;
 
-        var debugStr = string.IsNullOrEmpty(_profileOutput)
-            ? string.Empty
-            : _profileOutput;
-        var sec = (int)Math.Floor(_timePassedMs / 1000) % 60;
-        var min = (int)Math.Floor(_timePassedMs / (1000 * 60)) % 60;
-        var hr = (int)Math.Floor(_timePassedMs / (1000 * 60 * 60)) % 24;
-        _canvas.Text(0, _canvas.Height - 1, $"{hr:D2}:{min:D2}:{sec:D2} | {debugStr}");
+        _canvas.Text(0, _canvas.Height - 1,
+            StatusLineText.FormatElapsedClock(_timePassedMs, _profileOutput));
     }
 
     #endregion

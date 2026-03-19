@@ -2,6 +2,7 @@ using ConsoleRenderer;
 using log4net;
 using TermRTS.Event;
 using TermRTS.Examples.Hillshade.Ui;
+using TermRTS.Shared.Ui;
 using TermRTS.Storage;
 using TermRTS.Ui;
 
@@ -25,8 +26,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     public Renderer(SchedulerEventQueue evtQueue, int worldWidth, int worldHeight)
     {
         _evtQueue = evtQueue;
-        _canvas = new ConsoleCanvas().Render();
-        _canvas.AutoResize = true;
+        _canvas = ConsoleCanvasSetup.CreateRenderedCanvas();
         _lastCanvasWidth = _canvas.Width;
         _lastCanvasHeight = _canvas.Height;
         _mapview = new HillshadeMapView(_canvas, worldWidth, worldHeight)
@@ -35,7 +35,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             Width = _canvas.Width
         };
         AddUiElement(_mapview);
-        Console.CursorVisible = false;
     }
 
     public void ProcessEvent(IEvent evt)

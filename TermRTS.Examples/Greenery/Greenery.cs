@@ -1,11 +1,12 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Io;
+using TermRTS.Shared.Harness;
+using TermRTS.Shared.World;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -14,23 +15,15 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int WorldWidth = 300;
-
-    private const int WorldHeight = 250;
 
     // private readonly ILog _log;
-    private CommandRunner _commandRunner;
+    private CommandRunner? _commandRunner;
 
     #region IRunnableExample Members
 
     public void Run()
     {
-        var previousTitle = "Powershell";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            previousTitle = Console.Title;
-            Console.Title = "TermRTS - Greenery";
-        }
+        var previousTitle = ConsoleTitleHelper.SaveAndSet("TermRTS - Greenery");
 
         var seed = 0; //rng.Next();
 
@@ -42,14 +35,15 @@ public class Greenery : IRunnableExample
         var worldComponent =
             new WorldComponent(
                 worldEntity.Id,
-                WorldWidth,
-                WorldHeight,
-                worldGen.Generate(WorldWidth, WorldHeight));
+                DefaultWorldDimensions.Width,
+                DefaultWorldDimensions.Height,
+                worldGen.Generate(DefaultWorldDimensions.Width, DefaultWorldDimensions.Height));
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
 
         var fovEntity = new EntityBase();
-        var fovComponent = new FovComponent(fovEntity.Id, WorldWidth, WorldHeight);
+        var fovComponent = new FovComponent(fovEntity.Id, DefaultWorldDimensions.Width,
+            DefaultWorldDimensions.Height);
         core.AddEntity(fovEntity);
         core.AddComponent(fovComponent);
 
@@ -58,12 +52,14 @@ public class Greenery : IRunnableExample
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
 
-        var pathFindingSystem = new PathFindingSystem(WorldWidth, WorldHeight);
+        var pathFindingSystem = new PathFindingSystem(DefaultWorldDimensions.Width,
+            DefaultWorldDimensions.Height);
         core.AddSimSystem(pathFindingSystem);
         core.AddSimSystem(new FovSystem());
 
         var scheduler = new Scheduler(core);
-        var renderer = new Renderer(scheduler.EventQueue, WorldWidth, WorldHeight);
+        var renderer = new Renderer(scheduler.EventQueue, DefaultWorldDimensions.Width,
+            DefaultWorldDimensions.Height);
         core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 
@@ -84,19 +80,12 @@ public class Greenery : IRunnableExample
         simulation.EnableSerialization();
         simulation.IsSystemLogEnabled = true;
 
-        // Graceful shutdown on canceling via CTRL+C.
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
-        {
-            e.Cancel = true;
-            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
-            Console.Clear();
-            Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
-        };
+        GracefulShutdown.RegisterCancelHandler(scheduler.EventQueue);
 
         // Run it
         simulation.Run();
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) Console.Title = previousTitle;
+        ConsoleTitleHelper.Restore(previousTitle);
     }
 
     #endregion

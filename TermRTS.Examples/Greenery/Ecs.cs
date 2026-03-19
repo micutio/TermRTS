@@ -4,14 +4,6 @@ using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
 
-public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[,] cells)
-    : ComponentBase(entityId)
-{
-    public byte[,] Cells { get; } = cells;
-    public int WorldWidth { get; } = worldWidth;
-    public int WorldHeight { get; } = worldHeight;
-}
-
 public class FovComponent : ComponentBase
 {
     public FovComponent(int entityId, int worldWidth, int worldHeight) : base(entityId)

@@ -1,4 +1,5 @@
 using TermRTS.Algorithms;
+using TermRTS.Shared.World;
 using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.System;

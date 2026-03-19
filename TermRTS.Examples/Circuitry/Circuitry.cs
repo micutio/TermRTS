@@ -2,6 +2,7 @@ using System.Numerics;
 using log4net;
 using TermRTS.Event;
 using TermRTS.Io;
+using TermRTS.Shared.Harness;
 using TermRTS.Storage;
 
 namespace TermRTS.Examples.Circuitry;
@@ -57,12 +58,7 @@ internal class Circuitry : IRunnableExample
         scheduler.AddEventSink(input, typeof(Shutdown));
         input.Run();
 
-        // Graceful shutdown on canceling via CTRL+C
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
-        {
-            e.Cancel = true;
-            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
-        };
+        GracefulShutdown.RegisterCancelHandler(scheduler.EventQueue, clearConsoleOnCancel: false);
 
         // Shutdown after one hour
         const ulong oneHour = 1000UL * 60UL * 60UL;
