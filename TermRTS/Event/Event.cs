@@ -31,3 +31,12 @@ public readonly record struct SystemLog(string Content)
 public readonly struct Shutdown
 {
 }
+
+/// <summary>
+///     Requests the scheduler to change how much simulation time advances per tick.
+///     Higher values speed up the simulation; lower values slow it down.
+/// </summary>
+/// <param name="NewTimeStepSizeMs">Desired simulation ms per tick (clamped by the scheduler).</param>
+public readonly record struct TimeScaleChanged(ulong NewTimeStepSizeMs)
+{
+}

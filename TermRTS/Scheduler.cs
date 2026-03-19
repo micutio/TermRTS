@@ -25,15 +25,17 @@ public class SchedulerEventQueue
     }
 }
 
-public class Scheduler
+public class Scheduler : IEventSink
 {
     #region Fields
 
+    private const ulong MinTimeStepSizeMs = 1;
+    private const ulong MaxTimeStepSizeMs = 1000 * 60 * 60 * 24; // 24 hours
     private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
 
-    // time constants
+    // time constants: frame budget is fixed; simulation step size is variable
     private readonly TimeSpan _msPerUpdate;
-    private readonly ulong _timeStepSizeMs;
+    private ulong _timeStepSizeMs;
 
     // time keeping tools
     private readonly Stopwatch _loopTimer = new();
@@ -68,6 +70,7 @@ public class Scheduler
         _timeStepSizeMs = timeStepSizeMs;
         _core = core;
         AddEventSink(_core, typeof(Shutdown));
+        AddEventSink(this, typeof(TimeScaleChanged));
 
         TimeMs = 0L;
     }
@@ -81,9 +84,30 @@ public class Scheduler
     /// </summary>
     public ulong TimeMs { get; private set; }
 
+    /// <summary>
+    ///     Simulation ms advanced per tick. Can be changed at runtime via
+    ///     <see cref="TimeScaleChanged" /> events (e.g. + / - keys). Higher = faster simulation.
+    /// </summary>
+    public ulong TimeStepSizeMs
+    {
+        get => _timeStepSizeMs;
+        private set => _timeStepSizeMs = Math.Clamp(value, MinTimeStepSizeMs, MaxTimeStepSizeMs);
+    }
+
     public bool IsActive => _core.IsRunning();
 
     public SchedulerEventQueue EventQueue => _schedulerEventQueue;
+
+    #endregion
+
+    #region IEventSink Members
+
+    /// <inheritdoc />
+    public void ProcessEvent(IEvent evt)
+    {
+        if (evt is Event<TimeScaleChanged>(var payload))
+            TimeStepSizeMs = payload.NewTimeStepSizeMs;
+    }
 
     #endregion
 

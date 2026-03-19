@@ -17,7 +17,7 @@ internal static class ExampleRunner
         if (args.Length == 0)
         {
             Console.WriteLine("Usage: dotnet run --project TermRTS.Examples -- <example number>");
-            Console.WriteLine("  1 = Minimal App, 2 = Bouncy Ball, 3 = Circuitry, 4 = Greenery");
+            Console.WriteLine("  1 = Minimal App, 2 = Bouncy Ball, 3 = Circuitry, 4 = Greenery, 5 = Hillshade");
             return 1;
         }
 
@@ -40,6 +40,10 @@ internal static class ExampleRunner
             case "4":
                 Console.WriteLine("Running Greenery App...");
                 new Greenery.Greenery().Run();
+                break;
+            case "5":
+                Console.WriteLine("Running Hillshade App...");
+                new Hillshade.Hillshade().Run();
                 break;
             default:
                 Console.WriteLine("Nothing to run...");
