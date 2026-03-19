@@ -17,8 +17,9 @@ public class HillshadeMapView : KeyInputProcessorBase
 
     private const int SpaceForScaleTop = 1;
     private const int SpaceForTextfieldBottom = 1;
-    private const int MaxShadowRaySteps = 80;
+    private const int MaxShadowRaySteps = 40;
     private const float Ambient = 0.25f;
+    private const float ShadowIntensityFactor = 0.5f;
     private const float NightAmbient = 0.04f;
 
     /// <summary>Sun at zenith (90°) at noon; altitude in radians.</summary>
@@ -29,6 +30,8 @@ public class HillshadeMapView : KeyInputProcessorBase
 
     /// <summary>Elevations 0 to WaterSurfaceElevation (inclusive) are water; rendered as flat water surface.</summary>
     private const int WaterSurfaceElevation = 3;
+
+    private const bool EnableShadowRaycast = false;
 
     // Color temperature: phase 0 = sunrise, 0.5 = noon, 1 = sunset; second half is "afternoon" toward night
     private const float WarmTintMaxStrength = 0.35f;
@@ -326,7 +329,7 @@ public class HillshadeMapView : KeyInputProcessorBase
                     var dot = Vector3.Dot(normal, sunDir);
                     intensity = Math.Clamp(ambient + (1f - ambient) * dot, 0f, 1f);
                 if (inShadow)
-                    intensity *= 0.35f;
+                    intensity *= ShadowIntensityFactor;
             }
 
             var elevationClamped = Math.Clamp((int)elevation, 0, 9);
@@ -389,6 +392,7 @@ public class HillshadeMapView : KeyInputProcessorBase
 
     private bool IsInShadow(WorldComponent world, int ox, int oy, float sunAzimuth)
     {
+        if (!EnableShadowRaycast) return false;
         var stepX = (float)Math.Cos(sunAzimuth);
         var stepY = (float)(-Math.Sin(sunAzimuth));
         var originElev = world.Cells[ox, oy];
@@ -399,7 +403,7 @@ public class HillshadeMapView : KeyInputProcessorBase
             var gy = (int)(oy + n * stepY + 0.5f);
             if (gx < 0 || gx >= _worldWidth || gy < 0 || gy >= _worldHeight)
                 break;
-            if (world.Cells[gx, gy] >= originElev)
+            if (world.Cells[gx, gy] > originElev)
                 return true;
         }
 
