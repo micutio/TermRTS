@@ -11,7 +11,7 @@ public interface IWorldGen
     public byte[,] Generate(int worldWidth, int worldHeight);
 }
 
-public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
+public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : IWorldGen
 {
     private readonly Random _rng = new(seed);
 
@@ -27,7 +27,12 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             voronoiCells[i] = (_rng.Next(worldWidth), _rng.Next(worldHeight));
 
         // step 2: for each voronoi cell, determine whether it's going to be water or land
-        var landWaterMap = _rng.GetItems([3, 4], cellCount);
+        var landWaterMap = new int[cellCount];
+        for (int i = 0; i < cellCount; i++)
+        {
+            // land cells have base elevation 4, 3 and below is considered water
+            landWaterMap[i] = _rng.NextSingle() < landPercentage ? 4 : 3;
+        }
 
         // step 3: associate each grid cell to one of the voronoi cells
         const int jiggle = 15;

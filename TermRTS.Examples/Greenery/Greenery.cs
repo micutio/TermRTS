@@ -37,7 +37,7 @@ public class Greenery : IRunnableExample
         // Set up engine
         var core = new Core();
 
-        var worldGen = new VoronoiWorld(50, seed);
+        var worldGen = new VoronoiWorld(50, 0.26f, seed);
         var worldEntity = new EntityBase();
         var worldComponent =
             new WorldComponent(
