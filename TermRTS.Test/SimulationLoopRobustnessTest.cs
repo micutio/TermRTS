@@ -10,6 +10,13 @@ public class SimulationLoopRobustnessTest
 {
     private static readonly TimeSpan DefaultRunTimeout = TimeSpan.FromSeconds(10);
 
+    public SimulationLoopRobustnessTest()
+    {
+        // Set the threadpool to a fixed size to avoid gradually spinning up new threads,
+        // which might be slow on MacOS devices and cause test failures.
+        ThreadPool.SetMinThreads(100, 100);
+    }
+
     [Theory]
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Shutdown_under_heavy_tick_load_completes_and_time_advances(Core core)
