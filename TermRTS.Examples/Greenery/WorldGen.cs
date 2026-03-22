@@ -8,16 +8,16 @@ namespace TermRTS.Examples.Greenery;
 
 public interface IWorldGen
 {
-    public byte[,] Generate(int worldWidth, int worldHeight);
+    public byte[,] Generate(int worldWidth, int worldHeight, float landRatio);
 }
 
-public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : IWorldGen
+public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 {
     private readonly Random _rng = new(seed);
 
     #region IWorldGen Members
 
-    public byte[,] Generate(int worldWidth, int worldHeight)
+    public byte[,] Generate(int worldWidth, int worldHeight, float landRatio)
     {
         Noise.Seed = seed;
 
@@ -26,24 +26,32 @@ public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : I
         for (var i = 0; i < cellCount; i += 1)
             voronoiCells[i] = (_rng.Next(worldWidth), _rng.Next(worldHeight));
 
-        // step 2: for each voronoi cell, determine whether it's going to be water or land
+        // step 2: assign plate types and motions, and infer basic water/land by plate type
+        var plateTypes = GeneratePlateTypes(cellCount, _rng, landRatio); // true = continental, false = oceanic
+        var plateMotions = GeneratePlateMotions(cellCount, _rng);
+
         var landWaterMap = new int[cellCount];
-        for (int i = 0; i < cellCount; i++)
-        {
-            // land cells have base elevation 4, 3 and below is considered water
-            landWaterMap[i] = _rng.NextSingle() < landPercentage ? 4 : 3;
-        }
+        for (var i = 0; i < cellCount; i += 1)
+            landWaterMap[i] = plateTypes[i] ? 4 : 3;
 
         // step 3: associate each grid cell to one of the voronoi cells
         const int jiggle = 15;
-        var cellElevations
-            = GenerateLandWaterDistribution(
-                worldWidth, worldHeight, jiggle, voronoiCells, landWaterMap);
+        var (cellElevations, plateIndex) = GenerateLandWaterDistribution(
+            worldWidth, worldHeight, jiggle, voronoiCells, landWaterMap);
 
         // Step 4: Generate coastal slopes for each voronoi cell.
         var coastalSlopes = GenerateSlopedCoasts(worldWidth, worldHeight, in cellElevations);
 
-        // Step 5: for each voronoi land cell, apply perlin or simplex noise to generate height
+        // Step 5: Compute plate tectonics influence (mountains/trenches along plate boundaries)
+        var tectonicAdjustment = ComputePlateTectonicHeight(
+            worldWidth,
+            worldHeight,
+            plateIndex,
+            voronoiCells,
+            plateTypes,
+            plateMotions);
+
+        // Step 6: for each voronoi land cell, apply perlin or simplex noise to generate height
         const float noiseScale = 1.0f;
         const int octaves = 4;
         const float persistance = 0.75f; //?
@@ -66,14 +74,16 @@ public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : I
                 var baseElevation = cellElevations[x, y] == 4 ? 5.0 : -3.0;
                 var slopeFactor = coastalSlopes[x, y] / 9.0;
                 var normalizedNoise = noiseField[x, y] / 255.0;
-                var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise;
+                var tectonic = tectonicAdjustment[x, y];
+
+                var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise + tectonic;
 
                 // debug elevation without noise
-                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor;
+                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor + tectonic;
                 // debug: check land-water distribution
-                // var elevation = cellElevations[x, y] + baseElevation;
+                // var elevation = cellElevations[x, y] + baseElevation + tectonic;
                 // debug: check coastal slope values
-                // var elevation = 9 * coastalSlopes[x, y];
+                // var elevation = 9 * coastalSlopes[x, y] + tectonic;
                 cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
             }
 
@@ -88,7 +98,7 @@ public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : I
 
     #endregion
 
-    private static int[,] GenerateLandWaterDistribution(
+    private static (int[,] cellElevations, int[,] plateIndex) GenerateLandWaterDistribution(
         int worldWidth,
         int worldHeight,
         int jiggle,
@@ -98,6 +108,7 @@ public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : I
         // TODO: Refactor into separate water/land field generation function.
         const float scale = .08f;
         var cellElevations = new int[worldWidth, worldHeight];
+        var plateIndex = new int[worldWidth, worldHeight];
         var jiggleNoise = Noise.Calc2D(worldWidth, worldHeight, scale);
 
         for (var y = 0; y < worldHeight; y += 1)
@@ -107,20 +118,107 @@ public class VoronoiWorld(int cellCount, float landPercentage, int seed = 0) : I
                 var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
 
                 var minDist = double.MaxValue;
+                var winnerPlate = 0;
                 for (var i = 0; i < voronoiCells.Count; i += 1)
                 {
                     var vX = voronoiCells[i].Item1;
                     var vY = voronoiCells[i].Item2;
                     var dist = Math.Sqrt(Math.Pow(vX - jiggledX, 2.0f) + Math.Pow(vY - jiggledY, 2.0f));
 
-                    if (minDist < dist) continue;
-
-                    minDist = dist;
-                    cellElevations[x, y] = landWaterMap[i];
+                    if (dist < minDist)
+                    {
+                        minDist = dist;
+                        winnerPlate = i;
+                    }
                 }
+
+                plateIndex[x, y] = winnerPlate;
+                cellElevations[x, y] = landWaterMap[winnerPlate];
             }
 
-        return cellElevations;
+        return (cellElevations, plateIndex);
+    }
+
+    private static bool[] GeneratePlateTypes(int plateCount, Random rng, float landRatio)
+    {
+        var types = new bool[plateCount];
+        for (var i = 0; i < plateCount; i += 1)
+            types[i] = rng.NextDouble() < landRatio; // ~55% continental
+        return types;
+    }
+
+    private static Vector2[] GeneratePlateMotions(int plateCount, Random rng)
+    {
+        var motions = new Vector2[plateCount];
+        for (var i = 0; i < plateCount; i += 1)
+        {
+            var angle = (float)(rng.NextDouble() * Math.PI * 2.0);
+            var speed = (float)(rng.NextDouble() * 0.5 + 0.1);
+            motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
+        }
+
+        return motions;
+    }
+
+    private static float[,] ComputePlateTectonicHeight(
+        int worldWidth,
+        int worldHeight,
+        int[,] plateIndex,
+        IList<(int, int)> plateCenters,
+        IReadOnlyList<bool> plateTypes,
+        IList<Vector2> plateMotions)
+    {
+        var tectonicDelta = new float[worldWidth, worldHeight];
+
+        for (var y = 0; y < worldHeight; y += 1)
+            for (var x = 0; x < worldWidth; x += 1)
+            {
+                var currentPlate = plateIndex[x, y];
+                var totalDelta = 0f;
+
+                (int, int)[] offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+                foreach (var (dx, dy) in offsets)
+                {
+                    var nx = x + dx;
+                    var ny = y + dy;
+                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                    var neighbourPlate = plateIndex[nx, ny];
+                    if (neighbourPlate == currentPlate) continue;
+
+                    var pA = plateCenters[currentPlate];
+                    var pB = plateCenters[neighbourPlate];
+                    var direction = new Vector2(pB.Item1 - pA.Item1, pB.Item2 - pA.Item2);
+                    if (direction.LengthSquared() < 0.0001f) continue;
+                    var normal = Vector2.Normalize(direction);
+
+                    var relMotion = plateMotions[neighbourPlate] - plateMotions[currentPlate];
+                    var stress = Vector2.Dot(relMotion, normal);
+                    var convergence = MathF.Max(0f, stress);
+                    var divergence = MathF.Max(0f, -stress);
+
+                    var continentalInteraction = plateTypes[currentPlate] && plateTypes[neighbourPlate];
+                    var mixedInteraction = plateTypes[currentPlate] ^ plateTypes[neighbourPlate];
+
+                    if (convergence > 0)
+                    {
+                        if (continentalInteraction)
+                            totalDelta += convergence * 3.2f;
+                        else if (mixedInteraction)
+                            totalDelta += convergence * 4.5f;
+                        else
+                            totalDelta += convergence * 1.7f;
+                    }
+                    else if (divergence > 0)
+                    {
+                        totalDelta -= divergence * 2.4f;
+                    }
+                }
+
+                tectonicDelta[x, y] = totalDelta;
+            }
+
+        return tectonicDelta;
     }
 
     private static float[,] GenerateSlopedCoasts(
