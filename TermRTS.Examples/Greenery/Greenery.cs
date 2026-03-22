@@ -32,7 +32,7 @@ public class Greenery : IRunnableExample
             Console.Title = "TermRTS - Greenery";
         }
 
-        var seed = 0; //rng.Next();
+        var seed = 1; //rng.Next();
 
         // Set up engine
         var core = new Core();

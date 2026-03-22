@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Collections.Generic;
 using SimplexNoise;
 
 namespace TermRTS.Examples.Greenery;
@@ -16,7 +17,13 @@ public enum SurfaceFeature : byte
     Snow = 5,
     Beach = 6,
     Cliff = 7,
-    Fjord = 8
+    Fjord = 8,
+    Crater = 9,
+    Ash = 10,
+    Cinder = 11,
+    Caldera = 12,
+    Shield = 13,
+    Stratovolcano = 14
 }
 
 public enum Biome : byte
@@ -74,6 +81,18 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     public float RainfallElevationDecay { get; set; } = 0.1f;       // how quickly rainfall falls with elevation
     public float RainfallMinModifier { get; set; } = 0.2f;          // minimum modifier due to elevation
 
+    // Island chain (hotspot) tuning parameters
+    public int MinIslandChains { get; set; } = 3;                   // minimum number of island chains
+    public int MaxIslandChains { get; set; } = 7;                   // maximum number of island chains
+    public int MinChainLength { get; set; } = 3;                    // minimum hotspots per chain
+    public int MaxChainLength { get; set; } = 8;                    // maximum hotspots per chain
+    public int ChainSpacing { get; set; } = 25;                     // spacing between hotspots in a chain
+    public int MinLandDistance { get; set; } = 8;                   // minimum distance from land for hotspot placement
+    public int MinHotspotRadius { get; set; } = 3;                  // minimum radius of volcanic cones
+    public int MaxHotspotRadius { get; set; } = 8;                  // maximum radius of volcanic cones
+    public float MinHotspotStrength { get; set; } = 0.4f;           // minimum elevation strength of hotspots
+    public float MaxHotspotStrength { get; set; } = 1.1f;           // maximum elevation strength of hotspots
+
     #region IWorldGen Members
 
     public WorldGenerationResult Generate(int worldWidth, int worldHeight, float landRatio)
@@ -111,7 +130,9 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             plateMotions);
 
         // Step 6: Generate hotspots (mantle plumes creating volcanic islands/seamounts)
-        var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng, cellElevations);
+        var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng, cellElevations, plateMotions,
+            MinIslandChains, MaxIslandChains, MinChainLength, MaxChainLength, ChainSpacing, MinLandDistance,
+            MinHotspotRadius, MaxHotspotRadius, MinHotspotStrength, MaxHotspotStrength);
 
         // Step 7: for each voronoi land cell, apply perlin or simplex noise to generate height
         const float noiseScale = 1.0f;
@@ -312,56 +333,121 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return tectonicDelta;
     }
 
-    private static float[,] GenerateHotspots(int worldWidth, int worldHeight, int seed, Random rng, int[,] cellElevations)
+    private static float[,] GenerateHotspots(int worldWidth, int worldHeight, int seed, Random rng, int[,] cellElevations, IList<Vector2> plateMotions,
+        int minIslandChains, int maxIslandChains, int minChainLength, int maxChainLength, int chainSpacing, int minLandDistance,
+        int minHotspotRadius, int maxHotspotRadius, float minHotspotStrength, float maxHotspotStrength)
     {
         var hotspotMap = new float[worldWidth, worldHeight];
-        var hotspotCount = rng.Next(5, 12); // 5-11 hotspots, more numerous but smaller
+        var chainCount = rng.Next(minIslandChains, maxIslandChains + 1); // +1 because Next upper bound is exclusive
 
         var prng = new Random(seed + 12345); // Different seed for hotspots
-        for (var i = 0; i < hotspotCount; i++)
+
+        for (var chain = 0; chain < chainCount; chain++)
         {
-            // Try to place hotspot in water (oceanic) areas only
-            var centerX = 0;
-            var centerY = 0;
-            var attempts = 0;
-            const int maxAttempts = 50;
+            // Create a chain of hotspots along a plate motion direction
+            var chainLength = prng.Next(minChainLength, maxChainLength + 1);
+            var startX = prng.Next(worldWidth);
+            var startY = prng.Next(worldHeight);
 
-            do
+            // Use a random plate motion direction for the chain, or create a random direction
+            var chainDirection = plateMotions.Count > 0
+                ? plateMotions[prng.Next(plateMotions.Count)]
+                : new Vector2((float)(prng.NextDouble() - 0.5) * 2, (float)(prng.NextDouble() - 0.5) * 2);
+
+            // Normalize and scale the direction
+            var length = MathF.Sqrt(chainDirection.X * chainDirection.X + chainDirection.Y * chainDirection.Y);
+            if (length > 0)
             {
-                centerX = prng.Next(worldWidth);
-                centerY = prng.Next(worldHeight);
-                attempts++;
-            } while (cellElevations[centerX, centerY] != 3 && attempts < maxAttempts); // 3 = water
+                chainDirection = chainDirection / length * (float)(prng.NextDouble() * 2 + 1);
+            }
 
-            // If we couldn't find a water location, skip this hotspot
-            if (cellElevations[centerX, centerY] != 3) continue;
+            for (var i = 0; i < chainLength; i++)
+            {
+                // Calculate position along the chain with configurable spacing
+                var offsetX = (int)(chainDirection.X * i * chainSpacing);
+                var offsetY = (int)(chainDirection.Y * i * chainSpacing);
+                var centerX = startX + offsetX;
+                var centerY = startY + offsetY;
 
-            var radius = prng.Next(2, 6); // Much smaller radius: 2-5 pixels
-            var strength = (float)(prng.NextDouble() * 0.8 + 0.3); // Much smaller strength: 0.3-1.1
+                // Keep within bounds with some wrapping
+                centerX = ((centerX % worldWidth) + worldWidth) % worldWidth;
+                centerY = ((centerY % worldHeight) + worldHeight) % worldHeight;
 
-            // Create a volcanic cone shape with exponential falloff (more realistic)
-            for (var y = Math.Max(0, centerY - radius); y < Math.Min(worldHeight, centerY + radius); y++)
-                for (var x = Math.Max(0, centerX - radius); x < Math.Min(worldWidth, centerX + radius); x++)
+                // Try to place hotspot in deep ocean areas, far from land
+                var attempts = 0;
+                const int maxAttempts = 30;
+                var placed = false;
+
+                while (attempts < maxAttempts && !placed)
                 {
-                    var dx = x - centerX;
-                    var dy = y - centerY;
-                    var distance = MathF.Sqrt(dx * dx + dy * dy);
+                    var testX = centerX + prng.Next(-15, 16); // Wider search area
+                    var testY = centerY + prng.Next(-15, 16);
 
-                    if (distance > radius) continue;
+                    testX = ((testX % worldWidth) + worldWidth) % worldWidth;
+                    testY = ((testY % worldHeight) + worldHeight) % worldHeight;
 
-                    // Exponential falloff for more realistic volcanic shape
-                    var normalizedDist = distance / radius;
-                    var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
-
-                    // Add some noise to make it look more volcanic
-                    var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
-                    coneHeight *= (0.7f + noise * 0.6f);
-
-                    hotspotMap[x, y] += coneHeight;
+                    // Check if this is deep ocean (elevation 0-2) and far from land
+                    if (cellElevations[testX, testY] <= 2 && IsFarFromLand(testX, testY, worldWidth, worldHeight, cellElevations, minLandDistance))
+                    {
+                        centerX = testX;
+                        centerY = testY;
+                        placed = true;
+                    }
+                    attempts++;
                 }
+
+                if (!placed) continue; // Skip this hotspot if we couldn't place it in deep ocean
+
+                var radius = prng.Next(minHotspotRadius, maxHotspotRadius + 1);
+                var strength = (float)(prng.NextDouble() * (maxHotspotStrength - minHotspotStrength) + minHotspotStrength);
+
+                // Create a volcanic cone shape with exponential falloff (more realistic)
+                for (var y = Math.Max(0, centerY - radius); y < Math.Min(worldHeight, centerY + radius); y++)
+                    for (var x = Math.Max(0, centerX - radius); x < Math.Min(worldWidth, centerX + radius); x++)
+                    {
+                        var dx = x - centerX;
+                        var dy = y - centerY;
+                        var distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                        if (distance > radius) continue;
+
+                        // Exponential falloff for more realistic volcanic shape
+                        var normalizedDist = distance / radius;
+                        var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
+
+                        // Add some noise to make it look more volcanic
+                        var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
+                        coneHeight *= (0.7f + noise * 0.6f);
+
+                        hotspotMap[x, y] += coneHeight;
+                    }
+            }
         }
 
         return hotspotMap;
+    }
+
+    private static bool IsFarFromLand(int x, int y, int worldWidth, int worldHeight, int[,] elevations, int minDistance)
+    {
+        // Check a radius around the point to ensure no land is nearby
+        for (var dy = -minDistance; dy <= minDistance; dy++)
+        {
+            for (var dx = -minDistance; dx <= minDistance; dx++)
+            {
+                var checkX = x + dx;
+                var checkY = y + dy;
+
+                // Wrap around world edges
+                checkX = ((checkX % worldWidth) + worldWidth) % worldWidth;
+                checkY = ((checkY % worldHeight) + worldHeight) % worldHeight;
+
+                if (elevations[checkX, checkY] >= 4) // Land
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static void ApplyErosion(int worldWidth, int worldHeight, int[,] elevations)
@@ -851,6 +937,13 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     surfaceMap[x, y] = SurfaceFeature.Lava;
             }
 
+        // Add volcanic details around hotspots
+        var hotspotCenters = FindHotspotCenters(worldWidth, worldHeight, hotspotMap);
+        foreach (var (centerX, centerY, strength) in hotspotCenters)
+        {
+            AddVolcanicDetails(worldWidth, worldHeight, elevations, surfaceMap, centerX, centerY, strength);
+        }
+
         // Plate boundary mountain ridges: continental collisions
         (int, int)[] neighbors = new (int, int)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
         for (var y = 0; y < worldHeight; y++)
@@ -874,6 +967,159 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                                     surfaceMap[x, y] = SurfaceFeature.Mountain;
                 }
             }
+    }
+
+    private static List<(int x, int y, float strength)> FindHotspotCenters(int worldWidth, int worldHeight, float[,] hotspotMap)
+    {
+        var centers = new List<(int, int, float)>();
+        var visited = new bool[worldWidth, worldHeight];
+
+        for (var y = 0; y < worldHeight; y++)
+        {
+            for (var x = 0; x < worldWidth; x++)
+            {
+                if (visited[x, y] || hotspotMap[x, y] < 0.3f) continue;
+
+                // Find local maximum
+                var maxStrength = hotspotMap[x, y];
+                var maxX = x;
+                var maxY = y;
+
+                // Search in a small radius for the actual peak
+                for (var dy = -3; dy <= 3; dy++)
+                {
+                    for (var dx = -3; dx <= 3; dx++)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                        if (hotspotMap[nx, ny] > maxStrength)
+                        {
+                            maxStrength = hotspotMap[nx, ny];
+                            maxX = nx;
+                            maxY = ny;
+                        }
+                    }
+                }
+
+                // Mark area around peak as visited
+                for (var dy = -5; dy <= 5; dy++)
+                {
+                    for (var dx = -5; dx <= 5; dx++)
+                    {
+                        var nx = maxX + dx;
+                        var ny = maxY + dy;
+                        if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
+                        {
+                            visited[nx, ny] = true;
+                        }
+                    }
+                }
+
+                centers.Add((maxX, maxY, maxStrength));
+            }
+        }
+
+        return centers;
+    }
+
+    private static void AddVolcanicDetails(int worldWidth, int worldHeight, int[,] elevations, SurfaceFeature[,] surfaceMap, int centerX, int centerY, float strength)
+    {
+        var radius = Math.Max(3, (int)(strength * 10)); // Scale radius with strength, minimum 3
+
+        // Determine volcano type based on strength and characteristics
+        SurfaceFeature volcanoType;
+        if (strength > 0.9f)
+        {
+            volcanoType = SurfaceFeature.Stratovolcano; // Tall, steep volcanoes
+        }
+        else if (strength > 0.6f)
+        {
+            volcanoType = SurfaceFeature.Shield; // Broad, flat volcanoes
+        }
+        else
+        {
+            volcanoType = SurfaceFeature.Cinder; // Small cinder cones
+        }
+
+        // Add crater at the peak for stratovolcanoes and large shields
+        if (centerX >= 0 && centerX < worldWidth && centerY >= 0 && centerY < worldHeight)
+        {
+            var elevation = elevations[centerX, centerY];
+            if (elevation >= 6 && (volcanoType == SurfaceFeature.Stratovolcano || (volcanoType == SurfaceFeature.Shield && strength > 0.8f)))
+            {
+                surfaceMap[centerX, centerY] = SurfaceFeature.Crater;
+            }
+            else if (elevation >= 5 && volcanoType == SurfaceFeature.Cinder)
+            {
+                surfaceMap[centerX, centerY] = SurfaceFeature.Cinder;
+            }
+        }
+
+        // Add volcanic features based on volcano type
+        for (var y = Math.Max(0, centerY - radius); y < Math.Min(worldHeight, centerY + radius); y++)
+        {
+            for (var x = Math.Max(0, centerX - radius); x < Math.Min(worldWidth, centerX + radius); x++)
+            {
+                var dx = x - centerX;
+                var dy = y - centerY;
+                var distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                if (distance > radius) continue;
+
+                var normalizedDist = distance / radius;
+                var elevation = elevations[x, y];
+
+                // Skip if already has strong features
+                var existing = surfaceMap[x, y];
+                if (existing == SurfaceFeature.River || existing == SurfaceFeature.Glacier || existing == SurfaceFeature.Lava)
+                    continue;
+
+                if (volcanoType == SurfaceFeature.Stratovolcano)
+                {
+                    // Stratovolcanoes: steep, explosive, with ash and lava
+                    if (normalizedDist < 0.4f && elevation >= 7)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Stratovolcano;
+                    }
+                    else if (normalizedDist > 0.3f && normalizedDist < 0.8f && elevation >= 5)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Ash;
+                    }
+                }
+                else if (volcanoType == SurfaceFeature.Shield)
+                {
+                    // Shield volcanoes: broad, gentle slopes, mostly lava
+                    if (normalizedDist < 0.6f && elevation >= 5)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Shield;
+                    }
+                    else if (normalizedDist > 0.5f && elevation >= 4)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Lava;
+                    }
+                }
+                else // Cinder
+                {
+                    // Cinder cones: small, steep, cinder and ash
+                    if (normalizedDist < 0.5f && elevation >= 4)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Cinder;
+                    }
+                    else if (normalizedDist > 0.4f && elevation >= 3)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Ash;
+                    }
+                }
+
+                // Add caldera for large stratovolcanoes at the center
+                if (normalizedDist < 0.2f && volcanoType == SurfaceFeature.Stratovolcano && strength > 0.9f && elevation >= 7)
+                {
+                    surfaceMap[x, y] = SurfaceFeature.Caldera;
+                }
+            }
+        }
     }
 
     private static void ApplyCoastalFeatures(
