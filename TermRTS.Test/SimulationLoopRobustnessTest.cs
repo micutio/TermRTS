@@ -8,7 +8,14 @@ namespace TermRTS.Test;
 /// </summary>
 public class SimulationLoopRobustnessTest
 {
-    private static readonly TimeSpan DefaultRunTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DefaultRunTimeout = TimeSpan.FromSeconds(30);
+
+    public SimulationLoopRobustnessTest()
+    {
+        // Set the threadpool to a fixed size to avoid gradually spinning up new threads,
+        // which might be slow on MacOS devices and cause test failures.
+        ThreadPool.SetMinThreads(100, 100);
+    }
 
     public SimulationLoopRobustnessTest()
     {
@@ -43,7 +50,7 @@ public class SimulationLoopRobustnessTest
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Heavy_render_load_does_not_prevent_tick_progression(Core core)
     {
-        const int tickCount = 8;
+        const int tickCount = 800;
         const ulong timeStepSizeMs = 16;
         core.Renderer = new SlowRenderer(TimeSpan.FromMilliseconds(6));
         var scheduler = new Scheduler(core);
