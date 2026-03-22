@@ -4,10 +4,11 @@ using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
 
-public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[,] cells)
+public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[,] cells, SurfaceFeature[,] surfaces)
     : ComponentBase(entityId)
 {
     public byte[,] Cells { get; } = cells;
+    public SurfaceFeature[,] Surfaces { get; } = surfaces;
     public int WorldWidth { get; } = worldWidth;
     public int WorldHeight { get; } = worldHeight;
 }

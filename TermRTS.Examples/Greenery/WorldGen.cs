@@ -6,9 +6,31 @@ namespace TermRTS.Examples.Greenery;
 // Refer to link below for a nice layered noise map implementation:
 // https://github.com/SebLague/Procedural-Landmass-Generation/blob/master/Proc%20Gen%20E03/Assets/Scripts/Noise.cs
 
+public enum SurfaceFeature : byte
+{
+    None = 0,
+    River = 1,
+    Glacier = 2,
+    Lava = 3,
+    Mountain = 4,
+    Snow = 5
+}
+
+public class WorldGenerationResult
+{
+    public WorldGenerationResult(byte[,] elevation, SurfaceFeature[,] surface)
+    {
+        Elevation = elevation;
+        Surface = surface;
+    }
+
+    public byte[,] Elevation { get; }
+    public SurfaceFeature[,] Surface { get; }
+}
+
 public interface IWorldGen
 {
-    public byte[,] Generate(int worldWidth, int worldHeight, float landRatio);
+    public WorldGenerationResult Generate(int worldWidth, int worldHeight, float landRatio);
 }
 
 public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
@@ -30,7 +52,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
     #region IWorldGen Members
 
-    public byte[,] Generate(int worldWidth, int worldHeight, float landRatio)
+    public WorldGenerationResult Generate(int worldWidth, int worldHeight, float landRatio)
     {
         Noise.Seed = seed;
 
@@ -108,7 +130,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         ApplyErosion(worldWidth, worldHeight, cellElevations);
 
         // Step 9: Generate rivers based on rainfall and elevation (tunable via public properties)
-        GenerateRivers(
+        var riverMap = GenerateRivers(
             worldWidth,
             worldHeight,
             cellElevations,
@@ -121,13 +143,18 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             RainfallElevationDecay,
             RainfallMinModifier);
 
+        // Step 10: Apply mountain details (ridges, snow, glacier, lava)
+        var surfaceMap = new SurfaceFeature[worldWidth, worldHeight];
+        ApplyMountainDetails(worldWidth, worldHeight, cellElevations, surfaceMap, plateIndex, plateTypes, voronoiCells, hotspotAdjustment, riverMap);
+
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
         var world = new byte[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
                 world[x, y] = Convert.ToByte(cellElevations[x, y]);
-        return world;
+
+        return new WorldGenerationResult(world, surfaceMap);
     }
 
     #endregion
@@ -488,7 +515,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return (t - a) / (b - a);
     }
 
-    private void GenerateRivers(
+    private static bool[,] GenerateRivers(
         int worldWidth,
         int worldHeight,
         int[,] elevations,
@@ -519,10 +546,12 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var flowAccumulation = AccumulateFlow(worldWidth, worldHeight, flowDirections, rainfall);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        CarveRivers(worldWidth, worldHeight, elevations, flowAccumulation, formationThreshold, carveScale, maxCarveDepth);
+        var riverMap = CarveRivers(worldWidth, worldHeight, elevations, flowAccumulation, formationThreshold, carveScale, maxCarveDepth);
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(worldWidth, worldHeight, elevations, flowAccumulation);
+
+        return riverMap;
     }
 
     private static float[,] GenerateRainfall(
@@ -700,7 +729,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return flowAccumulation;
     }
 
-    private static void CarveRivers(
+    private static bool[,] CarveRivers(
         int worldWidth,
         int worldHeight,
         int[,] elevations,
@@ -709,6 +738,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         float carveScale,
         float maxCarveDepth)
     {
+        var riverMap = new bool[worldWidth, worldHeight];
+
         // Find maximum flow accumulation for normalization
         var maxFlow = 0f;
         for (var y = 0; y < worldHeight; y++)
@@ -719,7 +750,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         for (var y = 0; y < worldHeight; y++)
             for (var x = 0; x < worldWidth; x++)
             {
-                var normalizedFlow = flowAccumulation[x, y] / maxFlow;
+                var normalizedFlow = maxFlow > 0 ? flowAccumulation[x, y] / maxFlow : 0f;
                 var currentElevation = elevations[x, y];
 
                 // Only carve on land, not in water
@@ -728,12 +759,16 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     // Rivers form where flow accumulation is significant
                     if (normalizedFlow > formationThreshold) // Threshold for river formation
                     {
+                        riverMap[x, y] = true;
+
                         // Carve depth based on flow amount (more flow = deeper river)
                         var carveDepth = MathF.Min(maxCarveDepth, normalizedFlow * carveScale);
                         elevations[x, y] = Math.Max(3, currentElevation - (int)carveDepth);
                     }
                 }
             }
+
+        return riverMap;
     }
 
     private static void DepositSediment(int worldWidth, int worldHeight, int[,] elevations, float[,] flowAccumulation)
@@ -749,6 +784,65 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 {
                     // Small sediment deposit
                     elevations[x, y] = Math.Min(9, currentElevation + 1);
+                }
+            }
+    }
+
+    private static void ApplyMountainDetails(
+        int worldWidth,
+        int worldHeight,
+        int[,] elevations,
+        SurfaceFeature[,] surfaceMap,
+        int[,] plateIndex,
+        bool[] plateTypes,
+        IList<(int, int)> plateCenters,
+        float[,] hotspotMap,
+        bool[,] riverMap)
+    {
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                surfaceMap[x, y] = SurfaceFeature.None;
+
+                var elevation = elevations[x, y];
+                if (elevation >= 7)
+                    surfaceMap[x, y] = SurfaceFeature.Mountain;
+
+                if (elevation >= 8)
+                    surfaceMap[x, y] = SurfaceFeature.Snow;
+
+                if (elevation == 9 && !riverMap[x, y])
+                    surfaceMap[x, y] = SurfaceFeature.Glacier;
+
+                if (riverMap[x, y])
+                    surfaceMap[x, y] = SurfaceFeature.River;
+
+                if (hotspotMap[x, y] > 0.7f && elevation >= 5)
+                    surfaceMap[x, y] = SurfaceFeature.Lava;
+            }
+
+        // Plate boundary mountain ridges: continental collisions
+        (int, int)[] neighbors = new (int, int)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var currentPlate = plateIndex[x, y];
+                if (currentPlate < 0 || currentPlate >= plateTypes.Length) continue;
+
+                foreach (var (dx, dy) in neighbors)
+                {
+                    var nx = x + dx;
+                    var ny = y + dy;
+
+                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                    var neighborPlate = plateIndex[nx, ny];
+                    if (neighborPlate == currentPlate) continue;
+
+                    if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
+
+                    if (plateTypes[currentPlate] && plateTypes[neighborPlate])
+                        surfaceMap[x, y] = SurfaceFeature.Mountain;
                 }
             }
     }
