@@ -46,7 +46,11 @@ public class Greenery : IRunnableExample
                 WorldWidth,
                 WorldHeight,
                 worldData.Elevation,
-                worldData.Surface);
+                worldData.Surface,
+                worldData.Temperature,
+                worldData.Humidity,
+                worldData.Biomes,
+                worldData.TemperatureAmplitude);
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
 

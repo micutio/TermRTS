@@ -19,16 +19,37 @@ public enum SurfaceFeature : byte
     Fjord = 8
 }
 
+public enum Biome : byte
+{
+    Ocean = 0,
+    Tundra = 1,
+    Taiga = 2,
+    TemperateForest = 3,
+    Grassland = 4,
+    Desert = 5,
+    TropicalForest = 6,
+    Savanna = 7,
+    IceCap = 8
+}
+
 public class WorldGenerationResult
 {
-    public WorldGenerationResult(byte[,] elevation, SurfaceFeature[,] surface)
+    public WorldGenerationResult(byte[,] elevation, SurfaceFeature[,] surface, float[,] temperature, float[,] humidity, Biome[,] biomes, float[,] temperatureAmplitude)
     {
         Elevation = elevation;
         Surface = surface;
+        Temperature = temperature;
+        Humidity = humidity;
+        Biomes = biomes;
+        TemperatureAmplitude = temperatureAmplitude;
     }
 
     public byte[,] Elevation { get; }
     public SurfaceFeature[,] Surface { get; }
+    public float[,] Temperature { get; }
+    public float[,] Humidity { get; }
+    public Biome[,] Biomes { get; }
+    public float[,] TemperatureAmplitude { get; }
 }
 
 public interface IWorldGen
@@ -153,6 +174,9 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Step 11: Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures(worldWidth, worldHeight, cellElevations, surfaceMap);
 
+        // Step 12: Generate climate (temperature, humidity, biomes, seasonal effects)
+        var (temperature, humidity, biomes, temperatureAmplitude) = GenerateClimate(worldWidth, worldHeight, cellElevations);
+
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
         var world = new byte[worldWidth, worldHeight];
@@ -160,7 +184,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             for (var x = 0; x < worldWidth; x += 1)
                 world[x, y] = Convert.ToByte(cellElevations[x, y]);
 
-        return new WorldGenerationResult(world, surfaceMap);
+        return new WorldGenerationResult(world, surfaceMap, temperature, humidity, biomes, temperatureAmplitude);
     }
 
     #endregion
@@ -933,5 +957,113 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     }
                 }
             }
+    }
+
+    private static (float[,], float[,], Biome[,], float[,]) GenerateClimate(
+        int worldWidth,
+        int worldHeight,
+        int[,] elevations)
+    {
+        var temperature = new float[worldWidth, worldHeight];
+        var humidity = new float[worldWidth, worldHeight];
+        var biomes = new Biome[worldWidth, worldHeight];
+        var temperatureAmplitude = new float[worldWidth, worldHeight];
+
+        for (var y = 0; y < worldHeight; y++)
+        {
+            // Latitude factor: 0 at equator (middle), 1 at poles
+            var latitudeFactor = Math.Abs(y - worldHeight / 2.0f) / (worldHeight / 2.0f);
+
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var elevation = elevations[x, y];
+                var isWater = elevation <= 3;
+
+                // Temperature: base -50 to 30, decreases with latitude and elevation
+                var baseTemp = 30.0f - 80.0f * latitudeFactor;
+                var elevationTempModifier = -0.5f * elevation; // colder at higher elevation
+                temperature[x, y] = baseTemp + elevationTempModifier;
+
+                // Humidity: higher near water, lower at high elevation
+                var distanceToWater = CalculateDistanceToWater(x, y, worldWidth, worldHeight, elevations);
+                var humidityBase = isWater ? 1.0f : Math.Max(0.1f, 1.0f - distanceToWater * 0.1f);
+                var elevationHumidityModifier = -0.05f * elevation;
+                humidity[x, y] = Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
+
+                // Seasonal amplitude: larger at higher latitudes
+                temperatureAmplitude[x, y] = 10.0f + 20.0f * latitudeFactor;
+
+                // Determine biome
+                biomes[x, y] = DetermineBiome(temperature[x, y], humidity[x, y], elevation, isWater);
+            }
+        }
+
+        return (temperature, humidity, biomes, temperatureAmplitude);
+    }
+
+    private static int CalculateDistanceToWater(int x, int y, int worldWidth, int worldHeight, int[,] elevations)
+    {
+        // Simple flood fill or BFS to find distance to nearest water
+        // For simplicity, use a small radius check
+        var minDist = int.MaxValue;
+        for (var dy = -5; dy <= 5; dy++)
+        {
+            for (var dx = -5; dx <= 5; dx++)
+            {
+                var nx = x + dx;
+                var ny = y + dy;
+                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                if (elevations[nx, ny] <= 3)
+                {
+                    var dist = Math.Abs(dx) + Math.Abs(dy); // Manhattan distance
+                    minDist = Math.Min(minDist, dist);
+                }
+            }
+        }
+        return minDist == int.MaxValue ? 10 : minDist; // default if no water nearby
+    }
+
+    private static Biome DetermineBiome(float temp, float humidity, int elevation, bool isWater)
+    {
+        if (isWater)
+            return Biome.Ocean;
+
+        if (elevation >= 8 && temp < -10)
+            return Biome.IceCap;
+
+        if (temp < -10)
+            return Biome.Tundra;
+
+        if (temp < 5)
+        {
+            if (humidity > 0.5f)
+                return Biome.Taiga;
+            else
+                return Biome.Tundra;
+        }
+
+        if (temp < 15)
+        {
+            if (humidity > 0.6f)
+                return Biome.TemperateForest;
+            else
+                return Biome.Grassland;
+        }
+
+        if (temp < 25)
+        {
+            if (humidity > 0.7f)
+                return Biome.TropicalForest;
+            else if (humidity > 0.4f)
+                return Biome.Savanna;
+            else
+                return Biome.Desert;
+        }
+
+        // Hot climates
+        if (humidity > 0.5f)
+            return Biome.TropicalForest;
+        else
+            return Biome.Desert;
     }
 }
