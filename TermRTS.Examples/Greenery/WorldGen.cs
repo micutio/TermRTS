@@ -93,6 +93,20 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     public float MinHotspotStrength { get; set; } = 0.4f;           // minimum elevation strength of hotspots
     public float MaxHotspotStrength { get; set; } = 1.1f;           // maximum elevation strength of hotspots
 
+    // Advanced erosion tuning parameters
+    public bool UseAdvancedErosion { get; set; } = true;             // enable advanced erosion system
+    public int ErosionIterations { get; set; } = 10;                 // number of erosion iterations (further reduced)
+    public float HydraulicErosionRate { get; set; } = 0.001f;        // base hydraulic erosion rate (much more gentle)
+    public float SedimentCapacity { get; set; } = 0.01f;             // maximum sediment a water cell can carry (much lower)
+    public float DepositionRate { get; set; } = 0.001f;              // rate at which sediment is deposited (much slower)
+    public float EvaporationRate { get; set; } = 0.001f;             // water evaporation rate
+    public float RainRate { get; set; } = 0.00005f;                  // rainfall rate (much less water)
+    public float ThermalErosionRate { get; set; } = 0.05f;           // thermal erosion rate (very gentle)
+    public float TalusAngle { get; set; } = 0.5f;                    // minimum slope for material to slide
+    public float MinSlope { get; set; } = 0.01f;                     // minimum slope for water flow
+    public float Gravity { get; set; } = 9.81f;                      // gravity constant for water flow
+    public float WaterViscosity { get; set; } = 0.001f;              // water viscosity for flow calculations
+
     #region IWorldGen Members
 
     public WorldGenerationResult Generate(int worldWidth, int worldHeight, float landRatio)
@@ -171,8 +185,20 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
             }
 
+        // Step 7: Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
+        var (temperature, humidity, biomes, temperatureAmplitude) = GenerateClimate(worldWidth, worldHeight, cellElevations);
+
         // Step 8: Apply erosion to smooth terrain and create realistic features
-        ApplyErosion(worldWidth, worldHeight, cellElevations);
+        if (UseAdvancedErosion)
+        {
+            ApplyAdvancedErosion(worldWidth, worldHeight, cellElevations, hotspotAdjustment,
+                ErosionIterations, HydraulicErosionRate, SedimentCapacity, DepositionRate,
+                EvaporationRate, RainRate, ThermalErosionRate, TalusAngle, MinSlope, Gravity, WaterViscosity, biomes, humidity);
+        }
+        else
+        {
+            ApplyErosion(worldWidth, worldHeight, cellElevations);
+        }
 
         // Step 9: Generate rivers based on rainfall and elevation (tunable via public properties)
         var riverMap = GenerateRivers(
@@ -194,9 +220,6 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Step 11: Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures(worldWidth, worldHeight, cellElevations, surfaceMap);
-
-        // Step 12: Generate climate (temperature, humidity, biomes, seasonal effects)
-        var (temperature, humidity, biomes, temperatureAmplitude) = GenerateClimate(worldWidth, worldHeight, cellElevations);
 
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
@@ -506,6 +529,197 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
             elevations = newElevations;
         }
+    }
+
+    private static void ApplyAdvancedErosion(int worldWidth, int worldHeight, int[,] elevations, float[,] hotspotMap,
+        int iterations, float hydraulicErosionRate, float sedimentCapacity, float depositionRate,
+        float evaporationRate, float rainRate, float thermalErosionRate, float talusAngle,
+        float minSlope, float gravity, float waterViscosity, Biome[,] biomes, float[,] humidity)
+    {
+        // Advanced erosion with hydraulic simulation, sediment transport, and thermal erosion
+        var water = new float[worldWidth, worldHeight];
+        var sediment = new float[worldWidth, worldHeight];
+        var terrain = new float[worldWidth, worldHeight];
+
+        // Convert integer elevations to float terrain
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+                terrain[x, y] = elevations[x, y];
+
+        for (var iter = 0; iter < iterations; iter++)
+        {
+            // Step 1: Add rainfall (climate-aware)
+            for (var y = 0; y < worldHeight; y++)
+                for (var x = 0; x < worldWidth; x++)
+                {
+                    var localRainRate = rainRate;
+                    // Drier regions get less rainfall
+                    if (biomes[x, y] == Biome.Desert || biomes[x, y] == Biome.Tundra)
+                        localRainRate *= 0.3f; // 70% less rain in dry/arid regions
+                    else if (humidity[x, y] < 0.3f)
+                        localRainRate *= 0.5f; // 50% less rain in dry areas
+                    
+                    water[x, y] += localRainRate;
+                }
+
+            // Step 2: Water flow simulation
+            var velocityX = new float[worldWidth, worldHeight];
+            var velocityY = new float[worldWidth, worldHeight];
+
+            // Calculate water flow directions and velocities
+            for (var y = 1; y < worldHeight - 1; y++)
+                for (var x = 1; x < worldWidth - 1; x++)
+                {
+                    // Calculate slope in all directions
+                    var slopeX = (terrain[x - 1, y] + terrain[x + 1, y]) * 0.5f - terrain[x, y];
+                    var slopeY = (terrain[x, y - 1] + terrain[x, y + 1]) * 0.5f - terrain[x, y];
+
+                    var slope = MathF.Sqrt(slopeX * slopeX + slopeY * slopeY);
+                    if (slope < minSlope) continue;
+
+                    // Calculate flow direction
+                    var flowX = slopeX / slope;
+                    var flowY = slopeY / slope;
+
+                    // Calculate velocity based on slope and water depth
+                    var velocity = MathF.Sqrt(gravity * slope) * water[x, y];
+                    velocityX[x, y] = flowX * velocity;
+                    velocityY[x, y] = flowY * velocity;
+                }
+
+            // Step 3: Hydraulic erosion and sediment transport
+            var newTerrain = (float[,])terrain.Clone();
+            var newWater = (float[,])water.Clone();
+            var newSediment = (float[,])sediment.Clone();
+
+            for (var y = 1; y < worldHeight - 1; y++)
+                for (var x = 1; x < worldWidth - 1; x++)
+                {
+                    var currentWater = water[x, y];
+                    if (currentWater <= 0) continue;
+
+                    // Calculate sediment capacity based on water velocity
+                    var velocity = MathF.Sqrt(velocityX[x, y] * velocityX[x, y] + velocityY[x, y] * velocityY[x, y]);
+                    var capacity = sedimentCapacity * velocity * currentWater;
+
+                    var currentSediment = sediment[x, y];
+
+                    if (currentSediment > capacity)
+                    {
+                        // Deposit sediment
+                        var depositAmount = (currentSediment - capacity) * depositionRate;
+                        newTerrain[x, y] += depositAmount;
+                        newSediment[x, y] -= depositAmount;
+                    }
+                    else
+                    {
+                        // Erode terrain (with volcanic resistance)
+                        var erodeAmount = (capacity - currentSediment) * hydraulicErosionRate;
+                        
+                        // Volcanic areas are much more resistant to erosion
+                        var volcanicResistance = 1.0f;
+                        if (hotspotMap[x, y] > 0.1f) // Areas with volcanic activity
+                        {
+                            volcanicResistance = 0.1f; // 90% less erosion in volcanic areas
+                        }
+                        
+                        erodeAmount *= volcanicResistance;
+                        erodeAmount = Math.Min(erodeAmount, terrain[x, y] * 0.1f); // Don't erode too much
+                        newTerrain[x, y] -= erodeAmount;
+                        newSediment[x, y] += erodeAmount;
+                    }
+
+                    // Water flow to neighboring cells
+                    var totalOutflow = 0f;
+                    (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+
+                    foreach (var (dx, dy) in directions)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+
+                        if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                        var neighborSlope = terrain[x, y] - terrain[nx, ny];
+                        if (neighborSlope > 0)
+                        {
+                            var outflow = currentWater * neighborSlope * hydraulicErosionRate;
+                            newWater[nx, ny] += outflow * 0.25f; // Distribute to neighbors
+                            newSediment[nx, ny] += currentSediment * outflow / Math.Max(currentWater, 0.001f) * 0.25f;
+                            totalOutflow += outflow;
+                        }
+                    }
+
+                    newWater[x, y] -= totalOutflow;
+                    newSediment[x, y] -= currentSediment * totalOutflow / Math.Max(currentWater, 0.001f);
+                }
+
+            // Step 4: Thermal erosion (material sliding)
+            for (var y = 1; y < worldHeight - 1; y++)
+                for (var x = 1; x < worldWidth - 1; x++)
+                {
+                    var currentHeight = newTerrain[x, y];
+                    var lowestNeighbor = currentHeight;
+                    var lowestX = x;
+                    var lowestY = y;
+
+                    // Find lowest neighbor
+                    (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
+                    foreach (var (dx, dy) in directions)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        var neighborHeight = newTerrain[nx, ny];
+
+                        if (neighborHeight < lowestNeighbor)
+                        {
+                            lowestNeighbor = neighborHeight;
+                            lowestX = nx;
+                            lowestY = ny;
+                        }
+                    }
+
+                    var slope = currentHeight - lowestNeighbor;
+
+                    // Material slides if slope is too steep
+                    if (slope > talusAngle)
+                    {
+                        var slideAmount = Math.Min(thermalErosionRate * slope, slope * 0.5f);
+                        newTerrain[x, y] -= slideAmount;
+                        newTerrain[lowestX, lowestY] += slideAmount;
+                    }
+                }
+
+            // Step 5: Evaporation (climate-aware)
+            for (var y = 0; y < worldHeight; y++)
+                for (var x = 0; x < worldWidth; x++)
+                {
+                    var baseEvaporation = evaporationRate;
+                    
+                    // Higher evaporation in dry/hot climates
+                    var climateModifier = 1.0f;
+                    var biome = biomes[x, y];
+                    var humidityValue = humidity[x, y];
+                    
+                    if (biome == Biome.Desert || biome == Biome.Tundra)
+                        climateModifier = 2.0f; // 2x evaporation in dry areas
+                    else if (humidityValue < 0.3f)
+                        climateModifier = 1.5f; // 1.5x evaporation in low humidity areas
+                    
+                    var adjustedEvaporation = baseEvaporation * climateModifier;
+                    newWater[x, y] = Math.Max(0, newWater[x, y] - adjustedEvaporation);
+                }
+
+            // Update arrays
+            terrain = newTerrain;
+            water = newWater;
+            sediment = newSediment;
+        }
+
+        // Convert back to integer elevations
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+                elevations[x, y] = Math.Clamp((int)Math.Round(terrain[x, y]), 0, 9);
     }
 
     private static float[,] GenerateSlopedCoasts(
