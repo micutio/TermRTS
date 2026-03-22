@@ -51,7 +51,10 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             plateTypes,
             plateMotions);
 
-        // Step 6: for each voronoi land cell, apply perlin or simplex noise to generate height
+        // Step 6: Generate hotspots (mantle plumes creating volcanic islands/seamounts)
+        var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng, cellElevations);
+
+        // Step 7: for each voronoi land cell, apply perlin or simplex noise to generate height
         const float noiseScale = 1.0f;
         const int octaves = 4;
         const float persistance = 0.75f; //?
@@ -67,7 +70,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             lacunarity,
             offset);
 
-        // Step 6: Apply noise and slopes to elevation map.
+        // Step 7: Apply noise and slopes to elevation map.
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
             {
@@ -75,17 +78,21 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 var slopeFactor = coastalSlopes[x, y] / 9.0;
                 var normalizedNoise = noiseField[x, y] / 255.0;
                 var tectonic = tectonicAdjustment[x, y];
+                var hotspot = hotspotAdjustment[x, y];
 
-                var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise + tectonic;
+                var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise + tectonic + hotspot;
 
                 // debug elevation without noise
-                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor + tectonic;
+                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor + tectonic + hotspot;
                 // debug: check land-water distribution
-                // var elevation = cellElevations[x, y] + baseElevation + tectonic;
+                // var elevation = cellElevations[x, y] + baseElevation + tectonic + hotspot;
                 // debug: check coastal slope values
-                // var elevation = 9 * coastalSlopes[x, y] + tectonic;
+                // var elevation = 9 * coastalSlopes[x, y] + tectonic + hotspot;
                 cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
             }
+
+        // Step 8: Apply erosion to smooth terrain and create realistic features
+        ApplyErosion(worldWidth, worldHeight, cellElevations);
 
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
@@ -219,6 +226,116 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             }
 
         return tectonicDelta;
+    }
+
+    private static float[,] GenerateHotspots(int worldWidth, int worldHeight, int seed, Random rng, int[,] cellElevations)
+    {
+        var hotspotMap = new float[worldWidth, worldHeight];
+        var hotspotCount = rng.Next(5, 12); // 5-11 hotspots, more numerous but smaller
+
+        var prng = new Random(seed + 12345); // Different seed for hotspots
+        for (var i = 0; i < hotspotCount; i++)
+        {
+            // Try to place hotspot in water (oceanic) areas only
+            var centerX = 0;
+            var centerY = 0;
+            var attempts = 0;
+            const int maxAttempts = 50;
+
+            do
+            {
+                centerX = prng.Next(worldWidth);
+                centerY = prng.Next(worldHeight);
+                attempts++;
+            } while (cellElevations[centerX, centerY] != 3 && attempts < maxAttempts); // 3 = water
+
+            // If we couldn't find a water location, skip this hotspot
+            if (cellElevations[centerX, centerY] != 3) continue;
+
+            var radius = prng.Next(2, 6); // Much smaller radius: 2-5 pixels
+            var strength = (float)(prng.NextDouble() * 0.8 + 0.3); // Much smaller strength: 0.3-1.1
+
+            // Create a volcanic cone shape with exponential falloff (more realistic)
+            for (var y = Math.Max(0, centerY - radius); y < Math.Min(worldHeight, centerY + radius); y++)
+                for (var x = Math.Max(0, centerX - radius); x < Math.Min(worldWidth, centerX + radius); x++)
+                {
+                    var dx = x - centerX;
+                    var dy = y - centerY;
+                    var distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                    if (distance > radius) continue;
+
+                    // Exponential falloff for more realistic volcanic shape
+                    var normalizedDist = distance / radius;
+                    var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
+
+                    // Add some noise to make it look more volcanic
+                    var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
+                    coneHeight *= (0.7f + noise * 0.6f);
+
+                    hotspotMap[x, y] += coneHeight;
+                }
+        }
+
+        return hotspotMap;
+    }
+
+    private static void ApplyErosion(int worldWidth, int worldHeight, int[,] elevations)
+    {
+        // Simple thermal erosion + hydraulic erosion simulation
+        const int iterations = 5;
+        const float talusAngle = 0.5f; // Minimum slope for material to slide
+        const float erosionRate = 0.1f;
+
+        for (var iter = 0; iter < iterations; iter++)
+        {
+            var newElevations = (int[,])elevations.Clone();
+
+            for (var y = 1; y < worldHeight - 1; y++)
+                for (var x = 1; x < worldWidth - 1; x++)
+                {
+                    var currentHeight = elevations[x, y];
+                    var lowestNeighbor = currentHeight;
+                    var lowestX = x;
+                    var lowestY = y;
+
+                    // Find lowest neighbor
+                    (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
+                    foreach (var (dx, dy) in directions)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        var neighborHeight = elevations[nx, ny];
+
+                        if (neighborHeight < lowestNeighbor)
+                        {
+                            lowestNeighbor = neighborHeight;
+                            lowestX = nx;
+                            lowestY = ny;
+                        }
+                    }
+
+                    var slope = currentHeight - lowestNeighbor;
+
+                    // Thermal erosion: material slides if slope is too steep
+                    if (slope > talusAngle)
+                    {
+                        var slideAmount = Math.Min(erosionRate * slope, slope * 0.5f);
+                        newElevations[x, y] -= (int)slideAmount;
+                        newElevations[lowestX, lowestY] += (int)slideAmount;
+                    }
+
+                    // Hydraulic erosion: water flow simulation (simplified)
+                    var waterFlow = Math.Max(0, currentHeight - 0); // Water level at 0
+                    if (waterFlow > 0)
+                    {
+                        var erosionAmount = Math.Min(erosionRate * waterFlow * 0.1f, 0.5f);
+                        newElevations[x, y] -= (int)erosionAmount;
+                    }
+                }
+
+            elevations = newElevations;
+        }
     }
 
     private static float[,] GenerateSlopedCoasts(
