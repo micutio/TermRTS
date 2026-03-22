@@ -15,6 +15,19 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 {
     private readonly Random _rng = new(seed);
 
+    // River tuning parameters (adjust at runtime)
+    // Lower thresholds create more rivers; higher thresholds make rivers rarer.
+    public float RiverFormationThreshold { get; set; } = 0.01f;      // normalized flow-level for river initiation
+    public float RiverCarveScale { get; set; } = 3.0f;              // scaling factor for river depth from flow
+    public float RiverMaxCarveDepth { get; set; } = 2.0f;           // maximum depth a river can carve
+
+    // Rainfall tuning parameters (used in river generation)
+    public int RainfallWaterDistanceRadius { get; set; } = 2;       // search radius to nearest water for rainfall boost
+    public float RainfallWaterDistancePenalty { get; set; } = 0.2f; // weight for distance penalty
+    public float RainfallMinValue { get; set; } = 0.1f;             // minimum rainfall on land
+    public float RainfallElevationDecay { get; set; } = 0.1f;       // how quickly rainfall falls with elevation
+    public float RainfallMinModifier { get; set; } = 0.2f;          // minimum modifier due to elevation
+
     #region IWorldGen Members
 
     public byte[,] Generate(int worldWidth, int worldHeight, float landRatio)
@@ -93,6 +106,20 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Step 8: Apply erosion to smooth terrain and create realistic features
         ApplyErosion(worldWidth, worldHeight, cellElevations);
+
+        // Step 9: Generate rivers based on rainfall and elevation (tunable via public properties)
+        GenerateRivers(
+            worldWidth,
+            worldHeight,
+            cellElevations,
+            RiverFormationThreshold,
+            RiverCarveScale,
+            RiverMaxCarveDepth,
+            RainfallWaterDistanceRadius,
+            RainfallWaterDistancePenalty,
+            RainfallMinValue,
+            RainfallElevationDecay,
+            RainfallMinModifier);
 
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
@@ -459,5 +486,270 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static float InverseLerp(float a, float b, float t)
     {
         return (t - a) / (b - a);
+    }
+
+    private void GenerateRivers(
+        int worldWidth,
+        int worldHeight,
+        int[,] elevations,
+        float formationThreshold,
+        float carveScale,
+        float maxCarveDepth,
+        int waterDistanceRadius,
+        float distancePenalty,
+        float rainfallMin,
+        float elevationDecay,
+        float minModifier)
+    {
+        // Step 1: Generate rainfall map
+        var rainfall = GenerateRainfall(
+            worldWidth,
+            worldHeight,
+            elevations,
+            waterDistanceRadius,
+            distancePenalty,
+            rainfallMin,
+            elevationDecay,
+            minModifier);
+
+        // Step 2: Calculate flow directions (steepest downhill neighbor)
+        var flowDirections = CalculateFlowDirections(worldWidth, worldHeight, elevations);
+
+        // Step 3: Accumulate flow from upstream cells
+        var flowAccumulation = AccumulateFlow(worldWidth, worldHeight, flowDirections, rainfall);
+
+        // Step 4: Carve rivers where flow accumulation is high enough
+        CarveRivers(worldWidth, worldHeight, elevations, flowAccumulation, formationThreshold, carveScale, maxCarveDepth);
+
+        // Step 5: Deposit sediment in river valleys (optional)
+        DepositSediment(worldWidth, worldHeight, elevations, flowAccumulation);
+    }
+
+    private static float[,] GenerateRainfall(
+        int worldWidth,
+        int worldHeight,
+        int[,] elevations,
+        int waterDistanceRadius,
+        float distancePenalty,
+        float rainfallMin,
+        float elevationDecay,
+        float minModifier)
+    {
+        var rainfall = new float[worldWidth, worldHeight];
+
+        // Base rainfall increases with proximity to water and decreases with elevation
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var elevation = elevations[x, y];
+                var isWater = elevation <= 1; // Water cells get maximum rainfall
+
+                // Distance to nearest water (simplified - just check neighbors)
+                var waterDistance = 0f;
+                if (!isWater)
+                {
+                    var minDistance = float.MaxValue;
+                    for (var dy = -waterDistanceRadius; dy <= waterDistanceRadius; dy++)
+                        for (var dx = -waterDistanceRadius; dx <= waterDistanceRadius; dx++)
+                        {
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
+                            {
+                                if (elevations[nx, ny] <= 1)
+                                {
+                                    var distance = MathF.Sqrt(dx * dx + dy * dy);
+                                    minDistance = MathF.Min(minDistance, distance);
+                                }
+                            }
+                        }
+                    waterDistance = minDistance == float.MaxValue ? waterDistanceRadius : minDistance;
+                }
+
+                // Rainfall formula: high near water, decreases with elevation and distance
+                var baseRainfall = isWater ? 1.0f : MathF.Max(rainfallMin, 1.0f - waterDistance * distancePenalty);
+                var elevationModifier = MathF.Max(minModifier, 1.0f - elevation * elevationDecay);
+                rainfall[x, y] = baseRainfall * elevationModifier;
+            }
+
+        return rainfall;
+    }
+
+    private static (int, int)[,] CalculateFlowDirections(int worldWidth, int worldHeight, int[,] elevations)
+    {
+        var flowDirections = new (int, int)[worldWidth, worldHeight];
+
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var currentElevation = elevations[x, y];
+                var steepestDrop = 0f;
+                var bestDirection = (0, 0);
+
+                // Check all 8 neighbors
+                for (var dy = -1; dy <= 1; dy++)
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+
+                        var nx = x + dx;
+                        var ny = y + dy;
+
+                        if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
+                        {
+                            var neighborElevation = elevations[nx, ny];
+                            var drop = currentElevation - neighborElevation;
+
+                            if (drop > steepestDrop)
+                            {
+                                steepestDrop = drop;
+                                bestDirection = (dx, dy);
+                            }
+                        }
+                    }
+
+                flowDirections[x, y] = bestDirection;
+            }
+
+        return flowDirections;
+    }
+
+    private static float[,] AccumulateFlow(int worldWidth, int worldHeight, (int, int)[,] flowDirections, float[,] rainfall)
+    {
+        var flowAccumulation = new float[worldWidth, worldHeight];
+
+        // Initialize with rainfall
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+                flowAccumulation[x, y] = rainfall[x, y];
+
+        // Propagate flow downstream (process in reverse order to handle dependencies)
+        var processed = new bool[worldWidth, worldHeight];
+        var queue = new Queue<(int, int)>();
+
+        // Start with cells that have no incoming flow (local minima or edges)
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var hasIncoming = false;
+                for (var dy = -1; dy <= 1 && !hasIncoming; dy++)
+                    for (var dx = -1; dx <= 1 && !hasIncoming; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
+                        {
+                            var (fdx, fdy) = flowDirections[nx, ny];
+                            if (nx + fdx == x && ny + fdy == y)
+                            {
+                                hasIncoming = true;
+                            }
+                        }
+                    }
+
+                if (!hasIncoming)
+                {
+                    queue.Enqueue((x, y));
+                    processed[x, y] = true;
+                }
+            }
+
+        // Process queue
+        while (queue.Count > 0)
+        {
+            var (x, y) = queue.Dequeue();
+            var (dx, dy) = flowDirections[x, y];
+
+            if (dx != 0 || dy != 0)
+            {
+                var nx = x + dx;
+                var ny = y + dy;
+
+                if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
+                {
+                    flowAccumulation[nx, ny] += flowAccumulation[x, y];
+
+                    // Check if all upstream cells are processed
+                    var allUpstreamProcessed = true;
+                    for (var dy2 = -1; dy2 <= 1 && allUpstreamProcessed; dy2++)
+                        for (var dx2 = -1; dx2 <= 1 && allUpstreamProcessed; dx2++)
+                        {
+                            if (dx2 == 0 && dy2 == 0) continue;
+                            var nx2 = nx + dx2;
+                            var ny2 = ny + dy2;
+                            if (nx2 >= 0 && nx2 < worldWidth && ny2 >= 0 && ny2 < worldHeight)
+                            {
+                                var (fdx2, fdy2) = flowDirections[nx2, ny2];
+                                if (nx2 + fdx2 == nx && ny2 + fdy2 == ny && !processed[nx2, ny2])
+                                {
+                                    allUpstreamProcessed = false;
+                                }
+                            }
+                        }
+
+                    if (allUpstreamProcessed && !processed[nx, ny])
+                    {
+                        processed[nx, ny] = true;
+                        queue.Enqueue((nx, ny));
+                    }
+                }
+            }
+        }
+
+        return flowAccumulation;
+    }
+
+    private static void CarveRivers(
+        int worldWidth,
+        int worldHeight,
+        int[,] elevations,
+        float[,] flowAccumulation,
+        float formationThreshold,
+        float carveScale,
+        float maxCarveDepth)
+    {
+        // Find maximum flow accumulation for normalization
+        var maxFlow = 0f;
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+                maxFlow = MathF.Max(maxFlow, flowAccumulation[x, y]);
+
+        // Carve rivers where flow accumulation is high enough
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var normalizedFlow = flowAccumulation[x, y] / maxFlow;
+                var currentElevation = elevations[x, y];
+
+                // Only carve on land, not in water
+                if (currentElevation >= 4)
+                {
+                    // Rivers form where flow accumulation is significant
+                    if (normalizedFlow > formationThreshold) // Threshold for river formation
+                    {
+                        // Carve depth based on flow amount (more flow = deeper river)
+                        var carveDepth = MathF.Min(maxCarveDepth, normalizedFlow * carveScale);
+                        elevations[x, y] = Math.Max(3, currentElevation - (int)carveDepth);
+                    }
+                }
+            }
+    }
+
+    private static void DepositSediment(int worldWidth, int worldHeight, int[,] elevations, float[,] flowAccumulation)
+    {
+        // Simple sediment deposition in low areas
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var currentElevation = elevations[x, y];
+
+                // Deposit sediment in very low areas (potential floodplains)
+                if (currentElevation <= 2 && flowAccumulation[x, y] > 0)
+                {
+                    // Small sediment deposit
+                    elevations[x, y] = Math.Min(9, currentElevation + 1);
+                }
+            }
     }
 }
