@@ -124,15 +124,21 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         var landWaterMap = new int[cellCount];
         for (var i = 0; i < cellCount; i += 1)
-            landWaterMap[i] = plateTypes[i] ? 4 : 3;
+            landWaterMap[i] = plateTypes[i] ? 4 : 1; // Lower oceanic plates to create deeper oceans
 
         // step 3: associate each grid cell to one of the voronoi cells
         const int jiggle = 15;
-        var (cellElevations, plateIndex) = GenerateLandWaterDistribution(
+        var (cellElevationsInt, plateIndex) = GenerateLandWaterDistribution(
             worldWidth, worldHeight, jiggle, voronoiCells, landWaterMap);
+        
+        // Convert to float for more precise calculations
+        var cellElevations = new float[worldWidth, worldHeight];
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+                cellElevations[x, y] = cellElevationsInt[x, y];
 
         // Step 4: Generate coastal slopes for each voronoi cell.
-        var coastalSlopes = GenerateSlopedCoasts(worldWidth, worldHeight, in cellElevations);
+        var coastalSlopes = GenerateSlopedCoasts(worldWidth, worldHeight, cellElevationsInt);
 
         // Step 5: Compute plate tectonics influence (mountains/trenches along plate boundaries)
         var tectonicAdjustment = ComputePlateTectonicHeight(
@@ -144,7 +150,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             plateMotions);
 
         // Step 6: Generate hotspots (mantle plumes creating volcanic islands/seamounts)
-        var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng, cellElevations, plateMotions,
+        var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng, cellElevationsInt, plateMotions,
             MinIslandChains, MaxIslandChains, MinChainLength, MaxChainLength, ChainSpacing, MinLandDistance,
             MinHotspotRadius, MaxHotspotRadius, MinHotspotStrength, MaxHotspotStrength);
 
@@ -168,25 +174,23 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
             {
-                var baseElevation = cellElevations[x, y] == 4 ? 5.0 : -3.0;
+                var baseElevation = cellElevationsInt[x, y] >= 3 ? 5.0 : -5.0; // Continental plates (>=3) get higher base, oceanic (<3) get much lower base for deep trenches
                 var slopeFactor = coastalSlopes[x, y] / 9.0;
                 var normalizedNoise = noiseField[x, y] / 255.0;
                 var tectonic = tectonicAdjustment[x, y];
                 var hotspot = hotspotAdjustment[x, y];
 
-                var elevation = cellElevations[x, y] + baseElevation * slopeFactor * normalizedNoise + tectonic + hotspot;
+                // For oceanic plates, reduce noise impact to allow deeper trenches
+                var cellElevationContribution = cellElevationsInt[x, y] >= 3 ? cellElevationsInt[x, y] : 0;
+                var noiseMultiplier = cellElevationsInt[x, y] >= 3 ? 1.0f : 0.3f; // Less noise in oceans
+                var elevation = cellElevationContribution + baseElevation * slopeFactor * normalizedNoise * noiseMultiplier + tectonic + hotspot;
 
-                // debug elevation without noise
-                //var elevation = cellElevations[x, y] + baseElevation * slopeFactor + tectonic + hotspot;
-                // debug: check land-water distribution
-                // var elevation = cellElevations[x, y] + baseElevation + tectonic + hotspot;
-                // debug: check coastal slope values
-                // var elevation = 9 * coastalSlopes[x, y] + tectonic + hotspot;
-                cellElevations[x, y] = Convert.ToInt32(Math.Clamp(elevation, 0.0f, 9.0f));
+                // Store as float, don't clamp yet
+                cellElevations[x, y] = (float)elevation;
             }
 
         // Step 7: Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
-        var (temperature, humidity, biomes, temperatureAmplitude) = GenerateClimate(worldWidth, worldHeight, cellElevations);
+        var (temperature, humidity, biomes, temperatureAmplitude) = GenerateClimate(worldWidth, worldHeight, cellElevationsInt);
 
         // Step 8: Apply erosion to smooth terrain and create realistic features
         if (UseAdvancedErosion)
@@ -223,10 +227,16 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
+        // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
+        var finalElevations = new int[worldWidth, worldHeight];
+        for (var y = 0; y < worldHeight; y += 1)
+            for (var x = 0; x < worldWidth; x += 1)
+                finalElevations[x, y] = Math.Clamp((int)Math.Round(cellElevations[x, y]), 0, 9);
+
         var world = new byte[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
-                world[x, y] = Convert.ToByte(cellElevations[x, y]);
+                world[x, y] = Convert.ToByte(finalElevations[x, y]);
 
         return new WorldGenerationResult(world, surfaceMap, temperature, humidity, biomes, temperatureAmplitude);
     }
@@ -346,7 +356,10 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     }
                     else if (divergence > 0)
                     {
-                        totalDelta -= divergence * 2.4f;
+                        if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
+                            totalDelta -= divergence * 5.0f; // Much deeper trenches for oceanic-oceanic divergence
+                        else
+                            totalDelta -= divergence * 2.4f;
                     }
                 }
 
@@ -473,7 +486,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return true;
     }
 
-    private static void ApplyErosion(int worldWidth, int worldHeight, int[,] elevations)
+    private static void ApplyErosion(int worldWidth, int worldHeight, float[,] elevations)
     {
         // Simple thermal erosion + hydraulic erosion simulation
         const int iterations = 5;
@@ -482,7 +495,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         for (var iter = 0; iter < iterations; iter++)
         {
-            var newElevations = (int[,])elevations.Clone();
+            var newElevations = (float[,])elevations.Clone();
 
             for (var y = 1; y < worldHeight - 1; y++)
                 for (var x = 1; x < worldWidth - 1; x++)
@@ -514,8 +527,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     if (slope > talusAngle)
                     {
                         var slideAmount = Math.Min(erosionRate * slope, slope * 0.5f);
-                        newElevations[x, y] -= (int)slideAmount;
-                        newElevations[lowestX, lowestY] += (int)slideAmount;
+                        newElevations[x, y] -= slideAmount;
+                        newElevations[lowestX, lowestY] += slideAmount;
                     }
 
                     // Hydraulic erosion: water flow simulation (simplified)
@@ -523,7 +536,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     if (waterFlow > 0)
                     {
                         var erosionAmount = Math.Min(erosionRate * waterFlow * 0.1f, 0.5f);
-                        newElevations[x, y] -= (int)erosionAmount;
+                        newElevations[x, y] -= erosionAmount;
                     }
                 }
 
@@ -531,7 +544,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         }
     }
 
-    private static void ApplyAdvancedErosion(int worldWidth, int worldHeight, int[,] elevations, float[,] hotspotMap,
+    private static void ApplyAdvancedErosion(int worldWidth, int worldHeight, float[,] elevations, float[,] hotspotMap,
         int iterations, float hydraulicErosionRate, float sedimentCapacity, float depositionRate,
         float evaporationRate, float rainRate, float thermalErosionRate, float talusAngle,
         float minSlope, float gravity, float waterViscosity, Biome[,] biomes, float[,] humidity)
@@ -541,7 +554,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var sediment = new float[worldWidth, worldHeight];
         var terrain = new float[worldWidth, worldHeight];
 
-        // Convert integer elevations to float terrain
+        // Copy elevations to terrain (already float)
         for (var y = 0; y < worldHeight; y++)
             for (var x = 0; x < worldWidth; x++)
                 terrain[x, y] = elevations[x, y];
@@ -716,10 +729,10 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             sediment = newSediment;
         }
 
-        // Convert back to integer elevations
+        // Copy back to elevations (keep as float for now)
         for (var y = 0; y < worldHeight; y++)
             for (var x = 0; x < worldWidth; x++)
-                elevations[x, y] = Math.Clamp((int)Math.Round(terrain[x, y]), 0, 9);
+                elevations[x, y] = terrain[x, y];
     }
 
     private static float[,] GenerateSlopedCoasts(
@@ -848,7 +861,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static bool[,] GenerateRivers(
         int worldWidth,
         int worldHeight,
-        int[,] elevations,
+        float[,] elevations,
         float formationThreshold,
         float carveScale,
         float maxCarveDepth,
@@ -887,7 +900,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static float[,] GenerateRainfall(
         int worldWidth,
         int worldHeight,
-        int[,] elevations,
+        float[,] elevations,
         int waterDistanceRadius,
         float distancePenalty,
         float rainfallMin,
@@ -934,7 +947,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return rainfall;
     }
 
-    private static (int, int)[,] CalculateFlowDirections(int worldWidth, int worldHeight, int[,] elevations)
+    private static (int, int)[,] CalculateFlowDirections(int worldWidth, int worldHeight, float[,] elevations)
     {
         var flowDirections = new (int, int)[worldWidth, worldHeight];
 
@@ -1062,7 +1075,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static bool[,] CarveRivers(
         int worldWidth,
         int worldHeight,
-        int[,] elevations,
+        float[,] elevations,
         float[,] flowAccumulation,
         float formationThreshold,
         float carveScale,
@@ -1101,7 +1114,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return riverMap;
     }
 
-    private static void DepositSediment(int worldWidth, int worldHeight, int[,] elevations, float[,] flowAccumulation)
+    private static void DepositSediment(int worldWidth, int worldHeight, float[,] elevations, float[,] flowAccumulation)
     {
         // Simple sediment deposition in low areas
         for (var y = 0; y < worldHeight; y++)
@@ -1121,7 +1134,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static void ApplyMountainDetails(
         int worldWidth,
         int worldHeight,
-        int[,] elevations,
+        float[,] elevations,
         SurfaceFeature[,] surfaceMap,
         int[,] plateIndex,
         bool[] plateTypes,
@@ -1238,7 +1251,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return centers;
     }
 
-    private static void AddVolcanicDetails(int worldWidth, int worldHeight, int[,] elevations, SurfaceFeature[,] surfaceMap, int centerX, int centerY, float strength)
+    private static void AddVolcanicDetails(int worldWidth, int worldHeight, float[,] elevations, SurfaceFeature[,] surfaceMap, int centerX, int centerY, float strength)
     {
         var radius = Math.Max(3, (int)(strength * 10)); // Scale radius with strength, minimum 3
 
@@ -1339,7 +1352,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static void ApplyCoastalFeatures(
         int worldWidth,
         int worldHeight,
-        int[,] elevations,
+        float[,] elevations,
         SurfaceFeature[,] surfaceMap)
     {
         for (var y = 0; y < worldHeight; y++)
@@ -1357,7 +1370,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 if (!isWater)
                 {
                     var adjacentWater = 0;
-                    var maxAdjElevation = 0;
+                    var maxAdjElevation = 0f;
                     for (var dy = -1; dy <= 1; dy++)
                         for (var dx = -1; dx <= 1; dx++)
                         {
