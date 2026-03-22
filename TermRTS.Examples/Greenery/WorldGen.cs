@@ -13,7 +13,10 @@ public enum SurfaceFeature : byte
     Glacier = 2,
     Lava = 3,
     Mountain = 4,
-    Snow = 5
+    Snow = 5,
+    Beach = 6,
+    Cliff = 7,
+    Fjord = 8
 }
 
 public class WorldGenerationResult
@@ -146,6 +149,9 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Step 10: Apply mountain details (ridges, snow, glacier, lava)
         var surfaceMap = new SurfaceFeature[worldWidth, worldHeight];
         ApplyMountainDetails(worldWidth, worldHeight, cellElevations, surfaceMap, plateIndex, plateTypes, voronoiCells, hotspotAdjustment, riverMap);
+
+        // Step 11: Apply coastal features (beach, cliff, fjord)
+        ApplyCoastalFeatures(worldWidth, worldHeight, cellElevations, surfaceMap);
 
         // optional: apply more techniques from "around the world" to get more appealing shapes
 
@@ -841,8 +847,90 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
                     if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
 
-                    if (plateTypes[currentPlate] && plateTypes[neighborPlate])
-                        surfaceMap[x, y] = SurfaceFeature.Mountain;
+                                    surfaceMap[x, y] = SurfaceFeature.Mountain;
+                }
+            }
+    }
+
+    private static void ApplyCoastalFeatures(
+        int worldWidth,
+        int worldHeight,
+        int[,] elevations,
+        SurfaceFeature[,] surfaceMap)
+    {
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                // Skip existing assigned strong surface features: river, lava, glacier
+                var existing = surfaceMap[x, y];
+                if (existing == SurfaceFeature.River || existing == SurfaceFeature.Lava || existing == SurfaceFeature.Glacier)
+                    continue;
+
+                var elevation = elevations[x, y];
+                var isWater = elevation <= 3;
+
+                // Beach/cliff only for land cells near water
+                if (!isWater)
+                {
+                    var adjacentWater = 0;
+                    var maxAdjElevation = 0;
+                    for (var dy = -1; dy <= 1; dy++)
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                            var neighborElevation = elevations[nx, ny];
+                            if (neighborElevation <= 3)
+                                adjacentWater++;
+                            else
+                                maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
+                        }
+
+                    if (adjacentWater > 0)
+                    {
+                        // steep cliff if high land adjacent to water and steep drops nearby
+                        if (elevation >= 7 && maxAdjElevation <= 3)
+                        {
+                            surfaceMap[x, y] = SurfaceFeature.Cliff;
+                        }
+                        else if (elevation <= 6)
+                        {
+                            surfaceMap[x, y] = SurfaceFeature.Beach;
+                        }
+                        else
+                        {
+                            // somewhat high coast at moderate slope -> cliff
+                            surfaceMap[x, y] = SurfaceFeature.Cliff;
+                        }
+                    }
+                }
+                else
+                {
+                    // water cells: detect fjord (narrow water in high mountains)
+                    var adjacentLand = 0;
+                    var adjacentHighMountain = 0;
+                    for (var dy = -1; dy <= 1; dy++)
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                            var neighborElevation = elevations[nx, ny];
+                            if (neighborElevation >= 4)
+                            {
+                                adjacentLand++;
+                                if (neighborElevation >= 8)
+                                    adjacentHighMountain++;
+                            }
+                        }
+
+                    if (adjacentLand >= 3 && adjacentHighMountain >= 1)
+                    {
+                        surfaceMap[x, y] = SurfaceFeature.Fjord;
+                    }
                 }
             }
     }

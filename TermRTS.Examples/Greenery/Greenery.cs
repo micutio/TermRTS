@@ -14,9 +14,9 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int WorldWidth = 300;
+    private const int WorldWidth = 600;
 
-    private const int WorldHeight = 250;
+    private const int WorldHeight = 400;
 
     // private readonly ILog _log;
     private CommandRunner _commandRunner;
