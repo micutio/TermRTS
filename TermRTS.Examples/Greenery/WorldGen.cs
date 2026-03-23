@@ -38,25 +38,20 @@ public enum Biome : byte
     IceCap = 8
 }
 
-public class WorldGenerationResult
+public class WorldGenerationResult(
+    byte[,] elevation,
+    SurfaceFeature[,] surface,
+    float[,] temperature,
+    float[,] humidity,
+    Biome[,] biomes,
+    float[,] temperatureAmplitude)
 {
-    public WorldGenerationResult(byte[,] elevation, SurfaceFeature[,] surface, float[,] temperature,
-        float[,] humidity, Biome[,] biomes, float[,] temperatureAmplitude)
-    {
-        Elevation = elevation;
-        Surface = surface;
-        Temperature = temperature;
-        Humidity = humidity;
-        Biomes = biomes;
-        TemperatureAmplitude = temperatureAmplitude;
-    }
-
-    public byte[,] Elevation { get; }
-    public SurfaceFeature[,] Surface { get; }
-    public float[,] Temperature { get; }
-    public float[,] Humidity { get; }
-    public Biome[,] Biomes { get; }
-    public float[,] TemperatureAmplitude { get; }
+    public byte[,] Elevation { get; } = elevation;
+    public SurfaceFeature[,] Surface { get; } = surface;
+    public float[,] Temperature { get; } = temperature;
+    public float[,] Humidity { get; } = humidity;
+    public Biome[,] Biomes { get; } = biomes;
+    public float[,] TemperatureAmplitude { get; } = temperatureAmplitude;
 }
 
 public interface IWorldGen
@@ -190,21 +185,21 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var (voronoiCells, plateTypes, plateMotions, landWaterMap) =
             InitializePlateTectonics(worldWidth, worldHeight, landRatio);
 
-        // step 3: associate each grid cell to one of the voronoi cells
+        // Associate each grid cell to one of the voronoi cells.
         const int jiggle = 15;
         var (cellElevationsInt, plateIndex) = GenerateLandWaterDistribution(
             worldWidth, worldHeight, jiggle, voronoiCells, landWaterMap);
 
-        // Convert to float for more precise calculations
+        // Convert to float for more precise calculations.
         var cellElevations = new float[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y++)
         for (var x = 0; x < worldWidth; x++)
             cellElevations[x, y] = cellElevationsInt[x, y];
 
-        // Step 4: Generate coastal slopes for each voronoi cell.
+        // Generate coastal slopes for each voronoi cell.
         var coastalSlopes = GenerateSlopedCoasts(worldWidth, worldHeight, cellElevationsInt);
 
-        // Step 5: Compute plate tectonics influence (mountains/trenches along plate boundaries)
+        // Compute plate tectonics influence (mountains/trenches along plate boundaries).
         var tectonicAdjustment = ComputePlateTectonicHeight(
             worldWidth,
             worldHeight,
@@ -213,17 +208,17 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             plateTypes,
             plateMotions);
 
-        // Step 6: Generate hotspots (mantle plumes creating volcanic islands/seamounts)
+        // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
         var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng,
             cellElevationsInt, plateMotions,
             MinIslandChains, MaxIslandChains, MinChainLength, MaxChainLength, ChainSpacing,
             MinLandDistance,
             MinHotspotRadius, MaxHotspotRadius, MinHotspotStrength, MaxHotspotStrength);
 
-        // Step 7: for each voronoi land cell, apply perlin or simplex noise to generate height
+        // For each voronoi land cell, apply perlin or simplex noise to generate height.
         const float noiseScale = 1.0f;
         const int octaves = 4;
-        const float persistance = 0.75f; //?
+        const float persistence = 0.75f; //?
         const float lacunarity = 1.8f; //?
         var offset = new Vector2(1f, 1f);
         var noiseField = GenerateNoiseMap(
@@ -232,11 +227,11 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             seed,
             noiseScale,
             octaves,
-            persistance,
+            persistence,
             lacunarity,
             offset);
 
-        // Step 7: Apply noise and slopes to elevation map.
+        // Apply noise and slopes to elevation map.
         for (var y = 0; y < worldHeight; y += 1)
         for (var x = 0; x < worldWidth; x += 1)
         {
@@ -264,11 +259,11 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             cellElevations[x, y] = (float)elevation;
         }
 
-        // Step 7: Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
+        // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
         var (temperature, humidity, biomes, temperatureAmplitude) =
             GenerateClimate(worldWidth, worldHeight, cellElevationsInt);
 
-        // Step 8: Apply erosion to smooth terrain and create realistic features
+        // Apply erosion to smooth terrain and create realistic features
         if (UseAdvancedErosion)
             ApplyAdvancedErosion(worldWidth, worldHeight, cellElevations, hotspotAdjustment,
                 ErosionIterations, HydraulicErosionRate, SedimentCapacity, DepositionRate,
@@ -277,7 +272,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         else
             ApplyErosion(worldWidth, worldHeight, cellElevations);
 
-        // Step 9: Generate rivers based on rainfall and elevation (tunable via public properties)
+        // Generate rivers based on rainfall and elevation (tunable via public properties)
         var riverMap = GenerateRivers(
             worldWidth,
             worldHeight,
@@ -291,15 +286,13 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             RainfallElevationDecay,
             RainfallMinModifier);
 
-        // Step 10: Apply mountain details (ridges, snow, glacier, lava)
+        // Apply mountain details (ridges, snow, glacier, lava)
         var surfaceMap = new SurfaceFeature[worldWidth, worldHeight];
         ApplyMountainDetails(worldWidth, worldHeight, cellElevations, surfaceMap, plateIndex,
             plateTypes, voronoiCells, hotspotAdjustment, riverMap);
 
-        // Step 11: Apply coastal features (beach, cliff, fjord)
+        // Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures(worldWidth, worldHeight, cellElevations, surfaceMap);
-
-        // optional: apply more techniques from "around the world" to get more appealing shapes
 
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var finalElevations = new int[worldWidth, worldHeight];
@@ -317,7 +310,11 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             temperatureAmplitude);
     }
 
-    private void ValidateParameters(int worldWidth, int worldHeight, float landRatio)
+    #endregion
+
+    #region Validation
+
+    private static void ValidateParameters(int worldWidth, int worldHeight, float landRatio)
     {
         if (worldWidth <= 0)
             throw new ArgumentOutOfRangeException(nameof(worldWidth),
@@ -332,8 +329,22 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 "Land ratio must be between 0 and 1.");
     }
 
-    private (IList<(int, int)> voronoiCells, bool[] plateTypes, Vector2[] plateMotions, int[]
-        landWaterMap) InitializePlateTectonics(
+    #endregion
+
+    #region Tectonics
+
+    /// <summary>
+    /// Initializes plates and tectonic parameters.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="landRatio">Ratio of land, i.e.: 1 - `landRatio` = ratio of water.</param>
+    /// <returns>Voronoi cells and their types, plate motions and land/water distribution.</returns>
+    private (IList<(int, int)> voronoiCells,
+        bool[] plateTypes,
+        Vector2[] plateMotions,
+        int[] landWaterMap)
+        InitializePlateTectonics(
             int worldWidth,
             int worldHeight,
             float landRatio)
@@ -344,30 +355,69 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             voronoiCells[i] = (_rng.Next(worldWidth), _rng.Next(worldHeight));
 
         // step 2: assign plate types and motions, and infer basic water/land by plate type
-        var plateTypes =
-            GeneratePlateTypes(cellCount, _rng, landRatio); // true = continental, false = oceanic
-        var plateMotions = GeneratePlateMotions(cellCount, _rng);
+        // true = continental, false = oceanic
+        var plateTypes = GeneratePlateTypes(cellCount, landRatio);
+        var plateMotions = GeneratePlateMotions(cellCount);
 
         var landWaterMap = new int[cellCount];
         for (var i = 0; i < cellCount; i += 1)
-            landWaterMap[i] =
-                plateTypes[i]
-                    ? LandElevationThreshold
-                    : WaterElevationThreshold; // Lower oceanic plates to create deeper oceans
+            landWaterMap[i] = plateTypes[i]
+                ? LandElevationThreshold
+                : WaterElevationThreshold; // Lower oceanic plates to create deeper oceans
 
         return (voronoiCells, plateTypes, plateMotions, landWaterMap);
     }
 
-    #endregion
+    /// <summary>
+    /// Generates the type for each plate: true == land, false == water.
+    /// </summary>
+    /// <param name="plateCount">How many plates we have.</param>
+    /// <param name="landRatio">Percentage of land on this map.</param>
+    /// <returns>Array of types per plate index.</returns>
+    private bool[] GeneratePlateTypes(int plateCount, float landRatio)
+    {
+        var types = new bool[plateCount];
+        for (var i = 0; i < plateCount; i += 1)
+            types[i] = _rng.NextDouble() < landRatio;
+        return types;
+    }
 
+    /// <summary>
+    /// Generates a motion vector for each plate.
+    /// </summary>
+    /// <param name="plateCount">How many plates we have</param>
+    /// <returns>Array of plate motion vector per plate index.</returns>
+    private Vector2[] GeneratePlateMotions(int plateCount)
+    {
+        var motions = new Vector2[plateCount];
+        for (var i = 0; i < plateCount; i += 1)
+        {
+            var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
+            // TODO: Play around with the speed formula.
+            var speed = (float)(_rng.NextDouble() * 0.5 + 0.1);
+            motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
+        }
+
+        return motions;
+    }
+
+    /// <summary>
+    /// Assigns an elevation and plate to each single cell on the map.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="jiggle">Magnitude of the random jiggle.</param>
+    /// <param name="voronoiCells">Voronoi cell center locations for this map.</param>
+    /// <param name="landWaterMap">Land/water distribution by Voronoi cell index.</param>
+    /// <returns></returns>
     private static (int[,] cellElevations, int[,] plateIndex) GenerateLandWaterDistribution(
         int worldWidth,
         int worldHeight,
         int jiggle,
         IList<(int, int)> voronoiCells,
-        IReadOnlyList<int> landWaterMap)
+        int[] landWaterMap)
     {
-        // TODO: Refactor into separate water/land field generation function.
+        // TODO: Play around with noise scale.
         const float scale = .08f;
         var cellElevations = new int[worldWidth, worldHeight];
         var plateIndex = new int[worldWidth, worldHeight];
@@ -403,34 +453,26 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return (cellElevations, plateIndex);
     }
 
-    private static bool[] GeneratePlateTypes(int plateCount, Random rng, float landRatio)
-    {
-        var types = new bool[plateCount];
-        for (var i = 0; i < plateCount; i += 1)
-            types[i] = rng.NextDouble() < landRatio; // ~55% continental
-        return types;
-    }
-
-    private static Vector2[] GeneratePlateMotions(int plateCount, Random rng)
-    {
-        var motions = new Vector2[plateCount];
-        for (var i = 0; i < plateCount; i += 1)
-        {
-            var angle = (float)(rng.NextDouble() * Math.PI * 2.0);
-            var speed = (float)(rng.NextDouble() * 0.5 + 0.1);
-            motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
-        }
-
-        return motions;
-    }
-
+    /// <summary>
+    /// Generate elevation differences at tectonic plate boundaries,
+    /// e.g.: Mountains and seamounts at plate convergences and
+    /// trenches at plate divergences.
+    /// These changes will only affect world cells located at tectonic plate boundaries.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="plateIndex">Tectonic plate index for each cell in the world.</param>
+    /// <param name="plateCenters">List of center points of tectonic plates.</param>
+    /// <param name="plateTypes">Tectonic plate types (true = continent, false = sea).</param>
+    /// <param name="plateMotions"></param>
+    /// <returns>Elevation changes for grid cells.</returns>
     private static float[,] ComputePlateTectonicHeight(
         int worldWidth,
         int worldHeight,
         int[,] plateIndex,
         IList<(int, int)> plateCenters,
-        IReadOnlyList<bool> plateTypes,
-        IList<Vector2> plateMotions)
+        bool[] plateTypes,
+        Vector2[] plateMotions)
     {
         var tectonicDelta = new float[worldWidth, worldHeight];
 
@@ -454,32 +496,42 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 var pB = plateCenters[neighbourPlate];
                 var direction = new Vector2(pB.Item1 - pA.Item1, pB.Item2 - pA.Item2);
                 if (direction.LengthSquared() < 0.0001f) continue;
-                var normal = Vector2.Normalize(direction);
 
-                var relMotion = plateMotions[neighbourPlate] - plateMotions[currentPlate];
-                var stress = Vector2.Dot(relMotion, normal);
+                var normal = Vector2.Normalize(direction);
+                var relativeMotion = plateMotions[neighbourPlate] - plateMotions[currentPlate];
+                var stress = Vector2.Dot(relativeMotion, normal);
                 var convergence = MathF.Max(0f, stress);
                 var divergence = MathF.Max(0f, -stress);
-
+                // Only true if both are continents.
                 var continentalInteraction = plateTypes[currentPlate] && plateTypes[neighbourPlate];
+                // Only true if one plate is continental and the other is oceanic.
                 var mixedInteraction = plateTypes[currentPlate] ^ plateTypes[neighbourPlate];
 
                 if (convergence > 0)
                 {
                     if (continentalInteraction)
+                        // Higher mountains for continental convergence.
+                        // TODO: turn into adjustable parameter
                         totalDelta += convergence * 3.2f;
                     else if (mixedInteraction)
+                        // Lesser mountains for mixed convergence.
+                        // TODO: turn into adjustable parameter
                         totalDelta += convergence * 4.5f;
                     else
+                        // Small bumps for oceanic convergence.
+                        // TODO: Does this influence hotspots and hotspot island chains?
+                        // TODO: turn into adjustable parameter
                         totalDelta += convergence * 1.7f;
                 }
                 else if (divergence > 0)
                 {
                     if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
-                        totalDelta -=
-                            divergence *
-                            5.0f; // Much deeper trenches for oceanic-oceanic divergence
+                        // Very deep trenches for oceanic-oceanic divergence.
+                        // TODO: turn into adjustable parameter
+                        totalDelta -= divergence * 5.0f;
                     else
+                        // Shallower trenches for all other divergences
+                        // TODO: turn into adjustable parameter
                         totalDelta -= divergence * 2.4f;
                 }
             }
@@ -490,11 +542,43 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return tectonicDelta;
     }
 
-    private static float[,] GenerateHotspots(int worldWidth, int worldHeight, int seed, Random rng,
-        int[,] cellElevations, IList<Vector2> plateMotions,
-        int minIslandChains, int maxIslandChains, int minChainLength, int maxChainLength,
-        int chainSpacing, int minLandDistance,
-        int minHotspotRadius, int maxHotspotRadius, float minHotspotStrength,
+    // TODO: Turn numeric parameters in to constants and later tweakable Properties
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="worldWidth"></param>
+    /// <param name="worldHeight"></param>
+    /// <param name="seed"></param>
+    /// <param name="rng"></param>
+    /// <param name="cellElevations"></param>
+    /// <param name="plateMotions"></param>
+    /// <param name="minIslandChains"></param>
+    /// <param name="maxIslandChains"></param>
+    /// <param name="minChainLength"></param>
+    /// <param name="maxChainLength"></param>
+    /// <param name="chainSpacing"></param>
+    /// <param name="minLandDistance"></param>
+    /// <param name="minHotspotRadius"></param>
+    /// <param name="maxHotspotRadius"></param>
+    /// <param name="minHotspotStrength"></param>
+    /// <param name="maxHotspotStrength"></param>
+    /// <returns></returns>
+    private static float[,] GenerateHotspots(
+        int worldWidth,
+        int worldHeight,
+        int seed,
+        Random rng,
+        int[,] cellElevations,
+        Vector2[] plateMotions,
+        int minIslandChains,
+        int maxIslandChains,
+        int minChainLength,
+        int maxChainLength,
+        int chainSpacing,
+        int minLandDistance,
+        int minHotspotRadius,
+        int maxHotspotRadius,
+        float minHotspotStrength,
         float maxHotspotStrength)
     {
         var hotspotMap = new float[worldWidth, worldHeight];
@@ -502,24 +586,27 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             rng.Next(minIslandChains,
                 maxIslandChains + 1); // +1 because Next upper bound is exclusive
 
+        // TODO: Why the need for a different rng?
         var prng = new Random(seed + 12345); // Different seed for hotspots
 
         for (var chain = 0; chain < chainCount; chain++)
         {
-            // Create a chain of hotspots along a plate motion direction
+            // Create a chain of hotspots along a plate motion direction.
             var chainLength = prng.Next(minChainLength, maxChainLength + 1);
             var startX = prng.Next(worldWidth);
             var startY = prng.Next(worldHeight);
 
             // Use a random plate motion direction for the chain, or create a random direction
-            var chainDirection = plateMotions.Count > 0
-                ? plateMotions[prng.Next(plateMotions.Count)]
-                : new Vector2((float)(prng.NextDouble() - 0.5) * 2,
+            var chainDirection = plateMotions.Length > 0
+                ? plateMotions[prng.Next(plateMotions.Length)]
+                : new Vector2(
+                    (float)(prng.NextDouble() - 0.5) * 2,
                     (float)(prng.NextDouble() - 0.5) * 2);
 
             // Normalize and scale the direction
-            var length = MathF.Sqrt(chainDirection.X * chainDirection.X +
-                                    chainDirection.Y * chainDirection.Y);
+            var length = MathF.Sqrt(
+                chainDirection.X * chainDirection.X +
+                chainDirection.Y * chainDirection.Y);
             if (length > 0)
                 chainDirection = chainDirection / length * (float)(prng.NextDouble() * 2 + 1);
 
@@ -535,6 +622,10 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 centerX = (centerX % worldWidth + worldWidth) % worldWidth;
                 centerY = (centerY % worldHeight + worldHeight) % worldHeight;
 
+                #region TODO - Redo placement logic
+
+                // TODO: Only allow oceanic plates for placement to begin with!
+                //       Use map of plate center coordinates to start with.
                 // Try to place hotspot in deep ocean areas, far from land
                 var attempts = 0;
                 const int maxAttempts = 30;
@@ -549,8 +640,9 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     testY = (testY % worldHeight + worldHeight) % worldHeight;
 
                     // Check if this is deep ocean (elevation 0-2) and far from land
-                    if (cellElevations[testX, testY] <= DeepOceanThreshold && IsFarFromLand(testX,
-                            testY, worldWidth, worldHeight, cellElevations, minLandDistance))
+                    if (cellElevations[testX, testY] <= DeepOceanThreshold &&
+                        IsFarFromLand(testX, testY, worldWidth, worldHeight, cellElevations,
+                            minLandDistance))
                     {
                         centerX = testX;
                         centerY = testY;
@@ -562,18 +654,20 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
                 if (!placed) continue; // Skip this hotspot if we couldn't place it in deep ocean
 
+                #endregion
+
                 var radius = prng.Next(minHotspotRadius, maxHotspotRadius + 1);
                 var strength =
                     (float)(prng.NextDouble() * (maxHotspotStrength - minHotspotStrength) +
                             minHotspotStrength);
 
                 // Create a volcanic cone shape with exponential falloff (more realistic)
-                for (var y = Math.Max(0, centerY - radius);
-                     y < Math.Min(worldHeight, centerY + radius);
-                     y++)
-                for (var x = Math.Max(0, centerX - radius);
-                     x < Math.Min(worldWidth, centerX + radius);
-                     x++)
+                var minY = Math.Max(0, centerY - radius);
+                var maxY = Math.Min(worldHeight, centerY + radius);
+                var minX = Math.Max(0, centerX - radius);
+                var maxX = Math.Min(worldWidth, centerX + radius);
+                for (var y = minY; y < maxY; y++)
+                for (var x = minX; x < maxX; x++)
                 {
                     var dx = x - centerX;
                     var dy = y - centerY;
@@ -582,10 +676,12 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     if (distance > radius) continue;
 
                     // Exponential falloff for more realistic volcanic shape
+                    // TODO: make falloff a tweakable parameter
                     var normalizedDist = distance / radius;
                     var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
 
                     // Add some noise to make it look more volcanic
+                    // TODO: make noise a tweakable parameter
                     var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
                     coneHeight *= 0.7f + noise * 0.6f;
 
@@ -617,6 +713,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         return true;
     }
+
+    #endregion
 
     private static void ApplyErosion(int worldWidth, int worldHeight, float[,] elevations)
     {
@@ -933,7 +1031,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         int seed,
         float scale,
         int octaves,
-        float persistance,
+        float persistence,
         float lacunarity,
         Vector2 offset)
     {
@@ -970,7 +1068,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
 
                 noiseHeight += perlinValue * amplitude;
-                amplitude *= persistance;
+                amplitude *= persistence;
                 frequency *= lacunarity;
             }
 
