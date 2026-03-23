@@ -66,6 +66,7 @@ public class Scheduler
         _profiler = new Profiler(timeStepSizeMs);
         _msPerUpdate = TimeSpan.FromMilliseconds(msPerUpdate);
         _timeStepSizeMs = timeStepSizeMs;
+        _lag = TimeSpan.FromMilliseconds(msPerUpdate);
         _core = core;
         AddEventSink(_core, typeof(Shutdown));
 
