@@ -131,20 +131,22 @@ public class Scheduler
         _loopTimer.Restart();
         _lag += loopTime;
 
-        // STEP 1: INPUT /////////////////////////////////////////////////////////////////////
-        ProcessInput();
-        if (!_core.IsRunning())
-        {
-            _core.Shutdown();
-            return;
-        }
-
-        // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
         // Reduce possible lag by processing consecutive ticks without rendering
         var tickCount = 0;
         _tickTimer.Restart();
         while (_lag >= _msPerUpdate)
         {
+
+            // STEP 1: INPUT /////////////////////////////////////////////////////////////////////
+            ProcessInput();
+            if (!_core.IsRunning())
+            {
+                _core.Shutdown();
+                return;
+            }
+
+        // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
+        
             _core.Tick(_timeStepSizeMs);
             TimeMs += _timeStepSizeMs;
             _lag -= _msPerUpdate;
