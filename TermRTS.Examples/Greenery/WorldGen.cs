@@ -65,7 +65,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
     // Constants for elevation thresholds
     private const int LandElevationThreshold = 4;
-    private const int WaterElevationThreshold = 3;
+    private const int SeaLevelElevation = 3;
     private const int DeepOceanThreshold = 2;
     private const int HighMountainThreshold = 7;
     private const int SnowThreshold = 8;
@@ -209,11 +209,23 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             plateMotions);
 
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
-        var hotspotAdjustment = GenerateHotspots(worldWidth, worldHeight, seed, _rng,
-            cellElevationsInt, plateMotions,
-            MinIslandChains, MaxIslandChains, MinChainLength, MaxChainLength, ChainSpacing,
+        var hotspotMap = GenerateHotspots(
+            worldWidth,
+            worldHeight,
+            seed,
+            _rng,
+            cellElevationsInt,
+            plateMotions,
+            MinIslandChains,
+            MaxIslandChains,
+            MinChainLength,
+            MaxChainLength,
+            ChainSpacing,
             MinLandDistance,
-            MinHotspotRadius, MaxHotspotRadius, MinHotspotStrength, MaxHotspotStrength);
+            MinHotspotRadius,
+            MaxHotspotRadius,
+            MinHotspotStrength,
+            MaxHotspotStrength);
 
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
         const float noiseScale = 1.0f;
@@ -241,7 +253,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             var slopeFactor = coastalSlopes[x, y] / MaxCoastalSlope;
             var normalizedNoise = noiseField[x, y] / 255.0;
             var tectonic = tectonicAdjustment[x, y];
-            var hotspot = hotspotAdjustment[x, y];
+            var hotspot = hotspotMap[x, y];
 
             // For oceanic plates, reduce noise impact to allow deeper trenches
             var cellElevationContribution = cellElevationsInt[x, y] >= LandElevationThreshold
@@ -265,18 +277,32 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Apply erosion to smooth terrain and create realistic features
         if (UseAdvancedErosion)
-            ApplyAdvancedErosion(worldWidth, worldHeight, cellElevations, hotspotAdjustment,
-                ErosionIterations, HydraulicErosionRate, SedimentCapacity, DepositionRate,
-                EvaporationRate, RainRate, ThermalErosionRate, TalusAngle, MinSlope, Gravity,
-                WaterViscosity, biomes, humidity);
+            ApplyAdvancedErosion(
+                worldWidth,
+                worldHeight,
+                cellElevations,
+                hotspotMap,
+                ErosionIterations,
+                HydraulicErosionRate,
+                SedimentCapacity,
+                DepositionRate,
+                EvaporationRate,
+                RainRate,
+                ThermalErosionRate,
+                TalusAngle,
+                MinSlope,
+                Gravity,
+                WaterViscosity,
+                biomes,
+                humidity);
         else
-            ApplyErosion(worldWidth, worldHeight, cellElevations);
+            ApplyErosion(worldWidth, worldHeight, ref cellElevations);
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         var riverMap = GenerateRivers(
             worldWidth,
             worldHeight,
-            cellElevations,
+            ref cellElevations,
             RiverFormationThreshold,
             RiverCarveScale,
             RiverMaxCarveDepth,
@@ -288,8 +314,15 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Apply mountain details (ridges, snow, glacier, lava)
         var surfaceMap = new SurfaceFeature[worldWidth, worldHeight];
-        ApplyMountainDetails(worldWidth, worldHeight, cellElevations, surfaceMap, plateIndex,
-            plateTypes, voronoiCells, hotspotAdjustment, riverMap);
+        ApplyMountainDetails(
+            worldWidth,
+            worldHeight,
+            cellElevations,
+            surfaceMap,
+            plateIndex,
+            plateTypes,
+            hotspotMap,
+            riverMap);
 
         // Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures(worldWidth, worldHeight, cellElevations, surfaceMap);
@@ -340,7 +373,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     /// <param name="worldHeight">Height of the world in grid cells.</param>
     /// <param name="landRatio">Ratio of land, i.e.: 1 - `landRatio` = ratio of water.</param>
     /// <returns>Voronoi cells and their types, plate motions and land/water distribution.</returns>
-    private (IList<(int, int)> voronoiCells,
+    private (
+        IList<(int, int)> voronoiCells,
         bool[] plateTypes,
         Vector2[] plateMotions,
         int[] landWaterMap)
@@ -363,7 +397,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         for (var i = 0; i < cellCount; i += 1)
             landWaterMap[i] = plateTypes[i]
                 ? LandElevationThreshold
-                : WaterElevationThreshold; // Lower oceanic plates to create deeper oceans
+                : SeaLevelElevation; // Lower oceanic plates to create deeper oceans
 
         return (voronoiCells, plateTypes, plateMotions, landWaterMap);
     }
@@ -414,8 +448,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         int worldWidth,
         int worldHeight,
         int jiggle,
-        IList<(int, int)> voronoiCells,
-        int[] landWaterMap)
+        in IList<(int, int)> voronoiCells,
+        in int[] landWaterMap)
     {
         // TODO: Play around with noise scale.
         const float scale = .08f;
@@ -469,10 +503,10 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static float[,] ComputePlateTectonicHeight(
         int worldWidth,
         int worldHeight,
-        int[,] plateIndex,
-        IList<(int, int)> plateCenters,
-        bool[] plateTypes,
-        Vector2[] plateMotions)
+        in int[,] plateIndex,
+        in IList<(int, int)> plateCenters,
+        in bool[] plateTypes,
+        in Vector2[] plateMotions)
     {
         var tectonicDelta = new float[worldWidth, worldHeight];
 
@@ -568,8 +602,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         int worldHeight,
         int seed,
         Random rng,
-        int[,] cellElevations,
-        Vector2[] plateMotions,
+        in int[,] cellElevations,
+        in Vector2[] plateMotions,
         int minIslandChains,
         int maxIslandChains,
         int minChainLength,
@@ -716,15 +750,25 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
     #endregion
 
-    private static void ApplyErosion(int worldWidth, int worldHeight, float[,] elevations)
+    // TODO: Move erosion after climate and biome generation for ordered dependency.
+
+    #region Erosion
+
+    // TODO: Clarify that this meets the definition of thermal erosion.
+    // TODO: Possibly delete in favour of advanced erosion!
+    /// <summary>
+    /// Apply thermal and hydraulic erosion to 
+    /// </summary>
+    /// <param name="worldWidth">World width in grid cells</param>
+    /// <param name="worldHeight">World height in grid cells</param>
+    /// <param name="elevations">Grid of world elevation values</param>
+    private static void ApplyErosion(int worldWidth, int worldHeight, ref float[,] elevations)
     {
         // Simple thermal erosion + hydraulic erosion simulation
-        const int iterations = SimpleErosionIterations;
-        const float talusAngle = SimpleTalusAngle; // Minimum slope for material to slide
-        const float erosionRate = SimpleErosionRate;
 
-        for (var iter = 0; iter < iterations; iter++)
+        for (var iter = 0; iter < SimpleErosionIterations; iter++)
         {
+            // TODO: replace shallow copy with deep copy
             var newElevations = (float[,])elevations.Clone();
 
             for (var y = 1; y < worldHeight - 1; y++)
@@ -754,32 +798,65 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
                 var slope = currentHeight - lowestNeighbor;
 
-                // Thermal erosion: material slides if slope is too steep
-                if (slope > talusAngle)
+                // Thermal erosion: material slides if slope is too steep, even underwater.
+                if (slope > SimpleTalusAngle)
                 {
-                    var slideAmount = Math.Min(erosionRate * slope, slope * 0.5f);
+                    var slideAmount = Math.Min(SimpleErosionRate * slope, slope * 0.5f);
                     newElevations[x, y] -= slideAmount;
                     newElevations[lowestX, lowestY] += slideAmount;
                 }
 
                 // Hydraulic erosion: water flow simulation (simplified)
-                var waterFlow = Math.Max(0, currentHeight - 0); // Water level at 0
-                if (waterFlow > 0)
-                {
-                    var erosionAmount = Math.Min(erosionRate * waterFlow * 0.1f, 0.5f);
-                    newElevations[x, y] -= erosionAmount;
-                }
+                // TODO: Possibly parameterize water surface level (=3)
+                var waterFlow = Math.Max(0, currentHeight - 3); // Water surface at 3
+                if (waterFlow <= 0) continue;
+
+                var erosionAmount = Math.Min(SimpleErosionRate * waterFlow * 0.1f, 0.5f);
+                newElevations[x, y] -= erosionAmount;
             }
 
             elevations = newElevations;
         }
     }
 
-    private static void ApplyAdvancedErosion(int worldWidth, int worldHeight, float[,] elevations,
-        float[,] hotspotMap,
-        int iterations, float hydraulicErosionRate, float sedimentCapacity, float depositionRate,
-        float evaporationRate, float rainRate, float thermalErosionRate, float talusAngle,
-        float minSlope, float gravity, float waterViscosity, Biome[,] biomes, float[,] humidity)
+    /// <summary>
+    /// Apply erosion with hydraulic simulation, sediment transport and thermal erosion.
+    /// </summary>
+    /// <param name="worldWidth">World width in grid cells.</param>
+    /// <param name="worldHeight">World Height in grid cells.</param>
+    /// <param name="elevations">Grid of elevation values.</param>
+    /// <param name="hotspotMap">Map of hotspots in the world.</param>
+    /// <param name="iterations">Count of simulation iterations to perform.</param>
+    /// <param name="hydraulicErosionRate">Rate of hydraulic erosion per step.</param>
+    /// <param name="sedimentCapacity">Capacity of sediment one cell can have.</param>
+    /// <param name="depositionRate">How much sediment is deposited by hydraulic erosion.</param>
+    /// <param name="evaporationRate">How much water evaporates per step.</param>
+    /// <param name="rainRate">How much it rains per step.</param>
+    /// <param name="thermalErosionRate">Rate of erosion of soil down slope.</param>
+    /// <param name="talusAngle">Slope angle after which erosion occurs.</param>
+    /// <param name="minSlope">Minimum slope for water to flow.</param>
+    /// <param name="gravity">Gravitation coefficient.</param>
+    /// <param name="waterViscosity">How much water flows.</param>
+    /// <param name="biomes">Map of biomes on the map.</param>
+    /// <param name="humidity">Map of humidity across the map.</param>
+    private static void ApplyAdvancedErosion(
+        int worldWidth,
+        int worldHeight,
+        in float[,] elevations,
+        in float[,] hotspotMap,
+        int iterations,
+        float hydraulicErosionRate,
+        float sedimentCapacity,
+        float depositionRate,
+        float evaporationRate,
+        float rainRate,
+        float thermalErosionRate,
+        float talusAngle,
+        float minSlope,
+        float gravity,
+        float waterViscosity,
+        in Biome[,] biomes,
+        in float[,] humidity)
     {
         // Advanced erosion with hydraulic simulation, sediment transport, and thermal erosion
         var water = new float[worldWidth, worldHeight];
@@ -797,6 +874,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             for (var y = 0; y < worldHeight; y++)
             for (var x = 0; x < worldWidth; x++)
             {
+                // TODO: Possibly turn localRainRate coefficients into constants or tweakable properties
                 var localRainRate = rainRate;
                 // Drier regions get less rainfall
                 if (biomes[x, y] == Biome.Desert || biomes[x, y] == Biome.Tundra)
@@ -833,6 +911,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             }
 
             // Step 3: Hydraulic erosion and sediment transport
+            // TODO: replace shallow copy with deep copy
             var newTerrain = (float[,])terrain.Clone();
             var newWater = (float[,])water.Clone();
             var newSediment = (float[,])sediment.Clone();
@@ -865,12 +944,12 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     // Volcanic areas are much more resistant to erosion
                     var volcanicResistance = 1.0f;
                     if (hotspotMap[x, y] > 0.1f) // Areas with volcanic activity
-                        volcanicResistance =
-                            VolcanicResistance; // 90% less erosion in volcanic areas
+                        // 90% less erosion in volcanic areas
+                        volcanicResistance = VolcanicResistance;
 
                     erodeAmount *= volcanicResistance;
-                    erodeAmount =
-                        Math.Min(erodeAmount, terrain[x, y] * 0.1f); // Don't erode too much
+                    // Don't erode too much. // TODO: Do we really need this guard?
+                    erodeAmount = Math.Min(erodeAmount, terrain[x, y] * 0.1f);
                     newTerrain[x, y] -= erodeAmount;
                     newSediment[x, y] += erodeAmount;
                 }
@@ -887,14 +966,13 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
 
                     var neighborSlope = terrain[x, y] - terrain[nx, ny];
-                    if (neighborSlope > 0)
-                    {
-                        var outflow = currentWater * neighborSlope * hydraulicErosionRate;
-                        newWater[nx, ny] += outflow * 0.25f; // Distribute to neighbors
-                        newSediment[nx, ny] += currentSediment * outflow /
-                            Math.Max(currentWater, 0.001f) * 0.25f;
-                        totalOutflow += outflow;
-                    }
+                    if (neighborSlope <= 0) continue;
+
+                    var outflow = currentWater * neighborSlope * hydraulicErosionRate;
+                    newWater[nx, ny] += outflow * 0.25f; // Distribute to neighbors
+                    newSediment[nx, ny] += currentSediment * outflow /
+                        Math.Max(currentWater, waterViscosity) * 0.25f;
+                    totalOutflow += outflow;
                 }
 
                 newWater[x, y] -= totalOutflow;
@@ -903,6 +981,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             }
 
             // Step 4: Thermal erosion (material sliding)
+            // TODO: Fix reading and writing form/to newTerrain in the same loop!
             for (var y = 1; y < worldHeight - 1; y++)
             for (var x = 1; x < worldWidth - 1; x++)
             {
@@ -920,46 +999,41 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     var ny = y + dy;
                     var neighborHeight = newTerrain[nx, ny];
 
-                    if (neighborHeight < lowestNeighbor)
-                    {
-                        lowestNeighbor = neighborHeight;
-                        lowestX = nx;
-                        lowestY = ny;
-                    }
+                    if (neighborHeight >= lowestNeighbor) continue;
+                    lowestNeighbor = neighborHeight;
+                    lowestX = nx;
+                    lowestY = ny;
                 }
 
                 var slope = currentHeight - lowestNeighbor;
 
                 // Material slides if slope is too steep
-                if (slope > talusAngle)
-                {
-                    var slideAmount = Math.Min(thermalErosionRate * slope, slope * 0.5f);
-                    newTerrain[x, y] -= slideAmount;
-                    newTerrain[lowestX, lowestY] += slideAmount;
-                }
+                if (slope <= talusAngle) continue;
+                var slideAmount = Math.Min(thermalErosionRate * slope, slope * 0.5f);
+                newTerrain[x, y] -= slideAmount;
+                newTerrain[lowestX, lowestY] += slideAmount;
             }
 
             // Step 5: Evaporation (climate-aware)
             for (var y = 0; y < worldHeight; y++)
             for (var x = 0; x < worldWidth; x++)
             {
-                var baseEvaporation = evaporationRate;
-
                 // Higher evaporation in dry/hot climates
                 var climateModifier = 1.0f;
                 var biome = biomes[x, y];
                 var humidityValue = humidity[x, y];
 
-                if (biome == Biome.Desert || biome == Biome.Tundra)
+                if (biome is Biome.Desert or Biome.Tundra)
                     climateModifier = 2.0f; // 2x evaporation in dry areas
                 else if (humidityValue < 0.3f)
                     climateModifier = 1.5f; // 1.5x evaporation in low humidity areas
 
-                var adjustedEvaporation = baseEvaporation * climateModifier;
+                var adjustedEvaporation = evaporationRate * climateModifier;
                 newWater[x, y] = Math.Max(0, newWater[x, y] - adjustedEvaporation);
             }
 
             // Update arrays
+            // TODO: Double buffer to swap between arrays.
             terrain = newTerrain;
             water = newWater;
             sediment = newSediment;
@@ -971,6 +1045,19 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             elevations[x, y] = terrain[x, y];
     }
 
+    #endregion
+
+    #region Sloped Coasts
+
+    // TODO: Check whether this conflicts with other steps or still necessary.
+
+    /// <summary>
+    /// Generates a gentle fall-off towards costal cells (elevation == 4)
+    /// </summary>
+    /// <param name="worldWidth"></param>
+    /// <param name="worldHeight"></param>
+    /// <param name="cellElevations"></param>
+    /// <returns>A grid of sloping elevation values for coast lines.</returns>
     private static float[,] GenerateSlopedCoasts(
         int worldWidth,
         int worldHeight,
@@ -988,10 +1075,11 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         {
             if (cellElevations[x, y] != LandElevationThreshold) continue;
 
-            if (cellElevations[x, y - 1] != WaterElevationThreshold && // north
-                cellElevations[x + 1, y] != WaterElevationThreshold && // east
-                cellElevations[x, y + 1] != WaterElevationThreshold && // south
-                cellElevations[x - 1, y] != WaterElevationThreshold) continue; // west
+            // Must have at least one water cell in its neighbourhood.
+            if (cellElevations[x, y - 1] != SeaLevelElevation && // north
+                cellElevations[x + 1, y] != SeaLevelElevation && // east
+                cellElevations[x, y + 1] != SeaLevelElevation && // south
+                cellElevations[x - 1, y] != SeaLevelElevation) continue; // west
 
             coastalSlopes[x, y] = 0.0f;
             q.Enqueue((x, y));
@@ -1025,6 +1113,22 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return coastalSlopes;
     }
 
+    #endregion
+
+    #region Noise Map
+
+    /// <summary>
+    /// Generates a map of pseudo-random Perlin noise.
+    /// </summary>
+    /// <param name="mapWidth">Map width in grid cells</param>
+    /// <param name="mapHeight">Map height in grid cells</param>
+    /// <param name="seed">Seed of the random number generator</param>
+    /// <param name="scale">Scale of the noise</param>
+    /// <param name="octaves">How many layers of noise to generate</param>
+    /// <param name="persistence">Less -> smoother, more -> rougher?</param>
+    /// <param name="lacunarity">Gappiness, how many and/or large holes</param>
+    /// <param name="offset">Offset between layers?</param>
+    /// <returns></returns>
     private static float[,] GenerateNoiseMap(
         int mapWidth,
         int mapHeight,
@@ -1094,10 +1198,31 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return (t - a) / (b - a);
     }
 
+    #endregion
+
+    #region Rivers
+
+    // TODO: Check whether to let this be influenced by biome, temperature or humidity as well.
+
+    /// <summary>
+    /// Generates rivers on the map.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="elevations">Elevation map of the world.</param>
+    /// <param name="formationThreshold"></param>
+    /// <param name="carveScale"></param>
+    /// <param name="maxCarveDepth"></param>
+    /// <param name="waterDistanceRadius">Radius for detecting water around a cell.</param>
+    /// <param name="distancePenalty">Penalty for rainfall on areas far away from the sea.</param>
+    /// <param name="rainfallMin">Minimum amount of rainfall per cell.</param>
+    /// <param name="elevationDecay">How much less rain falls per increase in elevation.</param>
+    /// <param name="minModifier">Minimum modifier of the elevation penalty.</param>
+    /// <returns>Grid of bool values: true if cell belongs to a river, false otherwise.</returns>
     private static bool[,] GenerateRivers(
         int worldWidth,
         int worldHeight,
-        float[,] elevations,
+        ref float[,] elevations,
         float formationThreshold,
         float carveScale,
         float maxCarveDepth,
@@ -1125,15 +1250,28 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var flowAccumulation = AccumulateFlow(worldWidth, worldHeight, flowDirections, rainfall);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        var riverMap = CarveRivers(worldWidth, worldHeight, elevations, flowDirections,
+        var riverMap = CarveRivers(worldWidth, worldHeight, ref elevations, flowDirections,
             flowAccumulation, formationThreshold, carveScale, maxCarveDepth);
 
         // Step 5: Deposit sediment in river valleys (optional)
-        DepositSediment(worldWidth, worldHeight, elevations, flowAccumulation);
+        DepositSediment(worldWidth, worldHeight, ref elevations, flowAccumulation);
 
         return riverMap;
     }
 
+    /// <summary>
+    /// Generate a map of rainfall per cell.
+    /// Rainfall increases with proximity to water and decreases with elevation.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="elevations">Elevation map of the world.</param>
+    /// <param name="waterDistanceRadius">Radius for detecting water around a cell.</param>
+    /// <param name="distancePenalty"></param>
+    /// <param name="rainfallMin"></param>
+    /// <param name="elevationDecay"></param>
+    /// <param name="minModifier"></param>
+    /// <returns>A grid of rain fall per cell.</returns>
     private static float[,] GenerateRainfall(
         int worldWidth,
         int worldHeight,
@@ -1151,7 +1289,9 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         for (var x = 0; x < worldWidth; x++)
         {
             var elevation = elevations[x, y];
-            var isWater = elevation <= 1; // Water cells get maximum rainfall
+            // TODO: Parameterize water surface elevation
+            const int waterSurfaceElevation = 3;
+            var isWater = elevation <= waterSurfaceElevation; // Water cells get maximum rainfall
 
             // Distance to nearest water (simplified - just check neighbors)
             var waterDistance = 0f;
@@ -1163,15 +1303,18 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 {
                     var nx = x + dx;
                     var ny = y + dy;
-                    if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
-                        if (elevations[nx, ny] <= 1)
-                        {
-                            var distance = MathF.Sqrt(dx * dx + dy * dy);
-                            minDistance = MathF.Min(minDistance, distance);
-                        }
+                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                    if (elevations[nx, ny] > waterSurfaceElevation) continue;
+
+                    var distance = MathF.Sqrt(dx * dx + dy * dy);
+                    minDistance = MathF.Min(minDistance, distance);
                 }
 
-                waterDistance = minDistance == float.MaxValue ? waterDistanceRadius : minDistance;
+                const float tolerance = 0.1f;
+                waterDistance = Math.Abs(minDistance - float.MaxValue) < tolerance
+                    ? waterDistanceRadius
+                    : minDistance;
             }
 
             // Rainfall formula: high near water, decreases with elevation and distance
@@ -1185,7 +1328,18 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return rainfall;
     }
 
-    private static (int, int)[,] CalculateFlowDirections(int worldWidth, int worldHeight,
+    // TODO: See whether we can reuse this flow field for other functions.
+
+    /// <summary>
+    /// Calculates a map of hypothetical water flow directions for each cell.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="elevations">Elevation map of the world.</param>
+    /// <returns>A grid of flow vectors per cell.</returns>
+    private static (int, int)[,] CalculateFlowDirections(
+        int worldWidth,
+        int worldHeight,
         float[,] elevations)
     {
         var flowDirections = new (int, int)[worldWidth, worldHeight];
@@ -1206,17 +1360,15 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 var nx = x + dx;
                 var ny = y + dy;
 
-                if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
-                {
-                    var neighborElevation = elevations[nx, ny];
-                    var drop = currentElevation - neighborElevation;
+                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
 
-                    if (drop > steepestDrop)
-                    {
-                        steepestDrop = drop;
-                        bestDirection = (dx, dy);
-                    }
-                }
+                var neighborElevation = elevations[nx, ny];
+                var drop = currentElevation - neighborElevation;
+
+                if (drop <= steepestDrop) continue;
+
+                steepestDrop = drop;
+                bestDirection = (dx, dy);
             }
 
             flowDirections[x, y] = bestDirection;
@@ -1225,8 +1377,19 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return flowDirections;
     }
 
-    private static float[,] AccumulateFlow(int worldWidth, int worldHeight,
-        (int, int)[,] flowDirections, float[,] rainfall)
+    /// <summary>
+    /// Simulate the flow of water down the elevations and keep track of where it ends up.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="flowDirections">Direction of flow for each cell.</param>
+    /// <param name="rainfall">Mapping of rainfall amount per cell.</param>
+    /// <returns>Map of accumulated flow for each cell.</returns>
+    private static float[,] AccumulateFlow(
+        int worldWidth,
+        int worldHeight,
+        (int, int)[,] flowDirections,
+        float[,] rainfall)
     {
         var flowAccumulation = new float[worldWidth, worldHeight];
 
@@ -1248,20 +1411,18 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             for (var dx = -1; dx <= 1 && !hasIncoming; dx++)
             {
                 if (dx == 0 && dy == 0) continue;
+
                 var nx = x + dx;
                 var ny = y + dy;
-                if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
-                {
-                    var (fdx, fdy) = flowDirections[nx, ny];
-                    if (nx + fdx == x && ny + fdy == y) hasIncoming = true;
-                }
+                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                var (fdx, fdy) = flowDirections[nx, ny];
+                if (nx + fdx == x && ny + fdy == y) hasIncoming = true;
             }
 
-            if (!hasIncoming)
-            {
-                queue.Enqueue((x, y));
-                processed[x, y] = true;
-            }
+            if (hasIncoming) continue;
+            queue.Enqueue((x, y));
+            processed[x, y] = true;
         }
 
         // Process queue
@@ -1269,48 +1430,57 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         {
             var (x, y) = queue.Dequeue();
             var (dx, dy) = flowDirections[x, y];
+            if (dx == 0 && dy == 0) continue;
 
-            if (dx != 0 || dy != 0)
+            var nx = x + dx;
+            var ny = y + dy;
+            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+            flowAccumulation[nx, ny] += flowAccumulation[x, y];
+
+            // Check if all upstream cells are processed
+            var allUpstreamProcessed = true;
+            for (var dy2 = -1; dy2 <= 1 && allUpstreamProcessed; dy2++)
+            for (var dx2 = -1; dx2 <= 1 && allUpstreamProcessed; dx2++)
             {
-                var nx = x + dx;
-                var ny = y + dy;
+                if (dx2 == 0 && dy2 == 0) continue;
 
-                if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
-                {
-                    flowAccumulation[nx, ny] += flowAccumulation[x, y];
+                var nx2 = nx + dx2;
+                var ny2 = ny + dy2;
+                if (nx2 < 0 || nx2 >= worldWidth || ny2 < 0 || ny2 >= worldHeight) continue;
 
-                    // Check if all upstream cells are processed
-                    var allUpstreamProcessed = true;
-                    for (var dy2 = -1; dy2 <= 1 && allUpstreamProcessed; dy2++)
-                    for (var dx2 = -1; dx2 <= 1 && allUpstreamProcessed; dx2++)
-                    {
-                        if (dx2 == 0 && dy2 == 0) continue;
-                        var nx2 = nx + dx2;
-                        var ny2 = ny + dy2;
-                        if (nx2 >= 0 && nx2 < worldWidth && ny2 >= 0 && ny2 < worldHeight)
-                        {
-                            var (fdx2, fdy2) = flowDirections[nx2, ny2];
-                            if (nx2 + fdx2 == nx && ny2 + fdy2 == ny && !processed[nx2, ny2])
-                                allUpstreamProcessed = false;
-                        }
-                    }
-
-                    if (allUpstreamProcessed && !processed[nx, ny])
-                    {
-                        processed[nx, ny] = true;
-                        queue.Enqueue((nx, ny));
-                    }
-                }
+                var (fdx2, fdy2) = flowDirections[nx2, ny2];
+                if (nx2 + fdx2 == nx && ny2 + fdy2 == ny && !processed[nx2, ny2])
+                    allUpstreamProcessed = false;
             }
+
+            if (!allUpstreamProcessed || processed[nx, ny]) continue;
+
+            processed[nx, ny] = true;
+            queue.Enqueue((nx, ny));
         }
 
         return flowAccumulation;
     }
 
+    /// <summary>
+    /// Create a boolean river map of the world where true -> belongs to a river, false otherwise.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="elevations">Elevation map of the world. Is being modified</param>
+    /// <param name="flowDirections">Flow direction for each cell.</param>
+    /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
+    /// <param name="formationThreshold">
+    ///     Threshold for how much flow should constitute a river.
+    /// </param>
+    /// <param name="carveScale"></param>
+    /// <param name="maxCarveDepth">Maximum elevation to cut away for the rivers.</param>
+    /// <returns></returns>
     private static bool[,] CarveRivers(
         int worldWidth,
         int worldHeight,
-        float[,] elevations,
+        ref float[,] elevations,
         (int, int)[,] flowDirections,
         float[,] flowAccumulation,
         float formationThreshold,
@@ -1357,7 +1527,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     flowAccumulation[cx, cy] / maxFlow * carveScale);
                 elevations[cx, cy] = Math.Max(RiverCarveMinElevation, cellElevation - depth);
 
-                if (cellElevation <= WaterElevationThreshold)
+                if (cellElevation <= SeaLevelElevation)
                     break; // Reached coast
 
                 var (dx, dy) = flowDirections[cx, cy];
@@ -1371,9 +1541,9 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     break;
 
                 // stop at ocean or already established river cell
-                if (elevations[nx, ny] <= WaterElevationThreshold || riverMap[nx, ny])
+                if (elevations[nx, ny] <= SeaLevelElevation || riverMap[nx, ny])
                 {
-                    riverMap[nx, ny] = elevations[nx, ny] > WaterElevationThreshold;
+                    riverMap[nx, ny] = elevations[nx, ny] > SeaLevelElevation;
                     break;
                 }
 
@@ -1385,7 +1555,17 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return riverMap;
     }
 
-    private static void DepositSediment(int worldWidth, int worldHeight, float[,] elevations,
+    /// <summary>
+    /// Deposits sediments carried along by the rivers.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="elevations">Elevation map of the world.</param>
+    /// <param name="flowAccumulation">Map of flow accumulation per cell.</param>
+    private static void DepositSediment(
+        int worldWidth,
+        int worldHeight,
+        ref float[,] elevations,
         float[,] flowAccumulation)
     {
         // Simple sediment deposition in low areas
@@ -1395,22 +1575,25 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             var currentElevation = elevations[x, y];
 
             // Deposit sediment in very low areas (potential floodplains)
-            if (currentElevation <= 2 && flowAccumulation[x, y] > 0)
+            if (currentElevation < SeaLevelElevation && flowAccumulation[x, y] > 0)
                 // Small sediment deposit
                 elevations[x, y] = Math.Min(9, currentElevation + 1);
         }
     }
 
+    #endregion
+
+    #region Mountains
+
     private static void ApplyMountainDetails(
         int worldWidth,
         int worldHeight,
-        float[,] elevations,
-        SurfaceFeature[,] surfaceMap,
-        int[,] plateIndex,
-        bool[] plateTypes,
-        IList<(int, int)> plateCenters,
-        float[,] hotspotMap,
-        bool[,] riverMap)
+        in float[,] elevations,
+        in SurfaceFeature[,] surfaceMap,
+        in int[,] plateIndex,
+        in bool[] plateTypes,
+        in float[,] hotspotMap,
+        in bool[,] riverMap)
     {
         for (var y = 0; y < worldHeight; y++)
         for (var x = 0; x < worldWidth; x++)
@@ -1437,11 +1620,17 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Add volcanic details around hotspots
         var hotspotCenters = FindHotspotCenters(worldWidth, worldHeight, hotspotMap);
         foreach (var (centerX, centerY, strength) in hotspotCenters)
-            AddVolcanicDetails(worldWidth, worldHeight, elevations, surfaceMap, centerX, centerY,
+            AddVolcanicDetails(
+                worldWidth,
+                worldHeight,
+                elevations,
+                surfaceMap,
+                centerX,
+                centerY,
                 strength);
 
         // Plate boundary mountain ridges: continental collisions
-        var neighbors = new (int, int)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+        var neighbors = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
         for (var y = 0; y < worldHeight; y++)
         for (var x = 0; x < worldWidth; x++)
         {
@@ -1465,8 +1654,12 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         }
     }
 
-    private static List<(int x, int y, float strength)> FindHotspotCenters(int worldWidth,
-        int worldHeight, float[,] hotspotMap)
+    // TODO: Didn't we calculate hotspot centers already?
+
+    private static List<(int x, int y, float strength)> FindHotspotCenters(
+        int worldWidth,
+        int worldHeight,
+        float[,] hotspotMap)
     {
         var centers = new List<(int, int, float)>();
         var visited = new bool[worldWidth, worldHeight];
@@ -1591,6 +1784,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         }
     }
 
+    #endregion
+
     private static void ApplyCoastalFeatures(
         int worldWidth,
         int worldHeight,
@@ -1607,7 +1802,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 continue;
 
             var elevation = elevations[x, y];
-            var isWater = elevation <= WaterElevationThreshold;
+            var isWater = elevation <= SeaLevelElevation;
 
             // Beach/cliff only for land cells near water
             if (!isWater)
@@ -1622,7 +1817,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                     var ny = y + dy;
                     if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
                     var neighborElevation = elevations[nx, ny];
-                    if (neighborElevation <= WaterElevationThreshold)
+                    if (neighborElevation <= SeaLevelElevation)
                         adjacentWater++;
                     else
                         maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
@@ -1632,7 +1827,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 {
                     // steep cliff if high land adjacent to water and steep drops nearby
                     if (elevation >= HighMountainThreshold &&
-                        maxAdjElevation <= WaterElevationThreshold)
+                        maxAdjElevation <= SeaLevelElevation)
                         surfaceMap[x, y] = SurfaceFeature.Cliff;
                     else if (elevation <= SnowThreshold)
                         surfaceMap[x, y] = SurfaceFeature.Beach;
