@@ -61,8 +61,6 @@ public interface IWorldGen
 
 public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 {
-    private readonly Random _rng = new(seed);
-
     // Constants for elevation thresholds
     private const int LandElevationThreshold = 4;
     private const int SeaLevelElevation = 3;
@@ -115,6 +113,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private const float MediumHumidityThreshold = 0.6f;
     private const float LowHumidityThreshold = 0.5f;
     private const float VeryLowHumidityThreshold = 0.4f;
+    private readonly Random _rng = new(seed);
 
     // River tuning parameters (adjust at runtime)
     // Lower thresholds create more rivers; higher thresholds make rivers rarer.
@@ -193,8 +192,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Convert to float for more precise calculations.
         var cellElevations = new float[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-            cellElevations[x, y] = cellElevationsInt[x, y];
+            for (var x = 0; x < worldWidth; x++)
+                cellElevations[x, y] = cellElevationsInt[x, y];
 
         // Generate coastal slopes for each voronoi cell.
         var coastalSlopes = GenerateSlopedCoasts(worldWidth, worldHeight, cellElevationsInt);
@@ -245,31 +244,31 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Apply noise and slopes to elevation map.
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-        {
-            var baseElevation = cellElevationsInt[x, y] >= LandElevationThreshold
-                ? ContinentalBaseElevation
-                : OceanicBaseElevation; // Continental plates (>=4) get higher base, oceanic (<4) get much lower base for deep trenches
-            var slopeFactor = coastalSlopes[x, y] / MaxCoastalSlope;
-            var normalizedNoise = noiseField[x, y] / 255.0;
-            var tectonic = tectonicAdjustment[x, y];
-            var hotspot = hotspotMap[x, y];
+            for (var x = 0; x < worldWidth; x += 1)
+            {
+                var baseElevation = cellElevationsInt[x, y] >= LandElevationThreshold
+                    ? ContinentalBaseElevation
+                    : OceanicBaseElevation; // Continental plates (>=4) get higher base, oceanic (<4) get much lower base for deep trenches
+                var slopeFactor = coastalSlopes[x, y] / MaxCoastalSlope;
+                var normalizedNoise = noiseField[x, y] / 255.0;
+                var tectonic = tectonicAdjustment[x, y];
+                var hotspot = hotspotMap[x, y];
 
-            // For oceanic plates, reduce noise impact to allow deeper trenches
-            var cellElevationContribution = cellElevationsInt[x, y] >= LandElevationThreshold
-                ? cellElevationsInt[x, y]
-                : 0;
-            var noiseMultiplier =
-                cellElevationsInt[x, y] >= LandElevationThreshold
-                    ? 1.0f
-                    : 0.3f; // Less noise in oceans
-            var elevation = cellElevationContribution +
-                            baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
-                            tectonic + hotspot;
+                // For oceanic plates, reduce noise impact to allow deeper trenches
+                var cellElevationContribution = cellElevationsInt[x, y] >= LandElevationThreshold
+                    ? cellElevationsInt[x, y]
+                    : 0;
+                var noiseMultiplier =
+                    cellElevationsInt[x, y] >= LandElevationThreshold
+                        ? 1.0f
+                        : 0.3f; // Less noise in oceans
+                var elevation = cellElevationContribution +
+                                baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
+                                tectonic + hotspot;
 
-            // Store as float, don't clamp yet
-            cellElevations[x, y] = (float)elevation;
-        }
+                // Store as float, don't clamp yet
+                cellElevations[x, y] = (float)elevation;
+            }
 
         // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
         var (temperature, humidity, biomes, temperatureAmplitude) =
@@ -330,14 +329,14 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var finalElevations = new int[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            finalElevations[x, y] =
-                Math.Clamp((int)Math.Round(cellElevations[x, y]), 0, GlacierThreshold);
+            for (var x = 0; x < worldWidth; x += 1)
+                finalElevations[x, y] =
+                    Math.Clamp((int)Math.Round(cellElevations[x, y]), 0, GlacierThreshold);
 
         var world = new byte[worldWidth, worldHeight];
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            world[x, y] = Convert.ToByte(finalElevations[x, y]);
+            for (var x = 0; x < worldWidth; x += 1)
+                world[x, y] = Convert.ToByte(finalElevations[x, y]);
 
         return new WorldGenerationResult(world, surfaceMap, temperature, humidity, biomes,
             temperatureAmplitude);
@@ -364,10 +363,161 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
     #endregion
 
+    #region Sloped Coasts
+
+    // TODO: Check whether this conflicts with other steps or still necessary.
+
+    /// <summary>
+    ///     Generates a gentle fall-off towards costal cells (elevation == 4)
+    /// </summary>
+    /// <param name="worldWidth"></param>
+    /// <param name="worldHeight"></param>
+    /// <param name="cellElevations"></param>
+    /// <returns>A grid of sloping elevation values for coast lines.</returns>
+    private static float[,] GenerateSlopedCoasts(
+        int worldWidth,
+        int worldHeight,
+        in int[,] cellElevations)
+    {
+        // 1 Initialize all cells to 9; then set boundary (land adjacent to water) to 0 and enqueue.
+        var coastalSlopes = new float[worldWidth, worldHeight];
+        for (var y = 0; y < worldHeight; y += 1)
+            for (var x = 0; x < worldWidth; x += 1)
+                coastalSlopes[x, y] = MaxCoastalSlope;
+
+        var q = new Queue<(int, int)>(worldWidth * worldHeight);
+        for (var y = 1; y < worldHeight - 1; y += 1)
+            for (var x = 1; x < worldWidth - 1; x += 1)
+            {
+                if (cellElevations[x, y] != LandElevationThreshold) continue;
+
+                // Must have at least one water cell in its neighbourhood.
+                if (cellElevations[x, y - 1] != SeaLevelElevation && // north
+                    cellElevations[x + 1, y] != SeaLevelElevation && // east
+                    cellElevations[x, y + 1] != SeaLevelElevation && // south
+                    cellElevations[x - 1, y] != SeaLevelElevation) continue; // west
+
+                coastalSlopes[x, y] = 0.0f;
+                q.Enqueue((x, y));
+            }
+
+        // 2 BFS: while queue is NOT empty, dequeue cell C and set neighbours to Min(C.elevation + 1, N.elevation)
+        //                               enqueue all neighbors with updated elevation
+        (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+        while (q.Count > 0)
+        {
+            var (x, y) = q.Dequeue();
+            var elevation = coastalSlopes[x, y];
+            foreach (var (dirX, dirY) in directions)
+            {
+                var neighX = x + dirX;
+                var neighY = y + dirY;
+
+                if (neighX < 0
+                    || neighX >= worldWidth
+                    || neighY < 0
+                    || neighY >= worldHeight
+                    || coastalSlopes[neighX, neighY] <= elevation) continue;
+
+                coastalSlopes[neighX, neighY] = Math.Min(elevation + 1, 9);
+
+                if (elevation < 8)
+                    q.Enqueue((neighX, neighY));
+            }
+        }
+
+        return coastalSlopes;
+    }
+
+    #endregion
+
+    #region Coastal Features
+
+    /// <summary>
+    ///     Detect coastal features depending on their surrounding: beaches, cliffs and fjords.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in cells.</param>
+    /// <param name="worldHeight">Height of the world in cells.</param>
+    /// <param name="elevations">Elevation map of the world.</param>
+    /// <param name="surfaceMap">Surface feature map of the world.</param>
+    private static void ApplyCoastalFeatures(
+        int worldWidth,
+        int worldHeight,
+        in float[,] elevations,
+        in SurfaceFeature[,] surfaceMap)
+    {
+        for (var y = 0; y < worldHeight; y++)
+            for (var x = 0; x < worldWidth; x++)
+            {
+                // Skip existing assigned strong surface features: river, lava, glacier
+                var existing = surfaceMap[x, y];
+                if (existing is SurfaceFeature.River or SurfaceFeature.Lava or SurfaceFeature.Glacier)
+                    continue;
+
+                var elevation = elevations[x, y];
+                var isWater = elevation <= SeaLevelElevation;
+
+                // Beach/cliff only for land cells near water
+                if (!isWater)
+                {
+                    var adjacentWater = 0;
+                    var maxAdjElevation = 0f;
+                    for (var dy = -1; dy <= 1; dy++)
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                            var neighborElevation = elevations[nx, ny];
+                            if (neighborElevation <= SeaLevelElevation)
+                                adjacentWater++;
+                            else
+                                maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
+                        }
+
+                    if (adjacentWater > 0)
+                        surfaceMap[x, y] = elevation switch
+                        {
+                            // steep cliff if high land adjacent to water and steep drops nearby
+                            >= HighMountainThreshold - 1 when maxAdjElevation <= SeaLevelElevation =>
+                                SurfaceFeature.Cliff,
+                            <= SnowThreshold => SurfaceFeature.Beach,
+                            _ => SurfaceFeature.Cliff
+                        };
+                }
+                else
+                {
+                    // water cells: detect fjord (narrow water in high mountains)
+                    var adjacentLand = 0;
+                    var adjacentHighMountain = 0;
+                    for (var dy = -1; dy <= 1; dy++)
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                            var neighborElevation = elevations[nx, ny];
+                            if (neighborElevation < LandElevationThreshold) continue;
+                            adjacentLand++;
+                            if (neighborElevation >= SnowThreshold - 1)
+                                adjacentHighMountain++;
+                        }
+
+                    if (adjacentLand >= 3 && adjacentHighMountain >= 1)
+                        surfaceMap[x, y] = SurfaceFeature.Fjord;
+                }
+            }
+    }
+
+    #endregion
+
     #region Tectonics
 
     /// <summary>
-    /// Initializes plates and tectonic parameters.
+    ///     Initializes plates and tectonic parameters.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -403,7 +553,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     }
 
     /// <summary>
-    /// Generates the type for each plate: true == land, false == water.
+    ///     Generates the type for each plate: true == land, false == water.
     /// </summary>
     /// <param name="plateCount">How many plates we have.</param>
     /// <param name="landRatio">Percentage of land on this map.</param>
@@ -417,7 +567,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     }
 
     /// <summary>
-    /// Generates a motion vector for each plate.
+    ///     Generates a motion vector for each plate.
     /// </summary>
     /// <param name="plateCount">How many plates we have</param>
     /// <returns>Array of plate motion vector per plate index.</returns>
@@ -436,7 +586,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     }
 
     /// <summary>
-    /// Assigns an elevation and plate to each single cell on the map.
+    ///     Assigns an elevation and plate to each single cell on the map.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -458,40 +608,40 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var jiggleNoise = Noise.Calc2D(worldWidth, worldHeight, scale);
 
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-        {
-            var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-            var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-
-            var minDistSq = double.MaxValue;
-            var winnerPlate = 0;
-            for (var i = 0; i < voronoiCells.Count; i += 1)
+            for (var x = 0; x < worldWidth; x += 1)
             {
-                var vX = voronoiCells[i].Item1;
-                var vY = voronoiCells[i].Item2;
-                var dx = vX - jiggledX;
-                var dy = vY - jiggledY;
-                var distSq = dx * dx + dy * dy;
+                var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+                var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
 
-                if (distSq < minDistSq)
+                var minDistSq = double.MaxValue;
+                var winnerPlate = 0;
+                for (var i = 0; i < voronoiCells.Count; i += 1)
                 {
-                    minDistSq = distSq;
-                    winnerPlate = i;
-                }
-            }
+                    var vX = voronoiCells[i].Item1;
+                    var vY = voronoiCells[i].Item2;
+                    var dx = vX - jiggledX;
+                    var dy = vY - jiggledY;
+                    var distSq = dx * dx + dy * dy;
 
-            plateIndex[x, y] = winnerPlate;
-            cellElevations[x, y] = landWaterMap[winnerPlate];
-        }
+                    if (distSq < minDistSq)
+                    {
+                        minDistSq = distSq;
+                        winnerPlate = i;
+                    }
+                }
+
+                plateIndex[x, y] = winnerPlate;
+                cellElevations[x, y] = landWaterMap[winnerPlate];
+            }
 
         return (cellElevations, plateIndex);
     }
 
     /// <summary>
-    /// Generate elevation differences at tectonic plate boundaries,
-    /// e.g.: Mountains and seamounts at plate convergences and
-    /// trenches at plate divergences.
-    /// These changes will only affect world cells located at tectonic plate boundaries.
+    ///     Generate elevation differences at tectonic plate boundaries,
+    ///     e.g.: Mountains and seamounts at plate convergences and
+    ///     trenches at plate divergences.
+    ///     These changes will only affect world cells located at tectonic plate boundaries.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -511,74 +661,73 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var tectonicDelta = new float[worldWidth, worldHeight];
 
         for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-        {
-            var currentPlate = plateIndex[x, y];
-            var totalDelta = 0f;
-
-            (int, int)[] offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-            foreach (var (dx, dy) in offsets)
+            for (var x = 0; x < worldWidth; x += 1)
             {
-                var nx = x + dx;
-                var ny = y + dy;
-                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                var currentPlate = plateIndex[x, y];
+                var totalDelta = 0f;
 
-                var neighbourPlate = plateIndex[nx, ny];
-                if (neighbourPlate == currentPlate) continue;
-
-                var pA = plateCenters[currentPlate];
-                var pB = plateCenters[neighbourPlate];
-                var direction = new Vector2(pB.Item1 - pA.Item1, pB.Item2 - pA.Item2);
-                if (direction.LengthSquared() < 0.0001f) continue;
-
-                var normal = Vector2.Normalize(direction);
-                var relativeMotion = plateMotions[neighbourPlate] - plateMotions[currentPlate];
-                var stress = Vector2.Dot(relativeMotion, normal);
-                var convergence = MathF.Max(0f, stress);
-                var divergence = MathF.Max(0f, -stress);
-                // Only true if both are continents.
-                var continentalInteraction = plateTypes[currentPlate] && plateTypes[neighbourPlate];
-                // Only true if one plate is continental and the other is oceanic.
-                var mixedInteraction = plateTypes[currentPlate] ^ plateTypes[neighbourPlate];
-
-                if (convergence > 0)
+                (int, int)[] offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+                foreach (var (dx, dy) in offsets)
                 {
-                    if (continentalInteraction)
-                        // Higher mountains for continental convergence.
-                        // TODO: turn into adjustable parameter
-                        totalDelta += convergence * 3.2f;
-                    else if (mixedInteraction)
-                        // Lesser mountains for mixed convergence.
-                        // TODO: turn into adjustable parameter
-                        totalDelta += convergence * 4.5f;
-                    else
-                        // Small bumps for oceanic convergence.
-                        // TODO: Does this influence hotspots and hotspot island chains?
-                        // TODO: turn into adjustable parameter
-                        totalDelta += convergence * 1.7f;
+                    var nx = x + dx;
+                    var ny = y + dy;
+                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                    var neighbourPlate = plateIndex[nx, ny];
+                    if (neighbourPlate == currentPlate) continue;
+
+                    var pA = plateCenters[currentPlate];
+                    var pB = plateCenters[neighbourPlate];
+                    var direction = new Vector2(pB.Item1 - pA.Item1, pB.Item2 - pA.Item2);
+                    if (direction.LengthSquared() < 0.0001f) continue;
+
+                    var normal = Vector2.Normalize(direction);
+                    var relativeMotion = plateMotions[neighbourPlate] - plateMotions[currentPlate];
+                    var stress = Vector2.Dot(relativeMotion, normal);
+                    var convergence = MathF.Max(0f, stress);
+                    var divergence = MathF.Max(0f, -stress);
+                    // Only true if both are continents.
+                    var continentalInteraction = plateTypes[currentPlate] && plateTypes[neighbourPlate];
+                    // Only true if one plate is continental and the other is oceanic.
+                    var mixedInteraction = plateTypes[currentPlate] ^ plateTypes[neighbourPlate];
+
+                    if (convergence > 0)
+                    {
+                        if (continentalInteraction)
+                            // Higher mountains for continental convergence.
+                            // TODO: turn into adjustable parameter
+                            totalDelta += convergence * 3.2f;
+                        else if (mixedInteraction)
+                            // Lesser mountains for mixed convergence.
+                            // TODO: turn into adjustable parameter
+                            totalDelta += convergence * 4.5f;
+                        else
+                            // Small bumps for oceanic convergence.
+                            // TODO: Does this influence hotspots and hotspot island chains?
+                            // TODO: turn into adjustable parameter
+                            totalDelta += convergence * 1.7f;
+                    }
+                    else if (divergence > 0)
+                    {
+                        if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
+                            // Very deep trenches for oceanic-oceanic divergence.
+                            // TODO: turn into adjustable parameter
+                            totalDelta -= divergence * 5.0f;
+                        else
+                            // Shallower trenches for all other divergences
+                            // TODO: turn into adjustable parameter
+                            totalDelta -= divergence * 2.4f;
+                    }
                 }
-                else if (divergence > 0)
-                {
-                    if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
-                        // Very deep trenches for oceanic-oceanic divergence.
-                        // TODO: turn into adjustable parameter
-                        totalDelta -= divergence * 5.0f;
-                    else
-                        // Shallower trenches for all other divergences
-                        // TODO: turn into adjustable parameter
-                        totalDelta -= divergence * 2.4f;
-                }
+
+                tectonicDelta[x, y] = totalDelta;
             }
-
-            tectonicDelta[x, y] = totalDelta;
-        }
 
         return tectonicDelta;
     }
 
     // TODO: Turn numeric parameters in to constants and later tweakable Properties
     /// <summary>
-    /// 
     /// </summary>
     /// <param name="worldWidth"></param>
     /// <param name="worldHeight"></param>
@@ -701,26 +850,26 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
                 var minX = Math.Max(0, centerX - radius);
                 var maxX = Math.Min(worldWidth, centerX + radius);
                 for (var y = minY; y < maxY; y++)
-                for (var x = minX; x < maxX; x++)
-                {
-                    var dx = x - centerX;
-                    var dy = y - centerY;
-                    var distance = MathF.Sqrt(dx * dx + dy * dy);
+                    for (var x = minX; x < maxX; x++)
+                    {
+                        var dx = x - centerX;
+                        var dy = y - centerY;
+                        var distance = MathF.Sqrt(dx * dx + dy * dy);
 
-                    if (distance > radius) continue;
+                        if (distance > radius) continue;
 
-                    // Exponential falloff for more realistic volcanic shape
-                    // TODO: make falloff a tweakable parameter
-                    var normalizedDist = distance / radius;
-                    var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
+                        // Exponential falloff for more realistic volcanic shape
+                        // TODO: make falloff a tweakable parameter
+                        var normalizedDist = distance / radius;
+                        var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
 
-                    // Add some noise to make it look more volcanic
-                    // TODO: make noise a tweakable parameter
-                    var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
-                    coneHeight *= 0.7f + noise * 0.6f;
+                        // Add some noise to make it look more volcanic
+                        // TODO: make noise a tweakable parameter
+                        var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
+                        coneHeight *= 0.7f + noise * 0.6f;
 
-                    hotspotMap[x, y] += coneHeight;
-                }
+                        hotspotMap[x, y] += coneHeight;
+                    }
             }
         }
 
@@ -732,32 +881,244 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     {
         // Check a radius around the point to ensure no land is nearby
         for (var dy = -minDistance; dy <= minDistance; dy++)
-        for (var dx = -minDistance; dx <= minDistance; dx++)
-        {
-            var checkX = x + dx;
-            var checkY = y + dy;
+            for (var dx = -minDistance; dx <= minDistance; dx++)
+            {
+                var checkX = x + dx;
+                var checkY = y + dy;
 
-            // Wrap around world edges
-            checkX = (checkX % worldWidth + worldWidth) % worldWidth;
-            checkY = (checkY % worldHeight + worldHeight) % worldHeight;
+                // Wrap around world edges
+                checkX = (checkX % worldWidth + worldWidth) % worldWidth;
+                checkY = (checkY % worldHeight + worldHeight) % worldHeight;
 
-            if (elevations[checkX, checkY] >= LandElevationThreshold) // Land
-                return false;
-        }
+                if (elevations[checkX, checkY] >= LandElevationThreshold) // Land
+                    return false;
+            }
 
         return true;
     }
 
     #endregion
 
-    // TODO: Move erosion after climate and biome generation for ordered dependency.
+    #region Noise Map
+
+    /// <summary>
+    ///     Generates a map of pseudo-random Perlin noise.
+    /// </summary>
+    /// <param name="mapWidth">Map width in grid cells</param>
+    /// <param name="mapHeight">Map height in grid cells</param>
+    /// <param name="seed">Seed of the random number generator</param>
+    /// <param name="scale">Scale of the noise</param>
+    /// <param name="octaves">How many layers of noise to generate</param>
+    /// <param name="persistence">Less -> smoother, more -> rougher?</param>
+    /// <param name="lacunarity">Gappiness, how many and/or large holes</param>
+    /// <param name="offset">Offset between layers?</param>
+    /// <returns></returns>
+    private static float[,] GenerateNoiseMap(
+        int mapWidth,
+        int mapHeight,
+        int seed,
+        float scale,
+        int octaves,
+        float persistence,
+        float lacunarity,
+        Vector2 offset)
+    {
+        // For now work with a fixed scale
+        const float noiseScale = 0.03f;
+
+        var noiseMap = new float[mapWidth, mapHeight];
+
+        var prng = new Random(seed);
+        var octaveOffsets = new Vector2[octaves];
+        for (var i = 0; i < octaves; i++)
+        {
+            var offsetX = prng.Next(-100000, 100000) + offset.X;
+            var offsetY = prng.Next(-100000, 100000) + offset.Y;
+            octaveOffsets[i] = new Vector2(offsetX, offsetY);
+        }
+
+        if (scale <= 0) scale = 0.0001f;
+
+        var maxNoiseHeight = float.MinValue;
+        var minNoiseHeight = float.MaxValue;
+
+        for (var y = 0; y < mapHeight; y++)
+            for (var x = 0; x < mapWidth; x++)
+            {
+                float amplitude = 1;
+                float frequency = 1;
+                float noiseHeight = 0;
+
+                for (var i = 0; i < octaves; i++)
+                {
+                    var sampleX = Convert.ToInt32(x / scale * frequency + octaveOffsets[i].X);
+                    var sampleY = Convert.ToInt32(y / scale * frequency + octaveOffsets[i].Y);
+                    var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
+
+                    noiseHeight += perlinValue * amplitude;
+                    amplitude *= persistence;
+                    frequency *= lacunarity;
+                }
+
+                maxNoiseHeight = Math.Max(maxNoiseHeight, noiseHeight);
+                minNoiseHeight = Math.Min(minNoiseHeight, noiseHeight);
+                noiseMap[x, y] = noiseHeight;
+            }
+
+        for (var y = 0; y < mapHeight; y++)
+            for (var x = 0; x < mapWidth; x++)
+                noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
+
+        return noiseMap;
+    }
+
+    private static float Lerp(float a, float b, float t)
+    {
+        return a + t * (b - a);
+    }
+
+    private static float InverseLerp(float a, float b, float t)
+    {
+        return (t - a) / (b - a);
+    }
+
+    #endregion
+
+    #region Climate and Biomes
+
+    /// <summary>
+    ///     Generates world maps for various climate features.
+    /// </summary>
+    /// <param name="worldWidth">World width in cells.</param>
+    /// <param name="worldHeight">World height in cells.</param>
+    /// <param name="elevations">Elevation map of the world.</param>
+    /// <returns>
+    ///     World maps for:
+    ///     - temperature
+    ///     - humidity
+    ///     - biomes
+    ///     - temperature amplitude
+    /// </returns>
+    private static (float[,], float[,], Biome[,], float[,]) GenerateClimate(
+        int worldWidth,
+        int worldHeight,
+        in int[,] elevations)
+    {
+        var temperature = new float[worldWidth, worldHeight];
+        var humidity = new float[worldWidth, worldHeight];
+        var biomes = new Biome[worldWidth, worldHeight];
+        var temperatureAmplitude = new float[worldWidth, worldHeight];
+
+        for (var y = 0; y < worldHeight; y++)
+        {
+            // Latitude factor: 0 at equator (middle), 1 at poles
+            var latitudeFactor = Math.Abs(y - worldHeight / 2.0f) / (worldHeight / 2.0f);
+
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var elevation = elevations[x, y];
+                var isWater = elevation <= 3;
+
+                // Temperature: base -50 to 30, decreases with latitude and elevation
+                var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
+                var elevationTempModifier =
+                    ElevationTempModifier * elevation; // colder at higher elevation
+                temperature[x, y] = baseTemp + elevationTempModifier;
+
+                // Humidity: higher near water, lower at high elevation
+                var distanceToWater =
+                    CalculateDistanceToWater(x, y, worldWidth, worldHeight, elevations);
+                var humidityBase =
+                    isWater ? 1.0f : Math.Max(MinHumidity, 1.0f - distanceToWater * 0.1f);
+                var elevationHumidityModifier = ElevationHumidityModifier * elevation;
+                humidity[x, y] = Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
+
+                // Seasonal amplitude: larger at higher latitudes
+                temperatureAmplitude[x, y] = BaseTemperatureAmplitude +
+                                             LatitudeAmplitudeModifier * latitudeFactor;
+
+
+                // Determine biome
+                biomes[x, y] =
+                    DetermineBiome(temperature[x, y], humidity[x, y], elevation, isWater);
+            }
+        }
+
+        return (temperature, humidity, biomes, temperatureAmplitude);
+    }
+
+    // TODO: Refine dist to water, make dist adjustable maybe?
+
+    /// <summary>
+    ///     Calculate the distance of a cell to water, if water is within 5 cells..
+    /// </summary>
+    /// <param name="x">X-coordinate of the cell.</param>
+    /// <param name="y">Y-coordinate of the cell.</param>
+    /// <param name="worldWidth">Width of the world in cells.</param>
+    /// <param name="worldHeight">Height of the world in cells.</param>
+    /// <param name="elevations">Elevation</param>
+    /// <returns>Distance of the cell at the given coordinate from the nearest water cell.</returns>
+    private static int CalculateDistanceToWater(int x, int y, int worldWidth, int worldHeight,
+        int[,] elevations)
+    {
+        // Simple flood fill or BFS to find distance to nearest water
+        // For simplicity, use a small radius check
+        var minDist = int.MaxValue;
+        for (var dy = -5; dy <= 5; dy++)
+            for (var dx = -5; dx <= 5; dx++)
+            {
+                var nx = x + dx;
+                var ny = y + dy;
+                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                if (elevations[nx, ny] > 3) continue;
+
+                var dist = Math.Abs(dx) + Math.Abs(dy); // Manhattan distance
+                minDist = Math.Min(minDist, dist);
+            }
+
+        return minDist == int.MaxValue ? 10 : minDist; // default if no water nearby
+    }
+
+    /// <summary>
+    ///     Determine the biome of a cell by its properties.
+    /// </summary>
+    /// <param name="temp">Temperature of the cell.</param>
+    /// <param name="humidity">Humidity of the cell.</param>
+    /// <param name="elevation">Elevation of the cell.</param>
+    /// <param name="isWater">True if the cell is sea, false otherwise.</param>
+    /// <returns>Biome of the cell.</returns>
+    private static Biome DetermineBiome(float temp, float humidity, int elevation, bool isWater)
+    {
+        if (isWater)
+            return Biome.Ocean;
+
+        if (elevation >= IceCapElevationThreshold && temp < IceCapTempThreshold)
+            return Biome.IceCap;
+
+        return temp switch
+        {
+            < TundraTempThreshold => Biome.Tundra,
+            < TaigaTempThreshold when humidity > LowHumidityThreshold => Biome.Taiga,
+            < TaigaTempThreshold => Biome.Tundra,
+            < TemperateTempThreshold when humidity > MediumHumidityThreshold => Biome
+                .TemperateForest,
+            < TemperateTempThreshold => Biome.Grassland,
+            < TropicalTempThreshold when humidity > HighHumidityThreshold => Biome.TropicalForest,
+            < TropicalTempThreshold when humidity > VeryLowHumidityThreshold => Biome.Savanna,
+            < TropicalTempThreshold => Biome.Desert,
+            // Hot climates
+            _ => humidity > LowHumidityThreshold ? Biome.TropicalForest : Biome.Desert
+        };
+    }
+
+    #endregion
 
     #region Erosion
 
     // TODO: Clarify that this meets the definition of thermal erosion.
     // TODO: Possibly delete in favour of advanced erosion!
     /// <summary>
-    /// Apply thermal and hydraulic erosion to 
+    ///     Apply thermal and hydraulic erosion to
     /// </summary>
     /// <param name="worldWidth">World width in grid cells</param>
     /// <param name="worldHeight">World height in grid cells</param>
@@ -772,55 +1133,55 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             var newElevations = (float[,])elevations.Clone();
 
             for (var y = 1; y < worldHeight - 1; y++)
-            for (var x = 1; x < worldWidth - 1; x++)
-            {
-                var currentHeight = elevations[x, y];
-                var lowestNeighbor = currentHeight;
-                var lowestX = x;
-                var lowestY = y;
-
-                // Find lowest neighbor
-                (int, int)[] directions =
-                    [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
-                foreach (var (dx, dy) in directions)
+                for (var x = 1; x < worldWidth - 1; x++)
                 {
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    var neighborHeight = elevations[nx, ny];
+                    var currentHeight = elevations[x, y];
+                    var lowestNeighbor = currentHeight;
+                    var lowestX = x;
+                    var lowestY = y;
 
-                    if (neighborHeight < lowestNeighbor)
+                    // Find lowest neighbor
+                    (int, int)[] directions =
+                        [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
+                    foreach (var (dx, dy) in directions)
                     {
-                        lowestNeighbor = neighborHeight;
-                        lowestX = nx;
-                        lowestY = ny;
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        var neighborHeight = elevations[nx, ny];
+
+                        if (neighborHeight < lowestNeighbor)
+                        {
+                            lowestNeighbor = neighborHeight;
+                            lowestX = nx;
+                            lowestY = ny;
+                        }
                     }
+
+                    var slope = currentHeight - lowestNeighbor;
+
+                    // Thermal erosion: material slides if slope is too steep, even underwater.
+                    if (slope > SimpleTalusAngle)
+                    {
+                        var slideAmount = Math.Min(SimpleErosionRate * slope, slope * 0.5f);
+                        newElevations[x, y] -= slideAmount;
+                        newElevations[lowestX, lowestY] += slideAmount;
+                    }
+
+                    // Hydraulic erosion: water flow simulation (simplified)
+                    // TODO: Possibly parameterize water surface level (=3)
+                    var waterFlow = Math.Max(0, currentHeight - 3); // Water surface at 3
+                    if (waterFlow <= 0) continue;
+
+                    var erosionAmount = Math.Min(SimpleErosionRate * waterFlow * 0.1f, 0.5f);
+                    newElevations[x, y] -= erosionAmount;
                 }
-
-                var slope = currentHeight - lowestNeighbor;
-
-                // Thermal erosion: material slides if slope is too steep, even underwater.
-                if (slope > SimpleTalusAngle)
-                {
-                    var slideAmount = Math.Min(SimpleErosionRate * slope, slope * 0.5f);
-                    newElevations[x, y] -= slideAmount;
-                    newElevations[lowestX, lowestY] += slideAmount;
-                }
-
-                // Hydraulic erosion: water flow simulation (simplified)
-                // TODO: Possibly parameterize water surface level (=3)
-                var waterFlow = Math.Max(0, currentHeight - 3); // Water surface at 3
-                if (waterFlow <= 0) continue;
-
-                var erosionAmount = Math.Min(SimpleErosionRate * waterFlow * 0.1f, 0.5f);
-                newElevations[x, y] -= erosionAmount;
-            }
 
             elevations = newElevations;
         }
     }
 
     /// <summary>
-    /// Apply erosion with hydraulic simulation, sediment transport and thermal erosion.
+    ///     Apply erosion with hydraulic simulation, sediment transport and thermal erosion.
     /// </summary>
     /// <param name="worldWidth">World width in grid cells.</param>
     /// <param name="worldHeight">World Height in grid cells.</param>
@@ -865,25 +1226,25 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Copy elevations to terrain (already float)
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-            terrain[x, y] = elevations[x, y];
+            for (var x = 0; x < worldWidth; x++)
+                terrain[x, y] = elevations[x, y];
 
         for (var iter = 0; iter < iterations; iter++)
         {
             // Step 1: Add rainfall (climate-aware)
             for (var y = 0; y < worldHeight; y++)
-            for (var x = 0; x < worldWidth; x++)
-            {
-                // TODO: Possibly turn localRainRate coefficients into constants or tweakable properties
-                var localRainRate = rainRate;
-                // Drier regions get less rainfall
-                if (biomes[x, y] == Biome.Desert || biomes[x, y] == Biome.Tundra)
-                    localRainRate *= 0.3f; // 70% less rain in dry/arid regions
-                else if (humidity[x, y] < 0.3f)
-                    localRainRate *= 0.5f; // 50% less rain in dry areas
+                for (var x = 0; x < worldWidth; x++)
+                {
+                    // TODO: Possibly turn localRainRate coefficients into constants or tweakable properties
+                    var localRainRate = rainRate;
+                    // Drier regions get less rainfall
+                    if (biomes[x, y] == Biome.Desert || biomes[x, y] == Biome.Tundra)
+                        localRainRate *= 0.3f; // 70% less rain in dry/arid regions
+                    else if (humidity[x, y] < 0.3f)
+                        localRainRate *= 0.5f; // 50% less rain in dry areas
 
-                water[x, y] += localRainRate;
-            }
+                    water[x, y] += localRainRate;
+                }
 
             // Step 2: Water flow simulation
             var velocityX = new float[worldWidth, worldHeight];
@@ -891,24 +1252,24 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
             // Calculate water flow directions and velocities
             for (var y = 1; y < worldHeight - 1; y++)
-            for (var x = 1; x < worldWidth - 1; x++)
-            {
-                // Calculate slope in all directions
-                var slopeX = (terrain[x - 1, y] + terrain[x + 1, y]) * 0.5f - terrain[x, y];
-                var slopeY = (terrain[x, y - 1] + terrain[x, y + 1]) * 0.5f - terrain[x, y];
+                for (var x = 1; x < worldWidth - 1; x++)
+                {
+                    // Calculate slope in all directions
+                    var slopeX = (terrain[x - 1, y] + terrain[x + 1, y]) * 0.5f - terrain[x, y];
+                    var slopeY = (terrain[x, y - 1] + terrain[x, y + 1]) * 0.5f - terrain[x, y];
 
-                var slope = MathF.Sqrt(slopeX * slopeX + slopeY * slopeY);
-                if (slope < minSlope) continue;
+                    var slope = MathF.Sqrt(slopeX * slopeX + slopeY * slopeY);
+                    if (slope < minSlope) continue;
 
-                // Calculate flow direction
-                var flowX = slopeX / slope;
-                var flowY = slopeY / slope;
+                    // Calculate flow direction
+                    var flowX = slopeX / slope;
+                    var flowY = slopeY / slope;
 
-                // Calculate velocity based on slope and water depth
-                var velocity = MathF.Sqrt(gravity * slope) * water[x, y];
-                velocityX[x, y] = flowX * velocity;
-                velocityY[x, y] = flowY * velocity;
-            }
+                    // Calculate velocity based on slope and water depth
+                    var velocity = MathF.Sqrt(gravity * slope) * water[x, y];
+                    velocityX[x, y] = flowX * velocity;
+                    velocityY[x, y] = flowY * velocity;
+                }
 
             // Step 3: Hydraulic erosion and sediment transport
             // TODO: replace shallow copy with deep copy
@@ -917,120 +1278,120 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             var newSediment = (float[,])sediment.Clone();
 
             for (var y = 1; y < worldHeight - 1; y++)
-            for (var x = 1; x < worldWidth - 1; x++)
-            {
-                var currentWater = water[x, y];
-                if (currentWater <= 0) continue;
-
-                // Calculate sediment capacity based on water velocity
-                var velocity = MathF.Sqrt(velocityX[x, y] * velocityX[x, y] +
-                                          velocityY[x, y] * velocityY[x, y]);
-                var capacity = sedimentCapacity * velocity * currentWater;
-
-                var currentSediment = sediment[x, y];
-
-                if (currentSediment > capacity)
+                for (var x = 1; x < worldWidth - 1; x++)
                 {
-                    // Deposit sediment
-                    var depositAmount = (currentSediment - capacity) * depositionRate;
-                    newTerrain[x, y] += depositAmount;
-                    newSediment[x, y] -= depositAmount;
+                    var currentWater = water[x, y];
+                    if (currentWater <= 0) continue;
+
+                    // Calculate sediment capacity based on water velocity
+                    var velocity = MathF.Sqrt(velocityX[x, y] * velocityX[x, y] +
+                                              velocityY[x, y] * velocityY[x, y]);
+                    var capacity = sedimentCapacity * velocity * currentWater;
+
+                    var currentSediment = sediment[x, y];
+
+                    if (currentSediment > capacity)
+                    {
+                        // Deposit sediment
+                        var depositAmount = (currentSediment - capacity) * depositionRate;
+                        newTerrain[x, y] += depositAmount;
+                        newSediment[x, y] -= depositAmount;
+                    }
+                    else
+                    {
+                        // Erode terrain (with volcanic resistance)
+                        var erodeAmount = (capacity - currentSediment) * hydraulicErosionRate;
+
+                        // Volcanic areas are much more resistant to erosion
+                        var volcanicResistance = 1.0f;
+                        if (hotspotMap[x, y] > 0.1f) // Areas with volcanic activity
+                                                     // 90% less erosion in volcanic areas
+                            volcanicResistance = VolcanicResistance;
+
+                        erodeAmount *= volcanicResistance;
+                        // Don't erode too much. // TODO: Do we really need this guard?
+                        erodeAmount = Math.Min(erodeAmount, terrain[x, y] * 0.1f);
+                        newTerrain[x, y] -= erodeAmount;
+                        newSediment[x, y] += erodeAmount;
+                    }
+
+                    // Water flow to neighboring cells
+                    var totalOutflow = 0f;
+                    (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+
+                    foreach (var (dx, dy) in directions)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+
+                        if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+
+                        var neighborSlope = terrain[x, y] - terrain[nx, ny];
+                        if (neighborSlope <= 0) continue;
+
+                        var outflow = currentWater * neighborSlope * hydraulicErosionRate;
+                        newWater[nx, ny] += outflow * 0.25f; // Distribute to neighbors
+                        newSediment[nx, ny] += currentSediment * outflow /
+                            Math.Max(currentWater, waterViscosity) * 0.25f;
+                        totalOutflow += outflow;
+                    }
+
+                    newWater[x, y] -= totalOutflow;
+                    newSediment[x, y] -=
+                        currentSediment * totalOutflow / Math.Max(currentWater, 0.001f);
                 }
-                else
-                {
-                    // Erode terrain (with volcanic resistance)
-                    var erodeAmount = (capacity - currentSediment) * hydraulicErosionRate;
-
-                    // Volcanic areas are much more resistant to erosion
-                    var volcanicResistance = 1.0f;
-                    if (hotspotMap[x, y] > 0.1f) // Areas with volcanic activity
-                        // 90% less erosion in volcanic areas
-                        volcanicResistance = VolcanicResistance;
-
-                    erodeAmount *= volcanicResistance;
-                    // Don't erode too much. // TODO: Do we really need this guard?
-                    erodeAmount = Math.Min(erodeAmount, terrain[x, y] * 0.1f);
-                    newTerrain[x, y] -= erodeAmount;
-                    newSediment[x, y] += erodeAmount;
-                }
-
-                // Water flow to neighboring cells
-                var totalOutflow = 0f;
-                (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-
-                foreach (var (dx, dy) in directions)
-                {
-                    var nx = x + dx;
-                    var ny = y + dy;
-
-                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
-
-                    var neighborSlope = terrain[x, y] - terrain[nx, ny];
-                    if (neighborSlope <= 0) continue;
-
-                    var outflow = currentWater * neighborSlope * hydraulicErosionRate;
-                    newWater[nx, ny] += outflow * 0.25f; // Distribute to neighbors
-                    newSediment[nx, ny] += currentSediment * outflow /
-                        Math.Max(currentWater, waterViscosity) * 0.25f;
-                    totalOutflow += outflow;
-                }
-
-                newWater[x, y] -= totalOutflow;
-                newSediment[x, y] -=
-                    currentSediment * totalOutflow / Math.Max(currentWater, 0.001f);
-            }
 
             // Step 4: Thermal erosion (material sliding)
             // TODO: Fix reading and writing form/to newTerrain in the same loop!
             for (var y = 1; y < worldHeight - 1; y++)
-            for (var x = 1; x < worldWidth - 1; x++)
-            {
-                var currentHeight = newTerrain[x, y];
-                var lowestNeighbor = currentHeight;
-                var lowestX = x;
-                var lowestY = y;
-
-                // Find lowest neighbor
-                (int, int)[] directions =
-                    [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
-                foreach (var (dx, dy) in directions)
+                for (var x = 1; x < worldWidth - 1; x++)
                 {
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    var neighborHeight = newTerrain[nx, ny];
+                    var currentHeight = newTerrain[x, y];
+                    var lowestNeighbor = currentHeight;
+                    var lowestX = x;
+                    var lowestY = y;
 
-                    if (neighborHeight >= lowestNeighbor) continue;
-                    lowestNeighbor = neighborHeight;
-                    lowestX = nx;
-                    lowestY = ny;
+                    // Find lowest neighbor
+                    (int, int)[] directions =
+                        [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
+                    foreach (var (dx, dy) in directions)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        var neighborHeight = newTerrain[nx, ny];
+
+                        if (neighborHeight >= lowestNeighbor) continue;
+                        lowestNeighbor = neighborHeight;
+                        lowestX = nx;
+                        lowestY = ny;
+                    }
+
+                    var slope = currentHeight - lowestNeighbor;
+
+                    // Material slides if slope is too steep
+                    if (slope <= talusAngle) continue;
+                    var slideAmount = Math.Min(thermalErosionRate * slope, slope * 0.5f);
+                    newTerrain[x, y] -= slideAmount;
+                    newTerrain[lowestX, lowestY] += slideAmount;
                 }
-
-                var slope = currentHeight - lowestNeighbor;
-
-                // Material slides if slope is too steep
-                if (slope <= talusAngle) continue;
-                var slideAmount = Math.Min(thermalErosionRate * slope, slope * 0.5f);
-                newTerrain[x, y] -= slideAmount;
-                newTerrain[lowestX, lowestY] += slideAmount;
-            }
 
             // Step 5: Evaporation (climate-aware)
             for (var y = 0; y < worldHeight; y++)
-            for (var x = 0; x < worldWidth; x++)
-            {
-                // Higher evaporation in dry/hot climates
-                var climateModifier = 1.0f;
-                var biome = biomes[x, y];
-                var humidityValue = humidity[x, y];
+                for (var x = 0; x < worldWidth; x++)
+                {
+                    // Higher evaporation in dry/hot climates
+                    var climateModifier = 1.0f;
+                    var biome = biomes[x, y];
+                    var humidityValue = humidity[x, y];
 
-                if (biome is Biome.Desert or Biome.Tundra)
-                    climateModifier = 2.0f; // 2x evaporation in dry areas
-                else if (humidityValue < 0.3f)
-                    climateModifier = 1.5f; // 1.5x evaporation in low humidity areas
+                    if (biome is Biome.Desert or Biome.Tundra)
+                        climateModifier = 2.0f; // 2x evaporation in dry areas
+                    else if (humidityValue < 0.3f)
+                        climateModifier = 1.5f; // 1.5x evaporation in low humidity areas
 
-                var adjustedEvaporation = evaporationRate * climateModifier;
-                newWater[x, y] = Math.Max(0, newWater[x, y] - adjustedEvaporation);
-            }
+                    var adjustedEvaporation = evaporationRate * climateModifier;
+                    newWater[x, y] = Math.Max(0, newWater[x, y] - adjustedEvaporation);
+                }
 
             // Update arrays
             // TODO: Double buffer to swap between arrays.
@@ -1041,161 +1402,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Copy back to elevations (keep as float for now)
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-            elevations[x, y] = terrain[x, y];
-    }
-
-    #endregion
-
-    #region Sloped Coasts
-
-    // TODO: Check whether this conflicts with other steps or still necessary.
-
-    /// <summary>
-    /// Generates a gentle fall-off towards costal cells (elevation == 4)
-    /// </summary>
-    /// <param name="worldWidth"></param>
-    /// <param name="worldHeight"></param>
-    /// <param name="cellElevations"></param>
-    /// <returns>A grid of sloping elevation values for coast lines.</returns>
-    private static float[,] GenerateSlopedCoasts(
-        int worldWidth,
-        int worldHeight,
-        in int[,] cellElevations)
-    {
-        // 1 Initialize all cells to 9; then set boundary (land adjacent to water) to 0 and enqueue.
-        var coastalSlopes = new float[worldWidth, worldHeight];
-        for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            coastalSlopes[x, y] = MaxCoastalSlope;
-
-        var q = new Queue<(int, int)>(worldWidth * worldHeight);
-        for (var y = 1; y < worldHeight - 1; y += 1)
-        for (var x = 1; x < worldWidth - 1; x += 1)
-        {
-            if (cellElevations[x, y] != LandElevationThreshold) continue;
-
-            // Must have at least one water cell in its neighbourhood.
-            if (cellElevations[x, y - 1] != SeaLevelElevation && // north
-                cellElevations[x + 1, y] != SeaLevelElevation && // east
-                cellElevations[x, y + 1] != SeaLevelElevation && // south
-                cellElevations[x - 1, y] != SeaLevelElevation) continue; // west
-
-            coastalSlopes[x, y] = 0.0f;
-            q.Enqueue((x, y));
-        }
-
-        // 2 BFS: while queue is NOT empty, dequeue cell C and set neighbours to Min(C.elevation + 1, N.elevation)
-        //                               enqueue all neighbors with updated elevation
-        (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-        while (q.Count > 0)
-        {
-            var (x, y) = q.Dequeue();
-            var elevation = coastalSlopes[x, y];
-            foreach (var (dirX, dirY) in directions)
-            {
-                var neighX = x + dirX;
-                var neighY = y + dirY;
-
-                if (neighX < 0
-                    || neighX >= worldWidth
-                    || neighY < 0
-                    || neighY >= worldHeight
-                    || coastalSlopes[neighX, neighY] <= elevation) continue;
-
-                coastalSlopes[neighX, neighY] = Math.Min(elevation + 1, 9);
-
-                if (elevation < 8)
-                    q.Enqueue((neighX, neighY));
-            }
-        }
-
-        return coastalSlopes;
-    }
-
-    #endregion
-
-    #region Noise Map
-
-    /// <summary>
-    /// Generates a map of pseudo-random Perlin noise.
-    /// </summary>
-    /// <param name="mapWidth">Map width in grid cells</param>
-    /// <param name="mapHeight">Map height in grid cells</param>
-    /// <param name="seed">Seed of the random number generator</param>
-    /// <param name="scale">Scale of the noise</param>
-    /// <param name="octaves">How many layers of noise to generate</param>
-    /// <param name="persistence">Less -> smoother, more -> rougher?</param>
-    /// <param name="lacunarity">Gappiness, how many and/or large holes</param>
-    /// <param name="offset">Offset between layers?</param>
-    /// <returns></returns>
-    private static float[,] GenerateNoiseMap(
-        int mapWidth,
-        int mapHeight,
-        int seed,
-        float scale,
-        int octaves,
-        float persistence,
-        float lacunarity,
-        Vector2 offset)
-    {
-        // For now work with a fixed scale
-        const float noiseScale = 0.03f;
-
-        var noiseMap = new float[mapWidth, mapHeight];
-
-        var prng = new Random(seed);
-        var octaveOffsets = new Vector2[octaves];
-        for (var i = 0; i < octaves; i++)
-        {
-            var offsetX = prng.Next(-100000, 100000) + offset.X;
-            var offsetY = prng.Next(-100000, 100000) + offset.Y;
-            octaveOffsets[i] = new Vector2(offsetX, offsetY);
-        }
-
-        if (scale <= 0) scale = 0.0001f;
-
-        var maxNoiseHeight = float.MinValue;
-        var minNoiseHeight = float.MaxValue;
-
-        for (var y = 0; y < mapHeight; y++)
-        for (var x = 0; x < mapWidth; x++)
-        {
-            float amplitude = 1;
-            float frequency = 1;
-            float noiseHeight = 0;
-
-            for (var i = 0; i < octaves; i++)
-            {
-                var sampleX = Convert.ToInt32(x / scale * frequency + octaveOffsets[i].X);
-                var sampleY = Convert.ToInt32(y / scale * frequency + octaveOffsets[i].Y);
-                var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
-
-                noiseHeight += perlinValue * amplitude;
-                amplitude *= persistence;
-                frequency *= lacunarity;
-            }
-
-            maxNoiseHeight = Math.Max(maxNoiseHeight, noiseHeight);
-            minNoiseHeight = Math.Min(minNoiseHeight, noiseHeight);
-            noiseMap[x, y] = noiseHeight;
-        }
-
-        for (var y = 0; y < mapHeight; y++)
-        for (var x = 0; x < mapWidth; x++)
-            noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
-
-        return noiseMap;
-    }
-
-    private static float Lerp(float a, float b, float t)
-    {
-        return a + t * (b - a);
-    }
-
-    private static float InverseLerp(float a, float b, float t)
-    {
-        return (t - a) / (b - a);
+            for (var x = 0; x < worldWidth; x++)
+                elevations[x, y] = terrain[x, y];
     }
 
     #endregion
@@ -1205,7 +1413,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     // TODO: Check whether to let this be influenced by biome, temperature or humidity as well.
 
     /// <summary>
-    /// Generates rivers on the map.
+    ///     Generates rivers on the map.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -1260,8 +1468,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     }
 
     /// <summary>
-    /// Generate a map of rainfall per cell.
-    /// Rainfall increases with proximity to water and decreases with elevation.
+    ///     Generate a map of rainfall per cell.
+    ///     Rainfall increases with proximity to water and decreases with elevation.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -1286,44 +1494,44 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Base rainfall increases with proximity to water and decreases with elevation
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            var elevation = elevations[x, y];
-            // TODO: Parameterize water surface elevation
-            const int waterSurfaceElevation = 3;
-            var isWater = elevation <= waterSurfaceElevation; // Water cells get maximum rainfall
-
-            // Distance to nearest water (simplified - just check neighbors)
-            var waterDistance = 0f;
-            if (!isWater)
+            for (var x = 0; x < worldWidth; x++)
             {
-                var minDistance = float.MaxValue;
-                for (var dy = -waterDistanceRadius; dy <= waterDistanceRadius; dy++)
-                for (var dx = -waterDistanceRadius; dx <= waterDistanceRadius; dx++)
+                var elevation = elevations[x, y];
+                // TODO: Parameterize water surface elevation
+                const int waterSurfaceElevation = 3;
+                var isWater = elevation <= waterSurfaceElevation; // Water cells get maximum rainfall
+
+                // Distance to nearest water (simplified - just check neighbors)
+                var waterDistance = 0f;
+                if (!isWater)
                 {
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                    var minDistance = float.MaxValue;
+                    for (var dy = -waterDistanceRadius; dy <= waterDistanceRadius; dy++)
+                        for (var dx = -waterDistanceRadius; dx <= waterDistanceRadius; dx++)
+                        {
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
 
-                    if (elevations[nx, ny] > waterSurfaceElevation) continue;
+                            if (elevations[nx, ny] > waterSurfaceElevation) continue;
 
-                    var distance = MathF.Sqrt(dx * dx + dy * dy);
-                    minDistance = MathF.Min(minDistance, distance);
+                            var distance = MathF.Sqrt(dx * dx + dy * dy);
+                            minDistance = MathF.Min(minDistance, distance);
+                        }
+
+                    const float tolerance = 0.1f;
+                    waterDistance = Math.Abs(minDistance - float.MaxValue) < tolerance
+                        ? waterDistanceRadius
+                        : minDistance;
                 }
 
-                const float tolerance = 0.1f;
-                waterDistance = Math.Abs(minDistance - float.MaxValue) < tolerance
-                    ? waterDistanceRadius
-                    : minDistance;
+                // Rainfall formula: high near water, decreases with elevation and distance
+                var baseRainfall = isWater
+                    ? 1.0f
+                    : MathF.Max(rainfallMin, 1.0f - waterDistance * distancePenalty);
+                var elevationModifier = MathF.Max(minModifier, 1.0f - elevation * elevationDecay);
+                rainfall[x, y] = baseRainfall * elevationModifier;
             }
-
-            // Rainfall formula: high near water, decreases with elevation and distance
-            var baseRainfall = isWater
-                ? 1.0f
-                : MathF.Max(rainfallMin, 1.0f - waterDistance * distancePenalty);
-            var elevationModifier = MathF.Max(minModifier, 1.0f - elevation * elevationDecay);
-            rainfall[x, y] = baseRainfall * elevationModifier;
-        }
 
         return rainfall;
     }
@@ -1331,7 +1539,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     // TODO: See whether we can reuse this flow field for other functions.
 
     /// <summary>
-    /// Calculates a map of hypothetical water flow directions for each cell.
+    ///     Calculates a map of hypothetical water flow directions for each cell.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -1345,40 +1553,40 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var flowDirections = new (int, int)[worldWidth, worldHeight];
 
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            var currentElevation = elevations[x, y];
-            var steepestDrop = 0f;
-            var bestDirection = (0, 0);
-
-            // Check all 8 neighbors
-            for (var dy = -1; dy <= 1; dy++)
-            for (var dx = -1; dx <= 1; dx++)
+            for (var x = 0; x < worldWidth; x++)
             {
-                if (dx == 0 && dy == 0) continue;
+                var currentElevation = elevations[x, y];
+                var steepestDrop = 0f;
+                var bestDirection = (0, 0);
 
-                var nx = x + dx;
-                var ny = y + dy;
+                // Check all 8 neighbors
+                for (var dy = -1; dy <= 1; dy++)
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
 
-                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                        var nx = x + dx;
+                        var ny = y + dy;
 
-                var neighborElevation = elevations[nx, ny];
-                var drop = currentElevation - neighborElevation;
+                        if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
 
-                if (drop <= steepestDrop) continue;
+                        var neighborElevation = elevations[nx, ny];
+                        var drop = currentElevation - neighborElevation;
 
-                steepestDrop = drop;
-                bestDirection = (dx, dy);
+                        if (drop <= steepestDrop) continue;
+
+                        steepestDrop = drop;
+                        bestDirection = (dx, dy);
+                    }
+
+                flowDirections[x, y] = bestDirection;
             }
-
-            flowDirections[x, y] = bestDirection;
-        }
 
         return flowDirections;
     }
 
     /// <summary>
-    /// Simulate the flow of water down the elevations and keep track of where it ends up.
+    ///     Simulate the flow of water down the elevations and keep track of where it ends up.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -1395,8 +1603,8 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Initialize with rainfall
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-            flowAccumulation[x, y] = rainfall[x, y];
+            for (var x = 0; x < worldWidth; x++)
+                flowAccumulation[x, y] = rainfall[x, y];
 
         // Propagate flow downstream (process in reverse order to handle dependencies)
         var processed = new bool[worldWidth, worldHeight];
@@ -1404,26 +1612,26 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
 
         // Start with cells that have no incoming flow (local minima or edges)
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            var hasIncoming = false;
-            for (var dy = -1; dy <= 1 && !hasIncoming; dy++)
-            for (var dx = -1; dx <= 1 && !hasIncoming; dx++)
+            for (var x = 0; x < worldWidth; x++)
             {
-                if (dx == 0 && dy == 0) continue;
+                var hasIncoming = false;
+                for (var dy = -1; dy <= 1 && !hasIncoming; dy++)
+                    for (var dx = -1; dx <= 1 && !hasIncoming; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
 
-                var nx = x + dx;
-                var ny = y + dy;
-                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
 
-                var (fdx, fdy) = flowDirections[nx, ny];
-                if (nx + fdx == x && ny + fdy == y) hasIncoming = true;
+                        var (fdx, fdy) = flowDirections[nx, ny];
+                        if (nx + fdx == x && ny + fdy == y) hasIncoming = true;
+                    }
+
+                if (hasIncoming) continue;
+                queue.Enqueue((x, y));
+                processed[x, y] = true;
             }
-
-            if (hasIncoming) continue;
-            queue.Enqueue((x, y));
-            processed[x, y] = true;
-        }
 
         // Process queue
         while (queue.Count > 0)
@@ -1441,18 +1649,18 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             // Check if all upstream cells are processed
             var allUpstreamProcessed = true;
             for (var dy2 = -1; dy2 <= 1 && allUpstreamProcessed; dy2++)
-            for (var dx2 = -1; dx2 <= 1 && allUpstreamProcessed; dx2++)
-            {
-                if (dx2 == 0 && dy2 == 0) continue;
+                for (var dx2 = -1; dx2 <= 1 && allUpstreamProcessed; dx2++)
+                {
+                    if (dx2 == 0 && dy2 == 0) continue;
 
-                var nx2 = nx + dx2;
-                var ny2 = ny + dy2;
-                if (nx2 < 0 || nx2 >= worldWidth || ny2 < 0 || ny2 >= worldHeight) continue;
+                    var nx2 = nx + dx2;
+                    var ny2 = ny + dy2;
+                    if (nx2 < 0 || nx2 >= worldWidth || ny2 < 0 || ny2 >= worldHeight) continue;
 
-                var (fdx2, fdy2) = flowDirections[nx2, ny2];
-                if (nx2 + fdx2 == nx && ny2 + fdy2 == ny && !processed[nx2, ny2])
-                    allUpstreamProcessed = false;
-            }
+                    var (fdx2, fdy2) = flowDirections[nx2, ny2];
+                    if (nx2 + fdx2 == nx && ny2 + fdy2 == ny && !processed[nx2, ny2])
+                        allUpstreamProcessed = false;
+                }
 
             if (!allUpstreamProcessed || processed[nx, ny]) continue;
 
@@ -1464,7 +1672,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     }
 
     /// <summary>
-    /// Create a boolean river map of the world where true -> belongs to a river, false otherwise.
+    ///     Create a boolean river map of the world where true -> belongs to a river, false otherwise.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -1492,71 +1700,71 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Find maximum flow accumulation for normalization
         var maxFlow = 0f;
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-            maxFlow = MathF.Max(maxFlow, flowAccumulation[x, y]);
+            for (var x = 0; x < worldWidth; x++)
+                maxFlow = MathF.Max(maxFlow, flowAccumulation[x, y]);
 
         var globalThreshold = MathF.Max(0.01f, formationThreshold);
 
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            var normalizedFlow = maxFlow > 0 ? flowAccumulation[x, y] / maxFlow : 0f;
-            var currentElevation = elevations[x, y];
-
-            // Only start river source on land
-            if (currentElevation < LandElevationThreshold || normalizedFlow <= globalThreshold)
-                continue;
-
-            // Trace river path downstream following flow directions, ensuring connectivity
-            var cx = x;
-            var cy = y;
-            var maxSteps = worldWidth + worldHeight;
-
-            while (maxSteps-- > 0)
+            for (var x = 0; x < worldWidth; x++)
             {
-                if (cx < 0 || cx >= worldWidth || cy < 0 || cy >= worldHeight)
-                    break;
+                var normalizedFlow = maxFlow > 0 ? flowAccumulation[x, y] / maxFlow : 0f;
+                var currentElevation = elevations[x, y];
 
-                if (riverMap[cx, cy])
-                    break; // Path already included
+                // Only start river source on land
+                if (currentElevation < LandElevationThreshold || normalizedFlow <= globalThreshold)
+                    continue;
 
-                riverMap[cx, cy] = true;
+                // Trace river path downstream following flow directions, ensuring connectivity
+                var cx = x;
+                var cy = y;
+                var maxSteps = worldWidth + worldHeight;
 
-                var cellElevation = elevations[cx, cy];
-                var depth = MathF.Min(maxCarveDepth,
-                    flowAccumulation[cx, cy] / maxFlow * carveScale);
-                elevations[cx, cy] = Math.Max(RiverCarveMinElevation, cellElevation - depth);
-
-                if (cellElevation <= SeaLevelElevation)
-                    break; // Reached coast
-
-                var (dx, dy) = flowDirections[cx, cy];
-                if (dx == 0 && dy == 0)
-                    break; // No downhill direction
-
-                var nx = cx + dx;
-                var ny = cy + dy;
-
-                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight)
-                    break;
-
-                // stop at ocean or already established river cell
-                if (elevations[nx, ny] <= SeaLevelElevation || riverMap[nx, ny])
+                while (maxSteps-- > 0)
                 {
-                    riverMap[nx, ny] = elevations[nx, ny] > SeaLevelElevation;
-                    break;
-                }
+                    if (cx < 0 || cx >= worldWidth || cy < 0 || cy >= worldHeight)
+                        break;
 
-                cx = nx;
-                cy = ny;
+                    if (riverMap[cx, cy])
+                        break; // Path already included
+
+                    riverMap[cx, cy] = true;
+
+                    var cellElevation = elevations[cx, cy];
+                    var depth = MathF.Min(maxCarveDepth,
+                        flowAccumulation[cx, cy] / maxFlow * carveScale);
+                    elevations[cx, cy] = Math.Max(RiverCarveMinElevation, cellElevation - depth);
+
+                    if (cellElevation <= SeaLevelElevation)
+                        break; // Reached coast
+
+                    var (dx, dy) = flowDirections[cx, cy];
+                    if (dx == 0 && dy == 0)
+                        break; // No downhill direction
+
+                    var nx = cx + dx;
+                    var ny = cy + dy;
+
+                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight)
+                        break;
+
+                    // stop at ocean or already established river cell
+                    if (elevations[nx, ny] <= SeaLevelElevation || riverMap[nx, ny])
+                    {
+                        riverMap[nx, ny] = elevations[nx, ny] > SeaLevelElevation;
+                        break;
+                    }
+
+                    cx = nx;
+                    cy = ny;
+                }
             }
-        }
 
         return riverMap;
     }
 
     /// <summary>
-    /// Deposits sediments carried along by the rivers.
+    ///     Deposits sediments carried along by the rivers.
     /// </summary>
     /// <param name="worldWidth">Width of the world in grid cells.</param>
     /// <param name="worldHeight">Height of the world in grid cells.</param>
@@ -1570,21 +1778,35 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     {
         // Simple sediment deposition in low areas
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            var currentElevation = elevations[x, y];
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var currentElevation = elevations[x, y];
 
-            // Deposit sediment in very low areas (potential floodplains)
-            if (currentElevation < SeaLevelElevation && flowAccumulation[x, y] > 0)
-                // Small sediment deposit
-                elevations[x, y] = Math.Min(9, currentElevation + 1);
-        }
+                // Deposit sediment in very low areas (potential floodplains)
+                if (currentElevation < SeaLevelElevation && flowAccumulation[x, y] > 0)
+                    // Small sediment deposit
+                    elevations[x, y] = Math.Min(9, currentElevation + 1);
+            }
     }
 
     #endregion
 
     #region Mountains
 
+    // TODO: Mountain features could use more work, e.g.: glaciers cna also appear on sea level
+    //       in high latitudes.
+
+    /// <summary>
+    ///     Applies surface features to mountains, snow, glaciers, rivers and lava.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in cells.</param>
+    /// <param name="worldHeight">Height of the world in cells.</param>
+    /// <param name="elevations">World elevation map.</param>
+    /// <param name="surfaceMap">Surface feature map of the world.</param>
+    /// <param name="plateIndex">Map of each cell to the plate it belongs to.</param>
+    /// <param name="plateTypes">Map of plate indices to land (true) and sea (false). </param>
+    /// <param name="hotspotMap">Map of hotspots in the world.</param>
+    /// <param name="riverMap">Map of river cells in the world.</param>
     private static void ApplyMountainDetails(
         int worldWidth,
         int worldHeight,
@@ -1596,26 +1818,26 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         in bool[,] riverMap)
     {
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            surfaceMap[x, y] = SurfaceFeature.None;
+            for (var x = 0; x < worldWidth; x++)
+            {
+                surfaceMap[x, y] = SurfaceFeature.None;
 
-            var elevation = elevations[x, y];
-            if (elevation >= HighMountainThreshold)
-                surfaceMap[x, y] = SurfaceFeature.Mountain;
+                var elevation = elevations[x, y];
+                if (elevation >= HighMountainThreshold)
+                    surfaceMap[x, y] = SurfaceFeature.Mountain;
 
-            if (elevation >= SnowThreshold)
-                surfaceMap[x, y] = SurfaceFeature.Snow;
+                if (elevation >= SnowThreshold)
+                    surfaceMap[x, y] = SurfaceFeature.Snow;
 
-            if (elevation >= GlacierThreshold && !riverMap[x, y])
-                surfaceMap[x, y] = SurfaceFeature.Glacier;
+                if (elevation >= GlacierThreshold && !riverMap[x, y])
+                    surfaceMap[x, y] = SurfaceFeature.Glacier;
 
-            if (riverMap[x, y])
-                surfaceMap[x, y] = SurfaceFeature.River;
+                if (riverMap[x, y])
+                    surfaceMap[x, y] = SurfaceFeature.River;
 
-            if (hotspotMap[x, y] > LavaHotspotThreshold && elevation >= LandElevationThreshold)
-                surfaceMap[x, y] = SurfaceFeature.Lava;
-        }
+                if (hotspotMap[x, y] > LavaHotspotThreshold && elevation >= LandElevationThreshold)
+                    surfaceMap[x, y] = SurfaceFeature.Lava;
+            }
 
         // Add volcanic details around hotspots
         var hotspotCenters = FindHotspotCenters(worldWidth, worldHeight, hotspotMap);
@@ -1632,76 +1854,81 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         // Plate boundary mountain ridges: continental collisions
         var neighbors = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            var currentPlate = plateIndex[x, y];
-            if (currentPlate < 0 || currentPlate >= plateTypes.Length) continue;
-
-            foreach (var (dx, dy) in neighbors)
+            for (var x = 0; x < worldWidth; x++)
             {
-                var nx = x + dx;
-                var ny = y + dy;
+                var currentPlate = plateIndex[x, y];
+                if (currentPlate < 0 || currentPlate >= plateTypes.Length) continue;
 
-                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                foreach (var (dx, dy) in neighbors)
+                {
+                    var nx = x + dx;
+                    var ny = y + dy;
 
-                var neighborPlate = plateIndex[nx, ny];
-                if (neighborPlate == currentPlate) continue;
+                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
 
-                if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
+                    var neighborPlate = plateIndex[nx, ny];
+                    if (neighborPlate == currentPlate) continue;
 
-                surfaceMap[x, y] = SurfaceFeature.Mountain;
+                    if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
+
+                    surfaceMap[x, y] = SurfaceFeature.Mountain;
+                }
             }
-        }
     }
 
     // TODO: Didn't we calculate hotspot centers already?
 
+    /// <summary>
+    ///     Finds center points of strong hot spots.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="worldHeight">Height of the world in grid cells.</param>
+    /// <param name="hotspotMap">Map hotspot strength per cell.</param>
+    /// <returns></returns>
     private static List<(int x, int y, float strength)> FindHotspotCenters(
         int worldWidth,
         int worldHeight,
-        float[,] hotspotMap)
+        in float[,] hotspotMap)
     {
         var centers = new List<(int, int, float)>();
         var visited = new bool[worldWidth, worldHeight];
 
         for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            if (visited[x, y] || hotspotMap[x, y] < HotspotMinStrength) continue;
-
-            // Find local maximum
-            var maxStrength = hotspotMap[x, y];
-            var maxX = x;
-            var maxY = y;
-
-            // Search in a small radius for the actual peak
-            for (var dy = -3; dy <= 3; dy++)
-            for (var dx = -3; dx <= 3; dx++)
+            for (var x = 0; x < worldWidth; x++)
             {
-                var nx = x + dx;
-                var ny = y + dy;
-                if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                if (visited[x, y] || hotspotMap[x, y] < HotspotMinStrength) continue;
 
-                if (hotspotMap[nx, ny] > maxStrength)
-                {
-                    maxStrength = hotspotMap[nx, ny];
-                    maxX = nx;
-                    maxY = ny;
-                }
+                // Find local maximum
+                var maxStrength = hotspotMap[x, y];
+                var maxX = x;
+                var maxY = y;
+
+                // Search in a small radius for the actual peak
+                for (var dy = -3; dy <= 3; dy++)
+                    for (var dx = -3; dx <= 3; dx++)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
+                        if (hotspotMap[nx, ny] <= maxStrength) continue;
+
+                        maxStrength = hotspotMap[nx, ny];
+                        maxX = nx;
+                        maxY = ny;
+                    }
+
+                // Mark area around peak as visited
+                for (var dy = -5; dy <= 5; dy++)
+                    for (var dx = -5; dx <= 5; dx++)
+                    {
+                        var nx = maxX + dx;
+                        var ny = maxY + dy;
+                        if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
+                            visited[nx, ny] = true;
+                    }
+
+                centers.Add((maxX, maxY, maxStrength));
             }
-
-            // Mark area around peak as visited
-            for (var dy = -5; dy <= 5; dy++)
-            for (var dx = -5; dx <= 5; dx++)
-            {
-                var nx = maxX + dx;
-                var ny = maxY + dy;
-                if (nx >= 0 && nx < worldWidth && ny >= 0 && ny < worldHeight)
-                    visited[nx, ny] = true;
-            }
-
-            centers.Add((maxX, maxY, maxStrength));
-        }
 
         return centers;
     }
@@ -1712,268 +1939,79 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var radius = Math.Max(3, (int)(strength * 10)); // Scale radius with strength, minimum 3
 
         // Determine volcano type based on strength and characteristics
-        SurfaceFeature volcanoType;
-        if (strength > 0.9f)
-            volcanoType = SurfaceFeature.Stratovolcano; // Tall, steep volcanoes
-        else if (strength > 0.6f)
-            volcanoType = SurfaceFeature.Shield; // Broad, flat volcanoes
-        else
-            volcanoType = SurfaceFeature.Cinder; // Small cinder cones
+        var volcanoType = strength switch
+        {
+            > 0.9f => SurfaceFeature.Stratovolcano,
+            > 0.6f => SurfaceFeature.Shield,
+            _ => SurfaceFeature.Cinder
+        };
 
         // Add crater at the peak for stratovolcanoes and large shields
         if (centerX >= 0 && centerX < worldWidth && centerY >= 0 && centerY < worldHeight)
         {
             var elevation = elevations[centerX, centerY];
-            if (elevation >= CraterElevationThreshold &&
-                (volcanoType == SurfaceFeature.Stratovolcano ||
-                 (volcanoType == SurfaceFeature.Shield && strength > 0.8f)))
-                surfaceMap[centerX, centerY] = SurfaceFeature.Crater;
-            else if (elevation >= CinderElevationThreshold && volcanoType == SurfaceFeature.Cinder)
-                surfaceMap[centerX, centerY] = SurfaceFeature.Cinder;
+            surfaceMap[centerX, centerY] = elevation switch
+            {
+                >= CraterElevationThreshold when volcanoType == SurfaceFeature.Stratovolcano ||
+                                                 (volcanoType == SurfaceFeature.Shield &&
+                                                  strength > 0.8f) => SurfaceFeature.Crater,
+                >= CinderElevationThreshold when volcanoType == SurfaceFeature.Cinder =>
+                    SurfaceFeature.Cinder,
+                _ => surfaceMap[centerX, centerY]
+            };
         }
 
         // Add volcanic features based on volcano type
         for (var y = Math.Max(0, centerY - radius);
              y < Math.Min(worldHeight, centerY + radius);
              y++)
-        for (var x = Math.Max(0, centerX - radius); x < Math.Min(worldWidth, centerX + radius); x++)
-        {
-            var dx = x - centerX;
-            var dy = y - centerY;
-            var distance = MathF.Sqrt(dx * dx + dy * dy);
-
-            if (distance > radius) continue;
-
-            var normalizedDist = distance / radius;
-            var elevation = elevations[x, y];
-
-            // Skip if already has strong features
-            var existing = surfaceMap[x, y];
-            if (existing == SurfaceFeature.River || existing == SurfaceFeature.Glacier ||
-                existing == SurfaceFeature.Lava)
-                continue;
-
-            if (volcanoType == SurfaceFeature.Stratovolcano)
+            for (var x = Math.Max(0, centerX - radius); x < Math.Min(worldWidth, centerX + radius); x++)
             {
-                // Stratovolcanoes: steep, explosive, with ash and lava
-                if (normalizedDist < 0.4f && elevation >= CalderaElevationThreshold)
-                    surfaceMap[x, y] = SurfaceFeature.Stratovolcano;
-                else if (normalizedDist > 0.3f && normalizedDist < 0.8f && elevation >= 5)
-                    surfaceMap[x, y] = SurfaceFeature.Ash;
-            }
-            else if (volcanoType == SurfaceFeature.Shield)
-            {
-                // Shield volcanoes: broad, gentle slopes, mostly lava
-                if (normalizedDist < 0.6f && elevation >= ShieldVolcanoThreshold)
-                    surfaceMap[x, y] = SurfaceFeature.Shield;
-                else if (normalizedDist > 0.5f && elevation >= 4)
-                    surfaceMap[x, y] = SurfaceFeature.Lava;
-            }
-            else // Cinder
-            {
-                // Cinder cones: small, steep, cinder and ash
-                if (normalizedDist < 0.5f && elevation >= 4)
-                    surfaceMap[x, y] = SurfaceFeature.Cinder;
-                else if (normalizedDist > 0.4f && elevation >= 3)
-                    surfaceMap[x, y] = SurfaceFeature.Ash;
-            }
+                var dx = x - centerX;
+                var dy = y - centerY;
+                var distance = MathF.Sqrt(dx * dx + dy * dy);
 
-            // Add caldera for large stratovolcanoes at the center
-            if (normalizedDist < 0.2f && volcanoType == SurfaceFeature.Stratovolcano &&
-                strength > 0.9f && elevation >= 7) surfaceMap[x, y] = SurfaceFeature.Caldera;
-        }
+                if (distance > radius) continue;
+
+                var normalizedDist = distance / radius;
+                var elevation = elevations[x, y];
+
+                // Skip if already has strong features
+                var existing = surfaceMap[x, y];
+                if (existing is SurfaceFeature.River or SurfaceFeature.Glacier or SurfaceFeature.Lava)
+                    continue;
+
+                surfaceMap[x, y] = volcanoType switch
+                {
+                    SurfaceFeature.Stratovolcano => normalizedDist switch
+                    {
+                        // Stratovolcanoes: steep, explosive, with ash and lava
+                        < 0.4f when elevation >= CalderaElevationThreshold => SurfaceFeature
+                            .Stratovolcano,
+                        > 0.3f and < 0.8f when elevation >= 5 => SurfaceFeature.Ash,
+                        _ => surfaceMap[x, y]
+                    },
+                    SurfaceFeature.Shield => normalizedDist switch
+                    {
+                        // Shield volcanoes: broad, gentle slopes, mostly lava
+                        < 0.6f when elevation >= ShieldVolcanoThreshold => SurfaceFeature.Shield,
+                        > 0.5f when elevation >= 4 => SurfaceFeature.Lava,
+                        _ => surfaceMap[x, y]
+                    },
+                    _ => normalizedDist switch
+                    {
+                        // Cinder cones: small, steep, cinder and ash
+                        < 0.5f when elevation >= 4 => SurfaceFeature.Cinder,
+                        > 0.4f when elevation >= 3 => SurfaceFeature.Ash,
+                        _ => surfaceMap[x, y]
+                    }
+                };
+
+                // Add caldera for large stratovolcanoes at the center
+                if (normalizedDist < 0.2f && volcanoType == SurfaceFeature.Stratovolcano &&
+                    strength > 0.9f && elevation >= 7) surfaceMap[x, y] = SurfaceFeature.Caldera;
+            }
     }
 
     #endregion
-
-    private static void ApplyCoastalFeatures(
-        int worldWidth,
-        int worldHeight,
-        float[,] elevations,
-        SurfaceFeature[,] surfaceMap)
-    {
-        for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-        {
-            // Skip existing assigned strong surface features: river, lava, glacier
-            var existing = surfaceMap[x, y];
-            if (existing == SurfaceFeature.River || existing == SurfaceFeature.Lava ||
-                existing == SurfaceFeature.Glacier)
-                continue;
-
-            var elevation = elevations[x, y];
-            var isWater = elevation <= SeaLevelElevation;
-
-            // Beach/cliff only for land cells near water
-            if (!isWater)
-            {
-                var adjacentWater = 0;
-                var maxAdjElevation = 0f;
-                for (var dy = -1; dy <= 1; dy++)
-                for (var dx = -1; dx <= 1; dx++)
-                {
-                    if (dx == 0 && dy == 0) continue;
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
-                    var neighborElevation = elevations[nx, ny];
-                    if (neighborElevation <= SeaLevelElevation)
-                        adjacentWater++;
-                    else
-                        maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
-                }
-
-                if (adjacentWater > 0)
-                {
-                    // steep cliff if high land adjacent to water and steep drops nearby
-                    if (elevation >= HighMountainThreshold &&
-                        maxAdjElevation <= SeaLevelElevation)
-                        surfaceMap[x, y] = SurfaceFeature.Cliff;
-                    else if (elevation <= SnowThreshold)
-                        surfaceMap[x, y] = SurfaceFeature.Beach;
-                    else
-                        // somewhat high coast at moderate slope -> cliff
-                        surfaceMap[x, y] = SurfaceFeature.Cliff;
-                }
-            }
-            else
-            {
-                // water cells: detect fjord (narrow water in high mountains)
-                var adjacentLand = 0;
-                var adjacentHighMountain = 0;
-                for (var dy = -1; dy <= 1; dy++)
-                for (var dx = -1; dx <= 1; dx++)
-                {
-                    if (dx == 0 && dy == 0) continue;
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
-                    var neighborElevation = elevations[nx, ny];
-                    if (neighborElevation >= LandElevationThreshold)
-                    {
-                        adjacentLand++;
-                        if (neighborElevation >= SnowThreshold)
-                            adjacentHighMountain++;
-                    }
-                }
-
-                if (adjacentLand >= 3 && adjacentHighMountain >= 1)
-                    surfaceMap[x, y] = SurfaceFeature.Fjord;
-            }
-        }
-    }
-
-    private static (float[,], float[,], Biome[,], float[,]) GenerateClimate(
-        int worldWidth,
-        int worldHeight,
-        int[,] elevations)
-    {
-        var temperature = new float[worldWidth, worldHeight];
-        var humidity = new float[worldWidth, worldHeight];
-        var biomes = new Biome[worldWidth, worldHeight];
-        var temperatureAmplitude = new float[worldWidth, worldHeight];
-
-        for (var y = 0; y < worldHeight; y++)
-        {
-            // Latitude factor: 0 at equator (middle), 1 at poles
-            var latitudeFactor = Math.Abs(y - worldHeight / 2.0f) / (worldHeight / 2.0f);
-
-            for (var x = 0; x < worldWidth; x++)
-            {
-                var elevation = elevations[x, y];
-                var isWater = elevation <= 3;
-
-                // Temperature: base -50 to 30, decreases with latitude and elevation
-                var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
-                var elevationTempModifier =
-                    ElevationTempModifier * elevation; // colder at higher elevation
-                temperature[x, y] = baseTemp + elevationTempModifier;
-
-                // Humidity: higher near water, lower at high elevation
-                var distanceToWater =
-                    CalculateDistanceToWater(x, y, worldWidth, worldHeight, elevations);
-                var humidityBase =
-                    isWater ? 1.0f : Math.Max(MinHumidity, 1.0f - distanceToWater * 0.1f);
-                var elevationHumidityModifier = ElevationHumidityModifier * elevation;
-                humidity[x, y] = Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
-
-                // Seasonal amplitude: larger at higher latitudes
-                temperatureAmplitude[x, y] = BaseTemperatureAmplitude +
-                                             LatitudeAmplitudeModifier * latitudeFactor;
-
-
-                // Determine biome
-                biomes[x, y] =
-                    DetermineBiome(temperature[x, y], humidity[x, y], elevation, isWater);
-            }
-        }
-
-        return (temperature, humidity, biomes, temperatureAmplitude);
-    }
-
-    private static int CalculateDistanceToWater(int x, int y, int worldWidth, int worldHeight,
-        int[,] elevations)
-    {
-        // Simple flood fill or BFS to find distance to nearest water
-        // For simplicity, use a small radius check
-        var minDist = int.MaxValue;
-        for (var dy = -5; dy <= 5; dy++)
-        for (var dx = -5; dx <= 5; dx++)
-        {
-            var nx = x + dx;
-            var ny = y + dy;
-            if (nx < 0 || nx >= worldWidth || ny < 0 || ny >= worldHeight) continue;
-            if (elevations[nx, ny] <= 3)
-            {
-                var dist = Math.Abs(dx) + Math.Abs(dy); // Manhattan distance
-                minDist = Math.Min(minDist, dist);
-            }
-        }
-
-        return minDist == int.MaxValue ? 10 : minDist; // default if no water nearby
-    }
-
-    private static Biome DetermineBiome(float temp, float humidity, int elevation, bool isWater)
-    {
-        if (isWater)
-            return Biome.Ocean;
-
-        if (elevation >= IceCapElevationThreshold && temp < IceCapTempThreshold)
-            return Biome.IceCap;
-
-        if (temp < TundraTempThreshold)
-            return Biome.Tundra;
-
-        if (temp < TaigaTempThreshold)
-        {
-            if (humidity > LowHumidityThreshold)
-                return Biome.Taiga;
-            else
-                return Biome.Tundra;
-        }
-
-        if (temp < TemperateTempThreshold)
-        {
-            if (humidity > MediumHumidityThreshold)
-                return Biome.TemperateForest;
-            else
-                return Biome.Grassland;
-        }
-
-        if (temp < TropicalTempThreshold)
-        {
-            if (humidity > HighHumidityThreshold)
-                return Biome.TropicalForest;
-            else if (humidity > VeryLowHumidityThreshold)
-                return Biome.Savanna;
-            else
-                return Biome.Desert;
-        }
-
-        // Hot climates
-        if (humidity > LowHumidityThreshold)
-            return Biome.TropicalForest;
-        else
-            return Biome.Desert;
-    }
 }
