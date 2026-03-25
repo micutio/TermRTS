@@ -143,16 +143,29 @@ public class CylinderWorld : IWorldGen
     private readonly int _plateCount;
 
     // TODO: Distinguish between voronoi cells and tectonic plates
-    private WorldBuffer<byte> elevation;
-    private WorldBuffer<int> landwaterMap;
-    private WorldBuffer<(int, int)> voronoiCells;
-    private WorldBuffer<bool> voronoiCellTypes;
-    private WorldBuffer<int> voronoiCellIndex;
-    private WorldBuffer<bool> plateTypes;
-    private WorldBuffer<Vector2> plateMotions;
-    private WorldBuffer<float> temperature;
-    private WorldBuffer<float> temperatureAmplitude;
-    private WorldBuffer<float> humidity;
+    private readonly WorldBuffer<byte> _elevation;
+    private readonly WorldBuffer<float> _elevationF;
+    private readonly WorldBuffer<int> _landWaterMap;
+    private readonly WorldBuffer<(int, int)> _voronoiCells;
+    private readonly WorldBuffer<bool> _voronoiCellTypes;
+    private readonly WorldBuffer<int> _voronoiCellIndex;
+    private readonly WorldBuffer<(int, int)> _plateCells;
+    private readonly WorldBuffer<bool> _plateTypes;
+    private readonly WorldBuffer<int> _plateIndex;
+    private readonly WorldBuffer<Vector2> _plateMotions;
+    private readonly WorldBuffer<float> _coastalSlopes;
+    private readonly WorldBuffer<float> _tectonicDelta;
+    private readonly WorldBuffer<float> _hotspotMap;
+    private readonly WorldBuffer<float> _noiseMap;
+    private readonly WorldBuffer<float> _temperature;
+    private readonly WorldBuffer<float> _temperatureAmplitude;
+    private readonly WorldBuffer<float> _humidity;
+    private readonly WorldBuffer<Biome> _biomes;
+
+    private readonly WorldBuffer<SurfaceFeature> _surfaceFeatures;
+
+    // TODO: Merge surface features and rivers
+    private readonly WorldBuffer<bool> _riverMap;
 
     #endregion
 
@@ -239,16 +252,26 @@ public class CylinderWorld : IWorldGen
         _plateCount = plateCount;
 
         // init private fields
-        elevation = new WorldBuffer<byte>(worldWidth * worldHeight);
-        landwaterMap = new WorldBuffer<int>(voronoiCellCount);
-        voronoiCells = new WorldBuffer<(int, int)>(voronoiCellCount);
-        voronoiCellTypes = new WorldBuffer<bool>(voronoiCellCount);
-        voronoiCellIndex = new WorldBuffer<int>(worldWidth * worldHeight);
-        plateTypes = new WorldBuffer<bool>(plateCount);
-        plateMotions = new WorldBuffer<Vector2>(voronoiCellCount);
-        temperature = new WorldBuffer<float>(worldWidth * worldHeight);
-        temperatureAmplitude = new WorldBuffer<float>(worldWidth * worldHeight);
-        humidity = new WorldBuffer<float>(worldWidth * worldHeight);
+        _elevation = new WorldBuffer<byte>(worldWidth * worldHeight);
+        _elevationF = new WorldBuffer<float>(worldWidth * worldHeight);
+        _landWaterMap = new WorldBuffer<int>(voronoiCellCount);
+        _voronoiCells = new WorldBuffer<(int, int)>(voronoiCellCount);
+        _voronoiCellTypes = new WorldBuffer<bool>(voronoiCellCount);
+        _voronoiCellIndex = new WorldBuffer<int>(worldWidth * worldHeight);
+        _plateCells = new WorldBuffer<(int, int)>(plateCount);
+        _plateTypes = new WorldBuffer<bool>(plateCount);
+        _plateIndex = new WorldBuffer<int>(voronoiCellCount);
+        _plateMotions = new WorldBuffer<Vector2>(voronoiCellCount);
+        _coastalSlopes = new WorldBuffer<float>(worldWidth * worldHeight);
+        _tectonicDelta = new WorldBuffer<float>(worldWidth * worldHeight);
+        _hotspotMap = new WorldBuffer<float>(worldWidth * worldHeight);
+        _noiseMap = new WorldBuffer<float>(worldWidth * worldHeight);
+        _temperature = new WorldBuffer<float>(worldWidth * worldHeight);
+        _temperatureAmplitude = new WorldBuffer<float>(worldWidth * worldHeight);
+        _humidity = new WorldBuffer<float>(worldWidth * worldHeight);
+        _biomes = new WorldBuffer<Biome>(worldWidth * worldHeight);
+        _surfaceFeatures = new WorldBuffer<SurfaceFeature>(worldWidth * worldHeight);
+        _riverMap = new WorldBuffer<bool>(worldWidth * worldHeight);
 
         // init properties
         VoronoiCellCount = voronoiCellCount;
@@ -264,81 +287,23 @@ public class CylinderWorld : IWorldGen
 
         Noise.Seed = _seed;
 
-        InitializePlateTectonics();
-
+        // STAGE 1: Voronoi Cells and Land/Water distribution /////////////////////////////////////
         // Associate each grid cell to one of the voronoi cells.
-        // TODO: Move this before plate tectonics!
-        const int jiggle = 15;
-        var (cellElevationsInt, plateIndex) = GenerateLandWaterDistribution(
-            worldWidth, worldHeight, jiggle, voronoiCells, landWaterMap);
-
-        // Convert to float for more precise calculations.
-        var cellElevations = new float[worldWidth, worldHeight];
-        for (var y = 0; y < worldHeight; y++)
-        for (var x = 0; x < worldWidth; x++)
-            cellElevations[x, y] = cellElevationsInt[x, y];
-
+        InitializeVoronoiCells();
+        GenerateLandWaterDistribution();
+        // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
+        InitializePlateTectonics();
         // Generate coastal slopes for each voronoi cell.
-        var coastalSlopes = GenerateSlopedCoasts(worldWidth, worldHeight, cellElevationsInt);
-
+        GenerateSlopedCoasts();
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
-        var tectonicAdjustment = ComputePlateTectonicHeight(
-            worldWidth,
-            worldHeight,
-            plateIndex,
-            voronoiCells,
-            plateTypes,
-            plateMotions);
-
+        ComputePlateTectonicHeight();
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
-        var hotspotMap = GenerateHotspots(
-            worldWidth,
-            worldHeight,
-            _seed,
-            _rng,
-            plateMotions,
-            voronoiCells,
-            plateTypes,
-            MinIslandChains,
-            MaxIslandChains,
-            MinChainLength,
-            MaxChainLength,
-            ChainSpacing,
-            MinHotspotRadius,
-            MaxHotspotRadius,
-            MinHotspotStrength,
-            MaxHotspotStrength);
-
+        GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
-        const float noiseScale = 1.0f;
-        const int octaves = 4;
-        const float persistence = 0.75f; //?
-        const float lacunarity = 1.8f; //?
-        var offset = new Vector2(1f, 1f);
-        var noiseField = GenerateNoiseMap(
-            worldWidth,
-            worldHeight,
-            _seed,
-            noiseScale,
-            octaves,
-            persistence,
-            lacunarity,
-            offset);
-
-        ApplyNoiseAndSlopes(
-            worldWidth,
-            worldHeight,
-            cellElevationsInt,
-            cellElevations,
-            coastalSlopes,
-            hotspotMap,
-            noiseField,
-            tectonicAdjustment);
-
+        GenerateNoiseMap();
+        ApplyNoiseAndSlopes();
         // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
-        var (temperature, humidity, biomes, temperatureAmplitude) =
-            GenerateClimate(worldWidth, worldHeight, cellElevationsInt);
-
+        GenerateClimate();
         // Apply erosion to smooth terrain and create realistic features
         if (UseAdvancedErosion)
             ApplyAdvancedErosion(
@@ -384,7 +349,7 @@ public class CylinderWorld : IWorldGen
             cellElevations,
             surfaceMap,
             plateIndex,
-            plateTypes,
+            _plateTypes,
             hotspotMap,
             riverMap);
 
@@ -407,6 +372,24 @@ public class CylinderWorld : IWorldGen
             temperatureAmplitude);
     }
 
+    /// <summary>
+    /// Clear all world generation memory to avoid garbage.
+    /// Only really necessary if some world generation steps are skipped.
+    /// </summary>
+    public void Reset()
+    {
+        _elevation.Memory.Span.Clear();
+        _landWaterMap.Memory.Span.Clear();
+        _voronoiCells.Memory.Span.Clear();
+        _voronoiCellTypes.Memory.Span.Clear();
+        _voronoiCellIndex.Memory.Span.Clear();
+        _plateTypes.Memory.Span.Clear();
+        _plateMotions.Memory.Span.Clear();
+        _temperature.Memory.Span.Clear();
+        _temperatureAmplitude.Memory.Span.Clear();
+        _humidity.Memory.Span.Clear();
+    }
+
     #endregion
 
     #region Validation
@@ -421,157 +404,180 @@ public class CylinderWorld : IWorldGen
             throw new ArgumentOutOfRangeException(nameof(worldHeight),
                 "World height must be greater than 0.");
 
-        if (landRatio < 0.0f || landRatio > 1.0f)
+        if (landRatio is < 0.0f or > 1.0f)
             throw new ArgumentOutOfRangeException(nameof(landRatio),
                 "Land ratio must be between 0 and 1.");
     }
 
     #endregion
 
-
-    #region Tectonics
+    #region World Base Structure
 
     /// <summary>
-    ///     Initializes plates and tectonic parameters.
+    ///     Initializes Voronoi cells of the world.
     /// </summary>
-    /// <param name="worldWidth">Width of the world in grid cells.</param>
-    /// <param name="worldHeight">Height of the world in grid cells.</param>
-    /// <param name="landRatio">Ratio of land, i.e.: 1 - `landRatio` = ratio of water.</param>
     /// <returns>Voronoi cells and their types, plate motions and land/water distribution.</returns>
-    private void InitializePlateTectonics()
+    private void InitializeVoronoiCells()
     {
-        var vCells = voronoiCells.Memory.Span;
+        var vCells = _voronoiCells.Memory.Span;
         // step 1: randomly sample <cellCount> coordinates of the grid as voronoi cell seeds
         for (var i = 0; i < VoronoiCellCount; i += 1)
             vCells[i] = (_rng.Next(_worldWidth), _rng.Next(_worldHeight));
 
-        // step 2: assign plate types and motions, and infer basic water/land by plate type
-        // true = continental, false = oceanic
-        GeneratePlateTypes(VoronoiCellCount, LandRatio);
-        GeneratePlateMotions(VoronoiCellCount);
+        GenerateVoronoiCellTypes();
 
-        var landWater = landwaterMap.Memory.Span;
-        var pTypes = voronoiCellTypes.Memory.Span;
+        var landWater = _landWaterMap.Memory.Span;
+        var pTypes = _voronoiCellTypes.Memory.Span;
         for (var i = 0; i < VoronoiCellCount; i += 1)
             // Lower oceanic plates to create deeper oceans
             landWater[i] = pTypes[i] ? LandElevationThreshold : SeaLevelElevation;
     }
 
     /// <summary>
-    ///     Generates the type for each plate: true == land, false == water.
+    ///     Generates the type for each plate:
+    ///     true == continental, false == oceanic.
     /// </summary>
-    /// <param name="plateCount">How many plates we have.</param>
-    /// <param name="landRatio">Percentage of land on this map.</param>
-    /// <returns>Array of types per plate index.</returns>
-    private void GeneratePlateTypes(int plateCount, float landRatio)
+    private void GenerateVoronoiCellTypes()
     {
-        var pTypes = voronoiCellTypes.Memory.Span;
-        for (var i = 0; i < plateCount; i += 1)
-            pTypes[i] = _rng.NextDouble() < landRatio;
+        var pTypes = _voronoiCellTypes.Memory.Span;
+        for (var i = 0; i < VoronoiCellCount; i += 1)
+            pTypes[i] = _rng.NextDouble() < LandRatio;
+    }
+
+    /// <summary>
+    ///     Assigns an elevation and voronoi cell to each single cell on the map.
+    /// </summary>
+    private void GenerateLandWaterDistribution()
+    {
+        // TODO: Play around with noise scale.
+        const float scale = .08f;
+        const int jiggle = 15;
+        var jiggleNoise = Noise.Calc2D(_worldWidth, _worldHeight, scale);
+        var vCells = _voronoiCells.Memory.Span;
+        var vIdx = _voronoiCellIndex.Memory.Span;
+        var elevations = _elevation.Memory.Span;
+        var landWater = _landWaterMap.Memory.Span;
+
+
+        for (var y = 0; y < _worldHeight; y += 1)
+        for (var x = 0; x < _worldWidth; x += 1)
+        {
+            var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+            var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+
+            var minDistSq = double.MaxValue;
+            var winnerCell = 0;
+            for (var i = 0; i < VoronoiCellCount; i += 1)
+            {
+                var vX = vCells[i].Item1;
+                var vY = vCells[i].Item2;
+                var dx = vX - jiggledX;
+                var dy = vY - jiggledY;
+                var distSq = GetCylindricalDistanceSq(_worldWidth, x, y, dx, dy);
+
+                if (distSq >= minDistSq) continue;
+                minDistSq = distSq;
+                winnerCell = i;
+            }
+
+            vIdx[y * _worldWidth + x] = winnerCell;
+            elevations[y * _worldWidth + x] = Convert.ToByte(landWater[winnerCell]);
+        }
+    }
+
+    #endregion
+
+    #region Tectonics
+
+    // TODO: Move this where it makes sense.
+    public Vector2 GetWrappedVector(Vector2 from, Vector2 to)
+    {
+        var dx = to.X - from.X;
+        // If the distance is more than half the map, wrapping around is shorter
+        if (MathF.Abs(dx) > _worldWidth / 2f) dx -= MathF.Sign(dx) * _worldWidth;
+        return new Vector2(dx, to.Y - from.Y);
+    }
+
+    /// <summary>
+    ///     Initializes plates and tectonic parameters.
+    /// </summary>
+    private void InitializePlateTectonics()
+    {
+        var voronoiCells = _voronoiCells.Memory.Span;
+        var plateCells = _plateCells.Memory.Span;
+        var plateIndex = _plateIndex.Memory.Span;
+
+        // step 1: randomly sample voronoi cells of the grid as plate seeds
+        for (var i = 0; i < _plateCount; i += 1)
+        {
+            var voronoiCell = voronoiCells[_rng.Next(VoronoiCellCount)];
+            plateCells[i] = (voronoiCell.Item1, voronoiCell.Item2);
+        }
+
+        // step 2: assign voronoi cells to each plate
+        for (var j = 0; j < VoronoiCellCount; j += 1)
+        {
+            var minDistSq = double.MaxValue;
+            var winnerCell = 0;
+            var (vX, vY) = voronoiCells[j];
+
+            for (var i = 0; i < _plateCount; i += 1)
+            {
+                var (pX, pY) = plateCells[i];
+                var distSq = GetCylindricalDistanceSq(_worldWidth, vX, vY, pX, pY);
+
+                if (distSq >= minDistSq) continue;
+                minDistSq = distSq;
+                winnerCell = i;
+            }
+
+            plateIndex[j] = winnerCell;
+        }
+
+        // step 2: assign plate types and motions, and infer basic water/land by plate type
+        // true = continental, false = oceanic
+        GeneratePlateMotions();
     }
 
     /// <summary>
     ///     Generates a motion vector for each plate.
     /// </summary>
-    /// <param name="plateCount">How many plates we have</param>
-    /// <returns>Array of plate motion vector per plate index.</returns>
-    private Vector2[] GeneratePlateMotions(int plateCount)
+    private void GeneratePlateMotions()
     {
-        var motions = new Vector2[plateCount];
-        for (var i = 0; i < plateCount; i += 1)
+        var motions = _plateMotions.Memory.Span;
+        for (var i = 0; i < _plateCount; i += 1)
         {
             var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
             // TODO: Play around with the speed formula.
             var speed = (float)(_rng.NextDouble() * 0.5 + 0.1);
             motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
         }
-
-        return motions;
     }
-
-    /// <summary>
-    ///     Assigns an elevation and plate to each single cell on the map.
-    /// </summary>
-    /// <param name="worldWidth">Width of the world in grid cells.</param>
-    /// <param name="worldHeight">Height of the world in grid cells.</param>
-    /// <param name="jiggle">Magnitude of the random jiggle.</param>
-    /// <param name="voronoiCells">Voronoi cell center locations for this map.</param>
-    /// <param name="landWaterMap">Land/water distribution by Voronoi cell index.</param>
-    /// <returns></returns>
-    private static (int[,] cellElevations, int[,] plateIndex) GenerateLandWaterDistribution(
-        int worldWidth,
-        int worldHeight,
-        int jiggle,
-        in IList<(int, int)> voronoiCells,
-        in int[] landWaterMap)
-    {
-        // TODO: Play around with noise scale.
-        const float scale = .08f;
-        var cellElevations = new int[worldWidth, worldHeight];
-        var plateIndex = new int[worldWidth, worldHeight];
-        var jiggleNoise = Noise.Calc2D(worldWidth, worldHeight, scale);
-
-        for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-        {
-            var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-            var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-
-            var minDistSq = double.MaxValue;
-            var winnerPlate = 0;
-            for (var i = 0; i < voronoiCells.Count; i += 1)
-            {
-                var vX = voronoiCells[i].Item1;
-                var vY = voronoiCells[i].Item2;
-                var dx = vX - jiggledX;
-                var dy = vY - jiggledY;
-                var distSq = GetCylindricalDistanceSq(worldWidth, x, y, dx, dy);
-
-                if (distSq >= minDistSq) continue;
-                minDistSq = distSq;
-                winnerPlate = i;
-            }
-
-            plateIndex[x, y] = winnerPlate;
-            cellElevations[x, y] = landWaterMap[winnerPlate];
-        }
-
-        return (cellElevations, plateIndex);
-    }
-
-    // TODO: Check whether this conflicts with other steps or still necessary.
 
     /// <summary>
     ///     Generates a gentle fall-off towards costal cells (elevation == 4)
     /// </summary>
-    /// <param name="worldWidth"></param>
-    /// <param name="worldHeight"></param>
-    /// <param name="cellElevations"></param>
-    /// <returns>A grid of sloping elevation values for coast lines.</returns>
-    private static float[,] GenerateSlopedCoasts(
-        int worldWidth,
-        int worldHeight,
-        in int[,] cellElevations)
+    private void GenerateSlopedCoasts()
     {
         // 1 Initialize all cells to 9; then set boundary (land adjacent to water) to 0 and enqueue.
-        var coastalSlopes = new float[worldWidth, worldHeight];
-        for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
-            coastalSlopes[x, y] = MaxCoastalSlope;
+        var coastalSlopes = _coastalSlopes.Memory.Span;
+        var elevations = _elevation.Memory.Span;
+        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
+            coastalSlopes[i] = MaxCoastalSlope;
 
-        var q = new Queue<(int, int)>(worldWidth * worldHeight);
-        for (var y = 1; y < worldHeight - 1; y += 1)
-        for (var x = 1; x < worldWidth - 1; x += 1)
+        var q = new Queue<(int, int)>(_worldWidth * _worldHeight);
+        for (var y = 1; y < _worldHeight - 1; y += 1)
+        for (var x = 1; x < _worldWidth - 1; x += 1)
         {
-            if (cellElevations[x, y] != LandElevationThreshold) continue;
+            if (elevations[y * _worldWidth + x] != LandElevationThreshold) continue;
 
             // Must have at least one water cell in its neighbourhood.
-            if (cellElevations[x, y - 1] != SeaLevelElevation && // north
-                cellElevations[x + 1, y] != SeaLevelElevation && // east
-                cellElevations[x, y + 1] != SeaLevelElevation && // south
-                cellElevations[x - 1, y] != SeaLevelElevation) continue; // west
+            if (elevations[(y - 1) * _worldWidth + x] != SeaLevelElevation && // north
+                elevations[y * _worldWidth + x + 1] != SeaLevelElevation && // east
+                elevations[y + 1 * _worldWidth + x] != SeaLevelElevation && // south
+                elevations[y * _worldWidth + (x - 1)] != SeaLevelElevation) continue; // west
 
-            coastalSlopes[x, y] = 0.0f;
+            coastalSlopes[y * _worldWidth + 1] = 0.0f;
             q.Enqueue((x, y));
         }
 
@@ -581,24 +587,22 @@ public class CylinderWorld : IWorldGen
         while (q.Count > 0)
         {
             var (x, y) = q.Dequeue();
-            var elevation = coastalSlopes[x, y];
+            var elevation = coastalSlopes[y * _worldWidth + x];
             foreach (var (dirX, dirY) in directions)
             {
-                var neighX = GetWrappedX(worldWidth, x + dirX);
+                var neighX = GetWrappedX(_worldWidth, x + dirX);
                 var neighY = y + dirY;
 
                 if (neighY < 0
-                    || neighY >= worldHeight
-                    || coastalSlopes[neighX, neighY] <= elevation) continue;
+                    || neighY >= _worldHeight
+                    || coastalSlopes[neighY * _worldWidth + neighX] <= elevation) continue;
 
-                coastalSlopes[neighX, neighY] = Math.Min(elevation + 1, 9);
+                coastalSlopes[neighY * _worldWidth + neighX] = Math.Min(elevation + 1, 9);
 
                 if (elevation < 8)
                     q.Enqueue((neighX, neighY));
             }
         }
-
-        return coastalSlopes;
     }
 
     /// <summary>
@@ -607,37 +611,28 @@ public class CylinderWorld : IWorldGen
     ///     trenches at plate divergences.
     ///     These changes will only affect world cells located at tectonic plate boundaries.
     /// </summary>
-    /// <param name="worldWidth">Width of the world in grid cells.</param>
-    /// <param name="worldHeight">Height of the world in grid cells.</param>
-    /// <param name="plateIndex">Tectonic plate index for each cell in the world.</param>
-    /// <param name="plateCenters">List of center points of tectonic plates.</param>
-    /// <param name="plateTypes">Tectonic plate types (true = continent, false = sea).</param>
-    /// <param name="plateMotions"></param>
-    /// <returns>Elevation changes for grid cells.</returns>
-    private static float[,] ComputePlateTectonicHeight(
-        int worldWidth,
-        int worldHeight,
-        in int[,] plateIndex,
-        in IList<(int, int)> plateCenters,
-        in bool[] plateTypes,
-        in Vector2[] plateMotions)
+    private void ComputePlateTectonicHeight()
     {
-        var tectonicDelta = new float[worldWidth, worldHeight];
+        var tectonicDelta = _tectonicDelta.Memory.Span;
+        var plateMotions = _plateMotions.Memory.Span;
+        var plateTypes = _plateTypes.Memory.Span;
+        var plateCenters = _plateCells.Memory.Span;
+        var plateIndex = _plateIndex.Memory.Span;
 
-        for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
+        for (var y = 0; y < _worldHeight; y += 1)
+        for (var x = 0; x < _worldWidth; x += 1)
         {
-            var currentPlate = plateIndex[x, y];
+            var currentPlate = plateIndex[y * _worldWidth + x];
             var totalDelta = 0f;
 
             (int, int)[] offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)];
             foreach (var (dx, dy) in offsets)
             {
-                var nx = GetWrappedX(worldWidth, x + dx);
+                var nx = GetWrappedX(_worldWidth, x + dx);
                 var ny = y + dy;
-                if (ny < 0 || ny >= worldHeight) continue;
+                if (ny < 0 || ny >= _worldHeight) continue;
 
-                var neighbourPlate = plateIndex[nx, ny];
+                var neighbourPlate = plateIndex[ny * _worldWidth + nx];
                 if (neighbourPlate == currentPlate) continue;
 
                 var pA = plateCenters[currentPlate];
@@ -684,60 +679,28 @@ public class CylinderWorld : IWorldGen
                 }
             }
 
-            tectonicDelta[x, y] = totalDelta;
+            tectonicDelta[y * _worldWidth + x] = totalDelta;
         }
-
-        return tectonicDelta;
     }
 
     // TODO: Turn numeric parameters in to constants and later tweakable Properties
     /// <summary>
+    ///     Assign hotspots to certain cells in the world.
     /// </summary>
-    /// <param name="worldWidth"></param>
-    /// <param name="worldHeight"></param>
-    /// <param name="seed"></param>
-    /// <param name="rng"></param>
-    /// <param name="plateMotions"></param>
-    /// <param name="plateCenters"></param>
-    /// <param name="plateTypes"></param>
-    /// <param name="minIslandChains"></param>
-    /// <param name="maxIslandChains"></param>
-    /// <param name="minChainLength"></param>
-    /// <param name="maxChainLength"></param>
-    /// <param name="chainSpacing"></param>
-    /// <param name="minHotspotRadius"></param>
-    /// <param name="maxHotspotRadius"></param>
-    /// <param name="minHotspotStrength"></param>
-    /// <param name="maxHotspotStrength"></param>
-    /// <returns></returns>
-    private static float[,] GenerateHotspots(
-        int worldWidth,
-        int worldHeight,
-        int seed,
-        Random rng,
-        in Vector2[] plateMotions,
-        in IList<(int, int)> plateCenters,
-        in bool[] plateTypes,
-        int minIslandChains,
-        int maxIslandChains,
-        int minChainLength,
-        int maxChainLength,
-        int chainSpacing,
-        int minHotspotRadius,
-        int maxHotspotRadius,
-        float minHotspotStrength,
-        float maxHotspotStrength)
+    private void GenerateHotspots()
     {
-        var hotspotMap = new float[worldWidth, worldHeight];
-        var chainCount =
-            rng.Next(minIslandChains,
-                maxIslandChains + 1); // +1 because Next upper bound is exclusive
+        var hotspots = _hotspotMap.Memory.Span;
+        var voronoiTypes = _voronoiCellTypes.Memory.Span;
+        var voronoiCenters = _voronoiCells.Memory.Span;
+        var plateMotions = _plateMotions.Memory.Span;
+        // +1 because Next upper bound is exclusive
+        var chainCount = _rng.Next(MinIslandChains, MaxIslandChains + 1);
 
         // TODO: Why the need for a different rng?
-        var prng = new Random(seed + 12345); // Different seed for hotspots
+        var prng = new Random(_seed + 12345); // Different seed for hotspots
         var oceanPlateIds = new List<int>();
-        for (var i = 0; i < plateTypes.Length; i++)
-            if (!plateTypes[i])
+        for (var i = 0; i < voronoiTypes.Length; i++)
+            if (!voronoiTypes[i])
                 oceanPlateIds.Add(i);
 
         for (var chain = 0; chain < chainCount; chain++)
@@ -746,10 +709,10 @@ public class CylinderWorld : IWorldGen
 
             var oceanPlateId = oceanPlateIds[prng.Next(oceanPlateIds.Count)];
             oceanPlateIds.Remove(oceanPlateId);
-            var (startX, startY) = plateCenters[oceanPlateId];
+            var (startX, startY) = voronoiCenters[oceanPlateId];
 
             // Create a chain of hotspots along a plate motion direction.
-            var chainLength = prng.Next(minChainLength, maxChainLength + 1);
+            var chainLength = prng.Next(MinChainLength, MaxChainLength + 1);
 
             // Use a random plate motion direction for the chain, or create a random direction
             var chainDirection = plateMotions.Length > 0
@@ -768,27 +731,27 @@ public class CylinderWorld : IWorldGen
             for (var i = 0; i < chainLength; i++)
             {
                 // Calculate position along the chain with configurable spacing
-                var offsetX = (int)(chainDirection.X * i * chainSpacing);
-                var offsetY = (int)(chainDirection.Y * i * chainSpacing);
-                var centerX = GetWrappedX(worldWidth, startX + offsetX);
+                var offsetX = (int)(chainDirection.X * i * ChainSpacing);
+                var offsetY = (int)(chainDirection.Y * i * ChainSpacing);
+                var centerX = GetWrappedX(_worldWidth, startX + offsetX);
                 var centerY = startY + offsetY;
 
                 // Keep within bounds with some wrapping
                 // centerX = (centerX % worldWidth + worldWidth) % worldWidth;
                 // centerY = (centerY % worldHeight + worldHeight) % worldHeight;
-                if (offsetY < 0 || offsetY >= worldHeight) continue;
+                if (offsetY < 0 || offsetY >= _worldHeight) continue;
 
-                var radius = prng.Next(minHotspotRadius, maxHotspotRadius + 1);
+                var radius = prng.Next(MinHotspotRadius, MaxHotspotRadius + 1);
                 var strength =
-                    (float)(prng.NextDouble() * (maxHotspotStrength - minHotspotStrength) +
-                            minHotspotStrength);
+                    (float)(prng.NextDouble() * (MaxHotspotStrength - MinHotspotStrength) +
+                            MinHotspotStrength);
 
                 // Create a volcanic cone shape with exponential falloff (more realistic)
                 // TODO: This looks very inefficient.
                 var minY = Math.Max(0, centerY - radius);
-                var maxY = Math.Min(worldHeight, centerY + radius);
+                var maxY = Math.Min(_worldHeight, centerY + radius);
                 var minX = Math.Max(0, centerX - radius);
-                var maxX = Math.Min(worldWidth, centerX + radius);
+                var maxX = Math.Min(_worldWidth, centerX + radius);
                 for (var y = minY; y < maxY; y++)
                 for (var x = minX; x < maxX; x++)
                 {
@@ -808,12 +771,10 @@ public class CylinderWorld : IWorldGen
                     var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
                     coneHeight *= 0.7f + noise * 0.6f;
 
-                    hotspotMap[x, y] += coneHeight;
+                    hotspots[y * _worldWidth + x] += coneHeight;
                 }
             }
         }
-
-        return hotspotMap;
     }
 
     #endregion
@@ -823,31 +784,20 @@ public class CylinderWorld : IWorldGen
     /// <summary>
     ///     Generates a map of pseudo-random Perlin noise.
     /// </summary>
-    /// <param name="mapWidth">Map width in grid cells</param>
-    /// <param name="mapHeight">Map height in grid cells</param>
-    /// <param name="seed">Seed of the random number generator</param>
-    /// <param name="scale">Scale of the noise</param>
-    /// <param name="octaves">How many layers of noise to generate</param>
-    /// <param name="persistence">Less -> smoother, more -> rougher?</param>
-    /// <param name="lacunarity">Gappiness, how many and/or large holes</param>
-    /// <param name="offset">Offset between layers?</param>
-    /// <returns></returns>
-    private static float[,] GenerateNoiseMap(
-        int mapWidth,
-        int mapHeight,
-        int seed,
-        float scale,
-        int octaves,
-        float persistence,
-        float lacunarity,
-        Vector2 offset)
+    private void GenerateNoiseMap()
     {
+        // TODO: Turn these into properties.
+        const float scale = 1.0f;
+        const int octaves = 4;
+        const float persistence = 0.75f; //?
+        const float lacunarity = 1.8f; //?
+        var offset = new Vector2(1f, 1f);
         // For now work with a fixed scale
         const float noiseScale = 0.03f;
 
-        var noiseMap = new float[mapWidth, mapHeight];
+        var noiseMap = _noiseMap.Memory.Span;
 
-        var prng = new Random(seed);
+        var prng = new Random(_seed);
         var octaveOffsets = new Vector2[octaves];
         for (var i = 0; i < octaves; i++)
         {
@@ -856,13 +806,11 @@ public class CylinderWorld : IWorldGen
             octaveOffsets[i] = new Vector2(offsetX, offsetY);
         }
 
-        if (scale <= 0) scale = 0.0001f;
-
         var maxNoiseHeight = float.MinValue;
         var minNoiseHeight = float.MaxValue;
 
-        for (var y = 0; y < mapHeight; y++)
-        for (var x = 0; x < mapWidth; x++)
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
         {
             float amplitude = 1;
             float frequency = 1;
@@ -875,7 +823,8 @@ public class CylinderWorld : IWorldGen
 
                 // var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
                 var perlinValue =
-                    GetCylindricalNoise(sampleX, sampleY, mapWidth, noiseScale, Noise.CalcPixel3D);
+                    GetCylindricalNoise(sampleX, sampleY, _worldWidth, noiseScale,
+                        Noise.CalcPixel3D);
 
                 noiseHeight += perlinValue * amplitude;
                 amplitude *= persistence;
@@ -884,52 +833,50 @@ public class CylinderWorld : IWorldGen
 
             maxNoiseHeight = Math.Max(maxNoiseHeight, noiseHeight);
             minNoiseHeight = Math.Min(minNoiseHeight, noiseHeight);
-            noiseMap[x, y] = noiseHeight;
+            noiseMap[y * _worldWidth + x] = noiseHeight;
         }
 
-        for (var y = 0; y < mapHeight; y++)
-        for (var x = 0; x < mapWidth; x++)
-            noiseMap[x, y] = 255f * InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
-
-        return noiseMap;
+        for (var y = 0; y < _worldHeight; y++)
+        for (var x = 0; x < _worldWidth; x++)
+            noiseMap[y * _worldWidth + x] = 255f * InverseLerp(
+                minNoiseHeight,
+                maxNoiseHeight,
+                noiseMap[y * _worldWidth + x]);
     }
 
-    private static void ApplyNoiseAndSlopes(
-        int worldWidth,
-        int worldHeight,
-        in int[,] cellElevationsInt,
-        in float[,] cellElevations,
-        in float[,] coastalSlopes,
-        in float[,] hotspotMap,
-        in float[,] noiseField,
-        in float[,] tectonicAdjustment)
+    private void ApplyNoiseAndSlopes()
     {
+        var elevations = _elevation.Memory.Span;
+        var coastalSlopes = _coastalSlopes.Memory.Span;
+        var noiseField = _noiseMap.Memory.Span;
+        var tectonicDelta = _tectonicDelta.Memory.Span;
+        var hotspots = _hotspotMap.Memory.Span;
+        var elevationF = _elevationF.Memory.Span;
         // Apply noise and slopes to elevation map.
-        for (var y = 0; y < worldHeight; y += 1)
-        for (var x = 0; x < worldWidth; x += 1)
+        for (var i = 0; i < _worldHeight * _worldHeight; i += 1)
         {
-            var baseElevation = cellElevationsInt[x, y] >= LandElevationThreshold
+            // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
+            var baseElevation = elevations[i] >= LandElevationThreshold
                 ? ContinentalBaseElevation
-                : OceanicBaseElevation; // Continental plates (>=4) get higher base, oceanic (<4) get much lower base for deep trenches
-            var slopeFactor = coastalSlopes[x, y] / MaxCoastalSlope;
-            var normalizedNoise = noiseField[x, y] / 255.0;
-            var tectonic = tectonicAdjustment[x, y];
-            var hotspot = hotspotMap[x, y];
+                : OceanicBaseElevation;
+            var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
+            var normalizedNoise = noiseField[i] / 255.0;
+            var tectonic = tectonicDelta[i];
+            var hotspot = hotspots[i];
 
             // For oceanic plates, reduce noise impact to allow deeper trenches
-            var cellElevationContribution = cellElevationsInt[x, y] >= LandElevationThreshold
-                ? cellElevationsInt[x, y]
+            var cellElevationContribution = elevations[i] >= LandElevationThreshold
+                ? elevations[i]
                 : 0;
-            var noiseMultiplier =
-                cellElevationsInt[x, y] >= LandElevationThreshold
-                    ? 1.0f
-                    : 0.3f; // Less noise in oceans
+            var noiseMultiplier = elevations[i] >= LandElevationThreshold
+                ? 1.0f
+                : 0.3f; // Less noise in oceans
             var elevation = cellElevationContribution +
                             baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
                             tectonic + hotspot;
 
             // Store as float, don't clamp yet
-            cellElevations[x, y] = (float)elevation;
+            elevationF[i] = (float)elevation;
         }
     }
 
@@ -990,62 +937,51 @@ public class CylinderWorld : IWorldGen
     /// <summary>
     ///     Generates world maps for various climate features.
     /// </summary>
-    /// <param name="worldWidth">World width in cells.</param>
-    /// <param name="worldHeight">World height in cells.</param>
-    /// <param name="elevations">Elevation map of the world.</param>
-    /// <returns>
-    ///     World maps for:
-    ///     - temperature
-    ///     - humidity
-    ///     - biomes
-    ///     - temperature amplitude
-    /// </returns>
-    private static (float[,], float[,], Biome[,], float[,]) GenerateClimate(
-        int worldWidth,
-        int worldHeight,
-        in int[,] elevations)
+    private void GenerateClimate()
     {
-        var temperature = new float[worldWidth, worldHeight];
-        var humidity = new float[worldWidth, worldHeight];
-        var biomes = new Biome[worldWidth, worldHeight];
-        var temperatureAmplitude = new float[worldWidth, worldHeight];
+        var elevations = _elevation.Memory.Span;
+        var temperature = _temperature.Memory.Span;
+        var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
+        var humidity = _humidity.Memory.Span;
+        var biomes = _biomes.Memory.Span;
 
-        for (var y = 0; y < worldHeight; y++)
+        for (var y = 0; y < _worldHeight; y++)
         {
             // Latitude factor: 0 at equator (middle), 1 at poles
-            var latitudeFactor = Math.Abs(y - worldHeight / 2.0f) / (worldHeight / 2.0f);
+            var latitudeFactor = Math.Abs(y - _worldHeight / 2.0f) / (_worldHeight / 2.0f);
 
-            for (var x = 0; x < worldWidth; x++)
+            for (var x = 0; x < _worldWidth; x++)
             {
-                var elevation = elevations[x, y];
+                var elevation = elevations[y * _worldWidth + x];
                 var isWater = elevation <= 3;
 
                 // Temperature: base -50 to 30, decreases with latitude and elevation
                 var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
                 var elevationTempModifier =
                     ElevationTempModifier * elevation; // colder at higher elevation
-                temperature[x, y] = baseTemp + elevationTempModifier;
+                temperature[y * _worldWidth + x] = baseTemp + elevationTempModifier;
 
                 // Humidity: higher near water, lower at high elevation
-                var distanceToWater =
-                    CalculateDistanceToWater(x, y, worldWidth, worldHeight, elevations);
+                var distanceToWater = CalculateDistanceToWater(x, y);
                 var humidityBase =
                     isWater ? 1.0f : Math.Max(MinHumidity, 1.0f - distanceToWater * 0.1f);
                 var elevationHumidityModifier = ElevationHumidityModifier * elevation;
-                humidity[x, y] = Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
+                humidity[y * _worldWidth + x] =
+                    Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
 
                 // Seasonal amplitude: larger at higher latitudes
-                temperatureAmplitude[x, y] = BaseTemperatureAmplitude +
-                                             LatitudeAmplitudeModifier * latitudeFactor;
+                temperatureAmplitude[y * _worldWidth + x]
+                    = BaseTemperatureAmplitude + LatitudeAmplitudeModifier * latitudeFactor;
 
 
                 // Determine biome
-                biomes[x, y] =
-                    DetermineBiome(temperature[x, y], humidity[x, y], elevation, isWater);
+                biomes[y * _worldWidth + x] = DetermineBiome(
+                    temperature[y * _worldWidth + x],
+                    humidity[y * _worldWidth + x],
+                    elevation,
+                    isWater);
             }
         }
-
-        return (temperature, humidity, biomes, temperatureAmplitude);
     }
 
     // TODO: Refine dist to water, make dist adjustable maybe?
@@ -1053,25 +989,20 @@ public class CylinderWorld : IWorldGen
     /// <summary>
     ///     Calculate the distance of a cell to water, if water is within 5 cells..
     /// </summary>
-    /// <param name="x">X-coordinate of the cell.</param>
-    /// <param name="y">Y-coordinate of the cell.</param>
-    /// <param name="worldWidth">Width of the world in cells.</param>
-    /// <param name="worldHeight">Height of the world in cells.</param>
-    /// <param name="elevations">Elevation</param>
     /// <returns>Distance of the cell at the given coordinate from the nearest water cell.</returns>
-    private static int CalculateDistanceToWater(int x, int y, int worldWidth, int worldHeight,
-        int[,] elevations)
+    private int CalculateDistanceToWater(int x, int y)
     {
+        var elevations = _elevation.Memory.Span;
         // Simple flood fill or BFS to find distance to nearest water
         // For simplicity, use a small radius check
         var minDist = int.MaxValue;
         for (var dy = -5; dy <= 5; dy++)
         for (var dx = -5; dx <= 5; dx++)
         {
-            var nx = GetWrappedX(worldWidth, x + dx);
+            var nx = GetWrappedX(_worldWidth, x + dx);
             var ny = y + dy;
-            if (ny < 0 || ny >= worldHeight) continue;
-            if (elevations[nx, ny] > 3) continue;
+            if (ny < 0 || ny >= _worldHeight) continue;
+            if (elevations[ny * _worldWidth + nx] > 3) continue;
 
             var dist = Math.Abs(dx) + Math.Abs(dy); // Manhattan distance
             minDist = Math.Min(minDist, dist);
