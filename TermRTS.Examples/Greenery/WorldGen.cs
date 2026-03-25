@@ -242,33 +242,15 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
             lacunarity,
             offset);
 
-        // Apply noise and slopes to elevation map.
-        for (var y = 0; y < worldHeight; y += 1)
-            for (var x = 0; x < worldWidth; x += 1)
-            {
-                var baseElevation = cellElevationsInt[x, y] >= LandElevationThreshold
-                    ? ContinentalBaseElevation
-                    : OceanicBaseElevation; // Continental plates (>=4) get higher base, oceanic (<4) get much lower base for deep trenches
-                var slopeFactor = coastalSlopes[x, y] / MaxCoastalSlope;
-                var normalizedNoise = noiseField[x, y] / 255.0;
-                var tectonic = tectonicAdjustment[x, y];
-                var hotspot = hotspotMap[x, y];
-
-                // For oceanic plates, reduce noise impact to allow deeper trenches
-                var cellElevationContribution = cellElevationsInt[x, y] >= LandElevationThreshold
-                    ? cellElevationsInt[x, y]
-                    : 0;
-                var noiseMultiplier =
-                    cellElevationsInt[x, y] >= LandElevationThreshold
-                        ? 1.0f
-                        : 0.3f; // Less noise in oceans
-                var elevation = cellElevationContribution +
-                                baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
-                                tectonic + hotspot;
-
-                // Store as float, don't clamp yet
-                cellElevations[x, y] = (float)elevation;
-            }
+        ApplyNoiseAndSlopes(
+            worldWidth,
+            worldHeight,
+            cellElevationsInt,
+            cellElevations,
+            coastalSlopes,
+            hotspotMap,
+            noiseField,
+            tectonicAdjustment);
 
         // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
         var (temperature, humidity, biomes, temperatureAmplitude) =
@@ -301,7 +283,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var riverMap = GenerateRivers(
             worldWidth,
             worldHeight,
-            ref cellElevations,
+            cellElevations,
             RiverFormationThreshold,
             RiverCarveScale,
             RiverMaxCarveDepth,
@@ -972,6 +954,45 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         return noiseMap;
     }
 
+    private static void ApplyNoiseAndSlopes(
+        int worldWidth,
+        int worldHeight,
+        in int[,] cellElevationsInt,
+        in float[,] cellElevations,
+        in float[,] coastalSlopes,
+        in float[,] hotspotMap,
+        in float[,] noiseField,
+        in float[,] tectonicAdjustment)
+    {
+        // Apply noise and slopes to elevation map.
+        for (var y = 0; y < worldHeight; y += 1)
+            for (var x = 0; x < worldWidth; x += 1)
+            {
+                var baseElevation = cellElevationsInt[x, y] >= LandElevationThreshold
+                    ? ContinentalBaseElevation
+                    : OceanicBaseElevation; // Continental plates (>=4) get higher base, oceanic (<4) get much lower base for deep trenches
+                var slopeFactor = coastalSlopes[x, y] / MaxCoastalSlope;
+                var normalizedNoise = noiseField[x, y] / 255.0;
+                var tectonic = tectonicAdjustment[x, y];
+                var hotspot = hotspotMap[x, y];
+
+                // For oceanic plates, reduce noise impact to allow deeper trenches
+                var cellElevationContribution = cellElevationsInt[x, y] >= LandElevationThreshold
+                    ? cellElevationsInt[x, y]
+                    : 0;
+                var noiseMultiplier =
+                    cellElevationsInt[x, y] >= LandElevationThreshold
+                        ? 1.0f
+                        : 0.3f; // Less noise in oceans
+                var elevation = cellElevationContribution +
+                                baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
+                                tectonic + hotspot;
+
+                // Store as float, don't clamp yet
+                cellElevations[x, y] = (float)elevation;
+            }
+    }
+
     private static float Lerp(float a, float b, float t)
     {
         return a + t * (b - a);
@@ -1430,7 +1451,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static bool[,] GenerateRivers(
         int worldWidth,
         int worldHeight,
-        ref float[,] elevations,
+        in float[,] elevations,
         float formationThreshold,
         float carveScale,
         float maxCarveDepth,
@@ -1458,11 +1479,11 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
         var flowAccumulation = AccumulateFlow(worldWidth, worldHeight, flowDirections, rainfall);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        var riverMap = CarveRivers(worldWidth, worldHeight, ref elevations, flowDirections,
+        var riverMap = CarveRivers(worldWidth, worldHeight, elevations, flowDirections,
             flowAccumulation, formationThreshold, carveScale, maxCarveDepth);
 
         // Step 5: Deposit sediment in river valleys (optional)
-        DepositSediment(worldWidth, worldHeight, ref elevations, flowAccumulation);
+        DepositSediment(worldWidth, worldHeight, elevations, flowAccumulation);
 
         return riverMap;
     }
@@ -1688,7 +1709,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static bool[,] CarveRivers(
         int worldWidth,
         int worldHeight,
-        ref float[,] elevations,
+        in float[,] elevations,
         (int, int)[,] flowDirections,
         float[,] flowAccumulation,
         float formationThreshold,
@@ -1773,7 +1794,7 @@ public class VoronoiWorld(int cellCount, int seed = 0) : IWorldGen
     private static void DepositSediment(
         int worldWidth,
         int worldHeight,
-        ref float[,] elevations,
+        in float[,] elevations,
         float[,] flowAccumulation)
     {
         // Simple sediment deposition in low areas
