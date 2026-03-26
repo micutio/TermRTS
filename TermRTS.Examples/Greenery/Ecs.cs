@@ -1,10 +1,21 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
+using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
 
-public class WorldComponent(int entityId, int worldWidth, int worldHeight, byte[,] cells, SurfaceFeature[,] surfaces, float[,] temperature, float[,] humidity, Biome[,] biomes, float[,] temperatureAmplitude)
+// TODO: Split this into several components!
+public class WorldComponent(
+    int entityId,
+    int worldWidth,
+    int worldHeight,
+    byte[,] cells,
+    SurfaceFeature[,] surfaces,
+    float[,] temperature,
+    float[,] humidity,
+    Biome[,] biomes,
+    float[,] temperatureAmplitude)
     : ComponentBase(entityId)
 {
     public byte[,] Cells { get; } = cells;

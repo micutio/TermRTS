@@ -143,8 +143,8 @@ public class CylinderWorld : IWorldGen
     private readonly int _plateCount;
 
     // TODO: Distinguish between voronoi cells and tectonic plates
-    private readonly WorldBuffer<byte> _elevation;
-    private readonly WorldBuffer<float> _elevationF;
+    // private readonly WorldBuffer<byte> _elevation;
+    private readonly WorldBuffer<float> _elevation;
     private readonly WorldBuffer<int> _landWaterMap;
     private readonly WorldBuffer<(int, int)> _voronoiCells;
     private readonly WorldBuffer<bool> _voronoiCellTypes;
@@ -252,8 +252,7 @@ public class CylinderWorld : IWorldGen
         _plateCount = plateCount;
 
         // init private fields
-        _elevation = new WorldBuffer<byte>(worldWidth * worldHeight);
-        _elevationF = new WorldBuffer<float>(worldWidth * worldHeight);
+        _elevation = new WorldBuffer<float>(worldWidth * worldHeight);
         _landWaterMap = new WorldBuffer<int>(voronoiCellCount);
         _voronoiCells = new WorldBuffer<(int, int)>(voronoiCellCount);
         _voronoiCellTypes = new WorldBuffer<bool>(voronoiCellCount);
@@ -332,16 +331,11 @@ public class CylinderWorld : IWorldGen
 
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var elevation = _elevation.Memory.Span;
-        var elevationF = _elevationF.Memory.Span;
         var surfaceFeatures = _surfaceFeatures.Memory.Span;
         var temperatures = _temperature.Memory.Span;
         var humidities = _humidity.Memory.Span;
         var biomes = _biomes.Memory.Span;
         var temperatureAmplitudes = _temperatureAmplitude.Memory.Span;
-
-        for (var i = 0; i < worldHeight * worldWidth; i += 1)
-            elevation[i] =
-                Convert.ToByte(Math.Clamp(Math.Round(elevationF[i]), 0, GlacierThreshold));
 
         var world = new byte[worldWidth, worldHeight];
         var surfaceMap = new SurfaceFeature[worldWidth, worldHeight];
@@ -564,16 +558,22 @@ public class CylinderWorld : IWorldGen
             coastalSlopes[i] = MaxCoastalSlope;
 
         var q = new Queue<(int, int)>(_worldWidth * _worldHeight);
+        const float tolerance = 1.0f;
         for (var y = 1; y < _worldHeight - 1; y += 1)
             for (var x = 1; x < _worldWidth - 1; x += 1)
             {
-                if (elevations[y * _worldWidth + x] != LandElevationThreshold) continue;
+                if (Math.Abs(elevations[y * _worldWidth + x] - LandElevationThreshold) >
+                    tolerance) continue;
 
                 // Must have at least one water cell in its neighbourhood.
-                if (elevations[(y - 1) * _worldWidth + x] != SeaLevelElevation && // north
-                    elevations[y * _worldWidth + x + 1] != SeaLevelElevation && // east
-                    elevations[y + 1 * _worldWidth + x] != SeaLevelElevation && // south
-                    elevations[y * _worldWidth + (x - 1)] != SeaLevelElevation) continue; // west
+                if (Math.Abs(elevations[(y - 1) * _worldWidth + x] - SeaLevelElevation) >
+                    tolerance && // north
+                    Math.Abs(elevations[y * _worldWidth + x + 1] - SeaLevelElevation) >
+                    tolerance && // east
+                    Math.Abs(elevations[y + 1 * _worldWidth + x] - SeaLevelElevation) >
+                    tolerance && // south
+                    Math.Abs(elevations[y * _worldWidth + (x - 1)] - SeaLevelElevation) > tolerance)
+                    continue; // west
 
                 coastalSlopes[y * _worldWidth + 1] = 0.0f;
                 q.Enqueue((x, y));
@@ -849,7 +849,7 @@ public class CylinderWorld : IWorldGen
         var noiseField = _noiseMap.Memory.Span;
         var tectonicDelta = _tectonicDelta.Memory.Span;
         var hotspots = _hotspotMap.Memory.Span;
-        var elevationF = _elevationF.Memory.Span;
+        var elevationF = _elevation.Memory.Span;
         // Apply noise and slopes to elevation map.
         for (var i = 0; i < _worldHeight * _worldHeight; i += 1)
         {
@@ -1017,7 +1017,7 @@ public class CylinderWorld : IWorldGen
     /// <param name="elevation">Elevation of the cell.</param>
     /// <param name="isWater">True if the cell is sea, false otherwise.</param>
     /// <returns>Biome of the cell.</returns>
-    private static Biome DetermineBiome(float temp, float humidity, int elevation, bool isWater)
+    private static Biome DetermineBiome(float temp, float humidity, float elevation, bool isWater)
     {
         if (isWater)
             return Biome.Ocean;
@@ -1052,7 +1052,7 @@ public class CylinderWorld : IWorldGen
     /// </summary>
     private void ApplyErosion()
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var elevationBuf = new Span<float>(new float[_worldWidth * _worldHeight]);
         for (var i = 0; i < _worldWidth * _worldHeight; i++) elevationBuf[i] = elevationsF[i];
 
@@ -1121,7 +1121,7 @@ public class CylinderWorld : IWorldGen
         var sediment = new float[_worldWidth * _worldHeight];
         var terrain = new float[_worldWidth * _worldHeight];
 
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var biomes = _biomes.Memory.Span;
         var humidity = _humidity.Memory.Span;
         var hotspots = _hotspotMap.Memory.Span;
@@ -1337,7 +1337,7 @@ public class CylinderWorld : IWorldGen
         var flowAccumulation = AccumulateFlow(flowDirections, rainfall);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        var riverMap = CarveRivers(flowDirections, flowAccumulation);
+        CarveRivers(flowDirections, flowAccumulation);
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(flowAccumulation);
@@ -1350,7 +1350,7 @@ public class CylinderWorld : IWorldGen
     /// <returns>A grid of rain fall per cell.</returns>
     private float[,] GenerateRainfall()
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var rainfall = new float[_worldWidth, _worldHeight];
 
         // Base rainfall increases with proximity to water and decreases with elevation
@@ -1406,7 +1406,7 @@ public class CylinderWorld : IWorldGen
     /// <returns>A grid of flow vectors per cell.</returns>
     private (int, int)[,] CalculateFlowDirections()
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var flowDirections = new (int, int)[_worldWidth, _worldHeight];
 
         for (var y = 0; y < _worldHeight; y++)
@@ -1530,11 +1530,11 @@ public class CylinderWorld : IWorldGen
     /// <param name="flowDirections">Flow direction for each cell.</param>
     /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
     /// <returns></returns>
-    private bool[,] CarveRivers(
+    private void CarveRivers(
         (int, int)[,] flowDirections,
         float[,] flowAccumulation)
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var riverMap = new bool[_worldWidth, _worldHeight];
 
         // Find maximum flow accumulation for normalization
@@ -1600,8 +1600,6 @@ public class CylinderWorld : IWorldGen
                     cy = ny;
                 }
             }
-
-        return riverMap;
     }
 
     /// <summary>
@@ -1611,7 +1609,7 @@ public class CylinderWorld : IWorldGen
     private void DepositSediment(
         float[,] flowAccumulation)
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         // Simple sediment deposition in low areas
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
@@ -1637,7 +1635,7 @@ public class CylinderWorld : IWorldGen
     /// </summary>
     private void ApplyMountainDetails()
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var surfaceMap = _surfaceFeatures.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
         var hotspotMap = _hotspotMap.Memory.Span;
@@ -1749,7 +1747,7 @@ public class CylinderWorld : IWorldGen
 
     private void AddVolcanicDetails(int centerX, int centerY, float strength)
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var surfaceMap = _surfaceFeatures.Memory.Span;
         var radius = Math.Max(3, (int)(strength * 10)); // Scale radius with strength, minimum 3
 
@@ -1837,7 +1835,7 @@ public class CylinderWorld : IWorldGen
     /// </summary>
     private void ApplyCoastalFeatures()
     {
-        var elevationsF = _elevationF.Memory.Span;
+        var elevationsF = _elevation.Memory.Span;
         var surfaceMap = _surfaceFeatures.Memory.Span;
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)

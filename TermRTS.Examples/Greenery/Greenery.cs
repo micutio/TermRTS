@@ -5,6 +5,7 @@ using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
+using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
@@ -33,11 +34,13 @@ public class Greenery : IRunnableExample
         }
 
         var seed = 0; //rng.Next();
+        var voronoiCellCount = 25;
+        var plateCount = 9;
 
         // Set up engine
         var core = new Core();
 
-        IWorldGen worldGen = new VoronoiWorld(100, seed);
+        var worldGen = new CylinderWorld(100, 100, seed, voronoiCellCount, plateCount);
         var worldEntity = new EntityBase();
         var worldData = worldGen.Generate(WorldWidth, WorldHeight, 0.26f);
         var worldComponent =
