@@ -28,10 +28,29 @@ public class FovSystem : ISimSystem
                 droneX,
                 droneY,
                 10,
-                (x, y) => world.Cells[x, y] > world.Cells[droneX, droneY]);
-            foreach (var (x, y) in _fov.VisibleCells) fov.Cells[x, y] = true;
+                (x, y) =>
+                {
+                    var wrappedX = GetWrappedX(fov.WorldWidth, x);
+                    if (y <= 0 || y >= fov.WorldHeight) return true;
+
+                    return world.Cells[wrappedX, y] > world.Cells[droneX, droneY];
+                });
+            foreach (var (x, y) in _fov.VisibleCells)
+                fov.Cells[GetWrappedX(fov.WorldWidth, x), y] = true;
         }
     }
 
     #endregion
+
+    /// <summary>
+    ///     Calculates an X-coordinate for a cylindrical grid that
+    ///     wraps around the left and right edges.
+    /// </summary>
+    /// <param name="worldWidth">Width of the world in grid cells.</param>
+    /// <param name="x">X-Coordinate to convert to wrapping around.</param>
+    /// <returns>X, if is within the bounds of the world, wrapped coordinate otherwise.</returns>
+    private static int GetWrappedX(int worldWidth, int x)
+    {
+        return (x % worldWidth + worldWidth) % worldWidth;
+    }
 }

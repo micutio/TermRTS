@@ -297,7 +297,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
             {
                 var (elevation, c) = _cachedWorld[x, y];
-                var isFov = _cachedFov[x, y];
+                // Deactivate fov for debugging.
+                // TODO: Reactivate.
+                var isFov = true; // _cachedFov[x, y];
                 var colors = MapRenderMode switch
                 {
                     MapRenderMode.ElevationColor => ColorsElevation,

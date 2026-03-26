@@ -15,9 +15,11 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int WorldWidth = 600;
-
-    private const int WorldHeight = 400;
+    private const int WorldWidth = 100;
+    private const int WorldHeight = 100;
+    private const int Seed = 0;
+    private const int VoronoiCellCount = 30;
+    private const int PlateCount = 9;
 
     // private readonly ILog _log;
     private CommandRunner _commandRunner;
@@ -33,14 +35,12 @@ public class Greenery : IRunnableExample
             Console.Title = "TermRTS - Greenery";
         }
 
-        var seed = 0; //rng.Next();
-        var voronoiCellCount = 25;
-        var plateCount = 9;
 
         // Set up engine
         var core = new Core();
 
-        var worldGen = new CylinderWorld(100, 100, seed, voronoiCellCount, plateCount);
+        var worldGen =
+            new CylinderWorld(WorldWidth, WorldHeight, Seed, VoronoiCellCount, PlateCount);
         var worldEntity = new EntityBase();
         var worldData = worldGen.Generate(WorldWidth, WorldHeight, 0.26f);
         var worldComponent =
@@ -63,7 +63,7 @@ public class Greenery : IRunnableExample
         core.AddComponent(fovComponent);
 
         var droneEntity = new EntityBase();
-        var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(110, 40));
+        var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(1, 1));
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
 

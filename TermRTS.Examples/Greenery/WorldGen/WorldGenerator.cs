@@ -286,12 +286,10 @@ public class CylinderWorld : IWorldGen
 
         Noise.Seed = _seed;
 
-        // TODO: Deactivate all steps.
         // TODO: Then reactivate step by step.
         // TODO: Find appropriate visualisations per step to examine visually.
         // TODO: Verify world generation works!
         // TODO: Optimize data structures and copying, streamline pipeline.
-        //       - No need to keep byte world elevations. Just do everything on floats first!
         // TODO: Decide on final world data necessary for game and visualisation.
         // TODO: Final optimisation of data structure use.
         // TODO: Try chunking world data.
@@ -302,66 +300,66 @@ public class CylinderWorld : IWorldGen
         InitializeVoronoiCells();
         GenerateLandWaterDistribution();
         // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
-        InitializePlateTectonics();
+        // InitializePlateTectonics();
         // Generate coastal slopes for each voronoi cell.
-        GenerateSlopedCoasts();
+        // GenerateSlopedCoasts();
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
-        ComputePlateTectonicHeight();
+        // ComputePlateTectonicHeight();
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
-        GenerateHotspots();
+        // GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
-        GenerateNoiseMap();
-        ApplyNoiseAndSlopes();
+        // GenerateNoiseMap();
+        // ApplyNoiseAndSlopes();
         // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
-        GenerateClimate();
+        // GenerateClimate();
         // Apply erosion to smooth terrain and create realistic features
-        if (UseAdvancedErosion)
-            ApplyAdvancedErosion();
-        else
-            ApplyErosion();
+        // if (UseAdvancedErosion)
+        //     ApplyAdvancedErosion();
+        // else
+        //     ApplyErosion();
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
-        GenerateRivers();
+        // GenerateRivers();
 
         // Apply mountain details (ridges, snow, glacier, lava)
-        ApplyMountainDetails();
+        // ApplyMountainDetails();
 
         // Apply coastal features (beach, cliff, fjord)
-        ApplyCoastalFeatures();
+        // ApplyCoastalFeatures();
 
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var elevation = _elevation.Memory.Span;
         var surfaceFeatures = _surfaceFeatures.Memory.Span;
-        var temperatures = _temperature.Memory.Span;
-        var humidities = _humidity.Memory.Span;
+        var temperature = _temperature.Memory.Span;
+        var humidity = _humidity.Memory.Span;
         var biomes = _biomes.Memory.Span;
-        var temperatureAmplitudes = _temperatureAmplitude.Memory.Span;
+        var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
 
-        var world = new byte[worldWidth, worldHeight];
-        var surfaceMap = new SurfaceFeature[worldWidth, worldHeight];
-        var temperature = new float[worldWidth, worldHeight];
-        var humidity = new float[worldWidth, worldHeight];
-        var biome = new Biome[worldWidth, worldHeight];
-        var temperatureAmplitude = new float[worldWidth, worldHeight];
+        var worldMap = new byte[worldWidth, worldHeight];
+        var surfaceFeatureMap = new SurfaceFeature[worldWidth, worldHeight];
+        var temperatureMap = new float[worldWidth, worldHeight];
+        var humidityMap = new float[worldWidth, worldHeight];
+        var biomesMap = new Biome[worldWidth, worldHeight];
+        var temperatureAmplitudesMap = new float[worldWidth, worldHeight];
 
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
             {
-                world[x, y] = Convert.ToByte(elevation[y * _worldWidth + x]);
-                surfaceMap[x, y] = surfaceFeatures[y * _worldWidth + x];
-                temperature[x, y] = temperatures[y * _worldWidth + x];
-                humidity[x, y] = humidities[y * _worldWidth + x];
-                biome[x, y] = biomes[y * _worldWidth + x];
-                temperatureAmplitude[x, y] = temperatureAmplitudes[y * _worldWidth + x];
+                worldMap[x, y] = Convert.ToByte(elevation[y * _worldWidth + x]);
+                surfaceFeatureMap[x, y] = surfaceFeatures[y * _worldWidth + x];
+                temperatureMap[x, y] = temperature[y * _worldWidth + x];
+                humidityMap[x, y] = humidity[y * _worldWidth + x];
+                biomesMap[x, y] = biomes[y * _worldWidth + x];
+                temperatureAmplitudesMap[x, y] = temperatureAmplitude[y * _worldWidth + x];
             }
 
         return new WorldGenerationResult(
-            world,
-            surfaceMap,
-            temperature,
-            humidity,
-            biome,
-            temperatureAmplitude);
+            worldMap,
+            surfaceFeatureMap,
+            temperatureMap,
+            humidityMap,
+            biomesMap,
+            temperatureAmplitudesMap);
     }
 
     /// <summary>
@@ -558,7 +556,7 @@ public class CylinderWorld : IWorldGen
             coastalSlopes[i] = MaxCoastalSlope;
 
         var q = new Queue<(int, int)>(_worldWidth * _worldHeight);
-        const float tolerance = 1.0f;
+        const float tolerance = 0.5f;
         for (var y = 1; y < _worldHeight - 1; y += 1)
             for (var x = 1; x < _worldWidth - 1; x += 1)
             {
