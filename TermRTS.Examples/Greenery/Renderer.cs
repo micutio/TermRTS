@@ -43,7 +43,9 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         _mapview = new MapView(_canvas, worldWidth, worldHeight)
         {
             Height = _canvas.Height - 1,
-            Width = (int)(_canvas.Width * 0.7)
+            // For debugging, mapview takes up the entire width.
+            // TODO: Reset to 0.7f
+            Width = (int)(_canvas.Width * 1.0f)
         };
         _logArea = new LogArea(_canvas, _canvas.Height - 1)
         {

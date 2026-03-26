@@ -15,9 +15,9 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int WorldWidth = 100;
-    private const int WorldHeight = 100;
-    private const int Seed = 0;
+    private const int WorldWidth = 300;
+    private const int WorldHeight = 80;
+    private const int Seed = 13470;
     private const int VoronoiCellCount = 30;
     private const int PlateCount = 9;
 
