@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Numerics;
-using SimplexNoise;
 
 namespace TermRTS.Examples.Greenery.WorldGen;
 
@@ -284,8 +283,6 @@ public class CylinderWorld : IWorldGen
     {
         ValidateParameters(worldWidth, worldHeight, landRatio);
 
-        Noise.Seed = _seed;
-
         // TODO: Then reactivate step by step.
         // TODO: Find appropriate visualisations per step to examine visually.
         // TODO: Verify world generation works!
@@ -298,6 +295,7 @@ public class CylinderWorld : IWorldGen
         // STAGE 1: Voronoi Cells and Land/Water distribution /////////////////////////////////////
         // Associate each grid cell to one of the voronoi cells.
         InitializeVoronoiCells();
+        GenerateNoiseMap();
         GenerateLandWaterDistribution();
         // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
         // InitializePlateTectonics();
@@ -308,7 +306,6 @@ public class CylinderWorld : IWorldGen
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
         // GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
-        // GenerateNoiseMap();
         // ApplyNoiseAndSlopes();
         // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
         // GenerateClimate();
@@ -439,10 +436,10 @@ public class CylinderWorld : IWorldGen
     /// </summary>
     private void GenerateLandWaterDistribution()
     {
+        var noiseMap = _noiseMap.Memory.Span;
         // TODO: Play around with noise scale.
         const float scale = .08f;
         const int jiggle = 15;
-        var jiggleNoise = Noise.Calc2D(_worldWidth, _worldHeight, scale);
         var vCells = _voronoiCells.Memory.Span;
         var vIdx = _voronoiCellIndex.Memory.Span;
         var elevations = _elevation.Memory.Span;
@@ -452,8 +449,9 @@ public class CylinderWorld : IWorldGen
         for (var y = 0; y < _worldHeight; y += 1)
             for (var x = 0; x < _worldWidth; x += 1)
             {
-                var jiggledX = x + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
-                var jiggledY = y + (125.5 - jiggleNoise[x, y]) / 255.0f * jiggle;
+                var jiggleNoise = noiseMap[y * _worldWidth + x];
+                var jiggledX = x + (0.5 - jiggleNoise) * jiggle;
+                var jiggledY = y + (0.5 - jiggleNoise) * jiggle;
 
                 var minDistSq = double.MaxValue;
                 var winnerCell = 0;
@@ -461,8 +459,8 @@ public class CylinderWorld : IWorldGen
                 {
                     var vX = vCells[i].Item1;
                     var vY = vCells[i].Item2;
-                    var dx = vX - jiggledX;
-                    var dy = vY - jiggledY;
+                    var dx = vX; // - jiggledX;
+                    var dy = vY; // - jiggledY;
                     var distSq = GetCylindricalDistanceSq(_worldWidth, x, y, dx, dy);
 
                     if (distSq >= minDistSq) continue;
@@ -689,6 +687,7 @@ public class CylinderWorld : IWorldGen
         var voronoiTypes = _voronoiCellTypes.Memory.Span;
         var voronoiCenters = _voronoiCells.Memory.Span;
         var plateMotions = _plateMotions.Memory.Span;
+        var noiseMap = _noiseMap.Memory.Span;
         // +1 because Next upper bound is exclusive
         var chainCount = _rng.Next(MinIslandChains, MaxIslandChains + 1);
 
@@ -764,7 +763,8 @@ public class CylinderWorld : IWorldGen
 
                         // Add some noise to make it look more volcanic
                         // TODO: make noise a tweakable parameter
-                        var noise = Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
+                        var noise = noiseMap[y * _worldWidth + x];
+                        //Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
                         coneHeight *= 0.7f + noise * 0.6f;
 
                         hotspots[y * _worldWidth + x] += coneHeight;
@@ -782,62 +782,34 @@ public class CylinderWorld : IWorldGen
     /// </summary>
     private void GenerateNoiseMap()
     {
-        // TODO: Turn these into properties.
-        const float scale = 1.0f;
-        const int octaves = 4;
-        const float persistence = 0.75f; //?
-        const float lacunarity = 1.8f; //?
-        var offset = new Vector2(1f, 1f);
-        // For now work with a fixed scale
-        const float noiseScale = 0.03f;
+        var noise = new FastNoiseLite(_seed);
+        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+        noise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        noise.SetFractalOctaves(5);
+        noise.SetFractalLacunarity(2.0f);
+        noise.SetFractalGain(0.5f);
+        noise.SetFrequency(0.01f);
 
         var noiseMap = _noiseMap.Memory.Span;
-
-        var prng = new Random(_seed);
-        var octaveOffsets = new Vector2[octaves];
-        for (var i = 0; i < octaves; i++)
-        {
-            var offsetX = prng.Next(-100000, 100000) + offset.X;
-            var offsetY = prng.Next(-100000, 100000) + offset.Y;
-            octaveOffsets[i] = new Vector2(offsetX, offsetY);
-        }
-
-        var maxNoiseHeight = float.MinValue;
-        var minNoiseHeight = float.MaxValue;
+        // We calculate a radius that keeps the scale consistent.
+        // A larger radius results in more "zoomed in" noise.
+        var radius = _worldWidth / (2.0f * (float)Math.PI);
 
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                float amplitude = 1;
-                float frequency = 1;
-                float noiseHeight = 0;
+                // Map X to a circle in 3D space
+                var angle = x / (float)_worldWidth * 2.0f * (float)Math.PI;
+                var nx = (float)Math.Cos(angle) * radius;
+                var ny = (float)Math.Sin(angle) * radius;
 
-                for (var i = 0; i < octaves; i++)
-                {
-                    var sampleX = Convert.ToInt32(x / scale * frequency + octaveOffsets[i].X);
-                    var sampleY = Convert.ToInt32(y / scale * frequency + octaveOffsets[i].Y);
+                // Map Y to the vertical axis (Z)
+                var nz = y;
 
-                    // var perlinValue = Noise.CalcPixel2D(sampleX, sampleY, noiseScale) * 2 - 1;
-                    var perlinValue =
-                        GetCylindricalNoise(sampleX, sampleY, _worldWidth, noiseScale,
-                            Noise.CalcPixel3D);
-
-                    noiseHeight += perlinValue * amplitude;
-                    amplitude *= persistence;
-                    frequency *= lacunarity;
-                }
-
-                maxNoiseHeight = Math.Max(maxNoiseHeight, noiseHeight);
-                minNoiseHeight = Math.Min(minNoiseHeight, noiseHeight);
-                noiseMap[y * _worldWidth + x] = noiseHeight;
+                // Get noise [1, 1] and normalise to [0, 1]
+                var noiseVal = noise.GetNoise(nx, ny, nz);
+                noiseMap[y * _worldWidth + x] = (noiseVal + 1.0f) / 2.0f;
             }
-
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-                noiseMap[y * _worldWidth + x] = 255f * InverseLerp(
-                    minNoiseHeight,
-                    maxNoiseHeight,
-                    noiseMap[y * _worldWidth + x]);
     }
 
     private void ApplyNoiseAndSlopes()
