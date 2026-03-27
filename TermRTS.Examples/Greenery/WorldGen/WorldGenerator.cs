@@ -398,6 +398,131 @@ public class CylinderWorld : IWorldGen
 
     #endregion
 
+    #region Noise Map
+
+    /// <summary>
+    ///     Generates a map of pseudo-random Perlin noise.
+    /// </summary>
+    private void GenerateNoiseMap()
+    {
+        var noise = new FastNoiseLite(_seed);
+        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+        noise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        noise.SetFractalOctaves(5);
+        noise.SetFractalLacunarity(2.0f);
+        noise.SetFractalGain(0.5f);
+        noise.SetFrequency(0.01f);
+
+        var noiseMap = _noiseMap.Memory.Span;
+        // We calculate a radius that keeps the scale consistent.
+        // A larger radius results in more "zoomed in" noise.
+        var radius = _worldWidth / (2.0f * (float)Math.PI);
+
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                // Map X to a circle in 3D space
+                var angle = x / (float)_worldWidth * 2.0f * (float)Math.PI;
+                var nx = (float)Math.Cos(angle) * radius;
+                var ny = (float)Math.Sin(angle) * radius;
+
+                // Map Y to the vertical axis (Z)
+                var nz = y;
+
+                // Get noise [1, 1] and normalise to [0, 1]
+                var noiseVal = noise.GetNoise(nx, ny, nz);
+                noiseMap[y * _worldWidth + x] = (noiseVal + 1.0f) / 2.0f;
+            }
+    }
+
+    private void ApplyNoiseAndSlopes()
+    {
+        var elevations = _elevation.Memory.Span;
+        var coastalSlopes = _coastalSlopes.Memory.Span;
+        var noiseField = _noiseMap.Memory.Span;
+        var tectonicDelta = _tectonicDelta.Memory.Span;
+        var hotspots = _hotspotMap.Memory.Span;
+        var elevationF = _elevation.Memory.Span;
+        // Apply noise and slopes to elevation map.
+        for (var i = 0; i < _worldHeight * _worldHeight; i += 1)
+        {
+            // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
+            var baseElevation = elevations[i] >= LandElevationThreshold
+                ? ContinentalBaseElevation
+                : OceanicBaseElevation;
+            var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
+            var normalizedNoise = noiseField[i] / 255.0;
+            var tectonic = tectonicDelta[i];
+            var hotspot = hotspots[i];
+
+            // For oceanic plates, reduce noise impact to allow deeper trenches
+            var cellElevationContribution = elevations[i] >= LandElevationThreshold
+                ? elevations[i]
+                : 0;
+            var noiseMultiplier = elevations[i] >= LandElevationThreshold
+                ? 1.0f
+                : 0.3f; // Less noise in oceans
+            var elevation = cellElevationContribution +
+                            baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
+                            tectonic + hotspot;
+
+            // Store as float, don't clamp yet
+            elevationF[i] = (float)elevation;
+        }
+    }
+
+    private static float Lerp(float a, float b, float t)
+    {
+        return a + t * (b - a);
+    }
+
+    private static float InverseLerp(float a, float b, float t)
+    {
+        return (t - a) / (b - a);
+    }
+
+    // Delegate for your specific 3D noise function.
+    // It should take X, Y, Z coordinates and return a noise value.
+    private delegate float Noise3DFunc(int x, int y, int z, float scale);
+
+    /// <summary>
+    /// Gets a seamless cylindrical noise value for a 2D grid coordinate.
+    /// </summary>
+    /// <param name="x">The X coordinate on your 2D grid.</param>
+    /// <param name="y">The Y coordinate on your 2D grid.</param>
+    /// <param name="mapWidth">The total width of the map (used for wrapping).</param>
+    /// <param name="noiseScale">The frequency/zoom level of the noise.</param>
+    /// <param name="noiseFunction">Your 3D noise generator method.</param>
+    /// <returns>The sampled noise value.</returns>
+    private static float GetCylindricalNoise(
+        int x,
+        int y,
+        int mapWidth,
+        float noiseScale,
+        Noise3DFunc noiseFunction)
+    {
+        // 1. Convert the linear X coordinate to an angle around the cylinder (0 to 2*PI)
+        var angle = (double)x / mapWidth * (2.0 * Math.PI);
+
+        // 2. Calculate the cylinder's radius.
+        // By setting the circumference equal to the map width (C = 2 * PI * R),
+        // we ensure that moving 1 unit in X travels exactly 1 unit along the 3D cylinder's edge.
+        // This guarantees the noise scale on the X axis perfectly matches the Y axis.
+        var radius = mapWidth / (2.0 * Math.PI);
+
+        // 3. Convert polar coordinates to 3D Cartesian coordinates
+        // We multiply by noiseScale here just like you would with standard 2D noise: noise(x * scale, y * scale)
+        var nx = radius * Math.Cos(angle) * noiseScale;
+        var nz = radius * Math.Sin(angle) * noiseScale;
+        var ny = y * noiseScale;
+
+        // 4. Sample and return the 3D noise
+        return noiseFunction(Convert.ToInt32(nx), Convert.ToInt32(ny), Convert.ToInt32(nz),
+            noiseScale);
+    }
+
+    #endregion
+
     #region World Base Structure
 
     /// <summary>
@@ -439,7 +564,7 @@ public class CylinderWorld : IWorldGen
         var noiseMap = _noiseMap.Memory.Span;
         // TODO: Play around with noise scale.
         const float scale = .08f;
-        const int jiggle = 15;
+        const int jiggle = 80;
         var vCells = _voronoiCells.Memory.Span;
         var vIdx = _voronoiCellIndex.Memory.Span;
         var elevations = _elevation.Memory.Span;
@@ -459,9 +584,12 @@ public class CylinderWorld : IWorldGen
                 {
                     var vX = vCells[i].Item1;
                     var vY = vCells[i].Item2;
-                    var dx = vX; // - jiggledX;
-                    var dy = vY; // - jiggledY;
-                    var distSq = GetCylindricalDistanceSq(_worldWidth, x, y, dx, dy);
+                    var distSq = GetCylindricalDistanceSq(
+                        _worldWidth,
+                        jiggledX,
+                        jiggledY,
+                        vX,
+                        vY);
 
                     if (distSq >= minDistSq) continue;
                     minDistSq = distSq;
@@ -771,131 +899,6 @@ public class CylinderWorld : IWorldGen
                     }
             }
         }
-    }
-
-    #endregion
-
-    #region Noise Map
-
-    /// <summary>
-    ///     Generates a map of pseudo-random Perlin noise.
-    /// </summary>
-    private void GenerateNoiseMap()
-    {
-        var noise = new FastNoiseLite(_seed);
-        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        noise.SetFractalType(FastNoiseLite.FractalType.FBm);
-        noise.SetFractalOctaves(5);
-        noise.SetFractalLacunarity(2.0f);
-        noise.SetFractalGain(0.5f);
-        noise.SetFrequency(0.01f);
-
-        var noiseMap = _noiseMap.Memory.Span;
-        // We calculate a radius that keeps the scale consistent.
-        // A larger radius results in more "zoomed in" noise.
-        var radius = _worldWidth / (2.0f * (float)Math.PI);
-
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-            {
-                // Map X to a circle in 3D space
-                var angle = x / (float)_worldWidth * 2.0f * (float)Math.PI;
-                var nx = (float)Math.Cos(angle) * radius;
-                var ny = (float)Math.Sin(angle) * radius;
-
-                // Map Y to the vertical axis (Z)
-                var nz = y;
-
-                // Get noise [1, 1] and normalise to [0, 1]
-                var noiseVal = noise.GetNoise(nx, ny, nz);
-                noiseMap[y * _worldWidth + x] = (noiseVal + 1.0f) / 2.0f;
-            }
-    }
-
-    private void ApplyNoiseAndSlopes()
-    {
-        var elevations = _elevation.Memory.Span;
-        var coastalSlopes = _coastalSlopes.Memory.Span;
-        var noiseField = _noiseMap.Memory.Span;
-        var tectonicDelta = _tectonicDelta.Memory.Span;
-        var hotspots = _hotspotMap.Memory.Span;
-        var elevationF = _elevation.Memory.Span;
-        // Apply noise and slopes to elevation map.
-        for (var i = 0; i < _worldHeight * _worldHeight; i += 1)
-        {
-            // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
-            var baseElevation = elevations[i] >= LandElevationThreshold
-                ? ContinentalBaseElevation
-                : OceanicBaseElevation;
-            var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
-            var normalizedNoise = noiseField[i] / 255.0;
-            var tectonic = tectonicDelta[i];
-            var hotspot = hotspots[i];
-
-            // For oceanic plates, reduce noise impact to allow deeper trenches
-            var cellElevationContribution = elevations[i] >= LandElevationThreshold
-                ? elevations[i]
-                : 0;
-            var noiseMultiplier = elevations[i] >= LandElevationThreshold
-                ? 1.0f
-                : 0.3f; // Less noise in oceans
-            var elevation = cellElevationContribution +
-                            baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
-                            tectonic + hotspot;
-
-            // Store as float, don't clamp yet
-            elevationF[i] = (float)elevation;
-        }
-    }
-
-    private static float Lerp(float a, float b, float t)
-    {
-        return a + t * (b - a);
-    }
-
-    private static float InverseLerp(float a, float b, float t)
-    {
-        return (t - a) / (b - a);
-    }
-
-    // Delegate for your specific 3D noise function.
-    // It should take X, Y, Z coordinates and return a noise value.
-    private delegate float Noise3DFunc(int x, int y, int z, float scale);
-
-    /// <summary>
-    /// Gets a seamless cylindrical noise value for a 2D grid coordinate.
-    /// </summary>
-    /// <param name="x">The X coordinate on your 2D grid.</param>
-    /// <param name="y">The Y coordinate on your 2D grid.</param>
-    /// <param name="mapWidth">The total width of the map (used for wrapping).</param>
-    /// <param name="noiseScale">The frequency/zoom level of the noise.</param>
-    /// <param name="noiseFunction">Your 3D noise generator method.</param>
-    /// <returns>The sampled noise value.</returns>
-    private static float GetCylindricalNoise(
-        int x,
-        int y,
-        int mapWidth,
-        float noiseScale,
-        Noise3DFunc noiseFunction)
-    {
-        // 1. Convert the linear X coordinate to an angle around the cylinder (0 to 2*PI)
-        var angle = (double)x / mapWidth * (2.0 * Math.PI);
-
-        // 2. Calculate the cylinder's radius.
-        // By setting the circumference equal to the map width (C = 2 * PI * R),
-        // we ensure that moving 1 unit in X travels exactly 1 unit along the 3D cylinder's edge.
-        // This guarantees the noise scale on the X axis perfectly matches the Y axis.
-        var radius = mapWidth / (2.0 * Math.PI);
-
-        // 3. Convert polar coordinates to 3D Cartesian coordinates
-        // We multiply by noiseScale here just like you would with standard 2D noise: noise(x * scale, y * scale)
-        var nx = radius * Math.Cos(angle) * noiseScale;
-        var nz = radius * Math.Sin(angle) * noiseScale;
-        var ny = y * noiseScale;
-
-        // 4. Sample and return the 3D noise
-        return noiseFunction(Convert.ToInt32(nx), Convert.ToInt32(ny), Convert.ToInt32(nz),
-            noiseScale);
     }
 
     #endregion
