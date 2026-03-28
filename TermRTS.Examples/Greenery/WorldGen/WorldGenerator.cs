@@ -298,15 +298,15 @@ public class CylinderWorld : IWorldGen
         GenerateNoiseMap();
         GenerateLandWaterDistribution();
         // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
-        // InitializePlateTectonics();
+        InitializePlateTectonics();
         // Generate coastal slopes for each voronoi cell.
-        // GenerateSlopedCoasts();
+        GenerateSlopedCoasts();
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
-        // ComputePlateTectonicHeight();
+        ComputePlateTectonicHeight();
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
-        // GenerateHotspots();
+        GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
-        // ApplyNoiseAndSlopes();
+        ApplyNoiseAndSlopes();
         // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
         // GenerateClimate();
         // Apply erosion to smooth terrain and create realistic features
@@ -342,7 +342,8 @@ public class CylinderWorld : IWorldGen
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
             {
-                worldMap[x, y] = Convert.ToByte(elevation[y * _worldWidth + x]);
+                var elevationClamped = Math.Clamp(elevation[y * _worldWidth + x], 0f, 9f);
+                worldMap[x, y] = Convert.ToByte(elevationClamped);
                 surfaceFeatureMap[x, y] = surfaceFeatures[y * _worldWidth + x];
                 temperatureMap[x, y] = temperature[y * _worldWidth + x];
                 humidityMap[x, y] = humidity[y * _worldWidth + x];
@@ -736,6 +737,7 @@ public class CylinderWorld : IWorldGen
     private void ComputePlateTectonicHeight()
     {
         var tectonicDelta = _tectonicDelta.Memory.Span;
+        var voronoiIndex = _voronoiCellIndex.Memory.Span;
         var plateMotions = _plateMotions.Memory.Span;
         var plateTypes = _plateTypes.Memory.Span;
         var plateCenters = _plateCells.Memory.Span;
@@ -744,7 +746,9 @@ public class CylinderWorld : IWorldGen
         for (var y = 0; y < _worldHeight; y += 1)
             for (var x = 0; x < _worldWidth; x += 1)
             {
-                var currentPlate = plateIndex[y * _worldWidth + x];
+                // TODO: Index plates directly on cells.
+                var vIndex = voronoiIndex[y * _worldWidth + x];
+                var currentPlate = plateIndex[vIndex];
                 var totalDelta = 0f;
 
                 (int, int)[] offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)];
@@ -754,7 +758,8 @@ public class CylinderWorld : IWorldGen
                     var ny = y + dy;
                     if (ny < 0 || ny >= _worldHeight) continue;
 
-                    var neighbourPlate = plateIndex[ny * _worldWidth + nx];
+                    var nvIndex = voronoiIndex[ny * _worldWidth + nx];
+                    var neighbourPlate = plateIndex[nvIndex];
                     if (neighbourPlate == currentPlate) continue;
 
                     var pA = plateCenters[currentPlate];
