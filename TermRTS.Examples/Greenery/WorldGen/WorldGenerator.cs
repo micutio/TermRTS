@@ -450,7 +450,6 @@ public class CylinderWorld : IWorldGen
         var noiseField = _noiseMap.Memory.Span;
         var tectonicDelta = _tectonicDelta.Memory.Span;
         var hotspots = _hotspotMap.Memory.Span;
-        var elevationF = _elevation.Memory.Span;
         // Apply noise and slopes to elevation map.
         for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
         {
@@ -471,11 +470,14 @@ public class CylinderWorld : IWorldGen
                 ? 1.0f
                 : 0.3f; // Less noise in oceans
             var elevation = cellElevationContribution +
-                            baseElevation * slopeFactor * normalizedNoise * noiseMultiplier +
-                            tectonic + hotspot;
+                            baseElevation *
+                            slopeFactor *
+                            normalizedNoise *
+                            noiseMultiplier
+                            + tectonic + hotspot;
 
             // Store as float, don't clamp yet
-            elevationF[i] = (float)elevation;
+            elevations[i] = elevation;
         }
     }
 
