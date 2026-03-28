@@ -20,6 +20,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\TermRTS\TermRTS.csproj"/>
+        <ProjectReference Include="..\TermRTS.Examples\TermRTS.Examples.csproj"/>
     </ItemGroup>
 
 </Project>

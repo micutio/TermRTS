@@ -307,22 +307,23 @@ public class CylinderWorld : IWorldGen
         GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
         ApplyNoiseAndSlopes();
-        // Generate climate (temperature, humidity, biomes, seasonal effects) - moved before erosion
-        // GenerateClimate();
+        // Generate climate (temperature, humidity, biomes, seasonal effects)
+        GenerateClimate();
+
         // Apply erosion to smooth terrain and create realistic features
-        // if (UseAdvancedErosion)
-        //     ApplyAdvancedErosion();
-        // else
-        //     ApplyErosion();
+        if (UseAdvancedErosion)
+            ApplyAdvancedErosion();
+        else
+            ApplyErosion();
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
-        // GenerateRivers();
+        GenerateRivers();
 
         // Apply mountain details (ridges, snow, glacier, lava)
-        // ApplyMountainDetails();
+        ApplyMountainDetails();
 
         // Apply coastal features (beach, cliff, fjord)
-        // ApplyCoastalFeatures();
+        ApplyCoastalFeatures();
 
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var elevation = _elevation.Memory.Span;
@@ -376,6 +377,12 @@ public class CylinderWorld : IWorldGen
         _temperature.Memory.Span.Clear();
         _temperatureAmplitude.Memory.Span.Clear();
         _humidity.Memory.Span.Clear();
+        _surfaceFeatures.Memory.Span.Clear();
+        _riverMap.Memory.Span.Clear();
+        _hotspotMap.Memory.Span.Clear();
+        _tectonicDelta.Memory.Span.Clear();
+        _coastalSlopes.Memory.Span.Clear();
+        _noiseMap.Memory.Span.Clear();
     }
 
     #endregion
@@ -445,14 +452,14 @@ public class CylinderWorld : IWorldGen
         var hotspots = _hotspotMap.Memory.Span;
         var elevationF = _elevation.Memory.Span;
         // Apply noise and slopes to elevation map.
-        for (var i = 0; i < _worldHeight * _worldHeight; i += 1)
+        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
         {
             // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
             var baseElevation = elevations[i] >= LandElevationThreshold
                 ? ContinentalBaseElevation
                 : OceanicBaseElevation;
             var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
-            var normalizedNoise = noiseField[i] / 255.0;
+            var normalizedNoise = noiseField[i];
             var tectonic = tectonicDelta[i];
             var hotspot = hotspots[i];
 
@@ -563,8 +570,6 @@ public class CylinderWorld : IWorldGen
     private void GenerateLandWaterDistribution()
     {
         var noiseMap = _noiseMap.Memory.Span;
-        // TODO: Play around with noise scale.
-        const float scale = .08f;
         const int jiggle = 80;
         var vCells = _voronoiCells.Memory.Span;
         var vIdx = _voronoiCellIndex.Memory.Span;
@@ -625,10 +630,14 @@ public class CylinderWorld : IWorldGen
         var plateIndex = _plateIndex.Memory.Span;
 
         // step 1: randomly sample voronoi cells of the grid as plate seeds
+        var plateTypes = _plateTypes.Memory.Span;
+        var voronoiTypes = _voronoiCellTypes.Memory.Span;
         for (var i = 0; i < _plateCount; i += 1)
         {
-            var voronoiCell = voronoiCells[_rng.Next(VoronoiCellCount)];
+            var voronoiIndex = _rng.Next(VoronoiCellCount);
+            var voronoiCell = voronoiCells[voronoiIndex];
             plateCells[i] = (voronoiCell.Item1, voronoiCell.Item2);
+            plateTypes[i] = voronoiTypes[voronoiIndex];
         }
 
         // step 2: assign voronoi cells to each plate
@@ -651,8 +660,7 @@ public class CylinderWorld : IWorldGen
             plateIndex[j] = winnerCell;
         }
 
-        // step 2: assign plate types and motions, and infer basic water/land by plate type
-        // true = continental, false = oceanic
+        // step 2: assign plate motions and infer plate types from seed cells
         GeneratePlateMotions();
     }
 
@@ -695,12 +703,12 @@ public class CylinderWorld : IWorldGen
                     tolerance && // north
                     Math.Abs(elevations[y * _worldWidth + x + 1] - SeaLevelElevation) >
                     tolerance && // east
-                    Math.Abs(elevations[y + 1 * _worldWidth + x] - SeaLevelElevation) >
+                    Math.Abs(elevations[(y + 1) * _worldWidth + x] - SeaLevelElevation) >
                     tolerance && // south
                     Math.Abs(elevations[y * _worldWidth + (x - 1)] - SeaLevelElevation) > tolerance)
                     continue; // west
 
-                coastalSlopes[y * _worldWidth + 1] = 0.0f;
+                coastalSlopes[y * _worldWidth + x] = 0.0f;
                 q.Enqueue((x, y));
             }
 
@@ -867,7 +875,7 @@ public class CylinderWorld : IWorldGen
                 // Keep within bounds with some wrapping
                 // centerX = (centerX % worldWidth + worldWidth) % worldWidth;
                 // centerY = (centerY % worldHeight + worldHeight) % worldHeight;
-                if (offsetY < 0 || offsetY >= _worldHeight) continue;
+                if (centerY < 0 || centerY >= _worldHeight) continue;
 
                 var radius = prng.Next(MinHotspotRadius, MaxHotspotRadius + 1);
                 var strength =
@@ -1508,12 +1516,10 @@ public class CylinderWorld : IWorldGen
     /// <param name="flowDirections">Flow direction for each cell.</param>
     /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
     /// <returns></returns>
-    private void CarveRivers(
-        (int, int)[,] flowDirections,
-        float[,] flowAccumulation)
+    private void CarveRivers((int, int)[,] flowDirections, float[,] flowAccumulation)
     {
         var elevationsF = _elevation.Memory.Span;
-        var riverMap = new bool[_worldWidth, _worldHeight];
+        var riverMap = _riverMap.Memory.Span;
 
         // Find maximum flow accumulation for normalization
         var maxFlow = 0f;
@@ -1543,10 +1549,10 @@ public class CylinderWorld : IWorldGen
                     if (cy < 0 || cy >= _worldHeight)
                         break;
 
-                    if (riverMap[cx, cy])
+                    if (riverMap[cy * _worldWidth + cx])
                         break; // Path already included
 
-                    riverMap[cx, cy] = true;
+                    riverMap[cy * _worldWidth + cx] = true;
 
                     var cellElevation = elevationsF[cy * _worldWidth + cx];
                     var depth = MathF.Min(RiverMaxCarveDepth,
@@ -1568,9 +1574,10 @@ public class CylinderWorld : IWorldGen
                         break;
 
                     // stop at ocean or already established river cell
-                    if (elevationsF[ny * _worldWidth + nx] <= SeaLevelElevation || riverMap[nx, ny])
+                    if (elevationsF[ny * _worldWidth + nx] <= SeaLevelElevation
+                        || riverMap[ny * _worldWidth + nx])
                     {
-                        riverMap[nx, ny] = elevationsF[ny * _worldWidth + nx] > SeaLevelElevation;
+                        riverMap[ny * _worldWidth + nx] = elevationsF[ny * _worldWidth + nx] > SeaLevelElevation;
                         break;
                     }
 
@@ -1645,13 +1652,14 @@ public class CylinderWorld : IWorldGen
 
         var plateTypes = _plateTypes.Memory.Span;
         var plateIndex = _plateIndex.Memory.Span;
+        var voronoiIndex = _voronoiCellIndex.Memory.Span;
 
         // Plate boundary mountain ridges: continental collisions
         var neighbors = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var currentPlate = plateIndex[y * _worldWidth + x];
+                var currentPlate = plateIndex[voronoiIndex[y * _worldWidth + x]];
                 if (currentPlate < 0 || currentPlate >= plateTypes.Length) continue;
 
                 foreach (var (dx, dy) in neighbors)
@@ -1661,7 +1669,7 @@ public class CylinderWorld : IWorldGen
 
                     if (ny < 0 || ny >= _worldHeight) continue;
 
-                    var neighborPlate = plateIndex[ny * _worldWidth + nx];
+                    var neighborPlate = plateIndex[voronoiIndex[ny * _worldWidth + nx]];
                     if (neighborPlate == currentPlate) continue;
 
                     if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
@@ -1700,7 +1708,7 @@ public class CylinderWorld : IWorldGen
                         var nx = GetWrappedX(_worldWidth, x + dx);
                         var ny = y + dy;
                         if (ny < 0 || ny >= _worldHeight) continue;
-                        if (hotspotMap[ny * _worldWidth] <= maxStrength) continue;
+                        if (hotspotMap[ny * _worldWidth + nx] <= maxStrength) continue;
 
                         maxStrength = hotspotMap[ny * _worldWidth + nx];
                         maxX = nx;
