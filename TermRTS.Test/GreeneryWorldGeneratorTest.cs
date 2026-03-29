@@ -7,8 +7,8 @@ public class GreeneryWorldGeneratorTest
     [Fact]
     public void Generate_WithValidParameters_ReturnsPopulatedWorld()
     {
-        var generator = new CylinderWorld(40, 20, 1234, 10, 3);
-        var result = generator.Generate(40, 20, 0.3f);
+        var generator = new CylinderWorld(40, 20, 0.5f, 1234, 10, 3);
+        var result = generator.Generate();
 
         Assert.NotNull(result);
         Assert.Equal(40, result.Elevation.GetLength(0));
@@ -44,11 +44,11 @@ public class GreeneryWorldGeneratorTest
     [Fact]
     public void Generate_SameSeedProducesSameWorld()
     {
-        var generatorA = new CylinderWorld(40, 20, 1234, 10, 3);
-        var generatorB = new CylinderWorld(40, 20, 1234, 10, 3);
+        var generatorA = new CylinderWorld(40, 20, 0.5f,1234, 10, 3);
+        var generatorB = new CylinderWorld(40, 20, 0.5f,1234, 10, 3);
 
-        var resultA = generatorA.Generate(40, 20, 0.3f);
-        var resultB = generatorB.Generate(40, 20, 0.3f);
+        var resultA = generatorA.Generate();
+        var resultB = generatorB.Generate();
 
         Assert2DArrayEqual(resultA.Elevation, resultB.Elevation);
         Assert2DArrayEqual(resultA.Surface, resultB.Surface);
@@ -59,19 +59,19 @@ public class GreeneryWorldGeneratorTest
     }
 
     [Theory]
-    [InlineData(0, 10, 0.3f, "worldWidth")]
-    [InlineData(10, 0, 0.3f, "worldHeight")]
-    [InlineData(10, 10, -0.1f, "landRatio")]
-    [InlineData(10, 10, 1.1f, "landRatio")]
+    [InlineData(0, 10, 0.3f, "_worldWidth")]
+    [InlineData(10, 0, 0.3f, "_worldHeight")]
+    [InlineData(10, 10, -0.1f, "LandRatio")]
+    [InlineData(10, 10, 1.1f, "LandRatio")]
     public void Generate_InvalidParameters_ThrowsArgumentOutOfRangeException(
         int worldWidth,
         int worldHeight,
         float landRatio,
         string paramName)
     {
-        var generator = new CylinderWorld(10, 10, 1234, 4, 2);
+        var generator = new CylinderWorld(worldWidth, worldHeight, landRatio, 0, 4, 2);
         var exception = Assert.Throws<ArgumentOutOfRangeException>(
-            () => generator.Generate(worldWidth, worldHeight, landRatio));
+            () => generator.Generate());
 
         Assert.Equal(paramName, exception.ParamName);
     }

@@ -40,9 +40,9 @@ public class Greenery : IRunnableExample
         var core = new Core();
 
         var worldGen =
-            new CylinderWorld(WorldWidth, WorldHeight, Seed, VoronoiCellCount, PlateCount);
+            new CylinderWorld(WorldWidth, WorldHeight, 0.40f, Seed, VoronoiCellCount, PlateCount);
         var worldEntity = new EntityBase();
-        var worldData = worldGen.Generate(WorldWidth, WorldHeight, 0.26f);
+        var worldData = worldGen.Generate();
         var worldComponent =
             new WorldComponent(
                 worldEntity.Id,

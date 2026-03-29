@@ -241,6 +241,7 @@ public class CylinderWorld : IWorldGen
     public CylinderWorld(
         int worldWidth,
         int worldHeight,
+        float landRatio,
         int seed,
         int voronoiCellCount,
         int plateCount)
@@ -250,6 +251,7 @@ public class CylinderWorld : IWorldGen
         _seed = seed;
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
+        LandRatio = landRatio;
         _plateCount = plateCount;
 
         // init private fields
@@ -281,9 +283,10 @@ public class CylinderWorld : IWorldGen
 
     #region IWorldGen Members
 
-    public WorldGenerationResult Generate(int worldWidth, int worldHeight, float landRatio)
+    public WorldGenerationResult Generate()
     {
-        ValidateParameters(worldWidth, worldHeight, landRatio);
+        ValidateParameters();
+
 
         // TODO: Then reactivate step by step.
         // TODO: Find appropriate visualisations per step to examine visually.
@@ -336,16 +339,16 @@ public class CylinderWorld : IWorldGen
         var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
 
-        var worldMap = new byte[worldWidth, worldHeight];
-        var surfaceFeatureMap = new SurfaceFeature[worldWidth, worldHeight];
-        var temperatureMap = new float[worldWidth, worldHeight];
-        var humidityMap = new float[worldWidth, worldHeight];
-        var biomesMap = new Biome[worldWidth, worldHeight];
-        var temperatureAmplitudesMap = new float[worldWidth, worldHeight];
-        var riversMap = new bool[worldWidth, worldHeight];
+        var worldMap = new byte[_worldWidth, _worldHeight];
+        var surfaceFeatureMap = new SurfaceFeature[_worldWidth, _worldHeight];
+        var temperatureMap = new float[_worldWidth, _worldHeight];
+        var humidityMap = new float[_worldWidth, _worldHeight];
+        var biomesMap = new Biome[_worldWidth, _worldHeight];
+        var temperatureAmplitudesMap = new float[_worldWidth, _worldHeight];
+        var riversMap = new bool[_worldWidth, _worldHeight];
 
-        for (var y = 0; y < worldHeight; y += 1)
-            for (var x = 0; x < worldWidth; x += 1)
+        for (var y = 0; y < _worldHeight; y += 1)
+            for (var x = 0; x < _worldWidth; x += 1)
             {
                 var elevationClamped = Math.Clamp(elevation[y * _worldWidth + x], 0f, 9f);
                 worldMap[x, y] = Convert.ToByte(elevationClamped);
@@ -395,18 +398,18 @@ public class CylinderWorld : IWorldGen
 
     #region Validation
 
-    private static void ValidateParameters(int worldWidth, int worldHeight, float landRatio)
+    private void ValidateParameters()
     {
-        if (worldWidth <= 0)
-            throw new ArgumentOutOfRangeException(nameof(worldWidth),
+        if (_worldWidth <= 0)
+            throw new ArgumentOutOfRangeException(nameof(_worldWidth),
                 "World width must be greater than 0.");
 
-        if (worldHeight <= 0)
-            throw new ArgumentOutOfRangeException(nameof(worldHeight),
+        if (_worldHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(_worldHeight),
                 "World height must be greater than 0.");
 
-        if (landRatio is < 0.0f or > 1.0f)
-            throw new ArgumentOutOfRangeException(nameof(landRatio),
+        if (LandRatio is < 0.0f or > 1.0f)
+            throw new ArgumentOutOfRangeException(nameof(LandRatio),
                 "Land ratio must be between 0 and 1.");
     }
 
