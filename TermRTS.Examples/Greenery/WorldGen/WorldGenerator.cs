@@ -142,6 +142,8 @@ public class CylinderWorld : IWorldGen
 
     private float _minTectonicDelta = float.MaxValue;
     private float _maxTectonicDelta = float.MinValue;
+    private float _minHotspotHeight = float.MaxValue;
+    private float _maxHotspotHeight = float.MinValue;
 
     // TODO: Distinguish between voronoi cells and tectonic plates
     // private readonly WorldBuffer<byte> _elevation;
@@ -197,19 +199,16 @@ public class CylinderWorld : IWorldGen
     public float RainfallMinModifier { get; set; } = 0.2f; // minimum modifier due to elevation
 
     // Island chain (hotspot) tuning parameters
-    public int MinIslandChains { get; set; } = 3; // minimum number of island chains
-    public int MaxIslandChains { get; set; } = 7; // maximum number of island chains
+    public int MinIslandChains { get; set; } = 8; // minimum number of island chains
+    public int MaxIslandChains { get; set; } = 15; // maximum number of island chains
     public int MinChainLength { get; set; } = 3; // minimum hotspots per chain
     public int MaxChainLength { get; set; } = 8; // maximum hotspots per chain
-    public int ChainSpacing { get; set; } = 25; // spacing between hotspots in a chain
-
-    public int MinLandDistance { get; set; } =
-        8; // minimum distance from land for hotspot placement
+    public int ChainSpacing { get; set; } = 5; // spacing between hotspots in a chain
 
     public int MinHotspotRadius { get; set; } = 3; // minimum radius of volcanic cones
     public int MaxHotspotRadius { get; set; } = 8; // maximum radius of volcanic cones
-    public float MinHotspotStrength { get; set; } = 0.4f; // minimum elevation strength of hotspots
-    public float MaxHotspotStrength { get; set; } = 1.1f; // maximum elevation strength of hotspots
+    public float MinHotspotStrength { get; set; } = 3.4f; // minimum elevation strength of hotspots
+    public float MaxHotspotStrength { get; set; } = 6.1f; // maximum elevation strength of hotspots
 
     // Advanced erosion tuning parameters
     public bool UseAdvancedErosion { get; set; } = true; // enable advanced erosion system
@@ -504,6 +503,13 @@ public class CylinderWorld : IWorldGen
             var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
             // + tectonic + hotspot;
             elevation += tectonic;
+            // Only apply hotspots if max elevation is not exceeded.
+            // This should not happen in most cases as hotspots are supposed to be generated
+            // in oceanic tiles.
+            if (hotspot > 0 && elevation + hotspot < MaxElevation)
+            {
+                elevation += hotspot;
+            }
 
             // Store as float, don't clamp yet
             elevations[i] = Math.Max(0, elevation);
@@ -892,6 +898,9 @@ public class CylinderWorld : IWorldGen
                         coneHeight *= 0.7f + noise * 0.6f;
 
                         hotspots[y * _worldWidth + x] += coneHeight;
+
+                        _minHotspotHeight = Math.Min(_minHotspotHeight, coneHeight);
+                        _maxHotspotHeight = Math.Max(_maxHotspotHeight, coneHeight);
                     }
             }
         }
