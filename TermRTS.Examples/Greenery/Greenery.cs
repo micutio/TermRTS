@@ -18,8 +18,8 @@ public class Greenery : IRunnableExample
     private const int WorldWidth = 400;
     private const int WorldHeight = 200;
     private const int Seed = 0;
-    private const int VoronoiCellCount = 25;
-    private const int PlateCount = 12;
+    private const int VoronoiCellCount = 60;
+    private const int PlateCount = 35;
 
     // private readonly ILog _log;
     private CommandRunner _commandRunner;

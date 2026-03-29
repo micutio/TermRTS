@@ -140,6 +140,9 @@ public class CylinderWorld : IWorldGen
     private readonly int _worldHeight;
     private readonly int _plateCount;
 
+    private float _minTectonicDelta = float.MaxValue;
+    private float _maxTectonicDelta = float.MinValue;
+
     // TODO: Distinguish between voronoi cells and tectonic plates
     // private readonly WorldBuffer<byte> _elevation;
     private readonly WorldBuffer<float> _elevation;
@@ -313,19 +316,19 @@ public class CylinderWorld : IWorldGen
         GenerateClimate();
 
         // Apply erosion to smooth terrain and create realistic features
-        if (UseAdvancedErosion)
-            ApplyAdvancedErosion();
-        else
-            ApplyErosion();
+        // if (UseAdvancedErosion)
+        //     ApplyAdvancedErosion();
+        // else
+        //     ApplyErosion();
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
-        GenerateRivers();
+        // GenerateRivers();
 
         // Apply mountain details (ridges, snow, glacier, lava)
-        ApplyMountainDetails();
+        // ApplyMountainDetails();
 
         // Apply coastal features (beach, cliff, fjord)
-        ApplyCoastalFeatures();
+        // ApplyCoastalFeatures();
 
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var elevation = _elevation.Memory.Span;
@@ -435,7 +438,7 @@ public class CylinderWorld : IWorldGen
         noise.SetFractalOctaves(4);
         noise.SetFractalLacunarity(3.0f);
         noise.SetFractalGain(0.5f);
-        noise.SetFrequency(0.05f);
+        noise.SetFrequency(0.04f);
 
         var noiseMap = _noiseMap.Memory.Span;
         // We calculate a radius that keeps the scale consistent.
@@ -483,7 +486,7 @@ public class CylinderWorld : IWorldGen
             // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
             var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
             var normalizedNoise = noiseField[i];
-            var tectonic = tectonicDelta[i];
+            var tectonicD = tectonicDelta[i];
             var hotspot = hotspots[i];
 
             // For oceanic plates, reduce noise impact to allow deeper trenches
@@ -493,15 +496,17 @@ public class CylinderWorld : IWorldGen
             var noiseMultiplier = elevations[i] >= LandElevationThreshold
                 ? 1.0f
                 : -1.0f;
+
             var elevation = // cellElevationContribution +
                 elevations[i] +
                 //slopeFactor;// *
                 (normalizedNoise * noiseMultiplier * elevations[i]);// *
-                                                                    // noiseMultiplier;
-                                                                    // + tectonic + hotspot;
+            var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
+            // + tectonic + hotspot;
+            elevation += tectonic;
 
             // Store as float, don't clamp yet
-            elevations[i] = elevation;
+            elevations[i] = Math.Max(0, elevation);
         }
     }
 
@@ -752,7 +757,7 @@ public class CylinderWorld : IWorldGen
                     if (direction.LengthSquared() < 0.0001f) continue;
 
                     var normal = Vector2.Normalize(direction);
-                    var relativeMotion = plateMotions[neighbourPlate] - plateMotions[currentPlate];
+                    var relativeMotion = GetWrappedVector(plateMotions[neighbourPlate], plateMotions[currentPlate]);
                     var stress = Vector2.Dot(relativeMotion, normal);
                     var convergence = MathF.Max(0f, stress);
                     var divergence = MathF.Max(0f, -stress);
@@ -770,7 +775,7 @@ public class CylinderWorld : IWorldGen
                         else if (mixedInteraction)
                             // Lesser mountains for mixed convergence.
                             // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 4.5f;
+                            totalDelta += convergence * 2.5f;
                         else
                             // Small bumps for oceanic convergence.
                             // TODO: Does this influence hotspots and hotspot island chains?
@@ -782,14 +787,16 @@ public class CylinderWorld : IWorldGen
                         if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
                             // Very deep trenches for oceanic-oceanic divergence.
                             // TODO: turn into adjustable parameter
-                            totalDelta -= divergence * 5.0f;
+                            totalDelta -= divergence * 2.0f;
                         else
                             // Shallower trenches for all other divergences
                             // TODO: turn into adjustable parameter
-                            totalDelta -= divergence * 2.4f;
+                            totalDelta -= divergence * 1.4f;
                     }
                 }
 
+                _minTectonicDelta = Math.Min(totalDelta, _minTectonicDelta);
+                _maxTectonicDelta = Math.Max(totalDelta, _maxTectonicDelta);
                 tectonicDelta[y * _worldWidth + x] = totalDelta;
             }
     }
