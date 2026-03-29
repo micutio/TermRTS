@@ -501,7 +501,6 @@ public class CylinderWorld : IWorldGen
                 //slopeFactor;// *
                 (normalizedNoise * noiseMultiplier * elevations[i]);// *
             var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
-            // + tectonic + hotspot;
             elevation += tectonic;
             // Only apply hotspots if max elevation is not exceeded.
             // This should not happen in most cases as hotspots are supposed to be generated
@@ -1155,7 +1154,6 @@ public class CylinderWorld : IWorldGen
                 }
 
             // Step 3: Hydraulic erosion and sediment transport
-            // TODO: replace shallow copy with deep copy
             var newTerrain = new float[_worldWidth * _worldHeight];
             terrain.CopyTo(newTerrain);
             var newWater = new float[_worldWidth * _worldHeight];
