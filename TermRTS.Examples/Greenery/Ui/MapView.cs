@@ -357,19 +357,18 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     public override void Render()
     {
-        var viewportExtendInWorldX = ViewportPositionInWorldX + ViewportWidth;
         var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
-        var boundaryX = Math.Min(_worldWidth, viewportExtendInWorldX);
         var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
 
         // Step 1: Render World
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
-            for (var x = ViewportPositionInWorldX; x < boundaryX; x++)
+            for (var x = 0; x < ViewportWidth; x++)
             {
-                var (elevation, c) = _cachedWorld[x, y];
+                var worldX = ViewportToWorldX(x);
+                var (elevation, c) = _cachedWorld[worldX, y];
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
-                var isFov = true; // _cachedFov[x, y];
+                var isFov = true; // _cachedFov[worldX, y];
                 var colors = MapRenderMode switch
                 {
                     MapRenderMode.ElevationColor => ColorsElevation,
@@ -392,7 +391,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 };
                 var (colFg, colBg) = colors[elevation];
                 _canvas.Set(
-                    X + WorldToViewportX(x) + _spaceForScaleLeft,
+                    X + x + _spaceForScaleLeft,
                     Y + WorldToViewportY(y) + SpaceForScaleTop,
                     c,
                     isFov ? colFg : DefaultFg,
@@ -545,17 +544,14 @@ public class MapView : KeyInputProcessorBase, IEventSink
     {
         ViewportPositionInWorldX = ViewportWidth > _worldWidth
             ? 0
-            : Math.Max(ViewportPositionInWorldX - 1, 0);
+            : WrapWorldX(ViewportPositionInWorldX - 1);
     }
 
     private void MoveCameraRight()
     {
-        var maxViewportX = ViewportPositionInWorldX + ViewportWidth - 1;
-        var maxWorldX = _worldWidth - ViewportWidth - 1;
-        var boundaryX = Math.Min(maxViewportX, maxWorldX);
         ViewportPositionInWorldX = ViewportWidth > _worldWidth
             ? 0
-            : Math.Min(ViewportPositionInWorldX + 1, boundaryX);
+            : WrapWorldX(ViewportPositionInWorldX + 1);
     }
 
     /// <summary>
@@ -566,10 +562,11 @@ public class MapView : KeyInputProcessorBase, IEventSink
     /// <returns><c>true</c> if it is within the viewport, <c>false</c> otherwise.</returns>
     private bool IsInCamera(float x, float y)
     {
-        return x >= ViewportPositionInWorldX
-               && x < ViewportPositionInWorldX + ViewportWidth
-               && y >= ViewportPositionInWorldY
-               && y < ViewportPositionInWorldY + ViewportHeight;
+        if (y < ViewportPositionInWorldY || y >= ViewportPositionInWorldY + ViewportHeight) return false;
+
+        var worldX = Convert.ToInt32(x);
+        var dx = (worldX - ViewportPositionInWorldX + _worldWidth) % _worldWidth;
+        return dx >= 0 && dx < ViewportWidth;
     }
 
     /// <summary>
@@ -588,7 +585,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private int WorldToViewportX(float x)
     {
-        return Convert.ToInt32(x - ViewportPositionInWorldX);
+        var worldX = Convert.ToInt32(x);
+        return (worldX - ViewportPositionInWorldX + _worldWidth) % _worldWidth;
     }
 
     private int WorldToViewportY(float y)
@@ -598,12 +596,17 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private int ViewportToWorldX(int x)
     {
-        return ViewportPositionInWorldX + x;
+        return WrapWorldX(ViewportPositionInWorldX + x);
     }
 
     private int ViewportToWorldY(int y)
     {
         return ViewportPositionInWorldY + y;
+    }
+
+    private int WrapWorldX(int x)
+    {
+        return (x % _worldWidth + _worldWidth) % _worldWidth;
     }
 
     private void RenderCoordinates()
@@ -663,7 +666,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var keyMap = "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
         var legend = GetLegendText(MapRenderMode);
 
-        _canvas.Text(X + _spaceForScaleLeft, Y, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
+        _canvas.Text(X + _spaceForScaleLeft, Y + Height - 2, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
         _canvas.Text(X + _spaceForScaleLeft, Y + Height - 1, ClipToWidth(legend, maxWidth), false, DefaultBg, DefaultFg);
     }
 
