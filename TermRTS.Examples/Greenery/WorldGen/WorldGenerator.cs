@@ -44,7 +44,8 @@ public class WorldGenerationResult(
     float[,] temperature,
     float[,] humidity,
     Biome[,] biomes,
-    float[,] temperatureAmplitude)
+    float[,] temperatureAmplitude,
+    bool[,] rivers)
 {
     public byte[,] Elevation { get; } = elevation;
     public SurfaceFeature[,] Surface { get; } = surface;
@@ -52,6 +53,7 @@ public class WorldGenerationResult(
     public float[,] Humidity { get; } = humidity;
     public Biome[,] Biomes { get; } = biomes;
     public float[,] TemperatureAmplitude { get; } = temperatureAmplitude;
+    public bool[,] Rivers { get; } = rivers;
 }
 
 public sealed class WorldBuffer<T> : IDisposable
@@ -332,6 +334,7 @@ public class CylinderWorld : IWorldGen
         var humidity = _humidity.Memory.Span;
         var biomes = _biomes.Memory.Span;
         var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
+        var riverMap = _riverMap.Memory.Span;
 
         var worldMap = new byte[worldWidth, worldHeight];
         var surfaceFeatureMap = new SurfaceFeature[worldWidth, worldHeight];
@@ -339,6 +342,7 @@ public class CylinderWorld : IWorldGen
         var humidityMap = new float[worldWidth, worldHeight];
         var biomesMap = new Biome[worldWidth, worldHeight];
         var temperatureAmplitudesMap = new float[worldWidth, worldHeight];
+        var riversMap = new bool[worldWidth, worldHeight];
 
         for (var y = 0; y < worldHeight; y += 1)
             for (var x = 0; x < worldWidth; x += 1)
@@ -350,6 +354,7 @@ public class CylinderWorld : IWorldGen
                 humidityMap[x, y] = humidity[y * _worldWidth + x];
                 biomesMap[x, y] = biomes[y * _worldWidth + x];
                 temperatureAmplitudesMap[x, y] = temperatureAmplitude[y * _worldWidth + x];
+                riversMap[x, y] = riverMap[y * _worldWidth + x];
             }
 
         return new WorldGenerationResult(
@@ -358,7 +363,8 @@ public class CylinderWorld : IWorldGen
             temperatureMap,
             humidityMap,
             biomesMap,
-            temperatureAmplitudesMap);
+            temperatureAmplitudesMap,
+            riversMap);
     }
 
     /// <summary>

@@ -15,7 +15,8 @@ public class WorldComponent(
     float[,] temperature,
     float[,] humidity,
     Biome[,] biomes,
-    float[,] temperatureAmplitude)
+    float[,] temperatureAmplitude,
+    bool[,] rivers)
     : ComponentBase(entityId)
 {
     public byte[,] Cells { get; } = cells;
@@ -24,6 +25,7 @@ public class WorldComponent(
     public float[,] Humidity { get; } = humidity;
     public Biome[,] Biomes { get; } = biomes;
     public float[,] TemperatureAmplitude { get; } = temperatureAmplitude;
+    public bool[,] Rivers { get; } = rivers;
     public int WorldWidth { get; } = worldWidth;
     public int WorldHeight { get; } = worldHeight;
 }

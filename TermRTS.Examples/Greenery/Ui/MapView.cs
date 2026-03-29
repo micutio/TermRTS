@@ -18,7 +18,13 @@ public enum MapRenderMode
     TerrainColor,
     TerrainMonochrome,
     ReliefColor,
-    ReliefMonochrome
+    ReliefMonochrome,
+    SurfaceFeatures,
+    Rivers,
+    Temperature,
+    Humidity,
+    Biomes,
+    TemperatureAmplitude
 }
 
 public class MapView : KeyInputProcessorBase, IEventSink
@@ -73,6 +79,52 @@ public class MapView : KeyInputProcessorBase, IEventSink
         Cp437.MediumShade,
         Cp437.DenseShade,
         Cp437.BlockFull
+    ];
+
+    private static readonly char[] MarkersSurfaceFeatures =
+    [
+        Cp437.WhiteSpace,                    // None
+        Cp437.Tilde,                         // River
+        Cp437.MediumShade,                   // Glacier
+        Cp437.BlockFull,                     // Lava
+        Cp437.TriangleUp,                    // Mountain
+        Cp437.Solar,                         // Snow
+        Cp437.Dot,                           // Beach
+        Cp437.BoxDoubleUpHorizontal,         // Cliff
+        Cp437.Pipe,                          // Fjord
+        Cp437.BulletHollow,                  // Crater
+        Cp437.Percent,                       // Ash
+        Cp437.Asterisk,                      // Cinder
+        Cp437.Plus,                          // Caldera
+        Cp437.Rectangle,                     // Shield
+        Cp437.Intersection                   // Stratovolcano
+    ];
+
+    private static readonly char[] MarkersBiome =
+    [
+        Cp437.Tilde, // Ocean
+        't',         // Tundra
+        'T',         // Taiga
+        'F',         // TemperateForest
+        'g',         // Grassland
+        'd',         // Desert
+        'J',         // TropicalForest
+        's',         // Savanna
+        'I'          // IceCap
+    ];
+
+    private static readonly char[] MarkersScalar =
+    [
+        Cp437.WhiteSpace,
+        Cp437.Dot,
+        Cp437.Comma,
+        Cp437.SparseShade,
+        Cp437.MediumShade,
+        Cp437.DenseShade,
+        Cp437.BlockFull,
+        Cp437.Plus,
+        Cp437.Hash,
+        Cp437.TriangleUp
     ];
 
     private static readonly (ConsoleColor, ConsoleColor)[] ColorsElevation =
@@ -251,6 +303,24 @@ public class MapView : KeyInputProcessorBase, IEventSink
             case MapRenderMode.ReliefMonochrome:
                 SetReliefVisual(world);
                 break;
+            case MapRenderMode.SurfaceFeatures:
+                SetSurfaceFeatureVisual(world);
+                break;
+            case MapRenderMode.Rivers:
+                SetRiversVisual(world);
+                break;
+            case MapRenderMode.Temperature:
+                SetTemperatureVisual(world);
+                break;
+            case MapRenderMode.Humidity:
+                SetHumidityVisual(world);
+                break;
+            case MapRenderMode.Biomes:
+                SetBiomesVisual(world);
+                break;
+            case MapRenderMode.TemperatureAmplitude:
+                SetTemperatureAmplitudeVisual(world);
+                break;
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -307,6 +377,12 @@ public class MapView : KeyInputProcessorBase, IEventSink
                     MapRenderMode.ContourColor => ColorsElevation,
                     MapRenderMode.TerrainColor => ColorsElevation,
                     MapRenderMode.ReliefColor => ColorsElevation,
+                    MapRenderMode.SurfaceFeatures => ColorsElevation,
+                    MapRenderMode.Rivers => ColorsElevation,
+                    MapRenderMode.Temperature => ColorsElevation,
+                    MapRenderMode.Humidity => ColorsElevation,
+                    MapRenderMode.Biomes => ColorsElevation,
+                    MapRenderMode.TemperatureAmplitude => ColorsElevation,
                     MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
                     MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
                     MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
@@ -349,6 +425,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         // Step 3: Render Coordinate Scales at the top and left sides.
         RenderCoordinates();
+        RenderOverlay();
     }
 
     protected override void OnXChanged()
@@ -404,6 +481,27 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 return;
             case ConsoleKey.RightArrow:
                 MoveCameraRight();
+                return;
+            case ConsoleKey.Q:
+                MapRenderMode = MapRenderMode.ElevationColor;
+                return;
+            case ConsoleKey.W:
+                MapRenderMode = MapRenderMode.SurfaceFeatures;
+                return;
+            case ConsoleKey.E:
+                MapRenderMode = MapRenderMode.Temperature;
+                return;
+            case ConsoleKey.R:
+                MapRenderMode = MapRenderMode.Humidity;
+                return;
+            case ConsoleKey.T:
+                MapRenderMode = MapRenderMode.Biomes;
+                return;
+            case ConsoleKey.U:
+                MapRenderMode = MapRenderMode.Rivers;
+                return;
+            case ConsoleKey.Y:
+                MapRenderMode = MapRenderMode.TemperatureAmplitude;
                 return;
             default:
                 return;
@@ -559,6 +657,49 @@ public class MapView : KeyInputProcessorBase, IEventSink
         }
     }
 
+    private void RenderOverlay()
+    {
+        var maxWidth = Math.Max(0, Width - _spaceForScaleLeft);
+        var keyMap = "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
+        var legend = GetLegendText(MapRenderMode);
+
+        _canvas.Text(X + _spaceForScaleLeft, Y, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
+        _canvas.Text(X + _spaceForScaleLeft, Y + Height - 1, ClipToWidth(legend, maxWidth), false, DefaultBg, DefaultFg);
+    }
+
+    private static string ClipToWidth(string text, int maxWidth)
+    {
+        return text.Length <= maxWidth ? text : text[..maxWidth];
+    }
+
+    private static string GetLegendText(MapRenderMode mode)
+    {
+        return mode switch
+        {
+            MapRenderMode.SurfaceFeatures => "Legend: ~ River | ^ Mountain | s Snow | . Beach | # Lava",
+            MapRenderMode.Rivers => "Legend: ~ River",
+            MapRenderMode.Biomes => "Legend: ~ Ocean | t Tundra | T Taiga | F TemperateForest | g Grassland | d Desert | J TropicalForest | s Savanna | I IceCap",
+            MapRenderMode.Temperature => "Legend: 0..9 = Temperature",
+            MapRenderMode.Humidity => "Legend: 0..9 = Humidity",
+            MapRenderMode.TemperatureAmplitude => "Legend: 0..9 = Temp Amplitude",
+            MapRenderMode.ElevationColor or MapRenderMode.ElevationMonochrome => "Legend: 0..9 = Elevation",
+            MapRenderMode.HeatMapColor or MapRenderMode.HeatMapMonochrome => "Legend: shade = Heatmap",
+            MapRenderMode.ContourColor or MapRenderMode.ContourMonochrome => "Legend: contour marks elevation changes",
+            MapRenderMode.TerrainColor or MapRenderMode.TerrainMonochrome => "Legend: terrain character map",
+            MapRenderMode.ReliefColor or MapRenderMode.ReliefMonochrome => "Legend: relief and cliffs",
+            _ => "Legend: map visualization"
+        };
+    }
+
+    private void SetRiversVisual(WorldComponent world)
+    {
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+                _cachedWorld[x, y] = world.Rivers[x, y]
+                    ? ((byte)1, Cp437.Tilde)
+                    : ((byte)0, Cp437.WhiteSpace);
+    }
+
     private void SetElevationVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
@@ -600,12 +741,99 @@ public class MapView : KeyInputProcessorBase, IEventSink
                          world.Cells[x, y] > 3)
                     c = Cp437.BackSlash;
                 else if (world.Cells[x, y] <= 3)
-                    c = '~';
+                    c = Cp437.Tilde;
                 else
                     c = Cp437.Interpunct;
 
                 _cachedWorld[x, y] = (world.Cells[x, y], c);
             }
+    }
+
+    private void SetSurfaceFeatureVisual(WorldComponent world)
+    {
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var feature = world.Surfaces[x, y];
+                var index = Math.Min((int)feature, MarkersSurfaceFeatures.Length - 1);
+                var charIndex = Math.Min(index, 9);
+                _cachedWorld[x, y] = ((byte)charIndex, MarkersSurfaceFeatures[index]);
+            }
+    }
+
+    private void SetTemperatureVisual(WorldComponent world)
+    {
+        var (min, max) = GetRange(world.Temperature);
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var index = GetScalarIndex(world.Temperature[x, y], min, max);
+                _cachedWorld[x, y] = ((byte)index, MarkersScalar[index]);
+            }
+    }
+
+    private void SetHumidityVisual(WorldComponent world)
+    {
+        var (min, max) = GetRange(world.Humidity);
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var index = GetScalarIndex(world.Humidity[x, y], min, max);
+                _cachedWorld[x, y] = ((byte)index, MarkersScalar[index]);
+            }
+    }
+
+    private void SetBiomesVisual(WorldComponent world)
+    {
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var biome = world.Biomes[x, y];
+                var index = Math.Min((int)biome, MarkersBiome.Length - 1);
+                var charIndex = Math.Min(index, 9);
+                _cachedWorld[x, y] = ((byte)charIndex, MarkersBiome[index]);
+            }
+    }
+
+    private void SetTemperatureAmplitudeVisual(WorldComponent world)
+    {
+        var (min, max) = GetRange(world.TemperatureAmplitude);
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var index = GetScalarIndex(world.TemperatureAmplitude[x, y], min, max);
+                _cachedWorld[x, y] = ((byte)index, MarkersScalar[index]);
+            }
+    }
+
+    private static int GetScalarIndex(float value, float min, float max)
+    {
+        if (float.IsNaN(value)) return 0;
+        if (max <= min) return 0;
+        var normalized = (value - min) / (max - min);
+        return Math.Clamp((int)MathF.Floor(normalized * 9.0f), 0, 9);
+    }
+
+    private static (float min, float max) GetRange(float[,] values)
+    {
+        var min = float.MaxValue;
+        var max = float.MinValue;
+        for (var y = 0; y < values.GetLength(1); y++)
+            for (var x = 0; x < values.GetLength(0); x++)
+            {
+                var value = values[x, y];
+                if (float.IsNaN(value)) continue;
+                min = Math.Min(min, value);
+                max = Math.Max(max, value);
+            }
+
+        if (min == float.MaxValue || max == float.MinValue)
+            return (0f, 1f);
+
+        if (min == max)
+            return (min - 1f, max + 1f);
+
+        return (min, max);
     }
 
     private void SetContourLines(WorldComponent world)
