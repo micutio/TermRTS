@@ -83,34 +83,34 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     private static readonly char[] MarkersSurfaceFeatures =
     [
-        Cp437.WhiteSpace,                    // None
-        Cp437.Tilde,                         // River
-        Cp437.MediumShade,                   // Glacier
-        Cp437.BlockFull,                     // Lava
-        Cp437.TriangleUp,                    // Mountain
-        Cp437.Solar,                         // Snow
-        Cp437.Dot,                           // Beach
-        Cp437.BoxDoubleUpHorizontal,         // Cliff
-        Cp437.Pipe,                          // Fjord
-        Cp437.BulletHollow,                  // Crater
-        Cp437.Percent,                       // Ash
-        Cp437.Asterisk,                      // Cinder
-        Cp437.Plus,                          // Caldera
-        Cp437.Rectangle,                     // Shield
-        Cp437.Intersection                   // Stratovolcano
+        Cp437.WhiteSpace, // None
+        Cp437.Tilde, // River
+        Cp437.MediumShade, // Glacier
+        Cp437.BlockFull, // Lava
+        Cp437.TriangleUp, // Mountain
+        Cp437.Solar, // Snow
+        Cp437.Dot, // Beach
+        Cp437.BoxDoubleUpHorizontal, // Cliff
+        Cp437.Pipe, // Fjord
+        Cp437.BulletHollow, // Crater
+        Cp437.Percent, // Ash
+        Cp437.Asterisk, // Cinder
+        Cp437.Plus, // Caldera
+        Cp437.Rectangle, // Shield
+        Cp437.Intersection // Stratovolcano
     ];
 
     private static readonly char[] MarkersBiome =
     [
         Cp437.Tilde, // Ocean
-        't',         // Tundra
-        'T',         // Taiga
-        'F',         // TemperateForest
-        'g',         // Grassland
-        'd',         // Desert
-        'J',         // TropicalForest
-        's',         // Savanna
-        'I'          // IceCap
+        't', // Tundra
+        'T', // Taiga
+        'F', // TemperateForest
+        'g', // Grassland
+        'd', // Desert
+        'J', // TropicalForest
+        's', // Savanna
+        'I' // IceCap
     ];
 
     private static readonly char[] MarkersScalar =
@@ -357,8 +357,31 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     public override void Render()
     {
+        if (!IsRequireReRender) return;
+
         var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
         var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
+
+        var colors = MapRenderMode switch
+        {
+            MapRenderMode.ElevationColor => ColorsElevation,
+            MapRenderMode.HeatMapColor => ColorsElevation,
+            MapRenderMode.ContourColor => ColorsElevation,
+            MapRenderMode.TerrainColor => ColorsElevation,
+            MapRenderMode.ReliefColor => ColorsElevation,
+            MapRenderMode.SurfaceFeatures => ColorsElevation,
+            MapRenderMode.Rivers => ColorsElevation,
+            MapRenderMode.Temperature => ColorsElevation,
+            MapRenderMode.Humidity => ColorsElevation,
+            MapRenderMode.Biomes => ColorsElevation,
+            MapRenderMode.TemperatureAmplitude => ColorsElevation,
+            MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
+            MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
+            MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
+            MapRenderMode.TerrainMonochrome => ColorsElevationMonochrome,
+            MapRenderMode.ReliefMonochrome => ColorsElevationMonochrome,
+            _ => throw new ArgumentOutOfRangeException()
+        };
 
         // Step 1: Render World
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
@@ -369,26 +392,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
                 var isFov = true; // _cachedFov[worldX, y];
-                var colors = MapRenderMode switch
-                {
-                    MapRenderMode.ElevationColor => ColorsElevation,
-                    MapRenderMode.HeatMapColor => ColorsElevation,
-                    MapRenderMode.ContourColor => ColorsElevation,
-                    MapRenderMode.TerrainColor => ColorsElevation,
-                    MapRenderMode.ReliefColor => ColorsElevation,
-                    MapRenderMode.SurfaceFeatures => ColorsElevation,
-                    MapRenderMode.Rivers => ColorsElevation,
-                    MapRenderMode.Temperature => ColorsElevation,
-                    MapRenderMode.Humidity => ColorsElevation,
-                    MapRenderMode.Biomes => ColorsElevation,
-                    MapRenderMode.TemperatureAmplitude => ColorsElevation,
-                    MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
-                    MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
-                    MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
-                    MapRenderMode.TerrainMonochrome => ColorsElevationMonochrome,
-                    MapRenderMode.ReliefMonochrome => ColorsElevationMonochrome,
-                    _ => throw new ArgumentOutOfRangeException()
-                };
                 var (colFg, colBg) = colors[elevation];
                 _canvas.Set(
                     X + x + _spaceForScaleLeft,
@@ -562,7 +565,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     /// <returns><c>true</c> if it is within the viewport, <c>false</c> otherwise.</returns>
     private bool IsInCamera(float x, float y)
     {
-        if (y < ViewportPositionInWorldY || y >= ViewportPositionInWorldY + ViewportHeight) return false;
+        if (y < ViewportPositionInWorldY || y >= ViewportPositionInWorldY + ViewportHeight)
+            return false;
 
         var worldX = Convert.ToInt32(x);
         var dx = (worldX - ViewportPositionInWorldX + _worldWidth) % _worldWidth;
@@ -663,11 +667,14 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private void RenderOverlay()
     {
         var maxWidth = Math.Max(0, Width - _spaceForScaleLeft);
-        var keyMap = "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
+        var keyMap =
+            "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
         var legend = GetLegendText(MapRenderMode);
 
-        _canvas.Text(X + _spaceForScaleLeft, Y + Height - 2, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
-        _canvas.Text(X + _spaceForScaleLeft, Y + Height - 1, ClipToWidth(legend, maxWidth), false, DefaultBg, DefaultFg);
+        // Don't show keymap for the time being.
+        // _canvas.Text(X + _spaceForScaleLeft, Y + Height - 2, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
+        _canvas.Text(X + _spaceForScaleLeft, Y + Height - 1, ClipToWidth(legend, maxWidth), false,
+            DefaultBg, DefaultFg);
     }
 
     private static string ClipToWidth(string text, int maxWidth)
@@ -679,17 +686,24 @@ public class MapView : KeyInputProcessorBase, IEventSink
     {
         return mode switch
         {
-            MapRenderMode.SurfaceFeatures => "Legend: ~ River | ^ Mountain | s Snow | . Beach | # Lava",
+            MapRenderMode.SurfaceFeatures =>
+                "Legend: ~ River | ^ Mountain | s Snow | . Beach | # Lava",
             MapRenderMode.Rivers => "Legend: ~ River",
-            MapRenderMode.Biomes => "Legend: ~ Ocean | t Tundra | T Taiga | F TemperateForest | g Grassland | d Desert | J TropicalForest | s Savanna | I IceCap",
+            MapRenderMode.Biomes =>
+                "Legend: ~ Ocean | t Tundra | T Taiga | F TemperateForest | g Grassland | d Desert | J TropicalForest | s Savanna | I IceCap",
             MapRenderMode.Temperature => "Legend: 0..9 = Temperature",
             MapRenderMode.Humidity => "Legend: 0..9 = Humidity",
             MapRenderMode.TemperatureAmplitude => "Legend: 0..9 = Temp Amplitude",
-            MapRenderMode.ElevationColor or MapRenderMode.ElevationMonochrome => "Legend: 0..9 = Elevation",
-            MapRenderMode.HeatMapColor or MapRenderMode.HeatMapMonochrome => "Legend: shade = Heatmap",
-            MapRenderMode.ContourColor or MapRenderMode.ContourMonochrome => "Legend: contour marks elevation changes",
-            MapRenderMode.TerrainColor or MapRenderMode.TerrainMonochrome => "Legend: terrain character map",
-            MapRenderMode.ReliefColor or MapRenderMode.ReliefMonochrome => "Legend: relief and cliffs",
+            MapRenderMode.ElevationColor or MapRenderMode.ElevationMonochrome =>
+                "Legend: 0..9 = Elevation",
+            MapRenderMode.HeatMapColor or MapRenderMode.HeatMapMonochrome =>
+                "Legend: shade = Heatmap",
+            MapRenderMode.ContourColor or MapRenderMode.ContourMonochrome =>
+                "Legend: contour marks elevation changes",
+            MapRenderMode.TerrainColor or MapRenderMode.TerrainMonochrome =>
+                "Legend: terrain character map",
+            MapRenderMode.ReliefColor or MapRenderMode.ReliefMonochrome =>
+                "Legend: relief and cliffs",
             _ => "Legend: map visualization"
         };
     }
