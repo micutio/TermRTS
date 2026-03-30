@@ -322,6 +322,9 @@ public class CylinderWorld : IWorldGen
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         GenerateRivers();
 
+        // Re-generate climate, now that we have rivers:
+        GenerateClimate();
+
         // Apply mountain details (ridges, snow, glacier, lava)
         // ApplyMountainDetails();
 
@@ -1033,6 +1036,11 @@ public class CylinderWorld : IWorldGen
 
     /// <summary>
     ///     Determine the biome of a cell by its properties.
+    ///     Suggestion:
+    ///     Moisture	Low Temp (Tundra)	Mid Temp (Temperate)	High Temp (Tropical)
+    ///     Low	Ice / Polar Desert	Steppe / Cold Desert	Hot Desert
+    ///     Mid	Shrubland	Grassland / Woodland	Savanna
+    ///     High	Taiga (Boreal)	Seasonal Forest	Tropical Rainforest
     /// </summary>
     /// <param name="temp">Temperature of the cell.</param>
     /// <param name="humidity">Humidity of the cell.</param>
@@ -1061,6 +1069,51 @@ public class CylinderWorld : IWorldGen
             // Hot climates
             _ => humidity > LowHumidityThreshold ? Biome.TropicalForest : Biome.Desert
         };
+    }
+
+    /// <summary>
+    ///     Combines rainfall, river proximity, and elevation to create a final humidity map.
+    /// </summary>
+    private void GenerateMoistureMap(float[,] rainfall)
+    {
+        var elevationsF = _elevation.Memory.Span;
+        var riverMap = _riverMap.Memory.Span;
+        var humidity = _humidity.Memory.Span;
+
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var index = y * _worldWidth + x;
+                var elevation = elevationsF[index];
+
+                // 1. Start with the base rainfall
+                var baseMoisture = rainfall[x, y];
+
+                // 2. Add a bonus for being near a river (Floodplain effect)
+                var riverBonus = 0f;
+                if (riverMap[index])
+                    riverBonus = 0.3f; // Significant boost for the river cell itself
+                else
+                    // Simple 1-pixel neighbor check for "lush banks"
+                    foreach (var (dx, dy) in new[] { (0, 1), (0, -1), (1, 0), (-1, 0) })
+                    {
+                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var ny = y + dy;
+                        if (ny < 0 || ny >= _worldHeight || !riverMap[ny * _worldWidth + nx]) continue;
+                        riverBonus = 0.15f;
+                        break;
+                    }
+
+                // 3. Elevation Penalty: Higher = Drier (simplified drainage)
+                // We assume anything above SeaLevelElevation starts losing moisture retention
+                var elevationFactor = MathF.Max(0.2f, 1.0f - elevation / MaxElevation);
+
+                // 4. Combine and Clamp
+                humidity[index] = Math.Clamp((baseMoisture + riverBonus) * elevationFactor, 0f, 1f);
+            }
+
+        // 5. Optional: Blur the moisture map slightly to create smoother biome transitions
+        // return moisture;  //SmoothMoisture(moisture);
     }
 
     #endregion
@@ -1353,6 +1406,7 @@ public class CylinderWorld : IWorldGen
 
         // Step 1: Generate rainfall map
         var rainfall = GenerateRainfall();
+        ApplyRainShadows(rainfall);
 
         // Step 2: Calculate flow directions (steepest downhill neighbor)
         var flowDirections = CalculateFlowDirections();
@@ -1366,6 +1420,8 @@ public class CylinderWorld : IWorldGen
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(flowAccumulation);
+
+        GenerateMoistureMap(rainfall);
     }
 
     /// <summary>
@@ -1421,6 +1477,72 @@ public class CylinderWorld : IWorldGen
             }
 
         return rainfall;
+    }
+
+    /// <summary>
+    ///     Adjusts the rainfall map based on wind direction and terrain height.
+    ///     Simulates moisture being 'squeezed' out of clouds by mountains.
+    /// </summary>
+    private void ApplyRainShadows(float[,] rainfall)
+    {
+        var elevationsF = _elevation.Memory.Span;
+
+        // Settings for tuning
+        const float moistureRechargeRate = 0.08f; // How fast clouds get wet over ocean
+        const float
+            rainDropFactor =
+                0.05f; // How much moisture drops as rain per unit of elevation increase
+        const float baseCloudMoisture = 0.5f; // Starting moisture level
+
+        // Iterate through each latitude (Y) and sweep West to East (X)
+        for (var y = 0; y < _worldHeight; y++)
+        {
+            var cloudMoisture = baseCloudMoisture;
+
+            // We do two passes or handle wrapping. For simplicity, let's do a 
+            // double-pass to ensure the 'wrap' doesn't have a hard seam.
+            for (var x = 0; x < _worldWidth * 2; x++)
+            {
+                var realX = x % _worldWidth;
+                var index = y * _worldWidth + realX;
+                var elevation = elevationsF[index];
+
+                if (elevation <= SeaLevelElevation)
+                {
+                    // 1. RECHARGE: Over the ocean, clouds pick up moisture
+                    cloudMoisture = MathF.Min(1.0f, cloudMoisture + moistureRechargeRate);
+                }
+                else
+                {
+                    // 2. DISCHARGE: Check elevation change relative to 'previous' cell
+                    var prevX = GetWrappedX(_worldWidth, realX - 1);
+                    var prevElevation = elevationsF[y * _worldWidth + prevX];
+
+                    var lift = elevation - prevElevation;
+
+                    if (lift > 0)
+                    {
+                        // Wind is going uphill! Squeeze moisture out.
+                        var rainDropped = lift * cloudMoisture * rainDropFactor;
+
+                        // Update the rainfall map with this 'orographic' bonus
+                        rainfall[realX, y] += rainDropped;
+
+                        // Deplete the cloud
+                        cloudMoisture -= rainDropped;
+                    }
+
+                    // 3. SHADOW: Even on flat land, clouds slowly lose moisture over distance 
+                    // if they aren't being recharged by a water body.
+                    cloudMoisture *= 0.99f;
+                }
+
+                // Apply the cloud moisture level as a multiplier to the base rainfall
+                // This ensures areas with 'empty' clouds remain dry (the shadow).
+                if (x >= _worldWidth) // Only apply values on the second pass to avoid seam artifacts
+                    rainfall[realX, y] *= 0.5f + cloudMoisture * 0.5f;
+            }
+        }
     }
 
     /// <summary>
