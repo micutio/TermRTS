@@ -90,7 +90,7 @@ public class CylinderWorld : IWorldGen
     private const int GlacierThreshold = 9;
 
     // Constants for coastal slopes
-    private const float MaxCoastalSlope = 9.0f;
+    private const float MaxCoastalSlope = 5.0f;
 
     // Constants for volcanic features
     private const float VolcanicResistance = 0.1f;
@@ -286,7 +286,6 @@ public class CylinderWorld : IWorldGen
     {
         ValidateParameters();
 
-
         // TODO: Then reactivate step by step.
         // TODO: Find appropriate visualisations per step to examine visually.
         // TODO: Verify world generation works!
@@ -316,9 +315,9 @@ public class CylinderWorld : IWorldGen
 
         // Apply erosion to smooth terrain and create realistic features
         // if (UseAdvancedErosion)
-        //     ApplyAdvancedErosion();
+        ApplyAdvancedErosion();
         // else
-        //     ApplyErosion();
+        // ApplyErosion();
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         // GenerateRivers();
@@ -349,7 +348,7 @@ public class CylinderWorld : IWorldGen
         var minElevation = float.MaxValue;
         var maxElevation = float.MinValue;
 
-        for (int i = 0; i < _worldWidth * _worldHeight; i++)
+        for (var i = 0; i < _worldWidth * _worldHeight; i++)
         {
             minElevation = Math.Min(minElevation, elevation[i]);
             maxElevation = Math.Max(maxElevation, elevation[i]);
@@ -360,7 +359,7 @@ public class CylinderWorld : IWorldGen
             {
                 // var normalisedElevation = elevation[y * _worldWidth + x] /  maxElevation * 9;
                 // var elevationClamped = Math.Max(0, normalisedElevation);
-                worldMap[x, y] = Convert.ToByte(elevation[y * _worldWidth + x]);
+                worldMap[x, y] = Convert.ToByte(Math.Max(0, elevation[y * _worldWidth + x]));
                 surfaceFeatureMap[x, y] = surfaceFeatures[y * _worldWidth + x];
                 temperatureMap[x, y] = temperature[y * _worldWidth + x];
                 humidityMap[x, y] = humidity[y * _worldWidth + x];
@@ -498,17 +497,14 @@ public class CylinderWorld : IWorldGen
 
             var elevation = // cellElevationContribution +
                 elevations[i] +
-                //slopeFactor;// *
-                (normalizedNoise * noiseMultiplier * elevations[i]);// *
-            var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
-            elevation += tectonic;
+                slopeFactor *
+                normalizedNoise * noiseMultiplier * elevations[i]; // *
+            // var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
+            elevation = Math.Min(MaxElevation, elevation + tectonicD + hotspot);
             // Only apply hotspots if max elevation is not exceeded.
             // This should not happen in most cases as hotspots are supposed to be generated
             // in oceanic tiles.
-            if (hotspot > 0 && elevation + hotspot < MaxElevation)
-            {
-                elevation += hotspot;
-            }
+            // if (hotspot > 0 && elevation + hotspot < MaxElevation) elevation += hotspot;
 
             // Store as float, don't clamp yet
             elevations[i] = Math.Max(0, elevation);
@@ -600,10 +596,19 @@ public class CylinderWorld : IWorldGen
     // TODO: Move this where it makes sense.
     public Vector2 GetWrappedVector(Vector2 from, Vector2 to)
     {
-        var dx = to.X - from.X;
+        return GetWrappedVector(to.X - from.X, to.Y - from.Y);
+    }
+
+    public Vector2 GetWrappedVector((int, int) from, (int, int) to)
+    {
+        return GetWrappedVector(to.Item1 - from.Item1, to.Item2 - from.Item2);
+    }
+
+    public Vector2 GetWrappedVector(float dx, float dy)
+    {
         // If the distance is more than half the map, wrapping around is shorter
         if (MathF.Abs(dx) > _worldWidth / 2f) dx -= MathF.Sign(dx) * _worldWidth;
-        return new Vector2(dx, to.Y - from.Y);
+        return new Vector2(dx, dy);
     }
 
     /// <summary>
@@ -660,7 +665,7 @@ public class CylinderWorld : IWorldGen
         {
             var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
             // TODO: Play around with the speed formula.
-            var speed = (float)(_rng.NextDouble() * 0.5 + 0.1);
+            var speed = (float)_rng.NextDouble(); // * 0.5 + 0.1);
             motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
         }
     }
@@ -737,6 +742,17 @@ public class CylinderWorld : IWorldGen
         var plateCenters = _plateCells.Memory.Span;
         var plateIndex = _plateIndex.Memory.Span;
 
+        var minContinentalConvergence = float.MaxValue;
+        var maxContinentalConvergence = float.MinValue;
+        var minMixedConvergence = float.MaxValue;
+        var maxMixedConvergence = float.MinValue;
+        var minOceanicConvergence = float.MaxValue;
+        var maxOceanicConvergence = float.MinValue;
+        var minOceanicDivergence = float.MaxValue;
+        var maxOceanicDivergence = float.MinValue;
+        var minOtherDivergence = float.MaxValue;
+        var maxOtherDivergence = float.MinValue;
+
         for (var y = 0; y < _worldHeight; y += 1)
             for (var x = 0; x < _worldWidth; x += 1)
             {
@@ -758,14 +774,17 @@ public class CylinderWorld : IWorldGen
 
                     var pA = plateCenters[currentPlate];
                     var pB = plateCenters[neighbourPlate];
-                    var direction = new Vector2(pB.Item1 - pA.Item1, pB.Item2 - pA.Item2);
+                    var direction = GetWrappedVector(pA, pB);
                     if (direction.LengthSquared() < 0.0001f) continue;
 
                     var normal = Vector2.Normalize(direction);
-                    var relativeMotion = GetWrappedVector(plateMotions[neighbourPlate], plateMotions[currentPlate]);
+                    var relativeMotion = GetWrappedVector(plateMotions[neighbourPlate],
+                        plateMotions[currentPlate]);
                     var stress = Vector2.Dot(relativeMotion, normal);
-                    var convergence = MathF.Max(0f, stress);
-                    var divergence = MathF.Max(0f, -stress);
+                    // Negative stress means they are crashing.
+                    var convergence = MathF.Max(0f, -stress);
+                    // Positive stress means they are pulling apart.
+                    var divergence = MathF.Max(0f, stress);
                     // Only true if both are continents.
                     var continentalInteraction = plateTypes[currentPlate] && plateTypes[neighbourPlate];
                     // Only true if one plate is continental and the other is oceanic.
@@ -774,36 +793,62 @@ public class CylinderWorld : IWorldGen
                     if (convergence > 0)
                     {
                         if (continentalInteraction)
+                        {
+                            minContinentalConvergence =
+                                MathF.Min(minContinentalConvergence, convergence * 250f);
+                            maxContinentalConvergence =
+                                MathF.Max(maxContinentalConvergence, convergence * 250f);
                             // Higher mountains for continental convergence.
                             // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 3.2f;
+                            totalDelta += convergence * 200f;
+                        }
                         else if (mixedInteraction)
+                        {
+                            minMixedConvergence = MathF.Min(minMixedConvergence, convergence * 4.5f);
+                            maxMixedConvergence = MathF.Max(maxMixedConvergence, convergence * 4.5f);
                             // Lesser mountains for mixed convergence.
                             // TODO: turn into adjustable parameter
                             totalDelta += convergence * 2.5f;
+                        }
                         else
+                        {
+                            minOceanicConvergence =
+                                MathF.Min(minOceanicConvergence, convergence * 1.7f);
+                            maxOceanicConvergence =
+                                MathF.Max(maxOceanicConvergence, convergence * 1.7f);
                             // Small bumps for oceanic convergence.
                             // TODO: Does this influence hotspots and hotspot island chains?
                             // TODO: turn into adjustable parameter
                             totalDelta += convergence * 1.7f;
+                        }
                     }
                     else if (divergence > 0)
                     {
                         if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
+                        {
+                            minOceanicDivergence = MathF.Min(minOceanicDivergence, divergence * 2f);
+                            maxOceanicDivergence = MathF.Max(maxOceanicDivergence, divergence * 2f);
                             // Very deep trenches for oceanic-oceanic divergence.
                             // TODO: turn into adjustable parameter
                             totalDelta -= divergence * 2.0f;
+                        }
                         else
+                        {
+                            minOtherDivergence = MathF.Min(minOtherDivergence, divergence * 2.1f);
+                            maxOtherDivergence = MathF.Max(maxOtherDivergence, divergence * 2.1f);
                             // Shallower trenches for all other divergences
                             // TODO: turn into adjustable parameter
-                            totalDelta -= divergence * 1.4f;
+                            totalDelta -= divergence * 2.1f;
+                        }
                     }
                 }
 
-                _minTectonicDelta = Math.Min(totalDelta, _minTectonicDelta);
-                _maxTectonicDelta = Math.Max(totalDelta, _maxTectonicDelta);
+                _minTectonicDelta = MathF.Min(totalDelta, _minTectonicDelta);
+                _maxTectonicDelta = MathF.Max(totalDelta, _maxTectonicDelta);
                 tectonicDelta[y * _worldWidth + x] = totalDelta;
             }
+
+        Console.WriteLine($"");
     }
 
     // TODO: Turn numeric parameters in to constants and later tweakable Properties
@@ -1567,7 +1612,8 @@ public class CylinderWorld : IWorldGen
                     if (elevationsF[ny * _worldWidth + nx] <= SeaLevelElevation
                         || riverMap[ny * _worldWidth + nx])
                     {
-                        riverMap[ny * _worldWidth + nx] = elevationsF[ny * _worldWidth + nx] > SeaLevelElevation;
+                        riverMap[ny * _worldWidth + nx] =
+                            elevationsF[ny * _worldWidth + nx] > SeaLevelElevation;
                         break;
                     }
 
