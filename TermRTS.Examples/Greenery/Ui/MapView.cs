@@ -1,5 +1,6 @@
 using System.Numerics;
 using ConsoleRenderer;
+using log4net.Appender;
 using TermRTS.Event;
 using TermRTS.Io;
 using TermRTS.Storage;
@@ -25,6 +26,24 @@ public enum MapRenderMode
     Humidity,
     Biomes,
     TemperatureAmplitude
+}
+
+internal readonly struct CellVisual(char marker, ConsoleColor foreground, ConsoleColor background)
+{
+    internal char GetMarker()
+    {
+        return marker;
+    }
+
+    internal ConsoleColor GetForeground()
+    {
+        return foreground;
+    }
+
+    internal ConsoleColor GetBackground()
+    {
+        return background;
+    }
 }
 
 public class MapView : KeyInputProcessorBase, IEventSink
@@ -182,16 +201,14 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private const int SpaceForTextfieldBottom = 1;
     private int _spaceForScaleLeft;
 
-    private int _viewportPositionInWorldX;
-    private int _viewportPositionInWorldY;
-
     #endregion
 
     // reference to canvas to render on
     private readonly ConsoleCanvas _canvas;
 
     // cached world and drone paths
-    private readonly (byte, char)[,] _cachedWorld;
+    // TODO: Change to (TerminalColor, char)[] _cachedWorld;
+    private readonly CellVisual[] _cachedWorld;
     private readonly bool[,] _cachedFov;
     private readonly Dictionary<int, Vector2> _cachedDronePositions;
     private readonly Dictionary<int, List<(int, int, char)>> _cachedDronePaths;
@@ -209,7 +226,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
 
-        _cachedWorld = new (byte, char)[worldWidth, worldHeight];
+        _cachedWorld = new CellVisual[worldWidth * worldHeight];
         _cachedFov = new bool[worldWidth, worldHeight];
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
@@ -243,24 +260,24 @@ public class MapView : KeyInputProcessorBase, IEventSink
     // Left top position of the camera within the world
     private int ViewportPositionInWorldX
     {
-        get => _viewportPositionInWorldX;
+        get;
         set
         {
-            if (_viewportPositionInWorldX == value) return;
+            if (field == value) return;
 
-            _viewportPositionInWorldX = value;
+            field = value;
             IsRequireReRender = true;
         }
     }
 
     private int ViewportPositionInWorldY
     {
-        get => _viewportPositionInWorldY;
+        get;
         set
         {
-            if (_viewportPositionInWorldY == value) return;
+            if (field == value) return;
 
-            _viewportPositionInWorldY = value;
+            field = value;
             UpdateSpaceForScaleLeft();
             IsRequireReRender = true;
         }
@@ -388,17 +405,16 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < ViewportWidth; x++)
             {
                 var worldX = ViewportToWorldX(x);
-                var (elevation, c) = _cachedWorld[worldX, y];
+                var cellVisual = _cachedWorld[y * _worldWidth + worldX];
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
                 var isFov = true; // _cachedFov[worldX, y];
-                var (colFg, colBg) = colors[elevation];
                 _canvas.Set(
                     X + x + _spaceForScaleLeft,
                     Y + WorldToViewportY(y) + SpaceForScaleTop,
-                    c,
-                    isFov ? colFg : DefaultFg,
-                    isFov ? colBg : DefaultBg);
+                    cellVisual.GetMarker(),
+                    isFov ? cellVisual.GetForeground() : DefaultFg,
+                    isFov ? cellVisual.GetBackground() : DefaultBg);
             }
 
         // Step 2: Render drones and drone paths
@@ -667,8 +683,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private void RenderOverlay()
     {
         var maxWidth = Math.Max(0, Width - _spaceForScaleLeft);
-        var keyMap =
-            "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
+        // var keyMap =
+        //     "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
         var legend = GetLegendText(MapRenderMode);
 
         // Don't show keymap for the time being.
@@ -712,37 +728,54 @@ public class MapView : KeyInputProcessorBase, IEventSink
     {
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                _cachedWorld[x, y] = world.Rivers[x, y]
-                    ? ((byte)1, Cp437.Tilde)
-                    : ((byte)0, Cp437.WhiteSpace);
+                _cachedWorld[y * _worldWidth + x] =
+                    world.Rivers[x, y]
+                        ? new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, DefaultBg)
+                        : new CellVisual(Cp437.WhiteSpace, DefaultFg, DefaultBg);
     }
 
     private void SetElevationVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                _cachedWorld[x, y] = (world.Cells[x, y], MarkersElevation[world.Cells[x, y]]);
+            {
+                var marker = MarkersElevation[world.Cells[x, y]];
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(marker, colors.Item1, colors.Item2);
+            }
     }
 
     private void SetHeatmapColorVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapColor[world.Cells[x, y]]);
+            {
+                var marker = MarkersHeatmapColor[world.Cells[x, y]];
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(marker, colors.Item1, colors.Item2);
+            }
     }
 
     private void SetHeatmapMonochromeVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                _cachedWorld[x, y] = (world.Cells[x, y], MarkersHeatmapMonochrome[world.Cells[x, y]]);
+            {
+                var marker = MarkersHeatmapMonochrome[world.Cells[x, y]];
+                var colors = ColorsHeatmapMonochrome[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(marker, colors.Item1, colors.Item2);
+            }
     }
 
     private void SetTerrainVisual(WorldComponent world)
     {
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                _cachedWorld[x, y] = (world.Cells[x, y], MarkersTerrain[world.Cells[x, y]]);
+            {
+                var marker = MarkersTerrain[world.Cells[x, y]];
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(marker, colors.Item1, colors.Item2);
+            }
     }
 
     private void SetReliefVisual(WorldComponent world)
@@ -762,7 +795,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 else
                     c = Cp437.Interpunct;
 
-                _cachedWorld[x, y] = (world.Cells[x, y], c);
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(c, colors.Item1, colors.Item2);
             }
     }
 
@@ -773,8 +807,10 @@ public class MapView : KeyInputProcessorBase, IEventSink
             {
                 var feature = world.Surfaces[x, y];
                 var index = Math.Min((int)feature, MarkersSurfaceFeatures.Length - 1);
-                var charIndex = Math.Min(index, 9);
-                _cachedWorld[x, y] = ((byte)charIndex, MarkersSurfaceFeatures[index]);
+                var markerIdx = Math.Min(index, 9);
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] =
+                    new CellVisual((char)(byte)markerIdx, colors.Item1, colors.Item2);
             }
     }
 
@@ -785,7 +821,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var index = GetScalarIndex(world.Temperature[x, y], min, max);
-                _cachedWorld[x, y] = ((byte)index, MarkersScalar[index]);
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] =
+                    new CellVisual((char)(byte)index, colors.Item1, colors.Item2);
             }
     }
 
@@ -796,7 +834,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var index = GetScalarIndex(world.Humidity[x, y], min, max);
-                _cachedWorld[x, y] = ((byte)index, MarkersScalar[index]);
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] =
+                    new CellVisual(MarkersScalar[index], colors.Item1, colors.Item2);
             }
     }
 
@@ -807,8 +847,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
             {
                 var biome = world.Biomes[x, y];
                 var index = Math.Min((int)biome, MarkersBiome.Length - 1);
-                var charIndex = Math.Min(index, 9);
-                _cachedWorld[x, y] = ((byte)charIndex, MarkersBiome[index]);
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] =
+                    new CellVisual(MarkersBiome[index], colors.Item1, colors.Item2);
             }
     }
 
@@ -819,7 +860,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var index = GetScalarIndex(world.TemperatureAmplitude[x, y], min, max);
-                _cachedWorld[x, y] = ((byte)index, MarkersScalar[index]);
+                var colors = ColorsElevation[world.Cells[x, y]];
+                _cachedWorld[y * _worldWidth + x] =
+                    new CellVisual(MarkersScalar[index], colors.Item1, colors.Item2);
             }
     }
 
@@ -844,13 +887,12 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 max = Math.Max(max, value);
             }
 
-        if (min == float.MaxValue || max == float.MinValue)
+        if (Math.Abs(min - float.MaxValue) < 1f || Math.Abs(max - float.MinValue) < 1f)
             return (0f, 1f);
 
-        if (min == max)
-            return (min - 1f, max + 1f);
-
-        return (min, max);
+        return Math.Abs(min - max) < 0.001f
+            ? (min - 1f, max + 1f)
+            : (min, max);
     }
 
     private void SetContourLines(WorldComponent world)
@@ -859,26 +901,29 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var cell = world.Cells[x, y];
+                var colors = ColorsElevation[cell];
                 if (cell < 3)
                 {
-                    _cachedWorld[x, y] = (cell, Cp437.WhiteSpace);
+                    _cachedWorld[y * _worldWidth + x] =
+                        new CellVisual(Cp437.WhiteSpace, colors.Item1, colors.Item2);
                     continue;
                 }
 
                 var c = GetCharFromCliffs(cell, x, y, world);
-                _cachedWorld[x, y] = (cell, c);
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(c, colors.Item1, colors.Item2);
             }
 
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
                 var cell = world.Cells[x, y];
+                var colors = ColorsElevation[cell];
                 if (cell < 3) continue;
 
-                if (_cachedWorld[x, y].Item2 == 'X') continue;
+                if (_cachedWorld[y * _worldWidth + x].GetMarker() == 'X') continue;
                 var c = GetCliffAdjacentChar(cell, x, y, world);
 
-                _cachedWorld[x, y].Item2 = c;
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(c, colors.Item1, colors.Item2);
             }
 
         for (var y = 0; y < _worldHeight; y++)
@@ -887,10 +932,11 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 var cell = world.Cells[x, y];
                 if (cell < 3) continue;
 
-                if (_cachedWorld[x, y].Item2 != 'X') continue;
+                var colors = ColorsElevation[cell];
+                if (_cachedWorld[y * _worldWidth + x].GetMarker() == 'X') continue;
                 var c = GetCliffChar(cell, x, y, world);
 
-                _cachedWorld[x, y].Item2 = c;
+                _cachedWorld[y * _worldWidth + x] = new CellVisual(c, colors.Item1, colors.Item2);
             }
     }
 
@@ -921,19 +967,23 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var b = 0b_0000_0000;
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
-        if (north == cell && _cachedWorld[x, y - 1].Item2 == Cp437.UpperX) b |= 0b_0000_1000;
+        if (north == cell && _cachedWorld[(y - 1) * _worldWidth + x].GetMarker() == Cp437.UpperX)
+            b |= 0b_0000_1000;
 
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
-        if (east == cell && _cachedWorld[x + 1, y].Item2 == Cp437.UpperX) b |= 0b_0000_0100;
+        if (east == cell && _cachedWorld[y * _worldWidth + x + 1].GetMarker() == Cp437.UpperX)
+            b |= 0b_0000_0100;
 
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
-        if (south == cell && _cachedWorld[x, y + 1].Item2 == Cp437.UpperX) b |= 0b_0000_0010;
+        if (south == cell && _cachedWorld[(y + 1) * _worldWidth + x].GetMarker() == Cp437.UpperX)
+            b |= 0b_0000_0010;
 
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
-        if (west == cell && _cachedWorld[x - 1, y].Item2 == Cp437.UpperX) b |= 0b_0000_0001;
+        if (west == cell && _cachedWorld[y * _worldWidth + (x - 1)].GetMarker() == Cp437.UpperX)
+            b |= 0b_0000_0001;
 
         return b switch
         {
@@ -963,25 +1013,28 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var b = 0b_0000_0000;
         // north
         byte? north = IsInBounds(x, y - 1) ? world.Cells[x, y - 1] : null;
-        if (north == cell && _cachedWorld[x, y - 1].Item2 != Cp437.WhiteSpace)
+        if (north == cell &&
+            _cachedWorld[(y - 1) * _worldWidth + x].GetMarker() != Cp437.WhiteSpace)
             b |= 0b_0000_1000;
 
         // east
         byte? east = IsInBounds(x + 1, y) ? world.Cells[x + 1, y] : null;
-        if (east == cell && _cachedWorld[x + 1, y].Item2 != Cp437.WhiteSpace)
+        if (east == cell && _cachedWorld[y * _worldWidth + x + 1].GetMarker() != Cp437.WhiteSpace)
             b |= 0b_0000_0100;
 
         // south
         byte? south = IsInBounds(x, y + 1) ? world.Cells[x, y + 1] : null;
-        if (south == cell && _cachedWorld[x, y + 1].Item2 != Cp437.WhiteSpace)
+        if (south == cell &&
+            _cachedWorld[(y + 1) * _worldWidth + x].GetMarker() != Cp437.WhiteSpace)
             b |= 0b_0000_0010;
 
         // west
         byte? west = IsInBounds(x - 1, y) ? world.Cells[x - 1, y] : null;
-        if (west == cell && _cachedWorld[x - 1, y].Item2 != Cp437.WhiteSpace)
+        if (west == cell && _cachedWorld[y * _worldWidth + (x - 1)].GetMarker() != Cp437.WhiteSpace)
             b |= 0b_0000_0001;
 
-        if (b == 0 && _cachedWorld[x, y].Item2 == Cp437.WhiteSpace) return Cp437.WhiteSpace;
+        if (b == 0 && _cachedWorld[y * _worldWidth + x].GetMarker() == Cp437.WhiteSpace)
+            return Cp437.WhiteSpace;
 
         return b switch
         {
