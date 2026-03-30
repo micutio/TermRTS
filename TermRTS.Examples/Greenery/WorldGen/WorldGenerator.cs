@@ -320,7 +320,7 @@ public class CylinderWorld : IWorldGen
         // ApplyErosion();
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
-        // GenerateRivers();
+        GenerateRivers();
 
         // Apply mountain details (ridges, snow, glacier, lava)
         // ApplyMountainDetails();
@@ -800,7 +800,7 @@ public class CylinderWorld : IWorldGen
                                 MathF.Max(maxContinentalConvergence, convergence * 250f);
                             // Higher mountains for continental convergence.
                             // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 200f;
+                            totalDelta += convergence * 250f;
                         }
                         else if (mixedInteraction)
                         {
@@ -808,18 +808,18 @@ public class CylinderWorld : IWorldGen
                             maxMixedConvergence = MathF.Max(maxMixedConvergence, convergence * 4.5f);
                             // Lesser mountains for mixed convergence.
                             // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 2.5f;
+                            totalDelta += convergence * 4.5f;
                         }
                         else
                         {
                             minOceanicConvergence =
-                                MathF.Min(minOceanicConvergence, convergence * 1.7f);
+                                MathF.Min(minOceanicConvergence, convergence * 1.2f);
                             maxOceanicConvergence =
-                                MathF.Max(maxOceanicConvergence, convergence * 1.7f);
+                                MathF.Max(maxOceanicConvergence, convergence * 1.2f);
                             // Small bumps for oceanic convergence.
                             // TODO: Does this influence hotspots and hotspot island chains?
                             // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 1.7f;
+                            totalDelta += convergence * 1.2f;
                         }
                     }
                     else if (divergence > 0)
@@ -1348,6 +1348,9 @@ public class CylinderWorld : IWorldGen
     /// </summary>
     private void GenerateRivers()
     {
+        // Step 0: Fix local minima so water doesn't get stuck
+        FillDepressions();
+
         // Step 1: Generate rainfall map
         var rainfall = GenerateRainfall();
 
@@ -1356,9 +1359,10 @@ public class CylinderWorld : IWorldGen
 
         // Step 3: Accumulate flow from upstream cells
         var flowAccumulation = AccumulateFlow(flowDirections, rainfall);
+        var strahlerOrder = CalculateStrahlerOrder(flowDirections);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        CarveRivers(flowDirections, flowAccumulation);
+        CarveRivers(flowDirections, flowAccumulation, strahlerOrder);
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(flowAccumulation);
@@ -1419,6 +1423,74 @@ public class CylinderWorld : IWorldGen
         return rainfall;
     }
 
+    /// <summary>
+    ///     Fills local minima (pits) in the elevation data so that water can always flow to the ocean.
+    ///     Implements a simplified Planchon-Darboux algorithm.
+    /// </summary>
+    private void FillDepressions()
+    {
+        var elevationsF = _elevation.Memory.Span;
+        var filledElevations = new float[_worldWidth, _worldHeight];
+
+        // Step 1: Initialize the water levels
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var elevation = elevationsF[y * _worldWidth + x];
+                // If it's an ocean cell or on the top/bottom edge of the map, it's an outlet.
+                if (elevation <= SeaLevelElevation || y == 0 || y == _worldHeight - 1)
+                    filledElevations[x, y] = elevation;
+                else
+                    // Flood all inland cells to maximum height initially
+                    filledElevations[x, y] = float.MaxValue;
+            }
+
+        // Step 2: Iteratively carve paths to the ocean
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+
+            for (var y = 0; y < _worldHeight; y++)
+                for (var x = 0; x < _worldWidth; x++)
+                {
+                    var currentElevation = elevationsF[y * _worldWidth + x];
+                    if (Math.Abs(filledElevations[x, y] - currentElevation) < 0.1)
+                        continue; // Already at minimum
+
+                    var minNeighborWaterLevel = float.MaxValue;
+
+                    // Check all 8 neighbors
+                    for (var dy = -1; dy <= 1; dy++)
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+
+                            var nx = GetWrappedX(_worldWidth, x + dx);
+                            var ny = y + dy;
+
+                            if (ny < 0 || ny >= _worldHeight) continue;
+
+                            if (filledElevations[nx, ny] < minNeighborWaterLevel)
+                                minNeighborWaterLevel = filledElevations[nx, ny];
+                        }
+
+                    // The new water level is the highest of either the actual terrain height, 
+                    // or the lowest neighbor + a tiny slope to guarantee water flows across flats.
+                    var newWaterLevel = MathF.Max(currentElevation, minNeighborWaterLevel + 0.001f);
+
+                    if (newWaterLevel >= filledElevations[x, y]) continue;
+                    filledElevations[x, y] = newWaterLevel;
+                    changed = true;
+                }
+        }
+
+        // Step 3: Apply the filled elevations back to the map
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+                elevationsF[y * _worldWidth + x] = filledElevations[x, y];
+    }
+
     // TODO: See whether we can reuse this flow field for other functions.
 
     /// <summary>
@@ -1474,72 +1546,53 @@ public class CylinderWorld : IWorldGen
         float[,] rainfall)
     {
         var flowAccumulation = new float[_worldWidth, _worldHeight];
+        var inDegree = new int[_worldWidth, _worldHeight];
 
-        // Initialize with rainfall
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-                flowAccumulation[x, y] = rainfall[x, y];
-
-        // Propagate flow downstream (process in reverse order to handle dependencies)
-        var processed = new bool[_worldWidth, _worldHeight];
-        var queue = new Queue<(int, int)>();
-
-        // Start with cells that have no incoming flow (local minima or edges)
+        // Step 1: Initialize rainfall and calculate In-Degrees
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var hasIncoming = false;
-                for (var dy = -1; dy <= 1 && !hasIncoming; dy++)
-                    for (var dx = -1; dx <= 1 && !hasIncoming; dx++)
-                    {
-                        if (dx == 0 && dy == 0) continue;
+                flowAccumulation[x, y] = rainfall[x, y];
 
-                        var nx = GetWrappedX(_worldWidth, x + dx);
-                        var ny = y + dy;
-                        if (ny < 0 || ny >= _worldHeight) continue;
+                var (dx, dy) = flowDirections[x, y];
+                if (dx == 0 && dy == 0) continue;
 
-                        var (fdx, fdy) = flowDirections[nx, ny];
-                        if (nx + fdx == x && ny + fdy == y) hasIncoming = true;
-                    }
+                var nx = GetWrappedX(_worldWidth, x + dx);
+                var ny = y + dy;
 
-                if (hasIncoming) continue;
-                queue.Enqueue((x, y));
-                processed[x, y] = true;
+                if (ny >= 0 && ny < _worldHeight)
+                    // This neighbor is receiving flow from (x, y)
+                    inDegree[nx, ny]++;
             }
 
-        // Process queue
+        // Step 2: Queue all cells that have NO incoming water (Sources / Ridge lines)
+        var queue = new Queue<(int, int)>();
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+                if (inDegree[x, y] == 0)
+                    queue.Enqueue((x, y));
+
+        // Step 3: Process the queue
         while (queue.Count > 0)
         {
             var (x, y) = queue.Dequeue();
             var (dx, dy) = flowDirections[x, y];
+
             if (dx == 0 && dy == 0) continue;
 
             var nx = GetWrappedX(_worldWidth, x + dx);
             var ny = y + dy;
+
             if (ny < 0 || ny >= _worldHeight) continue;
 
+            // Pass the accumulated water downstream
             flowAccumulation[nx, ny] += flowAccumulation[x, y];
 
-            // Check if all upstream cells are processed
-            var allUpstreamProcessed = true;
-            for (var dy2 = -1; dy2 <= 1 && allUpstreamProcessed; dy2++)
-                for (var dx2 = -1; dx2 <= 1 && allUpstreamProcessed; dx2++)
-                {
-                    if (dx2 == 0 && dy2 == 0) continue;
+            // Mark that one upstream dependency is resolved
+            inDegree[nx, ny]--;
 
-                    var nx2 = GetWrappedX(_worldWidth, nx + dx2);
-                    var ny2 = ny + dy2;
-                    if (ny2 < 0 || ny2 >= _worldHeight) continue;
-
-                    var (fdx2, fdy2) = flowDirections[nx2, ny2];
-                    if (nx2 + fdx2 == nx && ny2 + fdy2 == ny && !processed[nx2, ny2])
-                        allUpstreamProcessed = false;
-                }
-
-            if (!allUpstreamProcessed || processed[nx, ny]) continue;
-
-            processed[nx, ny] = true;
-            queue.Enqueue((nx, ny));
+            // If all upstream dependencies are resolved, this cell is ready to flow
+            if (inDegree[nx, ny] == 0) queue.Enqueue((nx, ny));
         }
 
         return flowAccumulation;
@@ -1551,74 +1604,71 @@ public class CylinderWorld : IWorldGen
     /// <param name="flowDirections">Flow direction for each cell.</param>
     /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
     /// <returns></returns>
-    private void CarveRivers((int, int)[,] flowDirections, float[,] flowAccumulation)
+    private void CarveRivers((int, int)[,] flowDirections, float[,] flowAccumulation,
+        int[,] strahlerOrder)
     {
         var elevationsF = _elevation.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
+        riverMap.Clear();
 
-        // Find maximum flow accumulation for normalization
-        var maxFlow = 0f;
+        // 1. Identify "Major" vs "Minor" for normalization
+        var maxOrder = 0;
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                maxFlow = MathF.Max(maxFlow, flowAccumulation[x, y]);
+                maxOrder = Math.Max(maxOrder, strahlerOrder[x, y]);
 
-        var globalThreshold = MathF.Max(0.01f, RiverFormationThreshold);
+        // 2. Visual and Physical Thresholds
+        const int minOrderToVisualise = 3;
+        const int minOrderToCarve = 1;
 
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var normalizedFlow = maxFlow > 0 ? flowAccumulation[x, y] / maxFlow : 0f;
-                var currentElevation = elevationsF[y * _worldWidth + x];
-
-                // Only start river source on land
-                if (currentElevation < LandElevationThreshold || normalizedFlow <= globalThreshold)
+                var order = strahlerOrder[x, y];
+                if (order < minOrderToCarve || elevationsF[y * _worldWidth + x] <= SeaLevelElevation)
                     continue;
 
-                // Trace river path downstream following flow directions, ensuring connectivity
+                // We only trace from the 'tips' of the network to avoid redundant carving
+                // (If inDegree is 0, it's a headwater/source)
+                // Note: You'll need to pass inDegree or calculate it, or just keep the trace logic.
+                // Let's stick to your trace logic but check the 'riverMap' to prevent double-carving.
+
                 var cx = x;
                 var cy = y;
                 var maxSteps = _worldWidth + _worldHeight;
 
                 while (maxSteps-- > 0)
                 {
-                    if (cy < 0 || cy >= _worldHeight)
-                        break;
+                    var index = cy * _worldWidth + cx;
+                    var currentOrder = strahlerOrder[cx, cy];
 
-                    if (riverMap[cy * _worldWidth + cx])
-                        break; // Path already included
+                    // --- THE STRAHLER UPGRADE ---
 
-                    riverMap[cy * _worldWidth + cx] = true;
+                    // A. Visual Overlay: Only show the big boys
+                    if (currentOrder >= minOrderToVisualise)
+                        riverMap[index] = true;
 
-                    var cellElevation = elevationsF[cy * _worldWidth + cx];
-                    var depth = MathF.Min(RiverMaxCarveDepth,
-                        flowAccumulation[cx, cy] / maxFlow * RiverCarveScale);
-                    elevationsF[cy * _worldWidth + cx] =
-                        Math.Max(RiverCarveMinElevation, cellElevation - depth);
+                    // B. Physical Carving: Depth scales with the Order
+                    // Example: Order 1 = 0.1 depth, Order 6 = 2.4 depth
+                    var orderMultiplier = MathF.Pow(currentOrder, 1.5f) * 0.1f;
 
-                    if (cellElevation <= SeaLevelElevation)
-                        break; // Reached coast
+                    var cellElevation = elevationsF[index];
+                    var targetDepth = MathF.Min(RiverMaxCarveDepth, orderMultiplier * RiverCarveScale);
+
+                    // Only carve if we are deeper than the current elevation
+                    var newElevation = MathF.Max(RiverCarveMinElevation, cellElevation - targetDepth);
+                    elevationsF[index] = MathF.Min(cellElevation, newElevation);
+
+                    // Stop if we hit the sea
+                    if (elevationsF[index] <= SeaLevelElevation) break;
 
                     var (dx, dy) = flowDirections[cx, cy];
-                    if (dx == 0 && dy == 0)
-                        break; // No downhill direction
+                    if (dx == 0 && dy == 0) break;
 
-                    var nx = GetWrappedX(_worldWidth, cx + dx);
-                    var ny = cy + dy;
+                    cx = GetWrappedX(_worldWidth, cx + dx);
+                    cy = cy + dy;
 
-                    if (ny < 0 || ny >= _worldHeight)
-                        break;
-
-                    // stop at ocean or already established river cell
-                    if (elevationsF[ny * _worldWidth + nx] <= SeaLevelElevation
-                        || riverMap[ny * _worldWidth + nx])
-                    {
-                        riverMap[ny * _worldWidth + nx] =
-                            elevationsF[ny * _worldWidth + nx] > SeaLevelElevation;
-                        break;
-                    }
-
-                    cx = nx;
-                    cy = ny;
+                    if (cy < 0 || cy >= _worldHeight) break;
                 }
             }
     }
@@ -1638,10 +1688,93 @@ public class CylinderWorld : IWorldGen
                 var currentElevation = elevationsF[y * _worldWidth + x];
 
                 // Deposit sediment in very low areas (potential floodplains)
-                if (currentElevation < SeaLevelElevation && flowAccumulation[x, y] > 0)
+                if (currentElevation < SeaLevelElevation - 1 && flowAccumulation[x, y] > 0)
                     // Small sediment deposit
                     elevationsF[y * _worldWidth + x] = Math.Min(9, currentElevation + 1);
             }
+    }
+
+    // TODO: Add to generation steps and visualisation.
+    // TODO: Flatten result array and probably replace river map completely.
+
+    /// <summary>
+    ///     Calculates the Strahler Stream Order for the entire river network.
+    /// </summary>
+    /// <returns>
+    ///     An integer matrix with the following valuation:
+    ///     - Order 1-2: small creeks
+    ///     - Order 3-4: small rivers
+    ///     - Order  5+: major rivers
+    /// </returns>
+    private int[,] CalculateStrahlerOrder((int, int)[,] flowDirections)
+    {
+        var strahlerOrder = new int[_worldWidth, _worldHeight];
+        var inDegree = new int[_worldWidth, _worldHeight];
+
+        // Track the highest order seen so far for a cell, 
+        // and whether we've seen it more than once.
+        var maxIncomingOrder = new int[_worldWidth, _worldHeight];
+        var countOfMaxOrder = new int[_worldWidth, _worldHeight];
+
+        // 1. Calculate in-degrees (same as AccumulateFlow)
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var (dx, dy) = flowDirections[x, y];
+                if (dx == 0 && dy == 0) continue;
+                var nx = GetWrappedX(_worldWidth, x + dx);
+                var ny = y + dy;
+                if (ny >= 0 && ny < _worldHeight) inDegree[nx, ny]++;
+            }
+
+        // 2. Queue the sources (Order 1)
+        var queue = new Queue<(int, int)>();
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+                if (inDegree[x, y] == 0)
+                {
+                    strahlerOrder[x, y] = 1;
+                    queue.Enqueue((x, y));
+                }
+
+        // 3. Process topologically
+        while (queue.Count > 0)
+        {
+            var (x, y) = queue.Dequeue();
+            var currentOrder = strahlerOrder[x, y];
+
+            var (dx, dy) = flowDirections[x, y];
+            if (dx == 0 && dy == 0) continue;
+
+            var nx = GetWrappedX(_worldWidth, x + dx);
+            var ny = y + dy;
+            if (ny < 0 || ny >= _worldHeight) continue;
+
+            // Update the neighbor's knowledge of its incoming tributaries
+            if (currentOrder > maxIncomingOrder[nx, ny])
+            {
+                maxIncomingOrder[nx, ny] = currentOrder;
+                countOfMaxOrder[nx, ny] = 1;
+            }
+            else if (currentOrder == maxIncomingOrder[nx, ny])
+            {
+                countOfMaxOrder[nx, ny]++;
+            }
+
+            inDegree[nx, ny]--;
+            if (inDegree[nx, ny] == 0)
+            {
+                // RESOLVE ORDER: If two or more tributaries of the same MAX order meet, level up.
+                // Otherwise, inherit the max incoming order.
+                strahlerOrder[nx, ny] = countOfMaxOrder[nx, ny] >= 2
+                    ? maxIncomingOrder[nx, ny] + 1
+                    : maxIncomingOrder[nx, ny];
+
+                queue.Enqueue((nx, ny));
+            }
+        }
+
+        return strahlerOrder;
     }
 
     #endregion
