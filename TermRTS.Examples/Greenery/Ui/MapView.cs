@@ -1,6 +1,5 @@
 using System.Numerics;
 using ConsoleRenderer;
-using log4net.Appender;
 using TermRTS.Event;
 using TermRTS.Io;
 using TermRTS.Storage;
@@ -100,23 +99,23 @@ public class MapView : KeyInputProcessorBase, IEventSink
         Cp437.BlockFull
     ];
 
-    private static readonly char[] MarkersSurfaceFeatures =
+    private static readonly CellVisual[] CellVisualSurfaceFeatures =
     [
-        Cp437.WhiteSpace, // None
-        Cp437.Tilde, // River
-        Cp437.MediumShade, // Glacier
-        Cp437.BlockFull, // Lava
-        Cp437.TriangleUp, // Mountain
-        Cp437.Solar, // Snow
-        Cp437.Dot, // Beach
-        Cp437.BoxDoubleUpHorizontal, // Cliff
-        Cp437.Pipe, // Fjord
-        Cp437.BulletHollow, // Crater
-        Cp437.Percent, // Ash
-        Cp437.Asterisk, // Cinder
-        Cp437.Plus, // Caldera
-        Cp437.Rectangle, // Shield
-        Cp437.Intersection // Stratovolcano
+        new(Cp437.WhiteSpace, DefaultFg, DefaultBg), // None
+        new(Cp437.Tilde, ConsoleColor.Cyan, ConsoleColor.Blue), // River
+        new(Cp437.MediumShade, ConsoleColor.White, DefaultBg), // Glacier
+        new(Cp437.BlockFull, ConsoleColor.Red, ConsoleColor.DarkGray), // Lava
+        new(Cp437.TriangleUp, ConsoleColor.Gray, DefaultBg), // Mountain
+        new(Cp437.Solar, ConsoleColor.White, DefaultBg), // Snow
+        new(Cp437.Dot, ConsoleColor.Yellow, ConsoleColor.DarkYellow), // Beach
+        new(Cp437.BoxDoubleUpHorizontal, ConsoleColor.DarkGray, DefaultBg), // Cliff
+        new(Cp437.Pipe, ConsoleColor.Gray, ConsoleColor.Blue), // Fjord
+        new(Cp437.BulletHollow, ConsoleColor.DarkRed, ConsoleColor.DarkGray), // Crater
+        new(Cp437.Percent, ConsoleColor.Gray, DefaultBg), // Ash
+        new(Cp437.Asterisk, ConsoleColor.Gray, DefaultBg), // Cinder
+        new(Cp437.Plus, ConsoleColor.DarkGreen, ConsoleColor.DarkGray), // Caldera
+        new(Cp437.Rectangle, ConsoleColor.Black, ConsoleColor.Gray), // Shield
+        new(Cp437.Intersection, ConsoleColor.DarkRed, ConsoleColor.DarkGray) // Stratovolcano
     ];
 
     private static readonly char[] MarkersBiome =
@@ -378,27 +377,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
         var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
         var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
-
-        var colors = MapRenderMode switch
-        {
-            MapRenderMode.ElevationColor => ColorsElevation,
-            MapRenderMode.HeatMapColor => ColorsElevation,
-            MapRenderMode.ContourColor => ColorsElevation,
-            MapRenderMode.TerrainColor => ColorsElevation,
-            MapRenderMode.ReliefColor => ColorsElevation,
-            MapRenderMode.SurfaceFeatures => ColorsElevation,
-            MapRenderMode.Rivers => ColorsElevation,
-            MapRenderMode.Temperature => ColorsElevation,
-            MapRenderMode.Humidity => ColorsElevation,
-            MapRenderMode.Biomes => ColorsElevation,
-            MapRenderMode.TemperatureAmplitude => ColorsElevation,
-            MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome,
-            MapRenderMode.HeatMapMonochrome => ColorsHeatmapMonochrome,
-            MapRenderMode.ContourMonochrome => ColorsElevationMonochrome,
-            MapRenderMode.TerrainMonochrome => ColorsElevationMonochrome,
-            MapRenderMode.ReliefMonochrome => ColorsElevationMonochrome,
-            _ => throw new ArgumentOutOfRangeException()
-        };
 
         // Step 1: Render World
         for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
@@ -740,7 +718,11 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var marker = MarkersElevation[world.Cells[x, y]];
-                var colors = ColorsElevation[world.Cells[x, y]];
+                var colors = _mapRenderMode switch
+                {
+                    MapRenderMode.ElevationMonochrome => ColorsElevationMonochrome[world.Cells[x, y]],
+                    _ => ColorsElevation[world.Cells[x, y]]
+                };
                 _cachedWorld[y * _worldWidth + x] = new CellVisual(marker, colors.Item1, colors.Item2);
             }
     }
@@ -806,11 +788,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var feature = world.Surfaces[x, y];
-                var index = Math.Min((int)feature, MarkersSurfaceFeatures.Length - 1);
-                var markerIdx = Math.Min(index, 9);
-                var colors = ColorsElevation[world.Cells[x, y]];
-                _cachedWorld[y * _worldWidth + x] =
-                    new CellVisual((char)(byte)markerIdx, colors.Item1, colors.Item2);
+                var index = Math.Min((int)feature, CellVisualSurfaceFeatures.Length - 1);
+                _cachedWorld[y * _worldWidth + x] = CellVisualSurfaceFeatures[index];
             }
     }
 

@@ -326,10 +326,10 @@ public class CylinderWorld : IWorldGen
         GenerateClimate();
 
         // Apply mountain details (ridges, snow, glacier, lava)
-        // ApplyMountainDetails();
+        ApplyMountainDetails();
 
         // Apply coastal features (beach, cliff, fjord)
-        // ApplyCoastalFeatures();
+        ApplyCoastalFeatures();
 
         // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
         var elevation = _elevation.Memory.Span;
