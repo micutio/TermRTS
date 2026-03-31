@@ -8,34 +8,56 @@ namespace TermRTS.Examples.Greenery.WorldGen;
 
 public enum SurfaceFeature : byte
 {
-    None = 0,
-    River = 1,
-    Glacier = 2,
-    Lava = 3,
-    Mountain = 4,
-    Snow = 5,
-    Beach = 6,
-    Cliff = 7,
-    Fjord = 8,
-    Crater = 9,
-    Ash = 10,
-    Cinder = 11,
-    Caldera = 12,
-    Shield = 13,
-    Stratovolcano = 14
+    None,
+    River,
+    Glacier,
+    Lava,
+    Mountain,
+    Snow,
+    Beach,
+    Cliff,
+    Fjord,
+    Crater,
+    Ash,
+    Cinder,
+    Caldera,
+    Shield,
+    Stratovolcano
 }
 
 public enum Biome : byte
 {
-    Ocean = 0,
-    Tundra = 1,
-    Taiga = 2,
-    TemperateForest = 3,
-    Grassland = 4,
-    Desert = 5,
-    TropicalForest = 6,
-    Savanna = 7,
-    IceCap = 8
+    // Water and Ice
+    Ocean,
+    IceCap,
+    PolarDesert,
+    Glacier,
+
+    // Frost
+    RockPeak,
+    AlpineTundra,
+    Tundra,
+    SnowyForest,
+    Taiga,
+
+    // Temperate
+    ColdDesert,
+    HighlandMoor,
+    Steppe,
+    Grassland,
+    TemperateForest,
+
+    // Tropical
+    CloudForest,
+    HotDesert,
+    Savanna,
+    TropicalSeasonalForest,
+    TropicalRainforest,
+
+    // Rivers
+    Creek,
+    MinorRiver,
+    MajorRiver
 }
 
 public class WorldGenerationResult(
@@ -87,7 +109,6 @@ public class CylinderWorld : IWorldGen
     private const int SeaLevelElevation = 3;
     private const int HighMountainThreshold = 7;
     private const int SnowThreshold = 8;
-    private const int GlacierThreshold = 9;
 
     // Constants for coastal slopes
     private const float MaxCoastalSlope = 5.0f;
@@ -117,18 +138,6 @@ public class CylinderWorld : IWorldGen
 
     // Constants for river carving
     private const int RiverCarveMinElevation = 3;
-
-    // Constants for biome determination
-    private const float IceCapTempThreshold = -10.0f;
-    private const float IceCapElevationThreshold = 8;
-    private const float TundraTempThreshold = -10.0f;
-    private const float TaigaTempThreshold = 5.0f;
-    private const float TemperateTempThreshold = 15.0f;
-    private const float TropicalTempThreshold = 25.0f;
-    private const float HighHumidityThreshold = 0.7f;
-    private const float MediumHumidityThreshold = 0.6f;
-    private const float LowHumidityThreshold = 0.5f;
-    private const float VeryLowHumidityThreshold = 0.4f;
 
     #endregion
 
@@ -169,6 +178,7 @@ public class CylinderWorld : IWorldGen
 
     // TODO: Merge surface features and rivers
     private readonly WorldBuffer<bool> _riverMap;
+    private readonly WorldBuffer<int> _strahlerRiver;
 
     #endregion
 
@@ -273,6 +283,7 @@ public class CylinderWorld : IWorldGen
         _biomes = new WorldBuffer<Biome>(worldWidth * worldHeight);
         _surfaceFeatures = new WorldBuffer<SurfaceFeature>(worldWidth * worldHeight);
         _riverMap = new WorldBuffer<bool>(worldWidth * worldHeight);
+        _strahlerRiver = new WorldBuffer<int>(worldWidth * worldHeight);
 
         // init properties
         VoronoiCellCount = voronoiCellCount;
@@ -310,8 +321,9 @@ public class CylinderWorld : IWorldGen
         GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
         ApplyNoiseAndSlopes();
+        var distToWaterMap = CalculateDistanceToWaterMap();
         // Generate climate (temperature, humidity, biomes, seasonal effects)
-        GenerateClimate();
+        GenerateClimate(true, distToWaterMap);
 
         // Apply erosion to smooth terrain and create realistic features
         // if (UseAdvancedErosion)
@@ -322,8 +334,9 @@ public class CylinderWorld : IWorldGen
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         GenerateRivers();
 
+        // TODO: Re-generate distance to water?
         // Re-generate climate, now that we have rivers:
-        GenerateClimate();
+        GenerateClimate(false, distToWaterMap);
 
         // Apply mountain details (ridges, snow, glacier, lava)
         ApplyMountainDetails();
@@ -403,6 +416,7 @@ public class CylinderWorld : IWorldGen
         _tectonicDelta.Memory.Span.Clear();
         _coastalSlopes.Memory.Span.Clear();
         _noiseMap.Memory.Span.Clear();
+        _strahlerRiver.Memory.Span.Clear();
     }
 
     #endregion
@@ -957,15 +971,18 @@ public class CylinderWorld : IWorldGen
 
     #region Climate and Biomes
 
+    // TODO: Can we structure our world generation steps better than to use this bool flag?
+    // TODO: Separate biomes out of this
     /// <summary>
     ///     Generates world maps for various climate features.
     /// </summary>
-    private void GenerateClimate()
+    private void GenerateClimate(bool changeHumidity, float[,] distToWaterMap)
     {
         var elevations = _elevation.Memory.Span;
         var temperature = _temperature.Memory.Span;
         var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
         var humidity = _humidity.Memory.Span;
+        var strahlerRiver = _strahlerRiver.Memory.Span;
         var biomes = _biomes.Memory.Span;
 
         for (var y = 0; y < _worldHeight; y++)
@@ -976,6 +993,7 @@ public class CylinderWorld : IWorldGen
             for (var x = 0; x < _worldWidth; x++)
             {
                 var elevation = elevations[y * _worldWidth + x];
+                var elevationFactor = elevation / MaxElevation;
                 var isWater = elevation <= 3;
 
                 // Temperature: base -50 to 30, decreases with latitude and elevation
@@ -984,54 +1002,90 @@ public class CylinderWorld : IWorldGen
                     ElevationTempModifier * elevation; // colder at higher elevation
                 temperature[y * _worldWidth + x] = baseTemp + elevationTempModifier;
 
-                // Humidity: higher near water, lower at high elevation
-                var distanceToWater = CalculateDistanceToWater(x, y);
-                var humidityBase =
-                    isWater ? 1.0f : Math.Max(MinHumidity, 1.0f - distanceToWater * 0.1f);
-                var elevationHumidityModifier = ElevationHumidityModifier * elevation;
-                humidity[y * _worldWidth + x] =
-                    Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
+                if (changeHumidity)
+                {
+                    // Humidity: higher near water, lower at high elevation
+                    // TODO: Calculate distance to water map one time for the entire map!
+                    var humidityBase =
+                        isWater ? 1.0f : Math.Max(MinHumidity, 1.0f - distToWaterMap[x, y] * 0.1f);
+                    var elevationHumidityModifier = ElevationHumidityModifier * elevation;
+                    humidity[y * _worldWidth + x] =
+                        Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
+                }
 
-                // Seasonal amplitude: larger at higher latitudes
+                // Seasonal amplitude: larger at higher latitudes and higher elevations
                 temperatureAmplitude[y * _worldWidth + x]
-                    = BaseTemperatureAmplitude + LatitudeAmplitudeModifier * latitudeFactor;
+                    = BaseTemperatureAmplitude
+                      + LatitudeAmplitudeModifier * latitudeFactor
+                      + elevation * elevationFactor;
 
-
+                var river = strahlerRiver[y * _worldWidth + x];
                 // Determine biome
                 biomes[y * _worldWidth + x] = DetermineBiome(
                     temperature[y * _worldWidth + x],
                     humidity[y * _worldWidth + x],
                     elevation,
-                    isWater);
+                    isWater,
+                    river);
             }
         }
     }
 
-    // TODO: Refine dist to water, make dist adjustable maybe?
-
     /// <summary>
-    ///     Calculate the distance of a cell to water, if water is within 5 cells..
+    ///     Calculates the distance from every land cell to the nearest water cell 
+    ///     using an O(N) Breadth-First Search.
     /// </summary>
-    /// <returns>Distance of the cell at the given coordinate from the nearest water cell.</returns>
-    private int CalculateDistanceToWater(int x, int y)
+    private float[,] CalculateDistanceToWaterMap()
     {
         var elevations = _elevation.Memory.Span;
-        // Simple flood fill or BFS to find distance to nearest water
-        // For simplicity, use a small radius check
-        var minDist = int.MaxValue;
-        for (var dy = -5; dy <= 5; dy++)
-            for (var dx = -5; dx <= 5; dx++)
+        var distanceMap = new float[_worldWidth, _worldHeight];
+        var visited = new bool[_worldWidth, _worldHeight];
+        var queue = new Queue<(int x, int y, int dist)>();
+
+        // 1. Initialize: Find all water and add to queue
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+                if (elevations[y * _worldWidth + x] <= SeaLevelElevation)
+                {
+                    distanceMap[x, y] = 0;
+                    visited[x, y] = true;
+                    queue.Enqueue((x, y, 0));
+                }
+                else
+                {
+                    distanceMap[x, y] = -1; // Mark land as uncalculated
+                }
+
+        // Directions for 4-way connectivity (N, S, E, W)
+        // Use 8-way if you want diagonal distances accounted for
+        var directions = new (int dx, int dy)[] { (0, 1), (0, -1), (1, 0), (-1, 0) };
+
+        // 2. Process the queue
+        while (queue.Count > 0)
+        {
+            var (cx, cy, currentDist) = queue.Dequeue();
+
+            foreach (var (dx, dy) in directions)
             {
-                var nx = GetWrappedX(_worldWidth, x + dx);
-                var ny = y + dy;
+                var nx = GetWrappedX(_worldWidth, cx + dx);
+                var ny = cy + dy;
+
+                // Check vertical bounds
                 if (ny < 0 || ny >= _worldHeight) continue;
-                if (elevations[ny * _worldWidth + nx] > 3) continue;
 
-                var dist = Math.Abs(dx) + Math.Abs(dy); // Manhattan distance
-                minDist = Math.Min(minDist, dist);
+                // If not visited, it's the closest we've found so far
+                if (visited[nx, ny]) continue;
+                visited[nx, ny] = true;
+                var nextDist = currentDist + 1;
+                distanceMap[nx, ny] = nextDist;
+
+                // Optimization: You can stop the queue if nextDist > MaxSearchRadius
+                // but usually, a full distance map is useful for AI city placement!
+                queue.Enqueue((nx, ny, nextDist));
             }
+        }
 
-        return minDist == int.MaxValue ? 10 : minDist; // default if no water nearby
+        return distanceMap;
     }
 
     /// <summary>
@@ -1046,74 +1100,70 @@ public class CylinderWorld : IWorldGen
     /// <param name="humidity">Humidity of the cell.</param>
     /// <param name="elevation">Elevation of the cell.</param>
     /// <param name="isWater">True if the cell is sea, false otherwise.</param>
+    /// <param name="strahlerOrder">Strahler order for river cells.</param>
     /// <returns>Biome of the cell.</returns>
-    private static Biome DetermineBiome(float temp, float humidity, float elevation, bool isWater)
+    private static Biome DetermineBiome(float temp, float humidity, float elevation, bool isWater,
+        int strahlerOrder)
     {
-        if (isWater)
-            return Biome.Ocean;
+        if (isWater) return Biome.Ocean;
 
-        if (elevation >= IceCapElevationThreshold && temp < IceCapTempThreshold)
-            return Biome.IceCap;
-
-        return temp switch
-        {
-            < TundraTempThreshold => Biome.Tundra,
-            < TaigaTempThreshold when humidity > LowHumidityThreshold => Biome.Taiga,
-            < TaigaTempThreshold => Biome.Tundra,
-            < TemperateTempThreshold when humidity > MediumHumidityThreshold => Biome
-                .TemperateForest,
-            < TemperateTempThreshold => Biome.Grassland,
-            < TropicalTempThreshold when humidity > HighHumidityThreshold => Biome.TropicalForest,
-            < TropicalTempThreshold when humidity > VeryLowHumidityThreshold => Biome.Savanna,
-            < TropicalTempThreshold => Biome.Desert,
-            // Hot climates
-            _ => humidity > LowHumidityThreshold ? Biome.TropicalForest : Biome.Desert
-        };
-    }
-
-    /// <summary>
-    ///     Combines rainfall, river proximity, and elevation to create a final humidity map.
-    /// </summary>
-    private void GenerateMoistureMap(float[,] rainfall)
-    {
-        var elevationsF = _elevation.Memory.Span;
-        var riverMap = _riverMap.Memory.Span;
-        var humidity = _humidity.Memory.Span;
-
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
+        if (strahlerOrder > 1)
+            return strahlerOrder switch
             {
-                var index = y * _worldWidth + x;
-                var elevation = elevationsF[index];
+                <= 2 => Biome.Creek,
+                <= 4 => Biome.MinorRiver,
+                _ => Biome.MajorRiver
+            };
 
-                // 1. Start with the base rainfall
-                var baseMoisture = rainfall[x, y];
+        // 1. Calculate Relative Humidity
+        // This scales Absolute Moisture by the air's carrying capacity at a given temperature.
+        var possibleHumidityAtTemp = MathF.Max(0.1f, (temp + 50f) / 80f);
+        var relHumidity = Math.Clamp(humidity / possibleHumidityAtTemp, 0.0f, 1.0f);
 
-                // 2. Add a bonus for being near a river (Floodplain effect)
-                var riverBonus = 0f;
-                if (riverMap[index])
-                    riverBonus = 0.3f; // Significant boost for the river cell itself
-                else
-                    // Simple 1-pixel neighbor check for "lush banks"
-                    foreach (var (dx, dy) in new[] { (0, 1), (0, -1), (1, 0), (-1, 0) })
-                    {
-                        var nx = GetWrappedX(_worldWidth, x + dx);
-                        var ny = y + dy;
-                        if (ny < 0 || ny >= _worldHeight || !riverMap[ny * _worldWidth + nx]) continue;
-                        riverBonus = 0.15f;
-                        break;
-                    }
+        // 2. High Altitude "Dead Zone" (Above the Tree Line)
+        if (elevation > HighMountainThreshold) return temp < 0f ? Biome.Glacier : Biome.RockPeak;
 
-                // 3. Elevation Penalty: Higher = Drier (simplified drainage)
-                // We assume anything above SeaLevelElevation starts losing moisture retention
-                var elevationFactor = MathF.Max(0.2f, 1.0f - elevation / MaxElevation);
+        switch (temp)
+        {
+            // 3. Extreme Cold (Polar / Arctic)
+            case < -10f:
+                // High humidity in extreme cold leads to permanent ice sheets/glaciers.
+                // Low humidity leads to barren, frozen gravel/dust plains.
+                return relHumidity < 0.3f ? Biome.PolarDesert : Biome.IceCap;
+            // 4. Cold / Sub-Arctic (Boreal)
+            case < 5f when relHumidity < 0.25f:
+                return Biome.Tundra;
+            // Use elevation for Alpine variations
+            case < 5f when elevation > CinderElevationThreshold:
+                return Biome.AlpineTundra;
+            // Differentiate between standard Boreal forest and heavy precipitation zones
+            case < 5f:
+                return relHumidity > 0.75f ? Biome.SnowyForest : Biome.Taiga;
+            // 5. Temperate
+            case < 22f when relHumidity < 0.15f:
+                return Biome.ColdDesert;
+            case < 22f when elevation > CinderElevationThreshold && relHumidity > 0.5f:
+                return Biome.HighlandMoor;
+            case < 22f when relHumidity < 0.4f:
+                return Biome.Steppe;
+            case < 22f when relHumidity < 0.7f:
+                return Biome.Grassland;
+            case < 22f:
+                return Biome.TemperateForest; // High humidity temperate zones
+        }
 
-                // 4. Combine and Clamp
-                humidity[index] = Math.Clamp((baseMoisture + riverBonus) * elevationFactor, 0f, 1f);
-            }
+        // 6. Tropical / Hot
+        // High altitude tropics create unique "Cloud Forests" (very high humidity + altitude)
+        if (elevation > CinderElevationThreshold && relHumidity > 0.8f)
+            return Biome.CloudForest;
 
-        // 5. Optional: Blur the moisture map slightly to create smoother biome transitions
-        // return moisture;  //SmoothMoisture(moisture);
+        return relHumidity switch
+        {
+            < 0.15f => Biome.HotDesert,
+            < 0.45f => Biome.Savanna,
+            < 0.8f => Biome.TropicalSeasonalForest,
+            _ => Biome.TropicalRainforest
+        };
     }
 
     #endregion
@@ -1213,7 +1263,7 @@ public class CylinderWorld : IWorldGen
                 // TODO: Possibly turn localRainRate coefficients into constants or tweakable properties
                 var localRainRate = RainRate;
                 // Drier regions get less rainfall
-                if (biomes[i] == Biome.Desert || biomes[i] == Biome.Tundra)
+                if (biomes[i] == Biome.HotDesert || biomes[i] == Biome.Tundra)
                     localRainRate *= 0.3f; // 70% less rain in dry/arid regions
                 else if (humidity[i] < 0.3f)
                     localRainRate *= 0.5f; // 50% less rain in dry areas
@@ -1368,7 +1418,7 @@ public class CylinderWorld : IWorldGen
                     var biome = biomes[y * _worldWidth + x];
                     var humidityValue = humidity[y * _worldWidth + x];
 
-                    if (biome is Biome.Desert or Biome.Tundra)
+                    if (biome is Biome.HotDesert or Biome.ColdDesert or Biome.Tundra)
                         climateModifier = 2.0f; // 2x evaporation in dry areas
                     else if (humidityValue < 0.3f)
                         climateModifier = 1.5f; // 1.5x evaporation in low humidity areas
@@ -1413,10 +1463,10 @@ public class CylinderWorld : IWorldGen
 
         // Step 3: Accumulate flow from upstream cells
         var flowAccumulation = AccumulateFlow(flowDirections, rainfall);
-        var strahlerOrder = CalculateStrahlerOrder(flowDirections);
+        CalculateStrahlerOrder(flowDirections);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        CarveRivers(flowDirections, flowAccumulation, strahlerOrder);
+        CarveRivers(flowDirections, flowAccumulation);
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(flowAccumulation);
@@ -1483,64 +1533,83 @@ public class CylinderWorld : IWorldGen
     ///     Adjusts the rainfall map based on wind direction and terrain height.
     ///     Simulates moisture being 'squeezed' out of clouds by mountains.
     /// </summary>
+    /// <summary>
+    ///     Adjusts the rainfall map based on global wind bands (Trade Winds, Westerlies) 
+    ///     and terrain height to simulate realistic rain shadows.
+    /// </summary>
     private void ApplyRainShadows(float[,] rainfall)
     {
         var elevationsF = _elevation.Memory.Span;
 
-        // Settings for tuning
-        const float moistureRechargeRate = 0.08f; // How fast clouds get wet over ocean
-        const float
-            rainDropFactor =
-                0.05f; // How much moisture drops as rain per unit of elevation increase
-        const float baseCloudMoisture = 0.5f; // Starting moisture level
+        const float moistureRechargeRate = 0.08f;
+        const float rainDropFactor = 0.05f;
+        const float baseCloudMoisture = 0.5f;
 
-        // Iterate through each latitude (Y) and sweep West to East (X)
         for (var y = 0; y < _worldHeight; y++)
         {
             var cloudMoisture = baseCloudMoisture;
 
-            // We do two passes or handle wrapping. For simplicity, let's do a 
-            // double-pass to ensure the 'wrap' doesn't have a hard seam.
-            for (var x = 0; x < _worldWidth * 2; x++)
+            // 1. Calculate Latitude (0.0 at the equator, 1.0 at the poles)
+            // Assuming y=0 is the North Pole, and y=_worldHeight/2 is the Equator
+            var latitude = MathF.Abs(y - _worldHeight / 2f) / (_worldHeight / 2f);
+
+            // 2. Determine Wind Direction based on Global Bands
+            // < 0.33f is Tropical (Trade Winds: East to West)
+            // < 0.66f is Temperate (Westerlies: West to East)
+            // >= 0.66f is Polar (Easterlies: East to West)
+            var windDir = latitude < 0.33f || latitude >= 0.66f ? -1 : 1;
+
+            // 3. Sweep across the map
+            for (var step = 0; step < _worldWidth * 2; step++)
             {
-                var realX = x % _worldWidth;
+                // If windDir is 1 (West->East), we read left to right.
+                // If windDir is -1 (East->West), we read right to left.
+                var logicalX = windDir == 1 ? step : _worldWidth * 2 - 1 - step;
+                var realX = logicalX % _worldWidth;
+
                 var index = y * _worldWidth + realX;
                 var elevation = elevationsF[index];
 
+                var isSecondPass = step >= _worldWidth;
+
                 if (elevation <= SeaLevelElevation)
                 {
-                    // 1. RECHARGE: Over the ocean, clouds pick up moisture
-                    cloudMoisture = MathF.Min(1.0f, cloudMoisture + moistureRechargeRate);
+                    // RECHARGE
+                    // Inside the 'isWater' check of ApplyRainShadows
+                    var tempAtTile = _temperature.Memory.Span[index];
+                    // Map temp (-50 to 30) to a multiplier (e.g., 0.2 to 1.5)
+                    var evapPower = Math.Clamp((tempAtTile + 50) / 80f, 0.2f, 1.5f);
+                    cloudMoisture = MathF.Min(1.0f,
+                        cloudMoisture + moistureRechargeRate * evapPower);
                 }
                 else
                 {
-                    // 2. DISCHARGE: Check elevation change relative to 'previous' cell
-                    var prevX = GetWrappedX(_worldWidth, realX - 1);
+                    // DISCHARGE: The 'previous' cell is where the wind came FROM.
+                    // We subtract the windDir to look backward into the wind.
+                    var prevX = GetWrappedX(_worldWidth, realX - windDir);
                     var prevElevation = elevationsF[y * _worldWidth + prevX];
 
                     var lift = elevation - prevElevation;
+                    var rainDropped = 0f;
 
                     if (lift > 0)
                     {
-                        // Wind is going uphill! Squeeze moisture out.
-                        var rainDropped = lift * cloudMoisture * rainDropFactor;
-
-                        // Update the rainfall map with this 'orographic' bonus
-                        rainfall[realX, y] += rainDropped;
-
-                        // Deplete the cloud
+                        // Squeeze moisture out
+                        var desiredDrop = lift * cloudMoisture * rainDropFactor;
+                        rainDropped = MathF.Min(cloudMoisture, desiredDrop);
                         cloudMoisture -= rainDropped;
                     }
 
-                    // 3. SHADOW: Even on flat land, clouds slowly lose moisture over distance 
-                    // if they aren't being recharged by a water body.
+                    if (isSecondPass)
+                    {
+                        // Apply shadow penalty, then add mountain rain
+                        rainfall[realX, y] *= 0.5f + cloudMoisture * 0.5f;
+                        rainfall[realX, y] += rainDropped;
+                    }
+
+                    // SHADOW decay
                     cloudMoisture *= 0.99f;
                 }
-
-                // Apply the cloud moisture level as a multiplier to the base rainfall
-                // This ensures areas with 'empty' clouds remain dry (the shadow).
-                if (x >= _worldWidth) // Only apply values on the second pass to avoid seam artifacts
-                    rainfall[realX, y] *= 0.5f + cloudMoisture * 0.5f;
             }
         }
     }
@@ -1720,24 +1789,101 @@ public class CylinderWorld : IWorldGen
         return flowAccumulation;
     }
 
+    // TODO: Add to generation steps and visualisation.
+    // TODO: Flatten result array and probably replace river map completely.
+
+    /// <summary>
+    ///     Calculates the Strahler Stream Order for the entire river network.
+    /// </summary>
+    /// <returns>
+    ///     An integer matrix with the following valuation:
+    ///     - Order 1-2: small creeks
+    ///     - Order 3-4: small rivers
+    ///     - Order  5+: major rivers
+    /// </returns>
+    private void CalculateStrahlerOrder((int, int)[,] flowDirections)
+    {
+        var strahlerRiver = _strahlerRiver.Memory.Span;
+        var inDegree = new int[_worldWidth, _worldHeight];
+
+        // Track the highest order seen so far for a cell, 
+        // and whether we've seen it more than once.
+        var maxIncomingOrder = new int[_worldWidth, _worldHeight];
+        var countOfMaxOrder = new int[_worldWidth, _worldHeight];
+
+        // 1. Calculate in-degrees (same as AccumulateFlow)
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var (dx, dy) = flowDirections[x, y];
+                if (dx == 0 && dy == 0) continue;
+                var nx = GetWrappedX(_worldWidth, x + dx);
+                var ny = y + dy;
+                if (ny >= 0 && ny < _worldHeight) inDegree[nx, ny]++;
+            }
+
+        // 2. Queue the sources (Order 1)
+        var queue = new Queue<(int, int)>();
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+                if (inDegree[x, y] == 0)
+                {
+                    strahlerRiver[y * _worldWidth + x] = 1;
+                    queue.Enqueue((x, y));
+                }
+
+        // 3. Process topologically
+        while (queue.Count > 0)
+        {
+            var (x, y) = queue.Dequeue();
+            var currentOrder = strahlerRiver[y * _worldWidth + x];
+
+            var (dx, dy) = flowDirections[x, y];
+            if (dx == 0 && dy == 0) continue;
+
+            var nx = GetWrappedX(_worldWidth, x + dx);
+            var ny = y + dy;
+            if (ny < 0 || ny >= _worldHeight) continue;
+
+            // Update the neighbor's knowledge of its incoming tributaries
+            if (currentOrder > maxIncomingOrder[nx, ny])
+            {
+                maxIncomingOrder[nx, ny] = currentOrder;
+                countOfMaxOrder[nx, ny] = 1;
+            }
+            else if (currentOrder == maxIncomingOrder[nx, ny])
+            {
+                countOfMaxOrder[nx, ny]++;
+            }
+
+            inDegree[nx, ny]--;
+            if (inDegree[nx, ny] != 0) continue;
+            // RESOLVE ORDER: If two or more tributaries of the same MAX order meet, level up.
+            // Otherwise, inherit the max incoming order.
+            strahlerRiver[ny * _worldWidth + nx] = countOfMaxOrder[nx, ny] >= 2
+                ? maxIncomingOrder[nx, ny] + 1
+                : maxIncomingOrder[nx, ny];
+
+            queue.Enqueue((nx, ny));
+        }
+    }
+
     /// <summary>
     ///     Create a boolean river map of the world where true -> belongs to a river, false otherwise.
     /// </summary>
     /// <param name="flowDirections">Flow direction for each cell.</param>
     /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
-    /// <returns></returns>
-    private void CarveRivers((int, int)[,] flowDirections, float[,] flowAccumulation,
-        int[,] strahlerOrder)
+    private void CarveRivers((int, int)[,] flowDirections, float[,] flowAccumulation)
     {
         var elevationsF = _elevation.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
+        var strahlerRiver = _strahlerRiver.Memory.Span;
         riverMap.Clear();
 
         // 1. Identify "Major" vs "Minor" for normalization
         var maxOrder = 0;
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-                maxOrder = Math.Max(maxOrder, strahlerOrder[x, y]);
+        for (var i = 0; i < _worldWidth * _worldHeight; i++)
+            maxOrder = Math.Max(maxOrder, strahlerRiver[i]);
 
         // 2. Visual and Physical Thresholds
         const int minOrderToVisualise = 3;
@@ -1746,7 +1892,7 @@ public class CylinderWorld : IWorldGen
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var order = strahlerOrder[x, y];
+                var order = strahlerRiver[y * _worldWidth + x];
                 if (order < minOrderToCarve || elevationsF[y * _worldWidth + x] <= SeaLevelElevation)
                     continue;
 
@@ -1762,7 +1908,7 @@ public class CylinderWorld : IWorldGen
                 while (maxSteps-- > 0)
                 {
                     var index = cy * _worldWidth + cx;
-                    var currentOrder = strahlerOrder[cx, cy];
+                    var currentOrder = strahlerRiver[cy * _worldWidth + cx];
 
                     // --- THE STRAHLER UPGRADE ---
 
@@ -1770,12 +1916,13 @@ public class CylinderWorld : IWorldGen
                     if (currentOrder >= minOrderToVisualise)
                         riverMap[index] = true;
 
-                    // B. Physical Carving: Depth scales with the Order
-                    // Example: Order 1 = 0.1 depth, Order 6 = 2.4 depth
-                    var orderMultiplier = MathF.Pow(currentOrder, 1.5f) * 0.1f;
+                    // B. Physical Carving: Depth scales with ACTUAL WATER VOLUME (Flow Accumulation)
+                    // Assuming base rainfall is roughly 1.0 per cell, a flow accumulation of 100 means 100 cells drained here.
+                    var waterVolume = flowAccumulation[cx, cy];
+                    var erosionPower = MathF.Pow(waterVolume, 0.4f) * 0.05f; // Tweak exponents to taste
 
                     var cellElevation = elevationsF[index];
-                    var targetDepth = MathF.Min(RiverMaxCarveDepth, orderMultiplier * RiverCarveScale);
+                    var targetDepth = MathF.Min(RiverMaxCarveDepth, erosionPower * RiverCarveScale);
 
                     // Only carve if we are deeper than the current elevation
                     var newElevation = MathF.Max(RiverCarveMinElevation, cellElevation - targetDepth);
@@ -1803,134 +1950,138 @@ public class CylinderWorld : IWorldGen
         float[,] flowAccumulation)
     {
         var elevationsF = _elevation.Memory.Span;
-        // Simple sediment deposition in low areas
+
+        // Only rivers carrying a significant amount of water deposit noticeable sediment
+        const float sedimentThreshold = 50f;
+
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
+                var waterVolume = flowAccumulation[x, y];
+                if (waterVolume < sedimentThreshold) continue;
+
                 var currentElevation = elevationsF[y * _worldWidth + x];
 
-                // Deposit sediment in very low areas (potential floodplains)
-                if (currentElevation < SeaLevelElevation - 1 && flowAccumulation[x, y] > 0)
-                    // Small sediment deposit
-                    elevationsF[y * _worldWidth + x] = Math.Min(9, currentElevation + 1);
+                // Deposit sediment in shallow waters (forming river deltas)
+                // or in extremely flat lowlands (floodplains)
+                if (!(currentElevation <= SeaLevelElevation) ||
+                    !(currentElevation > SeaLevelElevation - 3)) continue;
+                // The more water, the more sediment. 
+                var sedimentAmount = waterVolume * 0.01f;
+
+                // Build up the land, potentially creating new landmasses (deltas) right at the coast
+                elevationsF[y * _worldWidth + x] =
+                    Math.Min(SeaLevelElevation + 1f, currentElevation + sedimentAmount);
             }
     }
 
-    // TODO: Add to generation steps and visualisation.
-    // TODO: Flatten result array and probably replace river map completely.
-
     /// <summary>
-    ///     Calculates the Strahler Stream Order for the entire river network.
+    ///     Combines rainfall, river proximity, and elevation to create a final humidity map.
     /// </summary>
-    /// <returns>
-    ///     An integer matrix with the following valuation:
-    ///     - Order 1-2: small creeks
-    ///     - Order 3-4: small rivers
-    ///     - Order  5+: major rivers
-    /// </returns>
-    private int[,] CalculateStrahlerOrder((int, int)[,] flowDirections)
+    private void GenerateMoistureMap(float[,] rainfall)
     {
-        var strahlerOrder = new int[_worldWidth, _worldHeight];
-        var inDegree = new int[_worldWidth, _worldHeight];
+        var elevationsF = _elevation.Memory.Span;
+        var riverMap = _riverMap.Memory.Span;
+        var strahlerRiver = _strahlerRiver.Memory.Span;
+        var humidity = _humidity.Memory.Span;
 
-        // Track the highest order seen so far for a cell, 
-        // and whether we've seen it more than once.
-        var maxIncomingOrder = new int[_worldWidth, _worldHeight];
-        var countOfMaxOrder = new int[_worldWidth, _worldHeight];
-
-        // 1. Calculate in-degrees (same as AccumulateFlow)
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var (dx, dy) = flowDirections[x, y];
-                if (dx == 0 && dy == 0) continue;
-                var nx = GetWrappedX(_worldWidth, x + dx);
-                var ny = y + dy;
-                if (ny >= 0 && ny < _worldHeight) inDegree[nx, ny]++;
-            }
-
-        // 2. Queue the sources (Order 1)
-        var queue = new Queue<(int, int)>();
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-                if (inDegree[x, y] == 0)
+                var index = y * _worldWidth + x;
+                var elevation = elevationsF[index];
+                var strahler = strahlerRiver[y * _worldWidth + x];
+                //     - Order 1-2: small creeks
+                //     - Order 3-4: small rivers
+                //     - Order  5+: major rivers
+                var neighborhood = strahler switch
                 {
-                    strahlerOrder[x, y] = 1;
-                    queue.Enqueue((x, y));
+                    <= 2 => new[] { (0, 0) },
+                    <= 4 => new[] { (0, 1), (0, -1), (1, 0), (-1, 0) },
+                    _ => new[]
+                    {
+                    (0, 1), (0, -1), (1, 0), (-1, 0),
+                    (-1, 1), (1, -1), (1, 1), (-1, -1),
+                    (0, 2), (0, -2), (2, 0), (-2, 0)
                 }
+                };
 
-        // 3. Process topologically
-        while (queue.Count > 0)
-        {
-            var (x, y) = queue.Dequeue();
-            var currentOrder = strahlerOrder[x, y];
+                // 1. Start with the base rainfall
+                var baseMoisture = rainfall[x, y];
 
-            var (dx, dy) = flowDirections[x, y];
-            if (dx == 0 && dy == 0) continue;
+                // 2. Add a bonus for being near a river (Floodplain effect)
+                var riverBonus = 0f;
+                if (riverMap[index])
+                    riverBonus = 0.3f; // Significant boost for the river cell itself
+                else
+                    // Simple 1-pixel neighbor check for "lush banks"
+                    foreach (var (dx, dy) in neighborhood)
+                    {
+                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var ny = y + dy;
+                        if (ny < 0 || ny >= _worldHeight || !riverMap[ny * _worldWidth + nx]) continue;
+                        riverBonus = 0.15f;
+                        break;
+                    }
 
-            var nx = GetWrappedX(_worldWidth, x + dx);
-            var ny = y + dy;
-            if (ny < 0 || ny >= _worldHeight) continue;
+                // 3. Elevation Penalty: Higher = Drier (simplified drainage)
+                // We assume anything above SeaLevelElevation starts losing moisture retention
+                var elevationFactor = MathF.Max(0.2f, 1.0f - elevation / MaxElevation);
 
-            // Update the neighbor's knowledge of its incoming tributaries
-            if (currentOrder > maxIncomingOrder[nx, ny])
-            {
-                maxIncomingOrder[nx, ny] = currentOrder;
-                countOfMaxOrder[nx, ny] = 1;
+                // 4. Combine and Clamp
+                humidity[index] = Math.Clamp((baseMoisture + riverBonus) * elevationFactor, 0f, 1f);
             }
-            else if (currentOrder == maxIncomingOrder[nx, ny])
-            {
-                countOfMaxOrder[nx, ny]++;
-            }
 
-            inDegree[nx, ny]--;
-            if (inDegree[nx, ny] == 0)
-            {
-                // RESOLVE ORDER: If two or more tributaries of the same MAX order meet, level up.
-                // Otherwise, inherit the max incoming order.
-                strahlerOrder[nx, ny] = countOfMaxOrder[nx, ny] >= 2
-                    ? maxIncomingOrder[nx, ny] + 1
-                    : maxIncomingOrder[nx, ny];
-
-                queue.Enqueue((nx, ny));
-            }
-        }
-
-        return strahlerOrder;
+        // 5. Optional: Blur the moisture map slightly to create smoother biome transitions
+        // return moisture;  //SmoothMoisture(moisture);
     }
 
     #endregion
 
     #region Mountains
 
-    // TODO: Mountain features could use more work, e.g.: glaciers cna also appear on sea level
-    //       in high latitudes.
-
     /// <summary>
     ///     Applies surface features to mountains, snow, glaciers, rivers and lava.
     /// </summary>
     private void ApplyMountainDetails()
     {
-        var elevationsF = _elevation.Memory.Span;
+        var elevations = _elevation.Memory.Span;
         var surfaceMap = _surfaceFeatures.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
         var hotspotMap = _hotspotMap.Memory.Span;
+        var temperatures = _temperature.Memory.Span;
+
         for (var i = 0; i < _worldWidth * _worldHeight; i++)
         {
+            var elevation = elevations[i];
+            var temperature = temperatures[i];
+
             surfaceMap[i] = SurfaceFeature.None;
+            switch (temperature)
+            {
+                // 1. Check for Glaciers (Requires freezing temps and moisture, no rivers)
+                // Assuming temperature < 0.1f is deep freeze
+                case < 0.1f when !riverMap[i] && elevation > SeaLevelElevation:
+                    surfaceMap[i] = SurfaceFeature.Glacier;
+                    continue;
+                // 2. Check for Snow (Slightly warmer than glaciers, or high mountains)
+                case < 0.25f when elevation > SeaLevelElevation:
+                    surfaceMap[i] = SurfaceFeature.Snow;
+                    continue;
+            }
 
-            var elevation = elevationsF[i];
+            // 3. Check for Mountains (Purely geographical)
             if (elevation >= HighMountainThreshold)
+            {
                 surfaceMap[i] = SurfaceFeature.Mountain;
-
-            if (elevation >= SnowThreshold)
-                surfaceMap[i] = SurfaceFeature.Snow;
-
-            if (elevation >= GlacierThreshold && !riverMap[i])
-                surfaceMap[i] = SurfaceFeature.Glacier;
+                continue;
+            }
 
             if (riverMap[i])
+            {
                 surfaceMap[i] = SurfaceFeature.River;
+                continue;
+            }
 
             if (hotspotMap[i] > LavaHotspotThreshold && elevation >= LandElevationThreshold)
                 surfaceMap[i] = SurfaceFeature.Lava;
@@ -1964,6 +2115,11 @@ public class CylinderWorld : IWorldGen
                     if (neighborPlate == currentPlate) continue;
 
                     if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
+
+                    // Skip undersea tiles.
+                    if (elevations[y * _worldWidth + x] <= SeaLevelElevation) continue;
+                    // Skip tiles with features already defined on them.
+                    if (surfaceMap[y * _worldWidth + x] != SurfaceFeature.None) continue;
 
                     surfaceMap[y * _worldWidth + x] = SurfaceFeature.Mountain;
                 }
@@ -2146,14 +2302,28 @@ public class CylinderWorld : IWorldGen
                         }
 
                     if (adjacentWater > 0)
-                        surfaceMap[y * _worldWidth + x] = elevation switch
+                    {
+                        var slope =
+                            elevation - SeaLevelElevation; // How high is this coast above the water?
+
+                        switch (slope)
                         {
-                            // steep cliff if high land adjacent to water and steep drops nearby
-                            >= HighMountainThreshold - 1 when maxAdjElevation <= SeaLevelElevation =>
-                                SurfaceFeature.Cliff,
-                            <= SnowThreshold => SurfaceFeature.Beach,
-                            _ => SurfaceFeature.Cliff
-                        };
+                            // Steep drop into the sea
+                            case >= 3.0f:
+                                surfaceMap[y * _worldWidth + x] = SurfaceFeature.Cliff;
+                                break;
+                            // Gentle transition into the sea
+                            case <= 1.0f:
+                                {
+                                    // Don't overwrite existing mountain features from previous steps
+                                    if (surfaceMap[y * _worldWidth + x] == SurfaceFeature.None)
+                                        surfaceMap[y * _worldWidth + x] = SurfaceFeature.Beach;
+
+                                    break;
+                                }
+                        }
+                        // If slope is intermediate, leave it as regular land (None/Grass/Forest)
+                    }
                 }
                 else
                 {

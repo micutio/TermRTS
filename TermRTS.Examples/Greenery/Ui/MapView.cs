@@ -1,6 +1,7 @@
 using System.Numerics;
 using ConsoleRenderer;
 using TermRTS.Event;
+using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
 using TermRTS.Storage;
 using TermRTS.Ui;
@@ -118,19 +119,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
         new(Cp437.Intersection, ConsoleColor.DarkRed, ConsoleColor.DarkGray) // Stratovolcano
     ];
 
-    private static readonly char[] MarkersBiome =
-    [
-        Cp437.Tilde, // Ocean
-        't', // Tundra
-        'T', // Taiga
-        'F', // TemperateForest
-        'g', // Grassland
-        'd', // Desert
-        'J', // TropicalForest
-        's', // Savanna
-        'I' // IceCap
-    ];
-
     private static readonly char[] MarkersScalar =
     [
         Cp437.WhiteSpace,
@@ -193,8 +181,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         (ConsoleColor.DarkBlue, ConsoleColor.Black),
         (ConsoleColor.Blue, ConsoleColor.DarkBlue),
         (ConsoleColor.Blue, ConsoleColor.Cyan),
-        (ConsoleColor.DarkGreen, ConsoleColor.Green),
         (ConsoleColor.Green, ConsoleColor.DarkGreen),
+        (ConsoleColor.DarkGreen, ConsoleColor.Green),
         (ConsoleColor.Green, ConsoleColor.Yellow),
         (ConsoleColor.Yellow, ConsoleColor.DarkYellow),
         (ConsoleColor.Yellow, ConsoleColor.Red),
@@ -210,12 +198,90 @@ public class MapView : KeyInputProcessorBase, IEventSink
         (ConsoleColor.Yellow, ConsoleColor.Red),
         (ConsoleColor.Yellow, ConsoleColor.DarkYellow),
         (ConsoleColor.Green, ConsoleColor.Yellow),
-        (ConsoleColor.Green, ConsoleColor.DarkGreen),
         (ConsoleColor.DarkGreen, ConsoleColor.Green),
+        (ConsoleColor.Green, ConsoleColor.DarkGreen),
         (ConsoleColor.Blue, ConsoleColor.Cyan),
         (ConsoleColor.Blue, ConsoleColor.DarkBlue),
         (ConsoleColor.DarkBlue, ConsoleColor.Black)
     ];
+
+    private static readonly Dictionary<Biome, CellVisual> BiomeMap = new()
+    {
+        // Water and Ice
+        { Biome.Ocean, new CellVisual(Cp437.Approximation, ConsoleColor.Blue, DefaultBg) },
+        { Biome.IceCap, new CellVisual(Cp437.BlockFull, ConsoleColor.White, DefaultBg) },
+        { Biome.PolarDesert, new CellVisual(Cp437.Interpunct, ConsoleColor.White, DefaultBg) },
+        { Biome.Glacier, new CellVisual(Cp437.LeftNegate, ConsoleColor.White, DefaultBg) },
+        // Frost
+        { Biome.RockPeak, new CellVisual(Cp437.Caret, ConsoleColor.Gray, ConsoleColor.DarkGray) },
+        {
+            Biome.AlpineTundra,
+            new CellVisual(Cp437.Intersection, ConsoleColor.Gray, ConsoleColor.DarkGray)
+        },
+        {
+            Biome.Tundra,
+            new CellVisual(Cp437.TripleBar, ConsoleColor.DarkYellow, ConsoleColor.DarkGreen)
+        },
+        {
+            Biome.SnowyForest,
+            new CellVisual(Cp437.Yen, ConsoleColor.DarkCyan, ConsoleColor.DarkGray)
+        },
+        {
+            Biome.Taiga,
+            new CellVisual(Cp437.ArrowUp, ConsoleColor.DarkGreen, ConsoleColor.DarkYellow)
+        },
+        // Temperate
+        {
+            Biome.ColdDesert,
+            new CellVisual(Cp437.MediumShade, ConsoleColor.DarkYellow, ConsoleColor.Gray)
+        },
+        {
+            Biome.HighlandMoor,
+            new CellVisual(Cp437.Infinity, ConsoleColor.Gray, ConsoleColor.DarkGreen)
+        },
+        {
+            Biome.Steppe,
+            new CellVisual(Cp437.BoxDownRight, ConsoleColor.Gray, ConsoleColor.DarkYellow)
+        },
+        {
+            Biome.Grassland,
+            new CellVisual(Cp437.BoxDoubleDownRight, ConsoleColor.Green, ConsoleColor.DarkGreen)
+        },
+        {
+            Biome.TemperateForest,
+            new CellVisual(Cp437.DeckHeart, ConsoleColor.DarkGreen, ConsoleColor.Green)
+        },
+        // Tropical
+        {
+            Biome.CloudForest, new CellVisual(Cp437.Beta, ConsoleColor.DarkCyan, ConsoleColor.Green)
+        },
+        {
+            Biome.HotDesert,
+            new CellVisual(Cp437.SparseShade, ConsoleColor.Yellow, ConsoleColor.DarkYellow)
+        },
+        { Biome.Savanna, new CellVisual(Cp437.Mu, ConsoleColor.Green, ConsoleColor.Yellow) },
+        {
+            Biome.TropicalSeasonalForest,
+            new CellVisual(Cp437.DeckClub, ConsoleColor.Green, ConsoleColor.DarkGreen)
+        },
+        {
+            Biome.TropicalRainforest,
+            new CellVisual(Cp437.PhiLower, ConsoleColor.DarkGreen, ConsoleColor.Green)
+        },
+        // Rivers
+        {
+            Biome.Creek,
+            new CellVisual(Cp437.Minus, ConsoleColor.Cyan, ConsoleColor.Blue)
+        },
+        {
+            Biome.MinorRiver,
+            new CellVisual(Cp437.Equal, ConsoleColor.Cyan, ConsoleColor.Blue)
+        },
+        {
+            Biome.MajorRiver,
+            new CellVisual(Cp437.TripleBar, ConsoleColor.Cyan, ConsoleColor.Blue)
+        }
+    };
 
     #endregion
 
@@ -857,10 +923,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var biome = world.Biomes[x, y];
-                var index = Math.Min((int)biome, MarkersBiome.Length - 1);
-                var colors = ColorsElevation[world.Cells[x, y]];
-                _cachedWorld[y * _worldWidth + x] =
-                    new CellVisual(MarkersBiome[index], colors.Item1, colors.Item2);
+                _cachedWorld[y * _worldWidth + x] = BiomeMap[biome];
             }
     }
 
