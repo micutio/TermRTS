@@ -882,8 +882,6 @@ public class CylinderWorld : IWorldGen
         // +1 because Next upper bound is exclusive
         var chainCount = _rng.Next(MinIslandChains, MaxIslandChains + 1);
 
-        // TODO: Why the need for a different rng?
-        var prng = new Random(_seed + 12345); // Different seed for hotspots
         var oceanPlateIds = new List<int>();
         for (var i = 0; i < voronoiTypes.Length; i++)
             if (!voronoiTypes[i])
@@ -893,26 +891,26 @@ public class CylinderWorld : IWorldGen
         {
             if (oceanPlateIds.Count == 0) continue;
 
-            var oceanPlateId = oceanPlateIds[prng.Next(oceanPlateIds.Count)];
+            var oceanPlateId = oceanPlateIds[_rng.Next(oceanPlateIds.Count)];
             oceanPlateIds.Remove(oceanPlateId);
             var (startX, startY) = voronoiCenters[oceanPlateId];
 
             // Create a chain of hotspots along a plate motion direction.
-            var chainLength = prng.Next(MinChainLength, MaxChainLength + 1);
+            var chainLength = _rng.Next(MinChainLength, MaxChainLength + 1);
 
             // Use a random plate motion direction for the chain, or create a random direction
             var chainDirection = plateMotions.Length > 0
-                ? plateMotions[prng.Next(plateMotions.Length)]
+                ? plateMotions[_rng.Next(plateMotions.Length)]
                 : new Vector2(
-                    (float)(prng.NextDouble() - 0.5) * 2,
-                    (float)(prng.NextDouble() - 0.5) * 2);
+                    (float)(_rng.NextDouble() - 0.5) * 2,
+                    (float)(_rng.NextDouble() - 0.5) * 2);
 
             // Normalize and scale the direction
             var length = MathF.Sqrt(
                 chainDirection.X * chainDirection.X +
                 chainDirection.Y * chainDirection.Y);
             if (length > 0)
-                chainDirection = chainDirection / length * (float)(prng.NextDouble() * 2 + 1);
+                chainDirection = chainDirection / length * (float)(_rng.NextDouble() * 2 + 1);
 
             for (var i = 0; i < chainLength; i++)
             {
@@ -927,9 +925,9 @@ public class CylinderWorld : IWorldGen
                 // centerY = (centerY % worldHeight + worldHeight) % worldHeight;
                 if (centerY < 0 || centerY >= _worldHeight) continue;
 
-                var radius = prng.Next(MinHotspotRadius, MaxHotspotRadius + 1);
+                var radius = _rng.Next(MinHotspotRadius, MaxHotspotRadius + 1);
                 var strength =
-                    (float)(prng.NextDouble() * (MaxHotspotStrength - MinHotspotStrength) +
+                    (float)(_rng.NextDouble() * (MaxHotspotStrength - MinHotspotStrength) +
                             MinHotspotStrength);
 
                 // Create a volcanic cone shape with exponential falloff (more realistic)
@@ -938,6 +936,9 @@ public class CylinderWorld : IWorldGen
                 var maxY = Math.Min(_worldHeight, centerY + radius);
                 var minX = Math.Max(0, centerX - radius);
                 var maxX = Math.Min(_worldWidth, centerX + radius);
+                // In equatorial latitudes 50% chance to generate an atoll instead. 
+                var isAtoll = MathF.Abs(_worldHeight / 2F - centerY) < _worldHeight / 3F &&
+                              _rng.NextDouble() < 0.5F;
                 for (var y = minY; y < maxY; y++)
                     for (var x = minX; x < maxX; x++)
                     {
@@ -958,7 +959,11 @@ public class CylinderWorld : IWorldGen
                         //Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
                         coneHeight *= 0.7f + noise * 0.6f;
 
-                        hotspots[y * _worldWidth + x] += coneHeight;
+                        if (isAtoll && hotspots[y * _worldWidth + x] + coneHeight >=
+                            MaxHotspotStrength - 2)
+                            hotspots[y * _worldWidth + x] = 0;
+                        else
+                            hotspots[y * _worldWidth + x] += coneHeight;
 
                         _minHotspotHeight = Math.Min(_minHotspotHeight, coneHeight);
                         _maxHotspotHeight = Math.Max(_maxHotspotHeight, coneHeight);
