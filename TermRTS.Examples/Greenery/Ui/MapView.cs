@@ -933,10 +933,11 @@ public class MapView : KeyInputProcessorBase, IEventSink
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var index = GetScalarIndex(world.TemperatureAmplitude[x, y], min, max);
-                var colors = ColorsElevation[world.Cells[x, y]];
+                var index = GetScalarIndex(world.Temperature[x, y], min, max);
+                var colors = ColorsHeatmapTemperature[index];
+                var marker = MarkersHeatmapMonochrome[index];
                 _cachedWorld[y * _worldWidth + x] =
-                    new CellVisual(MarkersScalar[index], colors.Item1, colors.Item2);
+                    new CellVisual(marker, colors.Item1, colors.Item2);
             }
     }
 
