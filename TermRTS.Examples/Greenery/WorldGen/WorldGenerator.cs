@@ -129,7 +129,7 @@ public class CylinderWorld : IWorldGen
 
     // Constants for climate
     private const float BaseTempMax = 30.0f;
-    private const float BaseTempMin = -50.0f;
+    private const float BaseTempMin = -30.0f;
     private const float ElevationTempModifier = -0.5f;
     private const float ElevationHumidityModifier = -0.05f;
     private const float MinHumidity = 0.1f;
@@ -1003,8 +1003,8 @@ public class CylinderWorld : IWorldGen
 
                 // Temperature: base -50 to 30, decreases with latitude and elevation
                 var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
-                var elevationTempModifier =
-                    ElevationTempModifier * elevation; // colder at higher elevation
+                // Colder at higher elevation.
+                var elevationTempModifier = ElevationTempModifier * elevation;
                 temperature[y * _worldWidth + x] = baseTemp + elevationTempModifier;
 
                 if (changeHumidity)
