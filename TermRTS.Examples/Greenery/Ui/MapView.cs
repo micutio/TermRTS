@@ -187,6 +187,36 @@ public class MapView : KeyInputProcessorBase, IEventSink
         (ConsoleColor.White, ConsoleColor.DarkGray)
     ];
 
+    private static readonly (ConsoleColor, ConsoleColor)[] ColorsHeatmapTemperature =
+    [
+        // From cold to warm.
+        (ConsoleColor.DarkBlue, ConsoleColor.Black),
+        (ConsoleColor.Blue, ConsoleColor.DarkBlue),
+        (ConsoleColor.Blue, ConsoleColor.Cyan),
+        (ConsoleColor.DarkGreen, ConsoleColor.Green),
+        (ConsoleColor.Green, ConsoleColor.DarkGreen),
+        (ConsoleColor.Green, ConsoleColor.Yellow),
+        (ConsoleColor.Yellow, ConsoleColor.DarkYellow),
+        (ConsoleColor.Yellow, ConsoleColor.Red),
+        (ConsoleColor.Red, ConsoleColor.Yellow),
+        (ConsoleColor.Red, ConsoleColor.Red)
+    ];
+
+    private static readonly (ConsoleColor, ConsoleColor)[] ColorsHeatmapHumidity =
+    [
+        // From dry to humid.
+        (ConsoleColor.Red, ConsoleColor.Red),
+        (ConsoleColor.Red, ConsoleColor.Yellow),
+        (ConsoleColor.Yellow, ConsoleColor.Red),
+        (ConsoleColor.Yellow, ConsoleColor.DarkYellow),
+        (ConsoleColor.Green, ConsoleColor.Yellow),
+        (ConsoleColor.Green, ConsoleColor.DarkGreen),
+        (ConsoleColor.DarkGreen, ConsoleColor.Green),
+        (ConsoleColor.Blue, ConsoleColor.Cyan),
+        (ConsoleColor.Blue, ConsoleColor.DarkBlue),
+        (ConsoleColor.DarkBlue, ConsoleColor.Black)
+    ];
+
     #endregion
 
     #region Positioning Constants and Variables
@@ -800,9 +830,10 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var index = GetScalarIndex(world.Temperature[x, y], min, max);
-                var colors = ColorsElevation[world.Cells[x, y]];
+                var colors = ColorsHeatmapTemperature[index];
+                var marker = MarkersHeatmapMonochrome[index];
                 _cachedWorld[y * _worldWidth + x] =
-                    new CellVisual((char)(byte)index, colors.Item1, colors.Item2);
+                    new CellVisual(marker, colors.Item1, colors.Item2);
             }
     }
 
@@ -813,9 +844,10 @@ public class MapView : KeyInputProcessorBase, IEventSink
             for (var x = 0; x < _worldWidth; x++)
             {
                 var index = GetScalarIndex(world.Humidity[x, y], min, max);
-                var colors = ColorsElevation[world.Cells[x, y]];
+                var colors = ColorsHeatmapHumidity[index];
+                var marker = MarkersHeatmapMonochrome[index];
                 _cachedWorld[y * _worldWidth + x] =
-                    new CellVisual(MarkersScalar[index], colors.Item1, colors.Item2);
+                    new CellVisual(marker, colors.Item1, colors.Item2);
             }
     }
 
