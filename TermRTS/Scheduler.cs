@@ -29,8 +29,6 @@ public class Scheduler
 {
     #region Fields
 
-    private static readonly TimeSpan TimeResolution = TimeSpan.FromMilliseconds(100);
-
     // time constants
     private readonly TimeSpan _msPerUpdate;
     private readonly ulong _timeStepSizeMs;
@@ -40,7 +38,7 @@ public class Scheduler
     private readonly Stopwatch _tickTimer = new();
     private readonly Stopwatch _renderTimer = new();
     private readonly Stopwatch _pauseTimer = new();
-    private TimeSpan _lag = TimeSpan.Zero;
+    private TimeSpan _lag;
 
     // statistics recording for profiling
     private readonly Profiler _profiler;
@@ -137,7 +135,6 @@ public class Scheduler
         _tickTimer.Restart();
         while (_lag >= _msPerUpdate)
         {
-
             // STEP 1: INPUT /////////////////////////////////////////////////////////////////////
             ProcessInput();
             if (!_core.IsRunning())
@@ -146,8 +143,8 @@ public class Scheduler
                 return;
             }
 
-        // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
-        
+            // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
+
             _core.Tick(_timeStepSizeMs);
             TimeMs += _timeStepSizeMs;
             _lag -= _msPerUpdate;
@@ -163,20 +160,6 @@ public class Scheduler
 
         var renderTime = _renderTimer.Elapsed;
 
-        // Optional profiling ////////////////////////////////////////////////////////
-#if DEBUG
-        // Record measurements
-        var tickTimeMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
-        _profiler.AddTickTimeSample(
-            Convert.ToUInt64(loopTime.TotalMilliseconds),
-            Convert.ToUInt64(tickTimeMs),
-            Convert.ToUInt64(renderTime.TotalMilliseconds));
-        // Push out profiling results every 10 samples
-        if (_profiler.SampleSize % 10 == 0)
-            _schedulerEventQueue.EnqueueEvent(
-                ScheduledEvent.From(new Profile(_profiler.ToString())));
-#endif
-
         // Step 4: Optional pausing for consistent tick times ////////////////////////////////
         // Get loop time after making up for previous lag
         var caughtUpLoopTime = _lag + renderTime + tickElapsed;
@@ -186,6 +169,23 @@ public class Scheduler
 
         // ...otherwise wait until the next frame is due.
         Pause(_msPerUpdate - caughtUpLoopTime);
+
+
+        // Optional profiling ////////////////////////////////////////////////////////
+#if DEBUG
+        // Record measurements
+        var tickTimeMs = tickCount == 0 ? 0.0 : tickElapsed.TotalMilliseconds / tickCount;
+        _profiler.AddTickTimeSample(
+            Convert.ToUInt64(loopTime.TotalMilliseconds),
+            Convert.ToUInt64(tickTimeMs),
+            Convert.ToUInt64(renderTime.TotalMilliseconds),
+            Convert.ToUInt64(_pauseTimer.Elapsed.TotalMilliseconds)
+        );
+        // Push out profiling results every 10 samples
+        if (_profiler.SampleSize % 10 == 0)
+            _schedulerEventQueue.EnqueueEvent(
+                ScheduledEvent.From(new Profile(_profiler.ToString())));
+#endif
     }
 
     #endregion
@@ -229,14 +229,35 @@ public class Scheduler
     /// <param name="timeout">Duration to pause.</param>
     private void Pause(TimeSpan timeout)
     {
-        if (timeout > TimeResolution)
-        {
-            Thread.Sleep(timeout);
-            return;
-        }
-
         _pauseTimer.Restart();
-        while (_pauseTimer.Elapsed < timeout) ;
+
+        // The threshold where Thread.Sleep becomes too dangerous.
+        // If you used timeBeginPeriod(1), this can safely be 2ms.
+        // If you are cross-platform and haven't touched the OS timer, keep it at 15-16ms.
+        const double sleepThresholdMs = 16.0;
+
+        // Tier 1: Deep Sleep (Yields CPU entirely, low power)
+        // We subtract the threshold to guarantee we wake up BEFORE the timeout.
+        var timeToSleepMs = timeout.TotalMilliseconds - sleepThresholdMs;
+        if (timeToSleepMs > 0) Thread.Sleep((int)timeToSleepMs);
+
+        // Tier 2: Active Yielding (Low latency, moderate power)
+        // The thread says "I don't need the CPU right now, let someone else work, 
+        // but put me at the front of the line to wake back up."
+        while (timeout.TotalMilliseconds - _pauseTimer.Elapsed.TotalMilliseconds > 0.1)
+            Thread.Sleep(1); // alternatively Thread.Sleep(0) or Thread.Yield()
+
+        // Note: Thread.Sleep(0) is also an option here, but Yield() is generally 
+        // preferred for tight spin-waiting as it stays on the current processor.
+        // Tier 3: The Micro-Spin (Absolute precision, high power)
+        // We only do this for the final fraction of a millisecond.
+        while (_pauseTimer.Elapsed < timeout)
+            // Don't use an empty while(); loop! 
+            // SpinWait tells the CPU "I am spinning", emitting a PAUSE instruction 
+            // on x86/x64 architectures. This prevents branch prediction penalties 
+            // and slightly reduces CPU heat compared to an empty loop.
+            Thread.SpinWait(10);
+
         _pauseTimer.Stop();
     }
 

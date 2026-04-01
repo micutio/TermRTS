@@ -14,6 +14,7 @@ public class Profiler
     private ulong _lastLoopTime;
     private ulong _lastRenderTime;
     private ulong _lastTickTime;
+    private ulong _lastPauseTime;
     private ulong _maxFps;
 
     private ulong _maxLoopTime;
@@ -24,6 +25,7 @@ public class Profiler
     private ulong _minRenderTime;
     private ulong _minTickTime;
 
+
     public Profiler(ulong timeStepSize)
     {
         _timeStepSize = timeStepSize;
@@ -33,7 +35,11 @@ public class Profiler
     public ulong SampleSize { get; private set; }
 
 
-    public void AddTickTimeSample(ulong loopTimeMs, ulong tickTimeMs, ulong renderTimeMs)
+    public void AddTickTimeSample(
+        ulong loopTimeMs,
+        ulong tickTimeMs,
+        ulong renderTimeMs,
+        ulong pauseTimeMs)
     {
         // Exclude invalid samples, which should be only the first ones taken.
         if (loopTimeMs == 0L) // || tickTimeMs == 0 || renderTimeMs == 0)
@@ -53,6 +59,8 @@ public class Profiler
         _lastRenderTime = renderTimeMs;
         _minRenderTime = Math.Min(_minRenderTime, renderTimeMs);
         _maxRenderTime = Math.Max(_maxRenderTime, renderTimeMs);
+
+        _lastPauseTime = pauseTimeMs;
 
         if (tickTimeMs + renderTimeMs > _timeStepSize) _droppedFrames += 1;
         // _droppedFrames += Math.Max(0, Convert.ToUInt64(loopTimeMs) - 1 / _timeStepSize);
@@ -77,6 +85,7 @@ public class Profiler
                $"Frames dropped {_droppedFrames}";
                */
         return $"Loop {_lastLoopTime:D3} " +
+               $"Pause {_lastPauseTime:D3} " +
                $"Tick {_lastTickTime:D3} " +
                $"Render {_lastRenderTime:D3} " +
                $"FPS {_lastFps:D3} " +
