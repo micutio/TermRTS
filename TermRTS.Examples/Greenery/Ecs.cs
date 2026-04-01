@@ -10,7 +10,6 @@ public class WorldComponent(
     int entityId,
     int worldWidth,
     int worldHeight,
-    byte[,] cells,
     SurfaceFeature[,] surfaces,
     float[,] temperature,
     float[,] humidity,
@@ -19,7 +18,6 @@ public class WorldComponent(
     bool[,] rivers)
     : ComponentBase(entityId)
 {
-    public byte[,] Cells { get; } = cells;
     public SurfaceFeature[,] Surfaces { get; } = surfaces;
     public float[,] Temperature { get; } = temperature;
     public float[,] Humidity { get; } = humidity;

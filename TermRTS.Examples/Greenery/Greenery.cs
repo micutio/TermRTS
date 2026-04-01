@@ -15,8 +15,6 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int WorldWidth = 300;
-    private const int WorldHeight = 80;
     private const int Seed = 0;
     private const int VoronoiCellCount = 25;
     private const int PlateCount = 12;
@@ -40,15 +38,20 @@ public class Greenery : IRunnableExample
         var core = new Core();
 
         var worldGen =
-            new CylinderWorld(WorldWidth, WorldHeight, 0.40f, Seed, VoronoiCellCount, PlateCount);
+            new CylinderWorld(
+                WorldMath.WorldWidth,
+                WorldMath.WorldHeight,
+                0.40f,
+                Seed,
+                VoronoiCellCount,
+                PlateCount);
         var worldEntity = new EntityBase();
         var worldData = worldGen.Generate();
         var worldComponent =
             new WorldComponent(
                 worldEntity.Id,
-                WorldWidth,
-                WorldHeight,
-                worldData.Elevation,
+                WorldMath.WorldWidth,
+                WorldMath.WorldHeight,
                 worldData.Surface,
                 worldData.Temperature,
                 worldData.Humidity,
@@ -57,9 +60,11 @@ public class Greenery : IRunnableExample
                 worldData.Rivers);
         core.AddEntity(worldEntity);
         core.AddComponent(worldComponent);
+        core.AddAllComponents(worldData.ElevationChunk);
 
         var fovEntity = new EntityBase();
-        var fovComponent = new FovComponent(fovEntity.Id, WorldWidth, WorldHeight);
+        var fovComponent =
+            new FovComponent(fovEntity.Id, WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.AddEntity(fovEntity);
         core.AddComponent(fovComponent);
 
@@ -68,12 +73,14 @@ public class Greenery : IRunnableExample
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
 
-        var pathFindingSystem = new PathFindingSystem(WorldWidth, WorldHeight);
+        var pathFindingSystem =
+            new PathFindingSystem(WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.AddSimSystem(pathFindingSystem);
         core.AddSimSystem(new FovSystem());
 
         var scheduler = new Scheduler(core);
-        var renderer = new Renderer(scheduler.EventQueue, WorldWidth, WorldHeight);
+        var renderer =
+            new Renderer(scheduler.EventQueue, WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 

@@ -387,6 +387,50 @@ public class MapView : KeyInputProcessorBase, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
+        // TODO: Figure out which chunks we need for rendering the visible map.
+        var chunkT = _mapRenderMode switch
+        {
+            MapRenderMode.ElevationColor => typeof(WorldElevationChunk),
+            MapRenderMode.ElevationMonochrome => typeof(WorldElevationChunk),
+            MapRenderMode.HeatMapColor => typeof(WorldElevationChunk),
+            MapRenderMode.HeatMapMonochrome => typeof(WorldElevationChunk),
+            MapRenderMode.ContourColor => typeof(WorldElevationChunk),
+            MapRenderMode.ContourMonochrome => typeof(WorldElevationChunk),
+            MapRenderMode.TerrainColor => typeof(WorldElevationChunk),
+            MapRenderMode.TerrainMonochrome => typeof(WorldElevationChunk),
+            MapRenderMode.ReliefColor => typeof(WorldElevationChunk),
+            MapRenderMode.ReliefMonochrome => typeof(WorldElevationChunk),
+            // MapRenderMode.SurfaceFeatures => typeof(WorldSurfaceFeatureChunk),
+            // MapRenderMode.Rivers => typeof(WorldRiverChunk),
+            // MapRenderMode.Temperature => typeof(WorldTemperatureChunk),
+            // MapRenderMode.Humidity => typeof(WorldHumidityChunk),
+            // MapRenderMode.Biomes => typeof(WorldBiomeChunk),
+            // MapRenderMode.TemperatureAmplitude => typeof(WorldTemperatureAmplitudeChunk),
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        var viewX = ViewportPositionInWorldX;
+        var viewY = ViewportPositionInWorldY;
+        for (var y = viewY; y < viewY + ViewportHeight; y += WorldMath.ChunkSize)
+            for (var x = viewX; x < viewX + ViewportWidth; x += WorldMath.ChunkSize)
+            {
+                // TODO: Pull the switch statement inside or make this adaptable to the chunk type.
+                var chunkIdx = WorldMath.GetChunkIndex(x, y);
+                if (!componentStorage
+                        .TryGetSingleForTypeAndEntity<chunkT>(chunkIdx, out var chunk)
+                    || chunk == null)
+                    return; // TODO: How to handle partly drawn maps, if they ever happen?
+                var stopX = Math.Min(viewX + ViewportWidth, viewX + WorldMath.ChunkSize);
+                var stopY = Math.Min(viewY + ViewportHeight, viewY + WorldMath.ChunkSize);
+                SetVisual(
+                    chunk,
+                    x % WorldMath.ChunkSize,
+                    y % WorldMath.ChunkSize,
+                    stopX % WorldMath.ChunkSize,
+                    stopY % WorldMath.ChunkSize);
+            }
+
+        // TODO: Run SetElevationVisual over each chunk or hand all chunks to it.
+
         if (!componentStorage.TryGetSingleForType<WorldComponent>(out var world) ||
             world == null) return;
         if (!componentStorage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
@@ -820,6 +864,38 @@ public class MapView : KeyInputProcessorBase, IEventSink
                     _ => ColorsElevation[world.Cells[x, y]]
                 };
                 _cachedWorld[y * _worldWidth + x] = new CellVisual(marker, colors.Item1, colors.Item2);
+            }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="chunk">Chunk data.</param>
+    /// <param name="startX">Starting x relative to chunk.</param>
+    /// <param name="startY">Starting y relative to chunk.</param>
+    /// <param name="endX">Ending x relative to chunk.</param>
+    /// <param name="endY">Ending y relative to chunk.</param>
+    private void SetVisual(
+        WorldElevationChunk chunk,
+        int startX,
+        int startY,
+        int endX,
+        int endY)
+    {
+        var c = chunk.Elevation.Span;
+        for (var y = startY; y < endY; y++)
+            for (var x = startX; x < endX; x++)
+            {
+                var marker = MarkersElevation[c[y * WorldMath.ChunkSize + x]];
+                var colors = _mapRenderMode switch
+                {
+                    MapRenderMode.ElevationMonochrome =>
+                        ColorsElevationMonochrome[c[y * WorldMath.ChunkSize + x]],
+                    _ => ColorsElevation[c[y * WorldMath.ChunkSize + x]]
+                };
+                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
+                _cachedWorld[wy * _worldWidth + wx] =
+                    new CellVisual(marker, colors.Item1, colors.Item2);
             }
     }
 

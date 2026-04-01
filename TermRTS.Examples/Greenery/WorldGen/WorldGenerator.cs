@@ -60,8 +60,8 @@ public enum Biome : byte
     MajorRiver
 }
 
-public class WorldGenerationResult(
-    byte[,] elevation,
+public sealed class WorldGenerationResult(
+    WorldElevationChunk[] elevation,
     SurfaceFeature[,] surface,
     float[,] temperature,
     float[,] humidity,
@@ -69,13 +69,21 @@ public class WorldGenerationResult(
     float[,] temperatureAmplitude,
     bool[,] rivers)
 {
-    public byte[,] Elevation { get; } = elevation;
+    public WorldElevationChunk[] ElevationChunk { get; } = elevation;
     public SurfaceFeature[,] Surface { get; } = surface;
     public float[,] Temperature { get; } = temperature;
     public float[,] Humidity { get; } = humidity;
     public Biome[,] Biomes { get; } = biomes;
     public float[,] TemperatureAmplitude { get; } = temperatureAmplitude;
     public bool[,] Rivers { get; } = rivers;
+}
+
+public sealed class WorldElevationChunk(int entityId, int cx, int cy, ReadOnlyMemory<int> elevation)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<int> Elevation = elevation;
 }
 
 public sealed class WorldBuffer<T> : IDisposable
@@ -149,6 +157,7 @@ public class CylinderWorld : IWorldGen
     private readonly int _worldHeight;
     private readonly int _plateCount;
 
+    private float _maxElevation = float.MinValue;
     private float _minTectonicDelta = float.MaxValue;
     private float _maxTectonicDelta = float.MinValue;
     private float _minHotspotHeight = float.MaxValue;
@@ -353,7 +362,6 @@ public class CylinderWorld : IWorldGen
         var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
 
-        var worldMap = new byte[_worldWidth, _worldHeight];
         var surfaceFeatureMap = new SurfaceFeature[_worldWidth, _worldHeight];
         var temperatureMap = new float[_worldWidth, _worldHeight];
         var humidityMap = new float[_worldWidth, _worldHeight];
@@ -361,21 +369,14 @@ public class CylinderWorld : IWorldGen
         var temperatureAmplitudesMap = new float[_worldWidth, _worldHeight];
         var riversMap = new bool[_worldWidth, _worldHeight];
 
-        var minElevation = float.MaxValue;
-        var maxElevation = float.MinValue;
-
         for (var i = 0; i < _worldWidth * _worldHeight; i++)
-        {
-            minElevation = Math.Min(minElevation, elevation[i]);
-            maxElevation = Math.Max(maxElevation, elevation[i]);
-        }
+            _maxElevation = MathF.Max(_maxElevation, elevation[i]);
 
         for (var y = 0; y < _worldHeight; y += 1)
             for (var x = 0; x < _worldWidth; x += 1)
             {
                 // var normalisedElevation = elevation[y * _worldWidth + x] /  maxElevation * 9;
                 // var elevationClamped = Math.Max(0, normalisedElevation);
-                worldMap[x, y] = Convert.ToByte(Math.Max(0, elevation[y * _worldWidth + x]));
                 surfaceFeatureMap[x, y] = surfaceFeatures[y * _worldWidth + x];
                 temperatureMap[x, y] = temperature[y * _worldWidth + x];
                 humidityMap[x, y] = humidity[y * _worldWidth + x];
@@ -385,7 +386,7 @@ public class CylinderWorld : IWorldGen
             }
 
         return new WorldGenerationResult(
-            worldMap,
+            ToElevationChunks(),
             surfaceFeatureMap,
             temperatureMap,
             humidityMap,
@@ -589,8 +590,7 @@ public class CylinderWorld : IWorldGen
                 {
                     var vX = vCells[i].Item1;
                     var vY = vCells[i].Item2;
-                    var distSq = GetCylindricalDistanceSq(
-                        _worldWidth,
+                    var distSq = WorldMath.GetCylindricalDistanceSq(
                         jiggledX,
                         jiggledY,
                         vX,
@@ -658,7 +658,7 @@ public class CylinderWorld : IWorldGen
             for (var i = 0; i < _plateCount; i += 1)
             {
                 var (pX, pY) = plateCells[i];
-                var distSq = GetCylindricalDistanceSq(_worldWidth, vX, vY, pX, pY);
+                var distSq = WorldMath.GetCylindricalDistanceSq(vX, vY, pX, pY);
 
                 if (distSq >= minDistSq) continue;
                 minDistSq = distSq;
@@ -729,7 +729,7 @@ public class CylinderWorld : IWorldGen
             var elevation = coastalSlopes[y * _worldWidth + x];
             foreach (var (dirX, dirY) in directions)
             {
-                var neighX = GetWrappedX(_worldWidth, x + dirX);
+                var neighX = WorldMath.WrapX(x + dirX);
                 var neighY = y + dirY;
 
                 if (neighY < 0
@@ -781,7 +781,7 @@ public class CylinderWorld : IWorldGen
                 (int, int)[] offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)];
                 foreach (var (dx, dy) in offsets)
                 {
-                    var nx = GetWrappedX(_worldWidth, x + dx);
+                    var nx = WorldMath.WrapX(x + dx);
                     var ny = y + dy;
                     if (ny < 0 || ny >= _worldHeight) continue;
 
@@ -917,7 +917,7 @@ public class CylinderWorld : IWorldGen
                 // Calculate position along the chain with configurable spacing
                 var offsetX = (int)(chainDirection.X * i * ChainSpacing);
                 var offsetY = (int)(chainDirection.Y * i * ChainSpacing);
-                var centerX = GetWrappedX(_worldWidth, startX + offsetX);
+                var centerX = WorldMath.WrapX(startX + offsetX);
                 var centerY = startY + offsetY;
 
                 // Keep within bounds with some wrapping
@@ -1072,7 +1072,7 @@ public class CylinderWorld : IWorldGen
 
             foreach (var (dx, dy) in directions)
             {
-                var nx = GetWrappedX(_worldWidth, cx + dx);
+                var nx = WorldMath.WrapX(cx + dx);
                 var ny = cy + dy;
 
                 // Check vertical bounds
@@ -1205,7 +1205,7 @@ public class CylinderWorld : IWorldGen
                         [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
                     foreach (var (dx, dy) in directions)
                     {
-                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
                         var neighborHeight = elevationSource[ny * _worldWidth + nx];
 
@@ -1358,7 +1358,7 @@ public class CylinderWorld : IWorldGen
 
                     foreach (var (dx, dy) in directions)
                     {
-                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
 
                         if (ny < 0 || ny >= _worldHeight) continue;
@@ -1506,7 +1506,7 @@ public class CylinderWorld : IWorldGen
                     for (var dy = -RainfallWaterDistanceRadius; dy <= RainfallWaterDistanceRadius; dy++)
                         for (var dx = -RainfallWaterDistanceRadius; dx <= RainfallWaterDistanceRadius; dx++)
                         {
-                            var nx = GetWrappedX(_worldWidth, x + dx);
+                            var nx = WorldMath.WrapX(x + dx);
                             var ny = y + dy;
                             if (ny < 0 || ny >= _worldHeight) continue;
 
@@ -1591,7 +1591,7 @@ public class CylinderWorld : IWorldGen
                 {
                     // DISCHARGE: The 'previous' cell is where the wind came FROM.
                     // We subtract the windDir to look backward into the wind.
-                    var prevX = GetWrappedX(_worldWidth, realX - windDir);
+                    var prevX = WorldMath.WrapX(realX - windDir);
                     var prevElevation = elevationsF[y * _worldWidth + prevX];
 
                     var lift = elevation - prevElevation;
@@ -1662,7 +1662,7 @@ public class CylinderWorld : IWorldGen
                         {
                             if (dx == 0 && dy == 0) continue;
 
-                            var nx = GetWrappedX(_worldWidth, x + dx);
+                            var nx = WorldMath.WrapX(x + dx);
                             var ny = y + dy;
 
                             if (ny < 0 || ny >= _worldHeight) continue;
@@ -1711,7 +1711,7 @@ public class CylinderWorld : IWorldGen
                     {
                         if (dx == 0 && dy == 0) continue;
 
-                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
 
                         if (ny < 0 || ny >= _worldHeight) continue;
@@ -1753,7 +1753,7 @@ public class CylinderWorld : IWorldGen
                 var (dx, dy) = flowDirections[x, y];
                 if (dx == 0 && dy == 0) continue;
 
-                var nx = GetWrappedX(_worldWidth, x + dx);
+                var nx = WorldMath.WrapX(x + dx);
                 var ny = y + dy;
 
                 if (ny >= 0 && ny < _worldHeight)
@@ -1776,7 +1776,7 @@ public class CylinderWorld : IWorldGen
 
             if (dx == 0 && dy == 0) continue;
 
-            var nx = GetWrappedX(_worldWidth, x + dx);
+            var nx = WorldMath.WrapX(x + dx);
             var ny = y + dy;
 
             if (ny < 0 || ny >= _worldHeight) continue;
@@ -1822,7 +1822,7 @@ public class CylinderWorld : IWorldGen
             {
                 var (dx, dy) = flowDirections[x, y];
                 if (dx == 0 && dy == 0) continue;
-                var nx = GetWrappedX(_worldWidth, x + dx);
+                var nx = WorldMath.WrapX(x + dx);
                 var ny = y + dy;
                 if (ny >= 0 && ny < _worldHeight) inDegree[nx, ny]++;
             }
@@ -1846,7 +1846,7 @@ public class CylinderWorld : IWorldGen
             var (dx, dy) = flowDirections[x, y];
             if (dx == 0 && dy == 0) continue;
 
-            var nx = GetWrappedX(_worldWidth, x + dx);
+            var nx = WorldMath.WrapX(x + dx);
             var ny = y + dy;
             if (ny < 0 || ny >= _worldHeight) continue;
 
@@ -1939,7 +1939,7 @@ public class CylinderWorld : IWorldGen
                     var (dx, dy) = flowDirections[cx, cy];
                     if (dx == 0 && dy == 0) break;
 
-                    cx = GetWrappedX(_worldWidth, cx + dx);
+                    cx = WorldMath.WrapX(cx + dx);
                     cy = cy + dy;
 
                     if (cy < 0 || cy >= _worldHeight) break;
@@ -2022,7 +2022,7 @@ public class CylinderWorld : IWorldGen
                     // Simple 1-pixel neighbor check for "lush banks"
                     foreach (var (dx, dy) in neighborhood)
                     {
-                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
                         if (ny < 0 || ny >= _worldHeight || !riverMap[ny * _worldWidth + nx]) continue;
                         riverBonus = 0.15f;
@@ -2111,7 +2111,7 @@ public class CylinderWorld : IWorldGen
 
                 foreach (var (dx, dy) in neighbors)
                 {
-                    var nx = GetWrappedX(_worldWidth, x + dx);
+                    var nx = WorldMath.WrapX(x + dx);
                     var ny = y + dy;
 
                     if (ny < 0 || ny >= _worldHeight) continue;
@@ -2157,7 +2157,7 @@ public class CylinderWorld : IWorldGen
                 for (var dy = -3; dy <= 3; dy++)
                     for (var dx = -3; dx <= 3; dx++)
                     {
-                        var nx = GetWrappedX(_worldWidth, x + dx);
+                        var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
                         if (ny < 0 || ny >= _worldHeight) continue;
                         if (hotspotMap[ny * _worldWidth + nx] <= maxStrength) continue;
@@ -2171,7 +2171,7 @@ public class CylinderWorld : IWorldGen
                 for (var dy = -5; dy <= 5; dy++)
                     for (var dx = -5; dx <= 5; dx++)
                     {
-                        var nx = GetWrappedX(_worldWidth, maxX + dx);
+                        var nx = WorldMath.WrapX(maxX + dx);
                         var ny = maxY + dy;
                         if (ny >= 0 && ny < _worldHeight)
                             visited[nx, ny] = true;
@@ -2218,8 +2218,8 @@ public class CylinderWorld : IWorldGen
              y++)
             for (var x = centerX - radius; x < centerX + radius; x++)
             {
-                var wrappedX = GetWrappedX(_worldWidth, x);
-                var distance = GetCylindricalDistance(_worldWidth, wrappedX, y, centerX, centerY);
+                var wrappedX = WorldMath.WrapX(x);
+                var distance = WorldMath.GetCylindricalDistance(wrappedX, y, centerX, centerY);
 
                 if (distance > radius) continue;
 
@@ -2295,7 +2295,7 @@ public class CylinderWorld : IWorldGen
                         for (var dx = -1; dx <= 1; dx++)
                         {
                             if (dx == 0 && dy == 0) continue;
-                            var nx = GetWrappedX(_worldWidth, x + dx);
+                            var nx = WorldMath.WrapX(x + dx);
                             var ny = y + dy;
                             if (ny < 0 || ny >= _worldHeight) continue;
 
@@ -2339,7 +2339,7 @@ public class CylinderWorld : IWorldGen
                         for (var dx = -1; dx <= 1; dx++)
                         {
                             if (dx == 0 && dy == 0) continue;
-                            var nx = GetWrappedX(_worldWidth, x + dx);
+                            var nx = WorldMath.WrapX(x + dx);
                             var ny = y + dy;
                             if (ny < 0 || ny >= _worldHeight) continue;
                             var neighborElevation = elevationsF[ny * _worldWidth + nx];
@@ -2357,78 +2357,54 @@ public class CylinderWorld : IWorldGen
 
     #endregion
 
-    #region Cylindrical Coordinate System
+    #region To ECS Components
 
-    /// <summary>
-    ///     Calculates an X-coordinate for a cylindrical grid that
-    ///     wraps around the left and right edges.
-    /// </summary>
-    /// <param name="worldWidth">Width of the world in grid cells.</param>
-    /// <param name="x">X-Coordinate to convert to wrapping around.</param>
-    /// <returns>X, if is within the bounds of the world, wrapped coordinate otherwise.</returns>
-    private static int GetWrappedX(int worldWidth, int x)
+    private WorldElevationChunk[] ToElevationChunks()
     {
-        return (x % worldWidth + worldWidth) % worldWidth;
-    }
+        var worldSpan = _elevation.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
 
-    /// <summary>
-    ///     Calculates the distance between two points on a cylindrical world.
-    /// </summary>
-    /// <param name="worldWidth">Width of the world in cells.</param>
-    /// <param name="x1">X-coordinate of the first point.</param>
-    /// <param name="y1">Y-coordinate of the first point.</param>
-    /// <param name="x2">X-coordinate of the second point.</param>
-    /// <param name="y2">Y-coordinate of the second point.</param>
-    /// <returns>
-    ///     Distance between both points on a cylinder.
-    /// </returns>
-    private static float GetCylindricalDistance(int worldWidth, int x1, int y1, int x2, int y2)
-    {
-        var dx = Math.Min(Math.Abs(x2 - x1), worldWidth - Math.Abs(x2 - x1));
-        var dy = Math.Abs(y2 - y1);
-        return MathF.Sqrt(dx * dx + dy * dy);
-    }
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new int[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
 
-    /// <summary>
-    ///     Calculates the distance between two points on a cylindrical world.
-    /// </summary>
-    /// <param name="worldWidth">Width of the world in cells.</param>
-    /// <param name="x1">X-coordinate of the first point.</param>
-    /// <param name="y1">Y-coordinate of the first point.</param>
-    /// <param name="x2">X-coordinate of the second point.</param>
-    /// <param name="y2">Y-coordinate of the second point.</param>
-    /// <returns>
-    ///     Distance between both points on a cylinder.
-    /// </returns>
-    private static float GetCylindricalDistance(int worldWidth, double x1, double y1, double x2,
-        double y2)
-    {
-        var dx = Math.Min(Math.Abs(x2 - x1), worldWidth - Math.Abs(x2 - x1));
-        var dy = Math.Abs(y2 - y1);
-        return (float)Math.Sqrt(dx * dx + dy * dy);
-    }
+        var chunks = new WorldElevationChunk[chunksAcross * (worldHeight / chunkSize)];
 
-    /// <summary>
-    ///     Calculates the squared distance between two points on a cylindrical world.
-    /// </summary>
-    /// <param name="worldWidth">Width of the world in cells.</param>
-    /// <param name="x1">X-coordinate of the first point.</param>
-    /// <param name="y1">Y-coordinate of the first point.</param>
-    /// <param name="x2">X-coordinate of the second point.</param>
-    /// <param name="y2">Y-coordinate of the second point.</param>
-    /// <returns>
-    ///     Distance between both points on a cylinder, squared for faster computation.
-    /// </returns>
-    private static float GetCylindricalDistanceSq(
-        int worldWidth,
-        double x1,
-        double y1,
-        double x2,
-        double y2)
-    {
-        var dx = Math.Min(Math.Abs(x2 - x1), worldWidth - Math.Abs(x2 - x1));
-        var dy = Math.Abs(y2 - y1);
-        return (float)(dx * dx + dy * dy);
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    for (var i = sourceRow.Length - 1; i >= 0; i--)
+                    {
+                        var normalisedElevation = sourceRow[i] / _maxElevation * 9;
+                        var elevationClamped = Math.Max(0, normalisedElevation);
+                        destRow[i] = Convert.ToInt32(elevationClamped);
+                    }
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] = new WorldElevationChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
     }
 
     #endregion
