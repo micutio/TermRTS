@@ -44,8 +44,8 @@ public class GreeneryWorldGeneratorTest
     [Fact]
     public void Generate_SameSeedProducesSameWorld()
     {
-        var generatorA = new CylinderWorld(40, 20, 0.5f,1234, 10, 3);
-        var generatorB = new CylinderWorld(40, 20, 0.5f,1234, 10, 3);
+        var generatorA = new CylinderWorld(40, 20, 0.5f, 1234, 10, 3);
+        var generatorB = new CylinderWorld(40, 20, 0.5f, 1234, 10, 3);
 
         var resultA = generatorA.Generate();
         var resultB = generatorB.Generate();
@@ -82,7 +82,7 @@ public class GreeneryWorldGeneratorTest
         Assert.Equal(expected.GetLength(1), actual.GetLength(1));
 
         for (var x = 0; x < expected.GetLength(0); x++)
-        for (var y = 0; y < expected.GetLength(1); y++)
-            Assert.Equal(expected[x, y], actual[x, y]);
+            for (var y = 0; y < expected.GetLength(1); y++)
+                Assert.Equal(expected[x, y], actual[x, y]);
     }
 }

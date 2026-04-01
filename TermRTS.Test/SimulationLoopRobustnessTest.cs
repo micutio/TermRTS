@@ -34,7 +34,8 @@ public class SimulationLoopRobustnessTest
 
     // This unit test keeps failing on macOS and I can't quite figure out why.
     // For the time being excluded from running on Mac (Boooh!).
-    [Theory] [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
+    [Theory]
+    [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Heavy_render_load_does_not_prevent_tick_progression(Core core)
     {
         const int tickCount = 800;
