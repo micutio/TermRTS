@@ -234,7 +234,7 @@ public class Scheduler
         // The threshold where Thread.Sleep becomes too dangerous.
         // If you used timeBeginPeriod(1), this can safely be 2ms.
         // If you are cross-platform and haven't touched the OS timer, keep it at 15-16ms.
-        const double sleepThresholdMs = 16.0;
+        const double sleepThresholdMs = 15.0;
 
         // Tier 1: Deep Sleep (Yields CPU entirely, low power)
         // We subtract the threshold to guarantee we wake up BEFORE the timeout.
