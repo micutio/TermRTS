@@ -7,17 +7,24 @@ internal sealed class NoOpRenderer : IRenderer
 {
     public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
         double howFarIntoNextFramePercent)
-    { }
+    {
+    }
 
-    public void FinalizeRender() { }
+    public void FinalizeRender()
+    {
+    }
 
-    public void Shutdown() { }
+    public void Shutdown()
+    {
+    }
 }
 
 /// <summary>System that does nothing; used for Core.Tick throughput benchmarks.</summary>
 internal sealed class NoOpSystem : ISimSystem
 {
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage) { }
+    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    {
+    }
 }
 
 /// <summary>System that sleeps for a fixed duration to simulate tick load.</summary>
@@ -28,7 +35,9 @@ internal sealed class BusySystem(double workTimeMs) : ISimSystem
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         var start = DateTime.UtcNow;
-        while (DateTime.UtcNow - start < _workTime) { }
+        while (DateTime.UtcNow - start < _workTime)
+        {
+        }
     }
 }
 
@@ -37,14 +46,9 @@ internal sealed class GetAllAndTouchSystem : ISimSystem
 {
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
-        foreach (var c in storage.GetAllForType<BenchmarkComponent>())
-        {
-            c.Touch++;
-        }
+        foreach (var c in storage.GetAllForType<BenchmarkComponent>()) c.Touch++;
     }
 }
-
-internal sealed class NullEntity : EntityBase { }
 
 /// <summary>Component type used by storage benchmarks; one per entity or singleton.</summary>
 internal sealed class BenchmarkComponent(int entityId) : ComponentBase(entityId)
@@ -56,9 +60,17 @@ internal sealed class BenchmarkComponent(int entityId) : ComponentBase(entityId)
 internal sealed class SlowRenderer(TimeSpan renderDuration) : IRenderer
 {
     public void RenderComponents(in IReadonlyStorage storage, double timeStepSizeMs,
-        double howFarIntoNextFramePercent) => Thread.Sleep(renderDuration);
+        double howFarIntoNextFramePercent)
+    {
+        Thread.Sleep(renderDuration);
+    }
 
-    public void FinalizeRender() => Thread.Sleep(renderDuration);
+    public void FinalizeRender()
+    {
+        Thread.Sleep(renderDuration);
+    }
 
-    public void Shutdown() { }
+    public void Shutdown()
+    {
+    }
 }

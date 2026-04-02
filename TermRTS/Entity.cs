@@ -5,7 +5,7 @@ namespace TermRTS;
 /// <summary>
 ///     Base class for simulation entities, providing facilities for registering components.
 /// </summary>
-public class EntityBase
+public record struct Entity
 {
     #region Fields
 
@@ -18,13 +18,13 @@ public class EntityBase
     /// <summary>
     ///     Create a new EntityBase with incremental running Id.
     /// </summary>
-    public EntityBase()
+    public Entity()
     {
         Id = Interlocked.Increment(ref _runningId);
     }
 
     [JsonConstructor]
-    internal EntityBase(int id)
+    internal Entity(int id)
     {
         Id = id;
         // Set the running id to be greater than the current id,

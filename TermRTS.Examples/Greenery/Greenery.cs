@@ -45,30 +45,22 @@ public class Greenery : IRunnableExample
                 Seed,
                 VoronoiCellCount,
                 PlateCount);
-        var worldEntity = new EntityBase();
         var worldData = worldGen.Generate();
-        var worldComponent =
-            new WorldComponent(
-                worldEntity.Id,
-                WorldMath.WorldWidth,
-                WorldMath.WorldHeight,
-                worldData.Surface,
-                worldData.Temperature,
-                worldData.Humidity,
-                worldData.Biomes,
-                worldData.TemperatureAmplitude,
-                worldData.Rivers);
-        core.AddEntity(worldEntity);
-        core.AddComponent(worldComponent);
-        core.AddAllComponents(worldData.ElevationChunk);
+        core.AddNewComponents(worldData.ElevationChunk);
+        core.AddNewComponents(worldData.SurfaceFeatureChunk);
+        core.AddNewComponents(worldData.TemperatureChunk);
+        core.AddNewComponents(worldData.HumidityChunk);
+        core.AddNewComponents(worldData.TemperatureAmplitudeChunk);
+        core.AddNewComponents(worldData.BiomeChunk);
+        core.AddNewComponents(worldData.RiverChunk);
 
-        var fovEntity = new EntityBase();
+        var fovEntity = new Entity();
         var fovComponent =
             new FovComponent(fovEntity.Id, WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.AddEntity(fovEntity);
         core.AddComponent(fovComponent);
 
-        var droneEntity = new EntityBase();
+        var droneEntity = new Entity();
         var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(1, 1));
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);

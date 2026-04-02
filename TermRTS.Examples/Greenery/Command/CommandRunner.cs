@@ -24,13 +24,6 @@ public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
     private const string SubCmdRenderHeatmapColor = "heat_col";
     private const string SubCmdRenderHeatmapMonochrome = "heat_mono";
 
-    private const string SubCmdRenderTerrainColor = "terrain_col";
-    private const string SubCmdRenderTerrainMonochrome = "terrain_mono";
-    private const string SubCmdRenderReliefColor = "relief_col";
-    private const string SubCmdRenderReliefMonochrome = "relief_mono";
-    private const string SubCmdRenderContourColor = "contour_col";
-    private const string SubCmdRenderContourMonochrome = "contour_mono";
-
     private const string CmdSave = "save";
     private const string CmdLoad = "load";
 
@@ -99,24 +92,6 @@ public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
                 break;
             case SubCmdRenderHeatmapMonochrome:
                 evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.HeatMapMonochrome));
-                break;
-            case SubCmdRenderTerrainColor:
-                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.TerrainColor));
-                break;
-            case SubCmdRenderTerrainMonochrome:
-                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.TerrainMonochrome));
-                break;
-            case SubCmdRenderReliefColor:
-                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ReliefColor));
-                break;
-            case SubCmdRenderReliefMonochrome:
-                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ReliefMonochrome));
-                break;
-            case SubCmdRenderContourColor:
-                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ContourColor));
-                break;
-            case SubCmdRenderContourMonochrome:
-                evtQueue.EnqueueEvent(ScheduledEvent.From(MapRenderMode.ContourMonochrome));
                 break;
             default: return ErrorUnknownCmd + tokens[1].Lexeme;
         }

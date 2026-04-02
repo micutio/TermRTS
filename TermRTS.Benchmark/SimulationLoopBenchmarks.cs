@@ -13,8 +13,7 @@ public class StorageGetAllForTypeBenchmark
 {
     private MappedCollectionStorage _storage = null!;
 
-    [Params(100, 1_000, 10_000)]
-    public int ComponentCount { get; set; }
+    [Params(100, 1_000, 10_000)] public int ComponentCount { get; set; }
 
     [GlobalSetup]
     public void Setup()
@@ -79,7 +78,7 @@ public class SchedulerStepBaselineBenchmark
     public void Setup()
     {
         _core = new Core { Renderer = new NoOpRenderer() };
-        _core.AddEntity(new NullEntity());
+        _core.AddEntity(new Entity());
         _scheduler = new Scheduler(_core, 16.0, 16);
         _scheduler.Prepare();
     }
@@ -101,14 +100,13 @@ public class SchedulerStepTickLoadBenchmark
     private Scheduler _scheduler = null!;
     private Core _core = null!;
 
-    [Params(1, 4, 8, 16)]
-    public int SystemCount { get; set; }
+    [Params(1, 4, 8, 16)] public int SystemCount { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         _core = new Core { Renderer = new NoOpRenderer() };
-        _core.AddEntity(new NullEntity());
+        _core.AddEntity(new Entity());
         for (var i = 0; i < SystemCount; i++)
             _core.AddSimSystem(new BusySystem(0.1));
         _scheduler = new Scheduler(_core, 16.0, 16);
@@ -131,18 +129,16 @@ public class CoreTickOnlyBenchmark
 {
     private Core _core = null!;
 
-    [Params(100, 1000, 5000)]
-    public int EntityCount { get; set; }
+    [Params(100, 1000, 5000)] public int EntityCount { get; set; }
 
-    [Params(4, 16)]
-    public int SystemCount { get; set; }
+    [Params(4, 16)] public int SystemCount { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         _core = new Core { Renderer = new NoOpRenderer() };
         for (var i = 0; i < EntityCount; i++)
-            _core.AddEntity(new NullEntity());
+            _core.AddEntity(new Entity());
         for (var i = 0; i < SystemCount; i++)
             _core.AddSimSystem(new NoOpSystem());
     }
@@ -162,22 +158,21 @@ public class CoreTickWithComponentsBenchmark
 {
     private Core _core = null!;
 
-    [Params(100, 1000, 5000)]
-    public int EntityCount { get; set; }
+    [Params(100, 1000, 5000)] public int EntityCount { get; set; }
 
-    [Params(1, 4)]
-    public int SystemCount { get; set; }
+    [Params(1, 4)] public int SystemCount { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         _core = new Core { Renderer = new NoOpRenderer() };
-        var entities = new NullEntity[EntityCount];
+        var entities = new Entity[EntityCount];
         for (var i = 0; i < EntityCount; i++)
         {
-            entities[i] = new NullEntity();
+            entities[i] = new Entity();
             _core.AddEntity(entities[i]);
         }
+
         _core.Tick(16); // flush deferred adds
         for (var i = 0; i < EntityCount; i++)
             _core.AddComponent(new BenchmarkComponent(entities[i].Id));
@@ -200,27 +195,26 @@ public class CoreTickWithComponentsBenchmark
 public class CoreTickWithEntityChurnBenchmark
 {
     private Core _core = null!;
-    private List<NullEntity> _entities = null!;
+    private List<Entity> _entities = null!;
     private int _indexToRemove;
 
-    [Params(50)]
-    public int InitialEntityCount { get; set; }
+    [Params(50)] public int InitialEntityCount { get; set; }
 
-    [Params(10)]
-    public int TicksPerChurn { get; set; }
+    [Params(10)] public int TicksPerChurn { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         _core = new Core { Renderer = new NoOpRenderer() };
         _core.AddSimSystem(new GetAllAndTouchSystem());
-        _entities = new List<NullEntity>();
+        _entities = new List<Entity>();
         for (var i = 0; i < InitialEntityCount; i++)
         {
-            var e = new NullEntity();
+            var e = new Entity();
             _entities.Add(e);
             _core.AddEntity(e);
         }
+
         _core.Tick(16);
         for (var i = 0; i < InitialEntityCount; i++)
             _core.AddComponent(new BenchmarkComponent(_entities[i].Id));
@@ -233,17 +227,18 @@ public class CoreTickWithEntityChurnBenchmark
     {
         for (var t = 0; t < TicksPerChurn; t++)
             _core.Tick(16);
-        if (_entities.Count > 0)
-        {
-            _entities[_indexToRemove].IsMarkedForRemoval = true;
-            _core.Tick(16);
-            var e = new NullEntity();
-            _entities[_indexToRemove] = e;
-            _core.AddEntity(e);
-            _core.AddComponent(new BenchmarkComponent(e.Id));
-            _core.Tick(16);
-            _indexToRemove = (_indexToRemove + 1) % _entities.Count;
-        }
+        if (_entities.Count <= 0) return;
+
+        var entity = _entities[_indexToRemove];
+        entity.IsMarkedForRemoval = true;
+        _entities[_indexToRemove] = entity;
+        _core.Tick(16);
+        var e = new Entity();
+        _entities[_indexToRemove] = e;
+        _core.AddEntity(e);
+        _core.AddComponent(new BenchmarkComponent(e.Id));
+        _core.Tick(16);
+        _indexToRemove = (_indexToRemove + 1) % _entities.Count;
     }
 }
 
@@ -256,14 +251,13 @@ public class SchedulerStepHeavyRenderBenchmark
     private Scheduler _scheduler = null!;
     private Core _core = null!;
 
-    [Params(2, 5, 10)]
-    public int RenderSleepMs { get; set; }
+    [Params(2, 5, 10)] public int RenderSleepMs { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         _core = new Core { Renderer = new SlowRenderer(TimeSpan.FromMilliseconds(RenderSleepMs)) };
-        _core.AddEntity(new NullEntity());
+        _core.AddEntity(new Entity());
         _scheduler = new Scheduler(_core, 16.0, 16);
         _scheduler.Prepare();
     }

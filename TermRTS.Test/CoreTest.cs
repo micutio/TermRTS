@@ -70,7 +70,7 @@ public class CoreTest
 
         var e1 = new NullEntity();
         var e2 = new NullEntity();
-        core.AddAllEntities([e1, e2]);
+        core.AddEntities([e1, e2]);
         core.AddAllComponents([
             new ComponentA(e1.Id),
             new ComponentB(e1.Id),

@@ -20,8 +20,8 @@ internal class EntityGenerator
 
     // readonly utilities and internal state
     private readonly Dictionary<Circuitry.Chip, ISet<Circuitry.Chip>> _adjacency;
-    private readonly List<EntityBase> _chipEntities;
-    private readonly List<EntityBase> _busEntities;
+    private readonly List<Entity> _chipEntities;
+    private readonly List<Entity> _busEntities;
     private readonly List<Circuitry.Chip> _generatedChipComponents;
     private readonly List<Circuitry.Bus> _generatedBusComponents;
 
@@ -57,8 +57,8 @@ internal class EntityGenerator
         _adjacency = new Dictionary<Circuitry.Chip, ISet<Circuitry.Chip>>();
         _generatedChipComponents = new List<Circuitry.Chip>();
         _generatedBusComponents = new List<Circuitry.Bus>();
-        _chipEntities = new List<EntityBase>();
-        _busEntities = new List<EntityBase>();
+        _chipEntities = new List<Entity>();
+        _busEntities = new List<Entity>();
         _rng = _rngSeed != null ? new Random(Convert.ToInt32(_rngSeed)) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
     }
@@ -96,7 +96,7 @@ internal class EntityGenerator
         return this;
     }
 
-    internal void Build(out List<EntityBase> entities, out List<ComponentBase> components)
+    internal void Build(out List<Entity> entities, out List<ComponentBase> components)
     {
         _rng = _rngSeed != null ? new Random(Convert.ToInt32(_rngSeed)) : new Random();
         _occupation = new byte[_worldWidth, _worldHeight];
@@ -128,7 +128,7 @@ internal class EntityGenerator
 
             var tries = 0;
             var isInvalid = true;
-            var chipEntity = new EntityBase();
+            var chipEntity = new Entity();
             Circuitry.Chip? newChip = null;
             while (isInvalid && tries < 10)
             {
@@ -326,7 +326,7 @@ internal class EntityGenerator
         //return wires.Count == 0 ? null : new App.Bus(wires);
         if (wires.Count > 0)
         {
-            var busEntity = new EntityBase();
+            var busEntity = new Entity();
             var busComponent = new Circuitry.Bus(busEntity.Id, wires);
             _generatedBusComponents.Add(busComponent);
             _busEntities.Add(busEntity);

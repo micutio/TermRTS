@@ -4,9 +4,9 @@ using TermRTS.Storage;
 namespace TermRTS;
 
 internal record CoreState(
-    List<EntityBase> Entities,
+    List<Entity> Entities,
     List<ComponentBase> Components,
-    List<EntityBase> NewEntities,
+    List<Entity> NewEntities,
     List<ComponentBase> NewComponents
 )
 {
@@ -32,8 +32,8 @@ public class Core(IStorage storage) : IEventSink
     #region Fields
 
     private readonly List<ISimSystem> _systems = [];
-    private readonly List<EntityBase> _entities = [];
-    private readonly List<EntityBase> _newEntities = [];
+    private readonly List<Entity> _entities = [];
+    private readonly List<Entity> _newEntities = [];
     private readonly List<ComponentBase> _newComponents = [];
 
     private bool _isGameRunning = true;
@@ -162,7 +162,7 @@ public class Core(IStorage storage) : IEventSink
     ///     Schedule a new entity to be added to the simulation at the beginning of the next tick.
     /// </summary>
     /// <param name="entity"> Entity object to be added. </param>
-    public void AddEntity(EntityBase entity)
+    public void AddEntity(Entity entity)
     {
         _newEntities.Add(entity);
     }
@@ -172,13 +172,13 @@ public class Core(IStorage storage) : IEventSink
     ///     next tick.
     /// </summary>
     /// <param name="entities"> Entity objects to be added. </param>
-    public void AddAllEntities(IEnumerable<EntityBase> entities)
+    public void AddEntities(IEnumerable<Entity> entities)
     {
         _newEntities.AddRange(entities);
     }
 
     /// <summary>
-    ///     Schedule a new component to be added to the simulation at the beginning of the next tick.
+    ///     Schedule a component to be added to the simulation at the beginning of the next tick.
     /// </summary>
     /// <param name="component"> Component object to be added. </param>
     public void AddComponent(ComponentBase component)
@@ -187,12 +187,35 @@ public class Core(IStorage storage) : IEventSink
     }
 
     /// <summary>
+    ///     Schedule a new component to be added to the simulation at the beginning of the next tick.
+    ///     An entity will be created automatically for it.
+    /// </summary>
+    /// <param name="component"> Component object to be added. </param>
+    public void AddNewComponent(ComponentBase component)
+    {
+        _newEntities.Add(new Entity(component.EntityId));
+        _newComponents.Add(component);
+    }
+
+    /// <summary>
     ///     Schedule a range of new components to be added to the simulation at the beginning of the
     ///     next tick.
     /// </summary>
     /// <param name="components"> Entity objects to be added. </param>
-    public void AddAllComponents(IEnumerable<ComponentBase> components)
+    public void AddComponents(IEnumerable<ComponentBase> components)
     {
+        _newComponents.AddRange(components);
+    }
+
+    /// <summary>
+    ///     Schedule a range of new components to be added to the simulation at the beginning of the
+    ///     next tick.
+    /// </summary>
+    /// <param name="components"> Entity objects to be added. </param>
+    public void AddNewComponents(IEnumerable<ComponentBase> components)
+    {
+        var entities = _newComponents.ConvertAll(c => new Entity(c.EntityId));
+        _newEntities.AddRange(entities);
         _newComponents.AddRange(components);
     }
 

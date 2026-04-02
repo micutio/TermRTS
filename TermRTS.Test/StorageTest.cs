@@ -256,8 +256,8 @@ public class StorageTest
     public void RemoveComponentsByEntity_does_not_leave_empty_lists_public_api_check(
         IStorage storage)
     {
-        var e1 = new EntityBase();
-        var e2 = new EntityBase();
+        var e1 = new Entity();
+        var e2 = new Entity();
         storage.AddComponent(new ComponentA(e1.Id));
         storage.AddComponent(new ComponentA(e2.Id));
         Assert.Equal(2, storage.GetAllForType<ComponentA>().Count());
@@ -270,7 +270,7 @@ public class StorageTest
         // Stress: remove both, add one new entity's component — count must be 1
         storage.RemoveComponentsByEntity(e1.Id);
         storage.RemoveComponentsByEntity(e2.Id);
-        var e3 = new EntityBase();
+        var e3 = new Entity();
         storage.AddComponent(new ComponentA(e3.Id));
         Assert.Single(storage.GetAllForType<ComponentA>().ToList());
         Assert.Equal(e3.Id, storage.GetSingleForType<ComponentA>()!.EntityId);

@@ -130,7 +130,7 @@ public class BounceApp : IRunnableExample
         };
         var bouncePhysics = new BouncePhysicsSystem();
         core.AddSimSystem(bouncePhysics);
-        var bounceEntity = new EntityBase();
+        var bounceEntity = new Entity();
         var bounceBall = new BounceBall(bounceEntity.Id, 10f, 10f, 0f, 0f);
         core.AddEntity(bounceEntity);
         core.AddComponent(bounceBall);

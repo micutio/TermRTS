@@ -6,6 +6,8 @@ namespace TermRTS.Examples.Greenery.WorldGen;
 // Refer to link below for a nice layered noise map implementation:
 // https://github.com/SebLague/Procedural-Landmass-Generation/blob/master/Proc%20Gen%20E03/Assets/Scripts/Noise.cs
 
+// TODO: Extract chunk classes into another file.
+
 public enum SurfaceFeature : byte
 {
     None,
@@ -62,20 +64,23 @@ public enum Biome : byte
 
 public sealed class WorldGenerationResult(
     WorldElevationChunk[] elevation,
-    SurfaceFeature[,] surface,
-    float[,] temperature,
-    float[,] humidity,
-    Biome[,] biomes,
-    float[,] temperatureAmplitude,
-    bool[,] rivers)
+    WorldSurfaceFeatureChunk[] surface,
+    WorldTemperatureChunk[] temperature,
+    WorldHumidityChunk[] humidity,
+    WorldTemperatureAmplitudeChunk[] temperatureAmplitude,
+    WorldBiomeChunk[] biome,
+    WorldRiverChunk[] river)
 {
     public WorldElevationChunk[] ElevationChunk { get; } = elevation;
-    public SurfaceFeature[,] Surface { get; } = surface;
-    public float[,] Temperature { get; } = temperature;
-    public float[,] Humidity { get; } = humidity;
-    public Biome[,] Biomes { get; } = biomes;
-    public float[,] TemperatureAmplitude { get; } = temperatureAmplitude;
-    public bool[,] Rivers { get; } = rivers;
+    public WorldSurfaceFeatureChunk[] SurfaceFeatureChunk { get; } = surface;
+    public WorldTemperatureChunk[] TemperatureChunk { get; } = temperature;
+    public WorldHumidityChunk[] HumidityChunk { get; } = humidity;
+
+    public WorldTemperatureAmplitudeChunk[] TemperatureAmplitudeChunk { get; } =
+        temperatureAmplitude;
+
+    public WorldBiomeChunk[] BiomeChunk { get; } = biome;
+    public WorldRiverChunk[] RiverChunk { get; } = river;
 }
 
 public sealed class WorldElevationChunk(int entityId, int cx, int cy, ReadOnlyMemory<int> elevation)
@@ -84,6 +89,75 @@ public sealed class WorldElevationChunk(int entityId, int cx, int cy, ReadOnlyMe
     public readonly int Cx = cx;
     public readonly int Cy = cy;
     public readonly ReadOnlyMemory<int> Elevation = elevation;
+}
+
+public sealed class WorldSurfaceFeatureChunk(
+    int entityId,
+    int cx,
+    int cy,
+    ReadOnlyMemory<SurfaceFeature> surfaceFeature
+)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<SurfaceFeature> SurfaceFeature = surfaceFeature;
+}
+
+public sealed class WorldTemperatureChunk(
+    int entityId,
+    int cx,
+    int cy,
+    ReadOnlyMemory<float> temperature)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<float> Temperature = temperature;
+}
+
+public sealed class WorldTemperatureAmplitudeChunk(
+    int entityId,
+    int cx,
+    int cy,
+    ReadOnlyMemory<float> temperatureAmplitude)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<float> TemperatureAmplitude = temperatureAmplitude;
+}
+
+public sealed class WorldHumidityChunk(
+    int entityId,
+    int cx,
+    int cy,
+    ReadOnlyMemory<float> humidity)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<float> Humidity = humidity;
+}
+
+public sealed class WorldBiomeChunk(
+    int entityId,
+    int cx,
+    int cy,
+    ReadOnlyMemory<Biome> biome)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<Biome> Biome = biome;
+}
+
+public sealed class WorldRiverChunk(int entityId, int cx, int cy, ReadOnlyMemory<bool> river)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly ReadOnlyMemory<bool> River = river;
 }
 
 public sealed class WorldBuffer<T> : IDisposable
@@ -353,46 +427,15 @@ public class CylinderWorld : IWorldGen
         // Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures();
 
-        // Convert to final integer elevations, allowing negative values to become 0 (deep trenches)
-        var elevation = _elevation.Memory.Span;
-        var surfaceFeatures = _surfaceFeatures.Memory.Span;
-        var temperature = _temperature.Memory.Span;
-        var humidity = _humidity.Memory.Span;
-        var biomes = _biomes.Memory.Span;
-        var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
-        var riverMap = _riverMap.Memory.Span;
-
-        var surfaceFeatureMap = new SurfaceFeature[_worldWidth, _worldHeight];
-        var temperatureMap = new float[_worldWidth, _worldHeight];
-        var humidityMap = new float[_worldWidth, _worldHeight];
-        var biomesMap = new Biome[_worldWidth, _worldHeight];
-        var temperatureAmplitudesMap = new float[_worldWidth, _worldHeight];
-        var riversMap = new bool[_worldWidth, _worldHeight];
-
-        for (var i = 0; i < _worldWidth * _worldHeight; i++)
-            _maxElevation = MathF.Max(_maxElevation, elevation[i]);
-
-        for (var y = 0; y < _worldHeight; y += 1)
-            for (var x = 0; x < _worldWidth; x += 1)
-            {
-                // var normalisedElevation = elevation[y * _worldWidth + x] /  maxElevation * 9;
-                // var elevationClamped = Math.Max(0, normalisedElevation);
-                surfaceFeatureMap[x, y] = surfaceFeatures[y * _worldWidth + x];
-                temperatureMap[x, y] = temperature[y * _worldWidth + x];
-                humidityMap[x, y] = humidity[y * _worldWidth + x];
-                biomesMap[x, y] = biomes[y * _worldWidth + x];
-                temperatureAmplitudesMap[x, y] = temperatureAmplitude[y * _worldWidth + x];
-                riversMap[x, y] = riverMap[y * _worldWidth + x];
-            }
-
         return new WorldGenerationResult(
             ToElevationChunks(),
-            surfaceFeatureMap,
-            temperatureMap,
-            humidityMap,
-            biomesMap,
-            temperatureAmplitudesMap,
-            riversMap);
+            ToSurfaceFeatureChunks(),
+            ToTemperatureChunks(),
+            ToHumidityChunks(),
+            ToTemperatureAmplitudeChunks(),
+            ToBiomeChunks(),
+            ToRiverChunks()
+        );
     }
 
     /// <summary>
@@ -581,8 +624,8 @@ public class CylinderWorld : IWorldGen
             for (var x = 0; x < _worldWidth; x += 1)
             {
                 var jiggleNoise = noiseMap[y * _worldWidth + x];
-                var jiggledX = x + (0.5 - jiggleNoise) * jiggle;
-                var jiggledY = y + (0.5 - jiggleNoise) * jiggle;
+                var jiggledX = x + (0.5f - jiggleNoise) * jiggle;
+                var jiggledY = y + (0.5f - jiggleNoise) * jiggle;
 
                 var minDistSq = double.MaxValue;
                 var winnerCell = 0;
@@ -611,17 +654,17 @@ public class CylinderWorld : IWorldGen
     #region Tectonics
 
     // TODO: Move this where it makes sense.
-    public Vector2 GetWrappedVector(Vector2 from, Vector2 to)
+    private Vector2 GetWrappedVector(Vector2 from, Vector2 to)
     {
         return GetWrappedVector(to.X - from.X, to.Y - from.Y);
     }
 
-    public Vector2 GetWrappedVector((int, int) from, (int, int) to)
+    private Vector2 GetWrappedVector((int, int) from, (int, int) to)
     {
         return GetWrappedVector(to.Item1 - from.Item1, to.Item2 - from.Item2);
     }
 
-    public Vector2 GetWrappedVector(float dx, float dy)
+    private Vector2 GetWrappedVector(float dx, float dy)
     {
         // If the distance is more than half the map, wrapping around is shorter
         if (MathF.Abs(dx) > _worldWidth / 2f) dx -= MathF.Sign(dx) * _worldWidth;
@@ -2402,6 +2445,265 @@ public class CylinderWorld : IWorldGen
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] = new WorldElevationChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
+    }
+
+    private WorldSurfaceFeatureChunk[] ToSurfaceFeatureChunks()
+    {
+        var worldSpan = _surfaceFeatures.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
+
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new SurfaceFeature[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
+
+        var chunks = new WorldSurfaceFeatureChunk[chunksAcross * (worldHeight / chunkSize)];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    sourceRow.CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] = new WorldSurfaceFeatureChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
+    }
+
+    private WorldTemperatureChunk[] ToTemperatureChunks()
+    {
+        var worldSpan = _temperature.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
+
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new float[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
+
+        var chunks = new WorldTemperatureChunk[chunksAcross * (worldHeight / chunkSize)];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    sourceRow.CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] = new WorldTemperatureChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
+    }
+
+    private WorldTemperatureAmplitudeChunk[] ToTemperatureAmplitudeChunks()
+    {
+        var worldSpan = _temperatureAmplitude.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
+
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new float[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
+
+        var chunks = new WorldTemperatureAmplitudeChunk[chunksAcross * (worldHeight / chunkSize)];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    sourceRow.CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] =
+                    new WorldTemperatureAmplitudeChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
+    }
+
+    private WorldHumidityChunk[] ToHumidityChunks()
+    {
+        var worldSpan = _humidity.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
+
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new float[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
+
+        var chunks = new WorldHumidityChunk[chunksAcross * (worldHeight / chunkSize)];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    sourceRow.CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] = new WorldHumidityChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
+    }
+
+    private WorldBiomeChunk[] ToBiomeChunks()
+    {
+        var worldSpan = _biomes.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
+
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new Biome[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
+
+        var chunks = new WorldBiomeChunk[chunksAcross * (worldHeight / chunkSize)];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    sourceRow.CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] = new WorldBiomeChunk(chunkIdx, cx, cy, chunkMemorySegment);
+            }
+
+        return chunks;
+    }
+
+    private WorldRiverChunk[] ToRiverChunks()
+    {
+        var worldSpan = _riverMap.Memory.Span;
+        const int chunkSize = WorldMath.ChunkSize;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+        const int chunksAcross = worldWidth / chunkSize;
+        const int totalCells = worldWidth * worldHeight;
+
+        // 1. Allocate ONE giant buffer for all chunk data combined
+        var masterBuffer = new bool[totalCells];
+        var masterSpan = masterBuffer.AsMemory();
+
+        var chunks = new WorldRiverChunk[chunksAcross * (worldHeight / chunkSize)];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+
+                // Calculate where this chunk starts in our new Master Buffer
+                var masterStart = chunkIdx * chunkSize * chunkSize;
+                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
+                var chunkSpan = chunkMemorySegment.Span;
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
+                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    sourceRow.CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] = new WorldRiverChunk(chunkIdx, cx, cy, chunkMemorySegment);
             }
 
         return chunks;

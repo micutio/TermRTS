@@ -1,12 +1,49 @@
 namespace TermRTS.Examples.Greenery.WorldGen;
 
-public class WorldMath
+public static class WorldMath
 {
     // These would be set during engine initialization
     public const int ChunkSize = 32;
     public const int WorldWidth = 320; // Must be multiple of ChunkSize
     public const int WorldHeight = 96;
     public const int ChunksAcross = WorldWidth / ChunkSize;
+
+    public readonly struct WorldCoord(int x, int y)
+    {
+        public readonly int WorldX = x;
+        public readonly int WorldY = y;
+
+        public int ChunkX => WorldX >> 5;
+        public int ChunkY => WorldY >> 5;
+        public int LocalX => WorldX & 31;
+        public int LocalY => WorldY & 31;
+
+        public int LocalIndex => (LocalY << 5) + LocalX;
+    }
+
+    public static (int chunkX, int chunkY, int localX, int localY) ToRelative(int x, int y)
+    {
+        // 1. Wrap X for the cylinder before calculating
+        var wrappedX = (x % WorldWidth + WorldWidth) % WorldWidth;
+
+        // 2. Get Chunk Grid Coordinates (which 'box' is it in?)
+        var cx = wrappedX >> 5; // Same as / 32
+        var cy = y >> 5;
+
+        // 3. Get Local Coordinates (where inside the 'box'?)
+        var lx = wrappedX & 31; // Same as % 32
+        var ly = y & 31;
+
+        return (cx, cy, lx, ly);
+    }
+
+    public static (int x, int y) ToWorld(int cx, int cy, int lx, int ly)
+    {
+        var x = (cx << 5) + lx; // Same as (cx * 32) + lx
+        var y = (cy << 5) + ly; // Same as (cy * 32) + ly
+
+        return (x, y);
+    }
 
     /// <summary>
     /// Converts world-grid X to wrapped cylinder X.
@@ -60,7 +97,6 @@ public class WorldMath
     /// <summary>
     ///     Calculates the distance between two points on a cylindrical world.
     /// </summary>
-    /// <param name="worldWidth">Width of the world in cells.</param>
     /// <param name="x1">X-coordinate of the first point.</param>
     /// <param name="y1">Y-coordinate of the first point.</param>
     /// <param name="x2">X-coordinate of the second point.</param>
@@ -78,7 +114,6 @@ public class WorldMath
     /// <summary>
     ///     Calculates the distance between two points on a cylindrical world.
     /// </summary>
-    /// <param name="worldWidth">Width of the world in cells.</param>
     /// <param name="x1">X-coordinate of the first point.</param>
     /// <param name="y1">Y-coordinate of the first point.</param>
     /// <param name="x2">X-coordinate of the second point.</param>
@@ -86,33 +121,24 @@ public class WorldMath
     /// <returns>
     ///     Distance between both points on a cylinder.
     /// </returns>
-    public static float GetCylindricalDistance(double x1, double y1, double x2,
-        double y2)
+    public static float GetCylindricalDistanceSq(float x1, float y1, float x2, float y2)
     {
         var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
         var dy = Math.Abs(y2 - y1);
-        return (float)Math.Sqrt(dx * dx + dy * dy);
+        return MathF.Sqrt(dx * dx + dy * dy);
     }
+}
 
-    /// <summary>
-    ///     Calculates the squared distance between two points on a cylindrical world.
-    /// </summary>
-    /// <param name="worldWidth">Width of the world in cells.</param>
-    /// <param name="x1">X-coordinate of the first point.</param>
-    /// <param name="y1">Y-coordinate of the first point.</param>
-    /// <param name="x2">X-coordinate of the second point.</param>
-    /// <param name="y2">Y-coordinate of the second point.</param>
-    /// <returns>
-    ///     Distance between both points on a cylinder, squared for faster computation.
-    /// </returns>
-    public static float GetCylindricalDistanceSq(
-        double x1,
-        double y1,
-        double x2,
-        double y2)
+public readonly struct WorldView(ReadOnlyMemory<float> masterBuffer)
+{
+    public float GetElevation(int x, int y)
     {
-        var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
-        var dy = Math.Abs(y2 - y1);
-        return (float)(dx * dx + dy * dy);
+        // Handle horizontal wrap for the cylinder
+        var wrappedX = (x % WorldMath.WorldWidth + WorldMath.WorldWidth) % WorldMath.WorldWidth;
+
+        // Clamp Y to the poles
+        var clampedY = Math.Clamp(y, 0, WorldMath.WorldHeight - 1);
+
+        return masterBuffer.Span[clampedY * WorldMath.WorldWidth + wrappedX];
     }
 }

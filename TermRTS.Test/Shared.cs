@@ -103,7 +103,7 @@ public class StorageImplementations : TheoryData<IStorage>
     }
 }
 
-public class NullEntity : EntityBase
+public class NullEntity : Entity
 {
 }
 

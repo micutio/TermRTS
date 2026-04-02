@@ -11,7 +11,7 @@ public class FovSystem : ISimSystem
 
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
-        // TODO: Switch Fov algorithms at runtime.
+        // TODO: Skip drones that haven't moved!
         if (!storage.TryGetSingleForType<WorldComponent>(out var world) || world == null) return;
         if (!storage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
 

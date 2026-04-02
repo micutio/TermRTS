@@ -46,8 +46,8 @@ internal class Circuitry : IRunnableExample
             .WithBusDimensions(1, 8)
             .WithWorldDimensions(Console.WindowWidth, Console.WindowHeight)
             .Build(out var entities, out var components);
-        core.AddAllEntities(entities);
-        core.AddAllComponents(components);
+        core.AddEntities(entities);
+        core.AddComponents(components);
         core.AddSimSystem(new BusSystem());
 
         var scheduler = new Scheduler(core);

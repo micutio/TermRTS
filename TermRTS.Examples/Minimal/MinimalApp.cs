@@ -64,7 +64,7 @@ internal class MinimalApp : IRunnableExample
         var scheduler = new Scheduler(core);
         var watcherSystem = new WatcherSystem(scheduler.EventQueue, 12);
         core.AddSimSystem(watcherSystem);
-        core.AddEntity(new EntityBase());
+        core.AddEntity(new Entity());
 
 
         // Alternative solution: enqueue an event which fires after a given time
