@@ -9,6 +9,9 @@ public class FovSystem : ISimSystem
 
     #region ISimSystem Members
 
+    // TODO: Hand over viewport position IF we only want FOV in visible area.
+    // TODO: Alternatively get chunk idx from drone positions.
+
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         // TODO: Skip drones that haven't moved!
