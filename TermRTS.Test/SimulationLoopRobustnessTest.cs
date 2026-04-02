@@ -23,7 +23,7 @@ public class SimulationLoopRobustnessTest
         core.AddSimSystem(new BusySystem(3.0));
         core.AddSimSystem(new BusySystem(4.0));
         core.AddSimSystem(new BusySystem(0.5));
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
         Shared.RunWithTimeout(simulation, DefaultRunTimeout);
@@ -43,7 +43,7 @@ public class SimulationLoopRobustnessTest
         core.Renderer = new SlowRenderer(TimeSpan.FromMilliseconds(6));
         var scheduler = new Scheduler(core);
         core.AddSimSystem(new TerminatorSystem(scheduler.EventQueue, tickCount));
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
         Shared.RunWithTimeout(simulation, DefaultRunTimeout);
@@ -61,7 +61,7 @@ public class SimulationLoopRobustnessTest
         const int tickCount = 20;
         var scheduler = new Scheduler(core);
         core.AddSimSystem(new TerminatorSystem(scheduler.EventQueue, tickCount));
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
         Shared.RunWithTimeout(simulation, DefaultRunTimeout);
@@ -79,7 +79,7 @@ public class SimulationLoopRobustnessTest
         scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown(), shutdownAtMs));
         core.AddSimSystem(new BusySystem(1.0));
         core.AddSimSystem(new BusySystem(2.0));
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
         Shared.RunWithTimeout(simulation, DefaultRunTimeout);
@@ -100,7 +100,7 @@ public class SimulationLoopRobustnessTest
         for (var i = 0; i < systemCount; i++)
             core.AddSimSystem(new BusySystem(0.05));
         for (var i = 0; i < entityCount; i++)
-            core.AddEntity(new NullEntity());
+            core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
         Shared.RunWithTimeout(simulation, DefaultRunTimeout);

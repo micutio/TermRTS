@@ -103,10 +103,6 @@ public class StorageImplementations : TheoryData<IStorage>
     }
 }
 
-public class NullEntity : Entity
-{
-}
-
 public class TerminatorSystem(SchedulerEventQueue queue, int remainingTicks) : ISimSystem
 {
     private int _remainingTicks = remainingTicks;

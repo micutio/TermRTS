@@ -25,11 +25,9 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
-        if (!storage.TryGetSingleForType<WorldComponent>(out var world) || world == null) return;
-
         foreach (var drone in storage.GetAllForType<DroneComponent>())
         {
-            if (drone.Path == null) TryGeneratePath(world, drone);
+            if (drone.Path == null) TryGeneratePath(new ElevationChunkAccessor(in storage), drone);
 
             if (drone.Path == null || drone.PathIndex == null) continue;
 
@@ -74,24 +72,24 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
         drone.GeneratePathVisual();
     }
 
-    private void TryGeneratePath(WorldComponent world, DroneComponent drone)
+    private void TryGeneratePath(ElevationChunkAccessor accessor, DroneComponent drone)
     {
         if (!_newTargetPositions.Remove(drone.EntityId, out var goalPosition)) return;
 
-        var aStar = new AStar(worldWidth, worldHeight, drone.Position, goalPosition)
+        var aStar = new ChunkAStar<ElevationChunkAccessor>(worldWidth, worldHeight, drone.Position,
+            goalPosition, accessor)
         {
-            Heuristic = loc =>
+            Heuristic = (loc, acc) =>
             {
-                var locCell = world.Cells[(int)loc.X, (int)loc.Y];
-                var goalCell = world.Cells[(int)goalPosition.X, (int)goalPosition.Y];
+                var locCell = acc.GetValueAt((int)loc.X, (int)loc.Y);
+                var goalCell = acc.GetValueAt((int)goalPosition.X, (int)goalPosition.Y);
                 var penalty = locCell <= 3 ? float.PositiveInfinity : 0;
                 return Vector2.Distance(loc, goalPosition) + float.Pow(2f, goalCell) + penalty;
             },
-            Weight = (loc, neighbor) =>
+            Weight = (loc, neighbor, acc) =>
             {
-                var thisCell = world.Cells[(int)loc.X, (int)loc.Y];
-                var neighborCell =
-                    world.Cells[(int)neighbor.X, (int)neighbor.Y];
+                var thisCell = acc.GetValueAt((int)loc.X, (int)loc.Y);
+                var neighborCell = acc.GetValueAt((int)neighbor.X, (int)neighbor.Y);
 
                 return neighborCell <= 3
                     ? float.PositiveInfinity // do not go into water

@@ -31,7 +31,7 @@ public class EngineTest
         core.AddSimSystem(new BusySystem(3.0d));
         core.AddSimSystem(new BusySystem(4.0d));
 
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
 
         // Run it (with timeout so a stuck loop fails instead of hanging CI)
         var simulation = new Simulation(scheduler);
@@ -56,7 +56,7 @@ public class EngineTest
         core.AddSimSystem(new BusySystem(3.0d));
         core.AddSimSystem(new BusySystem(4.0d));
 
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
 
         // Run it (with timeout so a stuck loop fails instead of hanging CI)
         var simulation = new Simulation(scheduler);
@@ -93,7 +93,7 @@ public class EngineTest
         var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
         scheduler.AddEventSink(core, typeof(Shutdown));
         core.AddSimSystem(watcherSystem);
-        core.AddEntity(new NullEntity());
+        core.AddEntity(new Entity());
         // Setup Simulation and Persistence
         var persistence = new Persistence();
         var serializationSuccess =

@@ -1,10 +1,5 @@
 namespace TermRTS.Algorithms;
 
-public interface IChunkAccessor<out T>
-{
-    T GetValueAt(int x, int y);
-}
-
 public class ChunkFov
 {
     public HashSet<Pos> VisibleCells { get; } = new(50);
@@ -15,7 +10,7 @@ public class ChunkFov
         int startY,
         int range,
         T accessor,
-        Func<int, int, T, bool> isWall) where T : IChunkAccessor<int>, allows ref struct
+        Func<int, int, T, bool> isWall) where T : allows ref struct
     {
         VisibleCells.Clear();
 
@@ -45,12 +40,12 @@ public class ChunkFov
 
 
     // Recursive Shadowcasting (Octant-based)
-    public void RecursiveShadowcasting(
+    public void RecursiveShadowcasting<T>(
         int startX,
         int startY,
         int range,
-        IChunkAccessor<int> accessor,
-        Func<int, int, IChunkAccessor<int>, bool> isWall)
+        T accessor,
+        Func<int, int, T, bool> isWall)
     {
         VisibleCells.Clear();
         VisibleCells.Add(new Pos(startX, startY)); // Start is always visible
@@ -59,7 +54,7 @@ public class ChunkFov
             CastOctant(startX, startY, range, 1, 1.0f, 0.0f, octant, accessor, isWall);
     }
 
-    private void CastOctant(
+    private void CastOctant<T>(
         int startX,
         int startY,
         int range,
@@ -67,8 +62,8 @@ public class ChunkFov
         float slopeStart,
         float slopeEnd,
         int octant,
-        IChunkAccessor<int> accessor,
-        Func<int, int, IChunkAccessor<int>, bool> isWall)
+        T accessor,
+        Func<int, int, T, bool> isWall)
     {
         for (var y = x; y <= range; y++)
         {

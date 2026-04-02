@@ -24,7 +24,7 @@ public class CoreTest
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
-        var entity = new NullEntity();
+        var entity = new Entity();
         core.AddEntity(entity);
         core.AddComponent(new ComponentA(entity.Id));
 
@@ -45,7 +45,7 @@ public class CoreTest
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
-        var entity = new NullEntity();
+        var entity = new Entity();
         core.AddEntity(entity);
         core.AddComponent(new ComponentA(entity.Id));
         core.Tick(1);
@@ -68,10 +68,10 @@ public class CoreTest
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
-        var e1 = new NullEntity();
-        var e2 = new NullEntity();
+        var e1 = new Entity();
+        var e2 = new Entity();
         core.AddEntities([e1, e2]);
-        core.AddAllComponents([
+        core.AddComponents([
             new ComponentA(e1.Id),
             new ComponentB(e1.Id),
             new ComponentA(e2.Id)
@@ -96,7 +96,7 @@ public class CoreTest
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
-        var entity = new NullEntity();
+        var entity = new Entity();
         core.AddEntity(entity);
         core.AddComponent(new ComponentA(entity.Id));
         core.Tick(1);

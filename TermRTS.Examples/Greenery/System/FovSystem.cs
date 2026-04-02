@@ -3,13 +3,9 @@ using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.System;
 
-public readonly ref struct FovSystem : ISimSystem
+public class FovSystem : ISimSystem
 {
     private readonly ChunkFov _fov = new();
-
-    public FovSystem()
-    {
-    }
 
     #region ISimSystem Members
 
@@ -30,7 +26,7 @@ public readonly ref struct FovSystem : ISimSystem
         {
             var droneX = (int)dronePos.X;
             var droneY = (int)dronePos.Y;
-            _fov.BasicRaycast<ElevationChunkAccessor>(
+            _fov.BasicRaycast(
                 droneX,
                 droneY,
                 10,

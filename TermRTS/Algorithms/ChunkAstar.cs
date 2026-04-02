@@ -5,11 +5,11 @@ namespace TermRTS.Algorithms;
 /// <summary>
 ///     Implementation of the A* path finding algorithm for 2d-grids.
 /// </summary>
-public class ChunkAStar
+public ref struct ChunkAStar<T> where T : allows ref struct
 {
     #region Constructor
 
-    public ChunkAStar(int worldWidth, int worldHeight, Vector2 start, Vector2 goal)
+    public ChunkAStar(int worldWidth, int worldHeight, Vector2 start, Vector2 goal, T accessor)
     {
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
@@ -17,17 +17,18 @@ public class ChunkAStar
         _openSet = new PriorityQueue<Vector2, float>(
             Comparer<float>.Create((x, y) => Comparer<float>.Default.Compare(x, y)));
         _openSet.Enqueue(start, 0.0f);
-        _isInOpenSet = new HashSet<Vector2> { start };
+        _isInOpenSet = [start];
         _cameFrom = new Dictionary<Vector2, Vector2>();
         _gScore = new Dictionary<Vector2, float>
         {
             [start] = 0.0f
         };
+        _accessor = accessor;
 
         // Default to euclidean distance to goal
-        Heuristic = v => Vector2.Distance(v, goal);
+        Heuristic = (v, _) => Vector2.Distance(v, goal);
         // Default the weight to a constant
-        Weight = (_, _) => 1.0f;
+        Weight = (_, _, _) => 1.0f;
     }
 
     #endregion
@@ -49,6 +50,7 @@ public class ChunkAStar
     private readonly PriorityQueue<Vector2, float> _openSet;
     private readonly int _worldHeight;
     private readonly int _worldWidth;
+    private readonly T _accessor;
 
     #endregion
 
@@ -57,12 +59,12 @@ public class ChunkAStar
     /// <summary>
     ///     Determine the weight of the edge between the two given points
     /// </summary>
-    public Func<Vector2, Vector2, float> Weight { get; set; }
+    public Func<Vector2, Vector2, T, float> Weight { get; set; }
 
     /// <summary>
     ///     Heuristic function, estimates the cost to get from a given location to the goal.
     /// </summary>
-    public Func<Vector2, float> Heuristic { get; set; }
+    public Func<Vector2, T, float> Heuristic { get; set; }
 
     #endregion
 
@@ -85,7 +87,7 @@ public class ChunkAStar
                     continue;
 
                 // Tentative score is the distance from start to neighbor through current.
-                var tentativeScore = _gScore[currentLoc] + Weight(currentLoc, neighbor);
+                var tentativeScore = _gScore[currentLoc] + Weight(currentLoc, neighbor, _accessor);
 
                 if (tentativeScore >= _gScore.GetValueOrDefault(neighbor, float.PositiveInfinity))
                     continue;
@@ -99,7 +101,7 @@ public class ChunkAStar
 
                 // Current best guess for how cheap a path from start to finish through n would be.
                 // Defaults to infinity.
-                var fScore = tentativeScore + Heuristic(neighbor);
+                var fScore = tentativeScore + Heuristic(neighbor, _accessor);
                 _openSet.Enqueue(neighbor, fScore);
                 _isInOpenSet.Add(neighbor);
             }
@@ -135,10 +137,10 @@ public class ChunkAStar
     {
         return
         [
-            new Vector2(loc.X - 1, loc.Y),
-            new Vector2(loc.X, loc.Y - 1),
-            new Vector2(loc.X + 1, loc.Y),
-            new Vector2(loc.X, loc.Y + 1)
+            loc with { X = loc.X - 1 },
+            loc with { Y = loc.Y - 1 },
+            loc with { X = loc.X + 1 },
+            loc with { Y = loc.Y + 1 }
         ];
     }
 

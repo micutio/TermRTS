@@ -4,7 +4,6 @@ using TermRTS.Storage;
 namespace TermRTS.Examples.Greenery.System;
 
 public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
-    : Algorithms.IChunkAccessor<int>
 {
     private readonly IReadonlyStorage _storage = storage;
 
