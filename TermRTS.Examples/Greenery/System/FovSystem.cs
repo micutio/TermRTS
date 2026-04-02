@@ -3,17 +3,23 @@ using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.System;
 
-public class FovSystem : ISimSystem
+public readonly ref struct FovSystem : ISimSystem
 {
-    private readonly Fov _fov = new();
+    private readonly ChunkFov _fov = new();
+
+    public FovSystem()
+    {
+    }
 
     #region ISimSystem Members
 
     public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
     {
         // TODO: Skip drones that haven't moved!
-        if (!storage.TryGetSingleForType<WorldComponent>(out var world) || world == null) return;
+        // TODO: Change FOV component to chunks too!
         if (!storage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
+
+        var accessor = new ElevationChunkAccessor(in storage);
 
         for (var y = 0; y < fov.WorldHeight; y++)
             for (var x = 0; x < fov.WorldWidth; x++)
@@ -24,16 +30,17 @@ public class FovSystem : ISimSystem
         {
             var droneX = (int)dronePos.X;
             var droneY = (int)dronePos.Y;
-            _fov.BasicRaycast(
+            _fov.BasicRaycast<ElevationChunkAccessor>(
                 droneX,
                 droneY,
                 10,
-                (x, y) =>
+                accessor,
+                (x, y, acc) =>
                 {
                     var wrappedX = GetWrappedX(fov.WorldWidth, x);
                     if (y <= 0 || y >= fov.WorldHeight) return true;
 
-                    return world.Cells[wrappedX, y] > world.Cells[droneX, droneY];
+                    return acc.GetValueAt(wrappedX, y) > acc.GetValueAt(droneX, droneY);
                 });
             foreach (var (x, y) in _fov.VisibleCells)
                 fov.Cells[GetWrappedX(fov.WorldWidth, x), y] = true;

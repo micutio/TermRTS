@@ -5,29 +5,6 @@ using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery;
 
-// TODO: Split this into several components!
-public class WorldComponent(
-    int entityId,
-    int worldWidth,
-    int worldHeight,
-    SurfaceFeature[,] surfaces,
-    float[,] temperature,
-    float[,] humidity,
-    Biome[,] biomes,
-    float[,] temperatureAmplitude,
-    bool[,] rivers)
-    : ComponentBase(entityId)
-{
-    public SurfaceFeature[,] Surfaces { get; } = surfaces;
-    public float[,] Temperature { get; } = temperature;
-    public float[,] Humidity { get; } = humidity;
-    public Biome[,] Biomes { get; } = biomes;
-    public float[,] TemperatureAmplitude { get; } = temperatureAmplitude;
-    public bool[,] Rivers { get; } = rivers;
-    public int WorldWidth { get; } = worldWidth;
-    public int WorldHeight { get; } = worldHeight;
-}
-
 public class FovComponent : ComponentBase
 {
     public FovComponent(int entityId, int worldWidth, int worldHeight) : base(entityId)
