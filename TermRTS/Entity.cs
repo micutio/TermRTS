@@ -5,7 +5,7 @@ namespace TermRTS;
 /// <summary>
 ///     Base class for simulation entities, providing facilities for registering components.
 /// </summary>
-public record struct Entity
+public class Entity
 {
     #region Fields
 
