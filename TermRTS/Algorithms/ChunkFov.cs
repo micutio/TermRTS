@@ -31,9 +31,13 @@ public class ChunkFov
                 var gridX = (int)Math.Floor(x);
                 var gridY = (int)Math.Floor(y);
 
-                if (isWall(gridX, gridY, accessor)) break; // Stop the ray if it hits a wall
+                // Wrap X coordinate for cylindrical world, clamp Y coordinate
+                var wrappedGridX = (gridX % 320 + 320) % 320; // WorldWidth = 320
+                var clampedGridY = Math.Clamp(gridY, 0, 95); // WorldHeight = 96, so max Y = 95
 
-                VisibleCells.Add(new Pos(gridX, gridY));
+                if (isWall(wrappedGridX, clampedGridY, accessor)) break; // Stop the ray if it hits a wall
+
+                VisibleCells.Add(new Pos(wrappedGridX, clampedGridY));
             }
         }
     }
@@ -115,9 +119,14 @@ public class ChunkFov
             }
 
             if (tx < 0 || ty < 0) continue; //Bounds Check
-            VisibleCells.Add(new Pos(tx, ty));
 
-            if (isWall(tx, ty, accessor))
+            // Wrap X coordinate for cylindrical world, clamp Y coordinate
+            var wrappedTx = (tx % 320 + 320) % 320; // WorldWidth = 320
+            var clampedTy = Math.Clamp(ty, 0, 95); // WorldHeight = 96, so max Y = 95
+
+            VisibleCells.Add(new Pos(wrappedTx, clampedTy));
+
+            if (isWall(wrappedTx, clampedTy, accessor))
                 CastOctant(
                     startX,
                     startY,

@@ -280,8 +280,8 @@ internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
+        var stopX = Math.Min(viewX + viewportWidth - 1, viewX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, viewY + WorldMath.ChunkSize - 1);
         var startX = chunkX % WorldMath.ChunkSize;
         var startY = chunkY % WorldMath.ChunkSize;
         var endX = stopX % WorldMath.ChunkSize;
@@ -320,12 +320,12 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.Elevation.Span;
         for (var y = startY; y < endY; y++)
@@ -335,7 +335,8 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
                 var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                cellVisuals[y * WorldMath.WorldWidth + x] =
+                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
+                cellVisuals[wy * WorldMath.WorldWidth + wx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -361,12 +362,12 @@ internal class SurfaceFeatureVisualizer()
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.SurfaceFeature.Span;
         for (var y = startY; y < endY; y++)
@@ -401,12 +402,12 @@ internal class TemperatureVisualizer()
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.Temperature.Span;
         for (var y = startY; y < endY; y++)
@@ -416,7 +417,8 @@ internal class TemperatureVisualizer()
                 var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                cellVisuals[y * WorldMath.WorldWidth + x] =
+                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
+                cellVisuals[wy * WorldMath.WorldWidth + wx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -443,12 +445,12 @@ internal class HumidityVisualizer()
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.Humidity.Span;
         for (var y = startY; y < endY; y++)
@@ -458,7 +460,8 @@ internal class HumidityVisualizer()
                 var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                cellVisuals[y * WorldMath.WorldWidth + x] =
+                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
+                cellVisuals[wy * WorldMath.WorldWidth + wx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -486,12 +489,12 @@ internal class TemperatureAmplitudeVisualizer()
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.TemperatureAmplitude.Span;
         for (var y = startY; y < endY; y++)
@@ -501,7 +504,8 @@ internal class TemperatureAmplitudeVisualizer()
                 var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                cellVisuals[y * WorldMath.WorldWidth + x] =
+                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
+                cellVisuals[wy * WorldMath.WorldWidth + wx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -527,12 +531,12 @@ internal class BiomeVisualizer()
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.Biome.Span;
         for (var y = startY; y < endY; y++)
@@ -565,12 +569,12 @@ internal class RiverVisualizer()
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, viewX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, viewY + WorldMath.ChunkSize);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
+        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
+        var startX = Math.Max(0, viewX - chunkX);
+        var startY = Math.Max(0, viewY - chunkY);
+        var endX = stopX - chunkX;
+        var endY = stopY - chunkY;
 
         var c = chunk.River.Span;
         for (var y = startY; y < endY; y++)

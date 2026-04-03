@@ -386,8 +386,6 @@ public class CylinderWorld : IWorldGen
         // TODO: Optimize data structures and copying, streamline pipeline.
         // TODO: Decide on final world data necessary for game and visualisation.
         // TODO: Final optimisation of data structure use.
-        // TODO: Try chunking world data.
-        // TODO: DONE
 
         // STAGE 1: Voronoi Cells and Land/Water distribution /////////////////////////////////////
         // Associate each grid cell to one of the voronoi cells.
@@ -2405,6 +2403,12 @@ public class CylinderWorld : IWorldGen
     private WorldElevationChunk[] ToElevationChunks()
     {
         var worldSpan = _elevation.Memory.Span;
+
+        for (var i = 0; i < WorldMath.WorldWidth * WorldMath.WorldHeight; i++)
+        {
+            _maxElevation = MathF.Max(_maxElevation, worldSpan[i]);
+        }
+
         const int chunkSize = WorldMath.ChunkSize;
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
@@ -2435,7 +2439,7 @@ public class CylinderWorld : IWorldGen
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
                     var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
-                    for (var i = sourceRow.Length - 1; i >= 0; i--)
+                    for (var i = 0; i < sourceRow.Length; i++)
                     {
                         var normalisedElevation = sourceRow[i] / _maxElevation * 9;
                         var elevationClamped = Math.Max(0, normalisedElevation);
@@ -2444,7 +2448,7 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldElevationChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                chunks[chunkIdx] = new WorldElevationChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2487,7 +2491,7 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldSurfaceFeatureChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                chunks[chunkIdx] = new WorldSurfaceFeatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2530,7 +2534,7 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldTemperatureChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                chunks[chunkIdx] = new WorldTemperatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2574,7 +2578,7 @@ public class CylinderWorld : IWorldGen
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldTemperatureAmplitudeChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                    new WorldTemperatureAmplitudeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2617,7 +2621,7 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldHumidityChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                chunks[chunkIdx] = new WorldHumidityChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2660,7 +2664,7 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldBiomeChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                chunks[chunkIdx] = new WorldBiomeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2703,7 +2707,7 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldRiverChunk(chunkIdx, cx, cy, chunkMemorySegment);
+                chunks[chunkIdx] = new WorldRiverChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;

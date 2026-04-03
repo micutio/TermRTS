@@ -74,7 +74,7 @@ public static class WorldMath
 
         // Shift instead of divide
         var cx = wrappedX >> 5;
-        var cy = y >> 5;
+        var cy = Math.Clamp(y, 0, WorldHeight - 1) >> 5;
 
         return cy * ChunksAcross + cx;
     }

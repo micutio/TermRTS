@@ -81,29 +81,33 @@ public ref struct ChunkAStar<T> where T : allows ref struct
 
             foreach (var neighbor in Neighborhood(currentLoc))
             {
-                // Ensure the neighbor is within the world bounds.
-                if (neighbor.X < 0 || neighbor.X >= _worldWidth ||
-                    neighbor.Y < 0 || neighbor.Y >= _worldHeight)
+                // Wrap X coordinate for cylindrical world, clamp Y coordinate
+                var wrappedX = (neighbor.X % _worldWidth + _worldWidth) % _worldWidth;
+                var clampedY = Math.Clamp(neighbor.Y, 0, _worldHeight - 1);
+                var wrappedNeighbor = new Vector2(wrappedX, clampedY);
+
+                // Ensure the neighbor is within the world bounds (Y is already clamped).
+                if (wrappedNeighbor.Y < 0 || wrappedNeighbor.Y >= _worldHeight)
                     continue;
 
                 // Tentative score is the distance from start to neighbor through current.
-                var tentativeScore = _gScore[currentLoc] + Weight(currentLoc, neighbor, _accessor);
+                var tentativeScore = _gScore[currentLoc] + Weight(currentLoc, wrappedNeighbor, _accessor);
 
-                if (tentativeScore >= _gScore.GetValueOrDefault(neighbor, float.PositiveInfinity))
+                if (tentativeScore >= _gScore.GetValueOrDefault(wrappedNeighbor, float.PositiveInfinity))
                     continue;
 
                 // This path to neighbor is better than any previous one. Record it!
-                _cameFrom[neighbor] = currentLoc;
-                _gScore[neighbor] = tentativeScore;
+                _cameFrom[wrappedNeighbor] = currentLoc;
+                _gScore[wrappedNeighbor] = tentativeScore;
 
-                if (_isInOpenSet.Contains(neighbor))
+                if (_isInOpenSet.Contains(wrappedNeighbor))
                     continue;
 
                 // Current best guess for how cheap a path from start to finish through n would be.
                 // Defaults to infinity.
-                var fScore = tentativeScore + Heuristic(neighbor, _accessor);
-                _openSet.Enqueue(neighbor, fScore);
-                _isInOpenSet.Add(neighbor);
+                var fScore = tentativeScore + Heuristic(wrappedNeighbor, _accessor);
+                _openSet.Enqueue(wrappedNeighbor, fScore);
+                _isInOpenSet.Add(wrappedNeighbor);
             }
         }
 

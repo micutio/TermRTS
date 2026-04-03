@@ -199,58 +199,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
                     ViewportWidth,
                     ViewportHeight);
 
-        // TODO: Run SetElevationVisual over each chunk or hand all chunks to it.
-        /*
-        if (!componentStorage.TryGetSingleForType<WorldComponent>(out var world) ||
-            world == null) return;
-
-        switch (MapRenderMode)
-        {
-            case MapRenderMode.ElevationColor:
-            case MapRenderMode.ElevationMonochrome:
-                SetElevationVisual(world);
-                break;
-            case MapRenderMode.HeatMapColor:
-                SetHeatmapColorVisual(world);
-                break;
-            case MapRenderMode.HeatMapMonochrome:
-                SetHeatmapMonochromeVisual(world);
-                break;
-            case MapRenderMode.ContourColor:
-            case MapRenderMode.ContourMonochrome:
-                SetContourLines(world);
-                break;
-            case MapRenderMode.TerrainColor:
-            case MapRenderMode.TerrainMonochrome:
-                SetTerrainVisual(world);
-                break;
-            case MapRenderMode.ReliefColor:
-            case MapRenderMode.ReliefMonochrome:
-                SetReliefVisual(world);
-                break;
-            case MapRenderMode.SurfaceFeatures:
-                SetSurfaceFeatureVisual(world);
-                break;
-            case MapRenderMode.Rivers:
-                SetRiversVisual(world);
-                break;
-            case MapRenderMode.Temperature:
-                SetTemperatureVisual(world);
-                break;
-            case MapRenderMode.Humidity:
-                SetHumidityVisual(world);
-                break;
-            case MapRenderMode.Biomes:
-                SetBiomesVisual(world);
-                break;
-            case MapRenderMode.TemperatureAmplitude:
-                SetTemperatureAmplitudeVisual(world);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        */
-
         if (!componentStorage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)

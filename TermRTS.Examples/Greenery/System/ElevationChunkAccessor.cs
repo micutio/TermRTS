@@ -21,7 +21,7 @@ public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
         if (_currentChunk == null || _currentChunk.EntityId != chunkId)
         {
             if (!_storage.TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkId, out var chunk)
-                || chunk != null)
+                || chunk == null)
                 return int.MinValue;
             _currentChunk = chunk;
         }
