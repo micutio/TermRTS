@@ -63,8 +63,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     // cached world and drone paths
     // TODO: Change to (TerminalColor, char)[] _cachedWorld;
-    private readonly CellVisual[] _cachedWorld;
-    private readonly bool[,] _cachedFov;
     private readonly Dictionary<int, Vector2> _cachedDronePositions;
     private readonly Dictionary<int, List<(int, int, char)>> _cachedDronePaths;
 
@@ -81,6 +79,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private readonly BiomeVisualizer _biomeVisualizer;
     private readonly RiverVisualizer _riverVisualizer;
 
+    private CellVisual[] _cachedWorld;
+    private bool[] _cachedFov;
+
     #endregion
 
     #region Constructor
@@ -91,8 +92,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
 
-        _cachedWorld = new CellVisual[worldWidth * worldHeight];
-        _cachedFov = new bool[worldWidth, worldHeight];
+        _cachedWorld = new CellVisual[ViewportWidth * ViewportHeight];
+        _cachedFov = new bool[ViewportWidth * ViewportHeight];
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
 
@@ -196,12 +197,14 @@ public class MapView : KeyInputProcessorBase, IEventSink
             ViewportHeight);
 
         if (!componentStorage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
+        for (var y = 0; y < ViewportHeight; y++)
+            for (var x = 0; x < ViewportWidth; x++)
             {
-                if (_cachedFov[x, y] == fov.Cells[x, y]) continue;
+                var worldX = WorldMath.WrapX(ViewportPositionInWorldX + x);
+                if (_cachedFov[y * ViewportWidth + x] ==
+                    fov.Cells[worldX, ViewportPositionInWorldY + y]) continue;
                 IsRequireReRender = true;
-                _cachedFov[x, y] = fov.Cells[x, y];
+                _cachedFov[y] = fov.Cells[x, y];
             }
 
         foreach (var drone in componentStorage.GetAllForType<DroneComponent>())
@@ -234,17 +237,16 @@ public class MapView : KeyInputProcessorBase, IEventSink
         var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
 
         // Step 1: Render World
-        for (var y = ViewportPositionInWorldY; y < boundaryY; y++)
+        for (var y = 0; y < ViewportHeight; y++)
             for (var x = 0; x < ViewportWidth; x++)
             {
-                var worldX = ViewportToWorldX(x);
-                var cellVisual = _cachedWorld[y * _worldWidth + worldX];
+                var cellVisual = _cachedWorld[y * ViewportWidth + x];
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
                 var isFov = true; // _cachedFov[worldX, y];
                 _canvas.Set(
                     X + x + _spaceForScaleLeft,
-                    Y + WorldToViewportY(y) + SpaceForScaleTop,
+                    Y + y + SpaceForScaleTop,
                     cellVisual.GetMarker(),
                     isFov ? cellVisual.GetForeground() : Visual.DefaultFg,
                     isFov ? cellVisual.GetBackground() : Visual.DefaultBg);
@@ -293,6 +295,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     protected override void OnWidthChanged()
     {
+        var newSize = Math.Max(0, ViewportWidth * ViewportHeight);
+        _cachedWorld = new CellVisual[newSize];
+        _cachedFov = new bool[newSize];
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }
@@ -300,6 +305,9 @@ public class MapView : KeyInputProcessorBase, IEventSink
     protected override void OnHeightChanged()
     {
         UpdateSpaceForScaleLeft();
+        var newSize = Math.Max(0, ViewportWidth * ViewportHeight);
+        _cachedWorld = new CellVisual[newSize];
+        _cachedFov = new bool[newSize];
         IsRequireReRender = true;
         IsRequireRootReRender = true;
     }

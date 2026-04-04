@@ -323,41 +323,59 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-        var c = chunk.Elevation.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            WorldElevationChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                // TODO: Get elevation bound constants from world gen.
-                var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
-                var cols = colors[index];
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var elevation = currentChunk.Elevation.Span[(ly << 5) + lx];
+                var index = Visual.GetScalarIndex(elevation, 0, 9);
+
+                // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
-                    new CellVisual(marker, cols.Item1, cols.Item2);
+                var (fg, bg) = colors[index];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
             }
+        }
     }
 }
 
@@ -366,38 +384,57 @@ internal class SurfaceFeatureVisualizer()
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldSurfaceFeatureChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-        var c = chunk.SurfaceFeature.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            WorldSurfaceFeatureChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var feature = c[y * WorldMath.ChunkSize + x];
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
-                    Visual.CellVisualSurfaceFeatures[(int)feature];
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldSurfaceFeatureChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var feature = currentChunk.SurfaceFeature.Span[(ly << 5) + lx];
+
+                // 5. Map to your TUI visuals
+                var marker = Visual.CellVisualSurfaceFeatures[(int)feature];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = marker;
             }
+        }
     }
 }
 
@@ -406,42 +443,61 @@ internal class TemperatureVisualizer()
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
         var colors = Visual.ColorsHeatmapTemperature;
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldTemperatureChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var c = chunk.Temperature.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
+
+            WorldTemperatureChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                // TODO: Get elevation bound constants from world gen.
-                var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
-                var cols = colors[index];
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldTemperatureChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var temperature = currentChunk.Temperature.Span[(ly << 5) + lx];
+                var index = Visual.GetScalarIndex(temperature, 0, 9);
+
+                // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
-                    new CellVisual(marker, cols.Item1, cols.Item2);
+                var (fg, bg) = colors[index];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
             }
+        }
     }
 }
 
@@ -450,42 +506,61 @@ internal class HumidityVisualizer()
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
         var colors = Visual.ColorsHeatmapHumidity;
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldHumidityChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var c = chunk.Humidity.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
+
+            WorldHumidityChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                // TODO: Get elevation bound constants from world gen.
-                var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
-                var cols = colors[index];
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldHumidityChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var humidity = currentChunk.Humidity.Span[(ly << 5) + lx];
+                var index = Visual.GetScalarIndex(humidity, 0, 9);
+
+                // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
-                    new CellVisual(marker, cols.Item1, cols.Item2);
+                var (fg, bg) = colors[index];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
             }
+        }
     }
 }
 
@@ -494,43 +569,61 @@ internal class TemperatureAmplitudeVisualizer()
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
         var colors = Visual.ColorsHeatmapTemperature;
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldTemperatureAmplitudeChunk>(chunkIdx,
-                    out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var c = chunk.TemperatureAmplitude.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
+
+            WorldTemperatureAmplitudeChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                // TODO: Get elevation bound constants from world gen.
-                var index = Visual.GetScalarIndex(c[y * WorldMath.ChunkSize + x], 0, 9);
-                var cols = colors[index];
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldTemperatureAmplitudeChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var tempAmplitude = currentChunk.TemperatureAmplitude.Span[(ly << 5) + lx];
+                var index = Visual.GetScalarIndex(tempAmplitude, 0, 9);
+
+                // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
-                    new CellVisual(marker, cols.Item1, cols.Item2);
+                var (fg, bg) = colors[index];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
             }
+        }
     }
 }
 
@@ -539,37 +632,57 @@ internal class BiomeVisualizer()
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldBiomeChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-        var c = chunk.Biome.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            WorldBiomeChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
-                    Visual.BiomeMap[c[y * WorldMath.ChunkSize + x]];
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldBiomeChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var biome = currentChunk.Biome.Span[(ly << 5) + lx];
+
+                // 5. Map to your TUI visuals
+                var marker = Visual.BiomeMap[biome];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = marker;
             }
+        }
     }
 }
 
@@ -578,37 +691,58 @@ internal class RiverVisualizer()
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldRiverChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
-        var startX = Math.Max(0, viewX - worldX);
-        var startY = Math.Max(0, viewY - worldY);
-        var endX = stopX - worldX;
-        var endY = stopY - worldY;
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-        var c = chunk.River.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+            WorldRiverChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
+
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] = c[y * WorldMath.ChunkSize + x]
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
+
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldRiverChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var hasRiver = currentChunk.River.Span[(ly << 5) + lx];
+
+                // 5. Map to your TUI visuals
+                var marker = hasRiver
                     ? new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, Visual.DefaultBg)
                     : new CellVisual(Cp437.WhiteSpace, Visual.DefaultFg, Visual.DefaultBg);
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = marker;
             }
+        }
     }
 }
