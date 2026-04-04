@@ -251,8 +251,8 @@ internal interface IWorldComponentVisualizer
     void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
@@ -266,34 +266,41 @@ internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth - 1, viewX + WorldMath.ChunkSize - 1);
-        var stopY = Math.Min(viewY + viewportHeight - 1, viewY + WorldMath.ChunkSize - 1);
-        var startX = chunkX % WorldMath.ChunkSize;
-        var startY = chunkY % WorldMath.ChunkSize;
-        var endX = stopX % WorldMath.ChunkSize;
-        var endY = stopY % WorldMath.ChunkSize;
+        var (_, _, localX, localY) = WorldMath.ToRelative(worldX, worldY);
+        var stopX = WorldMath.ChunkSize - 1;
+        var stopY = WorldMath.ChunkSize - 1;
+        var dx = stopX - localX;
+        var dy = stopY - localY;
+
+        // var endX = Math.Min(viewX + viewportWidth - 1, worldX + dx);
+        // var endY = Math.Min(viewY + viewportHeight - 1, worldY + dy);
 
         var c = chunk.Elevation.Span;
-        for (var y = startY; y < endY; y++)
-            for (var x = startX; x < endX; x++)
+        for (var y = localX; y <= stopY; y++)
+            for (var x = localX; x <= stopX; x++)
             {
-                var marker = Visual.MarkersElevation[c[y * WorldMath.ChunkSize + x]];
-                var cols = colors[c[y * WorldMath.ChunkSize + x]];
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
+                var idx = wy * WorldMath.WorldWidth + wx;
+                if (idx >= cellVisuals.Length) continue;
+
+                var elevation = c[y * WorldMath.ChunkSize + x];
+                var marker = Visual.MarkersElevation[elevation];
+                var cols = colors[elevation];
+                // var wrappedWx = WorldMath.WrapX(wx);
                 cellVisuals[wy * WorldMath.WorldWidth + wx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
@@ -306,26 +313,26 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.Elevation.Span;
         for (var y = startY; y < endY; y++)
@@ -336,7 +343,8 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -348,26 +356,26 @@ internal class SurfaceFeatureVisualizer()
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldSurfaceFeatureChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.SurfaceFeature.Span;
         for (var y = startY; y < endY; y++)
@@ -375,7 +383,8 @@ internal class SurfaceFeatureVisualizer()
             {
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
                 var feature = c[y * WorldMath.ChunkSize + x];
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
                     Visual.CellVisualSurfaceFeatures[(int)feature];
             }
     }
@@ -387,8 +396,8 @@ internal class TemperatureVisualizer()
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
@@ -396,18 +405,18 @@ internal class TemperatureVisualizer()
     )
     {
         var colors = Visual.ColorsHeatmapTemperature;
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldTemperatureChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.Temperature.Span;
         for (var y = startY; y < endY; y++)
@@ -418,7 +427,8 @@ internal class TemperatureVisualizer()
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -430,8 +440,8 @@ internal class HumidityVisualizer()
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
@@ -439,18 +449,18 @@ internal class HumidityVisualizer()
     )
     {
         var colors = Visual.ColorsHeatmapHumidity;
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldHumidityChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.Humidity.Span;
         for (var y = startY; y < endY; y++)
@@ -461,7 +471,8 @@ internal class HumidityVisualizer()
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -473,8 +484,8 @@ internal class TemperatureAmplitudeVisualizer()
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
@@ -482,19 +493,19 @@ internal class TemperatureAmplitudeVisualizer()
     )
     {
         var colors = Visual.ColorsHeatmapTemperature;
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldTemperatureAmplitudeChunk>(chunkIdx,
                     out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.TemperatureAmplitude.Span;
         for (var y = startY; y < endY; y++)
@@ -505,7 +516,8 @@ internal class TemperatureAmplitudeVisualizer()
                 var cols = colors[index];
                 var marker = Visual.MarkersHeatmapMonochrome[index];
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
                     new CellVisual(marker, cols.Item1, cols.Item2);
             }
     }
@@ -517,33 +529,34 @@ internal class BiomeVisualizer()
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldBiomeChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.Biome.Span;
         for (var y = startY; y < endY; y++)
             for (var x = startX; x < endX; x++)
             {
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] =
                     Visual.BiomeMap[c[y * WorldMath.ChunkSize + x]];
             }
     }
@@ -555,33 +568,34 @@ internal class RiverVisualizer()
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] cellVisuals,
-        int chunkX,
-        int chunkY,
+        int worldX,
+        int worldY,
         int viewX,
         int viewY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(chunkX, chunkY);
+        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
         if (!storage
                 .TryGetSingleForTypeAndEntity<WorldRiverChunk>(chunkIdx, out var chunk)
             || chunk == null)
             return; // TODO: How to handle partly drawn maps, if they ever happen?
 
-        var stopX = Math.Min(viewX + viewportWidth, chunkX + WorldMath.ChunkSize);
-        var stopY = Math.Min(viewY + viewportHeight, chunkY + WorldMath.ChunkSize);
-        var startX = Math.Max(0, viewX - chunkX);
-        var startY = Math.Max(0, viewY - chunkY);
-        var endX = stopX - chunkX;
-        var endY = stopY - chunkY;
+        var stopX = Math.Min(viewX + viewportWidth - 1, worldX + WorldMath.ChunkSize - 1);
+        var stopY = Math.Min(viewY + viewportHeight - 1, worldY + WorldMath.ChunkSize - 1);
+        var startX = Math.Max(0, viewX - worldX);
+        var startY = Math.Max(0, viewY - worldY);
+        var endX = stopX - worldX;
+        var endY = stopY - worldY;
 
         var c = chunk.River.Span;
         for (var y = startY; y < endY; y++)
             for (var x = startX; x < endX; x++)
             {
                 var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] = c[y * WorldMath.ChunkSize + x]
+                var wrappedWx = WorldMath.WrapX(wx);
+                cellVisuals[wy * WorldMath.WorldWidth + wrappedWx] = c[y * WorldMath.ChunkSize + x]
                     ? new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, Visual.DefaultBg)
                     : new CellVisual(Cp437.WhiteSpace, Visual.DefaultFg, Visual.DefaultBg);
             }
