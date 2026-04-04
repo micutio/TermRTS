@@ -248,13 +248,11 @@ internal static class Visual
 
 internal interface IWorldComponentVisualizer
 {
-    void SetVisuals(
+    public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer, // Sized [viewportWidth * viewportHeight]
+        int viewWorldX, // World X at top-left of screen
+        int viewWorldY, // World Y at top-left of screen
         int viewportWidth,
         int viewportHeight
     );
@@ -265,45 +263,58 @@ internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
 {
     public void SetVisuals(
         in IReadonlyStorage storage,
-        in CellVisual[] cellVisuals,
-        int worldX,
-        int worldY,
-        int viewX,
-        int viewY,
+        in CellVisual[] viewportBuffer,
+        int viewWorldX,
+        int viewWorldY,
         int viewportWidth,
         int viewportHeight
     )
     {
-        var chunkIdx = WorldMath.GetChunkIndex(worldX, worldY);
-        if (!storage
-                .TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx, out var chunk)
-            || chunk == null)
-            return; // TODO: How to handle partly drawn maps, if they ever happen?
+        for (var vY = 0; vY < viewportHeight; vY++)
+        {
+            var worldY = viewWorldY + vY;
 
-        var (_, _, localX, localY) = WorldMath.ToRelative(worldX, worldY);
-        var stopX = WorldMath.ChunkSize - 1;
-        var stopY = WorldMath.ChunkSize - 1;
-        var dx = stopX - localX;
-        var dy = stopY - localY;
+            // 1. Vertical Clamping (The Poles)
+            // If the camera goes off the top/bottom, we draw nothing or "Void"
+            if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-        // var endX = Math.Min(viewX + viewportWidth - 1, worldX + dx);
-        // var endY = Math.Min(viewY + viewportHeight - 1, worldY + dy);
+            WorldElevationChunk? currentChunk = null;
+            var lastCx = -1;
+            var lastCy = -1;
 
-        var c = chunk.Elevation.Span;
-        for (var y = localX; y <= stopY; y++)
-            for (var x = localX; x <= stopX; x++)
+            for (var vX = 0; vX < viewportWidth; vX++)
             {
-                var (wx, wy) = WorldMath.ToWorld(chunk.Cx, chunk.Cy, x, y);
-                var idx = wy * WorldMath.WorldWidth + wx;
-                if (idx >= cellVisuals.Length) continue;
+                // 2. Horizontal Wrapping (The Cylinder)
+                // This handles negative viewWorldX (scrolling left) and > Width (scrolling right)
+                var worldX = WorldMath.WrapX(viewWorldX + vX);
 
-                var elevation = c[y * WorldMath.ChunkSize + x];
+                // 3. Get Chunk and Local Coords
+                var (cx, cy, lx, ly) = WorldMath.ToRelative(worldX, worldY);
+                var chunkIdx = cy * WorldMath.ChunksAcross + cx;
+
+                if (cx != lastCx || cy != lastCy)
+                {
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx,
+                            out var chunk) || chunk == null) continue;
+
+                    currentChunk = chunk;
+                    lastCx = cx;
+                    lastCy = cy;
+                }
+
+                if (currentChunk == null) continue;
+
+                // 4. Extract data from the 32x32 slab
+                var elevation = currentChunk.Elevation.Span[(ly << 5) + lx];
+
+                // 5. Map to your TUI visuals
                 var marker = Visual.MarkersElevation[elevation];
-                var cols = colors[elevation];
-                // var wrappedWx = WorldMath.WrapX(wx);
-                cellVisuals[wy * WorldMath.WorldWidth + wx] =
-                    new CellVisual(marker, cols.Item1, cols.Item2);
+                var (fg, bg) = colors[elevation];
+
+                // 6. Write to the VIEWPORT-relative buffer
+                viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
             }
+        }
     }
 }
 

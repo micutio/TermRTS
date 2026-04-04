@@ -187,17 +187,13 @@ public class MapView : KeyInputProcessorBase, IEventSink
         };
         var viewX = ViewportPositionInWorldX;
         var viewY = ViewportPositionInWorldY;
-        for (var y = viewY; y < viewY + ViewportHeight; y += WorldMath.ChunkSize)
-            for (var x = viewX; x < viewX + ViewportWidth; x += WorldMath.ChunkSize)
-                visualizer.SetVisuals(
-                    componentStorage,
-                    _cachedWorld,
-                    x,
-                    y,
-                    viewX,
-                    viewY,
-                    ViewportWidth,
-                    ViewportHeight);
+        visualizer.SetVisuals(
+            componentStorage,
+            _cachedWorld,
+            viewX,
+            viewY,
+            ViewportWidth,
+            ViewportHeight);
 
         if (!componentStorage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
         for (var y = 0; y < _worldHeight; y++)
