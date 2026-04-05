@@ -1,10 +1,12 @@
 namespace TermRTS.Event;
 
-public readonly record struct Event<TPayload>(TPayload Payload) : IEvent
+public readonly record struct Event<TPayload>(TPayload Payload, ulong ThisTriggerTime) : IEvent
 {
     #region IEvent Members
 
     public Type EvtType => typeof(TPayload);
+
+    public ulong TriggerTime => ThisTriggerTime;
 
     #endregion
 
