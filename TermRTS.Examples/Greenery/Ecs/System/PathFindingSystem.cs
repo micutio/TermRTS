@@ -1,6 +1,7 @@
 using System.Numerics;
 using TermRTS.Algorithms;
 using TermRTS.Event;
+using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.Event;
 using TermRTS.Storage;
 

@@ -2,7 +2,7 @@ using TermRTS.Algorithms;
 
 namespace TermRTS.Test.Algorithms;
 
-public class FovTest
+public class ChunkedFovTest
 {
     [Fact]
     public void BasicRaycast_empty_grid_includes_cells_within_range()

@@ -1,32 +1,7 @@
 using System.Numerics;
-using System.Text.Json.Serialization;
-using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
 
-namespace TermRTS.Examples.Greenery;
-
-public class FovComponent : ComponentBase
-{
-    public FovComponent(int entityId, int worldWidth, int worldHeight) : base(entityId)
-    {
-        Cells = new bool[worldWidth, worldHeight];
-        WorldWidth = worldWidth;
-        WorldHeight = worldHeight;
-    }
-
-    [JsonConstructor]
-    internal FovComponent(int entityId, int worldWidth, int worldHeight, bool[,] cells) :
-        base(entityId)
-    {
-        Cells = cells;
-        WorldWidth = worldWidth;
-        WorldHeight = worldHeight;
-    }
-
-    public bool[,] Cells { get; }
-    public int WorldWidth { get; }
-    public int WorldHeight { get; }
-}
+namespace TermRTS.Examples.Greenery.Ecs.Component;
 
 public class DroneComponent : ComponentBase
 {

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Numerics;
+using TermRTS.Examples.Greenery.Ecs.Component;
 
 namespace TermRTS.Examples.Greenery.WorldGen;
 
@@ -81,83 +82,6 @@ public sealed class WorldGenerationResult(
 
     public WorldBiomeChunk[] BiomeChunk { get; } = biome;
     public WorldRiverChunk[] RiverChunk { get; } = river;
-}
-
-public sealed class WorldElevationChunk(int entityId, int cx, int cy, ReadOnlyMemory<int> elevation)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<int> Elevation = elevation;
-}
-
-public sealed class WorldSurfaceFeatureChunk(
-    int entityId,
-    int cx,
-    int cy,
-    ReadOnlyMemory<SurfaceFeature> surfaceFeature
-)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<SurfaceFeature> SurfaceFeature = surfaceFeature;
-}
-
-public sealed class WorldTemperatureChunk(
-    int entityId,
-    int cx,
-    int cy,
-    ReadOnlyMemory<float> temperature)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<float> Temperature = temperature;
-}
-
-public sealed class WorldTemperatureAmplitudeChunk(
-    int entityId,
-    int cx,
-    int cy,
-    ReadOnlyMemory<float> temperatureAmplitude)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<float> TemperatureAmplitude = temperatureAmplitude;
-}
-
-public sealed class WorldHumidityChunk(
-    int entityId,
-    int cx,
-    int cy,
-    ReadOnlyMemory<float> humidity)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<float> Humidity = humidity;
-}
-
-public sealed class WorldBiomeChunk(
-    int entityId,
-    int cx,
-    int cy,
-    ReadOnlyMemory<Biome> biome)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<Biome> Biome = biome;
-}
-
-public sealed class WorldRiverChunk(int entityId, int cx, int cy, ReadOnlyMemory<bool> river)
-    : ComponentBase(entityId)
-{
-    public readonly int Cx = cx;
-    public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<bool> River = river;
 }
 
 public sealed class WorldBuffer<T> : IDisposable
@@ -2416,6 +2340,8 @@ public class CylinderWorld : IWorldGen
         const int totalCells = worldWidth * worldHeight;
 
         // 1. Allocate ONE giant buffer for all chunk data combined
+        // TODO: Make it more evident that masterBuffer will be in use for the duration
+        //       of the game.
         var masterBuffer = new int[totalCells];
         var masterSpan = masterBuffer.AsMemory();
 
@@ -2448,7 +2374,8 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldElevationChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                chunks[chunkIdx] =
+                    new WorldElevationChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2491,7 +2418,9 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldSurfaceFeatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                chunks[chunkIdx] =
+                    new WorldSurfaceFeatureChunk(chunkIdx, chunkXIndex, chunkYIndex,
+                        chunkMemorySegment);
             }
 
         return chunks;
@@ -2534,7 +2463,8 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldTemperatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                chunks[chunkIdx] =
+                    new WorldTemperatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2578,7 +2508,8 @@ public class CylinderWorld : IWorldGen
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldTemperatureAmplitudeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                    new WorldTemperatureAmplitudeChunk(chunkIdx, chunkXIndex, chunkYIndex,
+                        chunkMemorySegment);
             }
 
         return chunks;
@@ -2621,7 +2552,8 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldHumidityChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                chunks[chunkIdx] =
+                    new WorldHumidityChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2633,21 +2565,20 @@ public class CylinderWorld : IWorldGen
         const int chunkSize = WorldMath.ChunkSize;
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
-        const int chunksAcross = worldWidth / chunkSize;
         const int totalCells = worldWidth * worldHeight;
 
         // 1. Allocate ONE giant buffer for all chunk data combined
         var masterBuffer = new Biome[totalCells];
         var masterSpan = masterBuffer.AsMemory();
 
-        var chunks = new WorldBiomeChunk[chunksAcross * (worldHeight / chunkSize)];
+        var chunks = new WorldBiomeChunk[WorldMath.ChunksAcross * (worldHeight / chunkSize)];
 
         for (var cy = 0; cy < worldHeight; cy += chunkSize)
             for (var cx = 0; cx < worldWidth; cx += chunkSize)
             {
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
-                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+                var chunkIdx = chunkYIndex * WorldMath.ChunksAcross + chunkXIndex;
 
                 // Calculate where this chunk starts in our new Master Buffer
                 var masterStart = chunkIdx * chunkSize * chunkSize;
@@ -2664,7 +2595,8 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldBiomeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                chunks[chunkIdx] =
+                    new WorldBiomeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;
@@ -2707,7 +2639,8 @@ public class CylinderWorld : IWorldGen
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] = new WorldRiverChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                chunks[chunkIdx] =
+                    new WorldRiverChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
             }
 
         return chunks;

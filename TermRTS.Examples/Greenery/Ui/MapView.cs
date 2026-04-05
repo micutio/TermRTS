@@ -1,6 +1,7 @@
 using System.Numerics;
 using ConsoleRenderer;
 using TermRTS.Event;
+using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
 using TermRTS.Storage;
@@ -79,6 +80,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
     private readonly BiomeVisualizer _biomeVisualizer;
     private readonly RiverVisualizer _riverVisualizer;
 
+    private readonly FovVisualizer _fovVisualizer;
+
     private CellVisual[] _cachedWorld;
     private bool[] _cachedFov;
 
@@ -109,6 +112,8 @@ public class MapView : KeyInputProcessorBase, IEventSink
         _temperatureAmplitudeVisualizer = new TemperatureAmplitudeVisualizer();
         _biomeVisualizer = new BiomeVisualizer();
         _riverVisualizer = new RiverVisualizer();
+
+        _fovVisualizer = new FovVisualizer();
 
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
@@ -196,16 +201,13 @@ public class MapView : KeyInputProcessorBase, IEventSink
             ViewportWidth,
             ViewportHeight);
 
-        if (!componentStorage.TryGetSingleForType<FovComponent>(out var fov) || fov == null) return;
-        for (var y = 0; y < ViewportHeight; y++)
-            for (var x = 0; x < ViewportWidth; x++)
-            {
-                var worldX = WorldMath.WrapX(ViewportPositionInWorldX + x);
-                if (_cachedFov[y * ViewportWidth + x] ==
-                    fov.Cells[worldX, ViewportPositionInWorldY + y]) continue;
-                IsRequireReRender = true;
-                _cachedFov[y] = fov.Cells[x, y];
-            }
+        _fovVisualizer.CacheFov(
+            componentStorage,
+            _cachedFov,
+            viewX,
+            viewY,
+            ViewportWidth,
+            ViewportHeight);
 
         foreach (var drone in componentStorage.GetAllForType<DroneComponent>())
         {
@@ -233,9 +235,6 @@ public class MapView : KeyInputProcessorBase, IEventSink
     {
         if (!IsRequireReRender) return;
 
-        var viewportExtendInWorldY = ViewportPositionInWorldY + ViewportHeight;
-        var boundaryY = Math.Min(_worldHeight, viewportExtendInWorldY);
-
         // Step 1: Render World
         for (var y = 0; y < ViewportHeight; y++)
             for (var x = 0; x < ViewportWidth; x++)
@@ -243,7 +242,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 var cellVisual = _cachedWorld[y * ViewportWidth + x];
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
-                var isFov = true; // _cachedFov[worldX, y];
+                var isFov = _cachedFov[y * ViewportWidth + x];
                 _canvas.Set(
                     X + x + _spaceForScaleLeft,
                     Y + y + SpaceForScaleTop,
@@ -252,16 +251,20 @@ public class MapView : KeyInputProcessorBase, IEventSink
                     isFov ? cellVisual.GetBackground() : Visual.DefaultBg);
             }
 
-        // Step 2: Render drones and drone paths
+        // Step 2: Render drone paths and drones on top of them.
         foreach (var path in _cachedDronePaths.Values)
             foreach (var (pathX, pathY, pathCol) in path)
+            {
                 if (IsInCamera(pathX, pathY))
+                {
                     _canvas.Set(
                         X + WorldToViewportX(pathX) + _spaceForScaleLeft,
                         Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                         pathCol,
                         ConsoleColor.Red,
                         Visual.DefaultBg);
+                }
+            }
 
         foreach (var pos in _cachedDronePositions.Values)
         {
@@ -417,16 +420,17 @@ public class MapView : KeyInputProcessorBase, IEventSink
     /// <summary>
     /// Determine whether a position is within the viewport boundaries.
     /// </summary>
-    /// <param name="x">x-position relative to world coordinates</param>
-    /// <param name="y">y-position relative to world coordinates</param>
+    /// <param name="worldX">x-position relative to world coordinates</param>
+    /// <param name="worldY">y-position relative to world coordinates</param>
     /// <returns><c>true</c> if it is within the viewport, <c>false</c> otherwise.</returns>
-    private bool IsInCamera(float x, float y)
+    private bool IsInCamera(float worldX, float worldY)
     {
-        if (y < ViewportPositionInWorldY || y >= ViewportPositionInWorldY + ViewportHeight)
+        if (worldY < ViewportPositionInWorldY ||
+            worldY >= ViewportPositionInWorldY + ViewportHeight)
             return false;
 
-        var worldX = Convert.ToInt32(x);
-        var dx = (worldX - ViewportPositionInWorldX + _worldWidth) % _worldWidth;
+        var intX = Convert.ToInt32(worldX);
+        var dx = (intX - ViewportPositionInWorldX + _worldWidth) % _worldWidth;
         return dx >= 0 && dx < ViewportWidth;
     }
 

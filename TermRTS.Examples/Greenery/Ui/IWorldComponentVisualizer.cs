@@ -1,3 +1,4 @@
+using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
 using TermRTS.Storage;

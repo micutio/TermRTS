@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
+using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
@@ -54,11 +55,8 @@ public class Greenery : IRunnableExample
         core.AddNewComponents(worldData.BiomeChunk);
         core.AddNewComponents(worldData.RiverChunk);
 
-        var fovEntity = new Entity();
-        var fovComponent =
-            new FovComponent(fovEntity.Id, WorldMath.WorldWidth, WorldMath.WorldHeight);
-        core.AddEntity(fovEntity);
-        core.AddComponent(fovComponent);
+        var fovSystem = new FovSystem();
+        core.AddNewComponents(fovSystem.InitializeFovChunks());
 
         var droneEntity = new Entity();
         var droneComponent = new DroneComponent(droneEntity.Id, new Vector2(1, 1));
@@ -68,7 +66,7 @@ public class Greenery : IRunnableExample
         var pathFindingSystem =
             new PathFindingSystem(WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.AddSimSystem(pathFindingSystem);
-        core.AddSimSystem(new FovSystem());
+        core.AddSimSystem(fovSystem);
 
         var scheduler = new Scheduler(core);
         var renderer =
