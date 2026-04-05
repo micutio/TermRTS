@@ -70,7 +70,7 @@ public class FovSystem : ISimSystem
                     }
                 }
 
-                currentChunk?.FovField.Span[ly * WorldMath.ChunkSize + cx] = true;
+                currentChunk?.FovField.Span[ly * WorldMath.ChunkSize + lx] = true;
             }
         }
     }
