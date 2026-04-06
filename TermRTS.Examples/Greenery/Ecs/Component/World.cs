@@ -2,80 +2,79 @@ using TermRTS.Examples.Greenery.WorldGen;
 
 namespace TermRTS.Examples.Greenery.Ecs.Component;
 
-
-public sealed class WorldElevationChunk(int entityId, int cx, int cy, ReadOnlyMemory<int> elevation)
+public sealed class WorldElevationChunk(int entityId, int cx, int cy, int[] elevation)
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<int> Elevation = elevation;
+    public readonly int[] Elevation = elevation;
 }
 
 public sealed class WorldSurfaceFeatureChunk(
     int entityId,
     int cx,
     int cy,
-    ReadOnlyMemory<SurfaceFeature> surfaceFeature
+    SurfaceFeature[] surfaceFeature
 )
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<SurfaceFeature> SurfaceFeature = surfaceFeature;
+    public readonly SurfaceFeature[] SurfaceFeature = surfaceFeature;
 }
 
 public sealed class WorldTemperatureChunk(
     int entityId,
     int cx,
     int cy,
-    ReadOnlyMemory<float> temperature)
+    float[] temperature)
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<float> Temperature = temperature;
+    public readonly float[] Temperature = temperature;
 }
 
 public sealed class WorldTemperatureAmplitudeChunk(
     int entityId,
     int cx,
     int cy,
-    ReadOnlyMemory<float> temperatureAmplitude)
+    float[] temperatureAmplitude)
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<float> TemperatureAmplitude = temperatureAmplitude;
+    public readonly float[] TemperatureAmplitude = temperatureAmplitude;
 }
 
 public sealed class WorldHumidityChunk(
     int entityId,
     int cx,
     int cy,
-    ReadOnlyMemory<float> humidity)
+    float[] humidity)
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<float> Humidity = humidity;
+    public readonly float[] Humidity = humidity;
 }
 
 public sealed class WorldBiomeChunk(
     int entityId,
     int cx,
     int cy,
-    ReadOnlyMemory<Biome> biome)
+    Biome[] biome)
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<Biome> Biome = biome;
+    public readonly Biome[] Biome = biome;
 }
 
-public sealed class WorldRiverChunk(int entityId, int cx, int cy, ReadOnlyMemory<bool> river)
+public sealed class WorldRiverChunk(int entityId, int cx, int cy, bool[] river)
     : ComponentBase(entityId)
 {
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly ReadOnlyMemory<bool> River = river;
+    public readonly bool[] River = river;
 }

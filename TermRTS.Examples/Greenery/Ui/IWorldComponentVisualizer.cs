@@ -249,7 +249,7 @@ internal static class Visual
 
 internal interface IWorldComponentVisualizer
 {
-    public void SetVisuals(
+    void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer, // Sized [viewportWidth * viewportHeight]
         int viewWorldX, // World X at top-left of screen
@@ -306,7 +306,7 @@ internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var elevation = currentChunk.Elevation.Span[(ly << 5) + lx];
+                var elevation = currentChunk.Elevation[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
                 var marker = Visual.MarkersElevation[elevation];
@@ -366,7 +366,7 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var elevation = currentChunk.Elevation.Span[(ly << 5) + lx];
+                var elevation = currentChunk.Elevation[(ly << 5) + lx];
                 var index = Visual.GetScalarIndex(elevation, 0, 9);
 
                 // 5. Map to your TUI visuals
@@ -427,7 +427,7 @@ internal class SurfaceFeatureVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var feature = currentChunk.SurfaceFeature.Span[(ly << 5) + lx];
+                var feature = currentChunk.SurfaceFeature[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
                 var marker = Visual.CellVisualSurfaceFeatures[(int)feature];
@@ -488,8 +488,9 @@ internal class TemperatureVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var temperature = currentChunk.Temperature.Span[(ly << 5) + lx];
-                var index = Visual.GetScalarIndex(temperature, 0, 9);
+                var temperature = currentChunk.Temperature[(ly << 5) + lx];
+                // TODO: Tie to world gen constants.
+                var index = Visual.GetScalarIndex(temperature, -50, 35);
 
                 // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
@@ -551,8 +552,9 @@ internal class HumidityVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var humidity = currentChunk.Humidity.Span[(ly << 5) + lx];
-                var index = Visual.GetScalarIndex(humidity, 0, 9);
+                var humidity = currentChunk.Humidity[(ly << 5) + lx];
+                var index = Convert.ToInt32(9 * humidity);
+                // var index = Visual.GetScalarIndex(humidity, 0, 9);
 
                 // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
@@ -603,7 +605,8 @@ internal class TemperatureAmplitudeVisualizer()
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldTemperatureAmplitudeChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldTemperatureAmplitudeChunk>(
+                            chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -614,8 +617,9 @@ internal class TemperatureAmplitudeVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var tempAmplitude = currentChunk.TemperatureAmplitude.Span[(ly << 5) + lx];
-                var index = Visual.GetScalarIndex(tempAmplitude, 0, 9);
+                var tempAmplitude = currentChunk.TemperatureAmplitude[(ly << 5) + lx];
+                var index = Convert.ToInt32(9 * (tempAmplitude / 40f));
+                // var index = Visual.GetScalarIndex(tempAmplitude, 0, 9);
 
                 // 5. Map to your TUI visuals
                 var marker = Visual.MarkersHeatmapMonochrome[index];
@@ -675,7 +679,7 @@ internal class BiomeVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var biome = currentChunk.Biome.Span[(ly << 5) + lx];
+                var biome = currentChunk.Biome[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
                 var marker = Visual.BiomeMap[biome];
@@ -734,7 +738,7 @@ internal class RiverVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var hasRiver = currentChunk.River.Span[(ly << 5) + lx];
+                var hasRiver = currentChunk.River[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
                 var marker = hasRiver

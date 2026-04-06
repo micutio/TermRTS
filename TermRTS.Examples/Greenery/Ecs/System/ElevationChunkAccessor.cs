@@ -2,7 +2,7 @@ using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Storage;
 
-namespace TermRTS.Examples.Greenery.System;
+namespace TermRTS.Examples.Greenery.Ecs.System;
 
 public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
 {
@@ -28,6 +28,6 @@ public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
         }
 
         var (_, _, lx, ly) = WorldMath.ToRelative(x, y);
-        return _currentChunk!.Elevation.Span[ly * WorldMath.ChunkSize + lx];
+        return _currentChunk!.Elevation[ly * WorldMath.ChunkSize + lx];
     }
 }

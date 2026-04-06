@@ -134,11 +134,9 @@ public class CylinderWorld : IWorldGen
     private const float SimpleErosionRate = 0.1f;
 
     // Constants for climate
-    private const float BaseTempMax = 30.0f;
-    private const float BaseTempMin = -30.0f;
-    private const float ElevationTempModifier = -0.5f;
-    private const float ElevationHumidityModifier = -0.05f;
-    private const float MinHumidity = 0.1f;
+    private const float BaseTempMax = 35.0f;
+    private const float BaseTempMin = -50.0f;
+    private const float AridityConstant = 0.001f;
     private const float BaseTemperatureAmplitude = 10.0f;
     private const float LatitudeAmplitudeModifier = 20.0f;
 
@@ -958,42 +956,66 @@ public class CylinderWorld : IWorldGen
         for (var y = 0; y < _worldHeight; y++)
         {
             // Latitude factor: 0 at equator (middle), 1 at poles
-            var latitudeFactor = Math.Abs(y - _worldHeight / 2.0f) / (_worldHeight / 2.0f);
+            // 1. Calculate the raw 0 to 1 factor as before
+            var rawLat = Math.Abs(y - _worldHeight / 2.0f) / (_worldHeight / 2.0f);
+
+            // 2. Apply a shaping function to "stretch" the middle
+            // Option A: The "Equator Stretch" (Pushes temperate zones toward poles)
+            // var latitudeFactor = Math.Pow(rawLat, 1.5f); 
+
+            // Option B: The "Sine Curve" (Most realistic distribution)
+            // This makes the temperature drop-off very slow at the equator, 
+            // faster in the mid-latitudes, and slow again at the poles.
+            // var latitudeFactor = MathF.Sin((float)(rawLat * Math.PI / 2.0));
+            var latitudeFactor = (float)Math.Pow(rawLat, 1.1);
+            // Temperature: base -30 to 30, decreases with latitude and elevation
+            var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
+
+            // Creates peaks of moisture at 0 and 60 degrees, and troughs at 30 and 90.
+            var latRad = latitudeFactor * MathF.PI;
+            var latMoistureMod = 0.5f + 0.5f * MathF.Cos(3 * latRad);
+            var rowOffset = y * _worldWidth;
 
             for (var x = 0; x < _worldWidth; x++)
             {
-                var elevation = elevations[y * _worldWidth + x];
+                var idx = rowOffset + x;
+                var elevation = elevations[idx];
                 var elevationFactor = elevation / MaxElevation;
                 var isWater = elevation <= 3;
 
-                // Temperature: base -50 to 30, decreases with latitude and elevation
-                var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
                 // Colder at higher elevation.
-                var elevationTempModifier = ElevationTempModifier * elevation;
-                temperature[y * _worldWidth + x] = baseTemp + elevationTempModifier;
+                temperature[idx] = baseTemp + elevationFactor * elevation;
 
                 if (changeHumidity)
                 {
-                    // Humidity: higher near water, lower at high elevation
-                    // TODO: Calculate distance to water map one time for the entire map!
-                    var humidityBase =
-                        isWater ? 1.0f : Math.Max(MinHumidity, 1.0f - distToWaterMap[x, y] * 0.1f);
-                    var elevationHumidityModifier = ElevationHumidityModifier * elevation;
-                    humidity[y * _worldWidth + x] =
-                        Math.Clamp(humidityBase + elevationHumidityModifier, 0.0f, 1.0f);
+                    // 1. Exponential decay from water
+                    var dist = distToWaterMap[x, y];
+                    var humidityBase = MathF.Exp(-dist * AridityConstant);
+
+                    // 2. Apply Latitude and Elevation penalties
+                    // Higher elevations hold less total moisture (colder air)
+                    var elevationPenalty = elevation * 0.02f;
+
+                    var finalHumidity = humidityBase * latMoistureMod - elevationPenalty;
+
+                    // 3. Add River Influence
+                    // Rivers provide a small "humidity corridor" in dry areas
+                    finalHumidity += strahlerRiver[idx] * 0.1f;
+
+                    humidity[idx] = Math.Clamp(finalHumidity, 0.0f, 1.0f);
                 }
 
                 // Seasonal amplitude: larger at higher latitudes and higher elevations
-                temperatureAmplitude[y * _worldWidth + x]
+                temperatureAmplitude[idx]
                     = BaseTemperatureAmplitude
                       + LatitudeAmplitudeModifier * latitudeFactor
                       + elevation * elevationFactor;
 
-                var river = strahlerRiver[y * _worldWidth + x];
+                var river = strahlerRiver[idx];
                 // Determine biome
-                biomes[y * _worldWidth + x] = DetermineBiome(
-                    temperature[y * _worldWidth + x],
-                    humidity[y * _worldWidth + x],
+                biomes[idx] = DetermineBiome(
+                    temperature[idx],
+                    humidity[idx],
                     elevation,
                     isWater,
                     river);
@@ -1087,7 +1109,7 @@ public class CylinderWorld : IWorldGen
 
         // 1. Calculate Relative Humidity
         // This scales Absolute Moisture by the air's carrying capacity at a given temperature.
-        var possibleHumidityAtTemp = MathF.Max(0.1f, (temp + 50f) / 80f);
+        var possibleHumidityAtTemp = MathF.Min(0.1f, (temp + 50f) / 80f);
         var relHumidity = Math.Clamp(humidity / possibleHumidityAtTemp, 0.0f, 1.0f);
 
         // 2. High Altitude "Dead Zone" (Above the Tree Line)
@@ -2329,21 +2351,12 @@ public class CylinderWorld : IWorldGen
         var worldSpan = _elevation.Memory.Span;
 
         for (var i = 0; i < WorldMath.WorldWidth * WorldMath.WorldHeight; i++)
-        {
             _maxElevation = MathF.Max(_maxElevation, worldSpan[i]);
-        }
 
         const int chunkSize = WorldMath.ChunkSize;
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
         const int chunksAcross = worldWidth / chunkSize;
-        const int totalCells = worldWidth * worldHeight;
-
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        // TODO: Make it more evident that masterBuffer will be in use for the duration
-        //       of the game.
-        var masterBuffer = new int[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
 
         var chunks = new WorldElevationChunk[chunksAcross * (worldHeight / chunkSize)];
 
@@ -2353,18 +2366,14 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new int[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     for (var i = 0; i < sourceRow.Length; i++)
                     {
                         var normalisedElevation = sourceRow[i] / _maxElevation * 9;
@@ -2375,7 +2384,7 @@ public class CylinderWorld : IWorldGen
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldElevationChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                    new WorldElevationChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
@@ -2390,10 +2399,6 @@ public class CylinderWorld : IWorldGen
         const int chunksAcross = worldWidth / chunkSize;
         const int totalCells = worldWidth * worldHeight;
 
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        var masterBuffer = new SurfaceFeature[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
-
         var chunks = new WorldSurfaceFeatureChunk[chunksAcross * (worldHeight / chunkSize)];
 
         for (var cy = 0; cy < worldHeight; cy += chunkSize)
@@ -2402,25 +2407,20 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new SurfaceFeature[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     sourceRow.CopyTo(destRow);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldSurfaceFeatureChunk(chunkIdx, chunkXIndex, chunkYIndex,
-                        chunkMemorySegment);
+                    new WorldSurfaceFeatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
@@ -2447,24 +2447,20 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new float[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     sourceRow.CopyTo(destRow);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldTemperatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                    new WorldTemperatureChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
@@ -2491,25 +2487,20 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new float[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     sourceRow.CopyTo(destRow);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldTemperatureAmplitudeChunk(chunkIdx, chunkXIndex, chunkYIndex,
-                        chunkMemorySegment);
+                    new WorldTemperatureAmplitudeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
@@ -2536,24 +2527,20 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new float[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     sourceRow.CopyTo(destRow);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldHumidityChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                    new WorldHumidityChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
@@ -2579,24 +2566,20 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * WorldMath.ChunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new Biome[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     sourceRow.CopyTo(destRow);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldBiomeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                    new WorldBiomeChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
@@ -2623,24 +2606,20 @@ public class CylinderWorld : IWorldGen
                 var chunkXIndex = cx / chunkSize;
                 var chunkYIndex = cy / chunkSize;
                 var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-
-                // Calculate where this chunk starts in our new Master Buffer
-                var masterStart = chunkIdx * chunkSize * chunkSize;
-                var chunkMemorySegment = masterSpan.Slice(masterStart, chunkSize * chunkSize);
-                var chunkSpan = chunkMemorySegment.Span;
+                var chunk = new bool[chunkSize * chunkSize];
 
                 // Copy rows from world-layout to contiguous chunk-layout
                 for (var ly = 0; ly < chunkSize; ly++)
                 {
                     var sourceStart = (cy + ly) * worldWidth + cx;
                     var sourceRow = worldSpan.Slice(sourceStart, chunkSize);
-                    var destRow = chunkSpan.Slice(ly * chunkSize, chunkSize);
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     sourceRow.CopyTo(destRow);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
-                    new WorldRiverChunk(chunkIdx, chunkXIndex, chunkYIndex, chunkMemorySegment);
+                    new WorldRiverChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;
