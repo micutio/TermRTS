@@ -135,8 +135,8 @@ public class CylinderWorld : IWorldGen
 
     // Constants for climate
     private const float BaseTempMax = 35.0f;
-    private const float BaseTempMin = -50.0f;
-    private const float AridityConstant = 0.001f;
+    private const float BaseTempMin = -40.0f;
+    private const float AridityConstant = 0.005f;
     private const float BaseTemperatureAmplitude = 10.0f;
     private const float LatitudeAmplitudeModifier = 20.0f;
 
