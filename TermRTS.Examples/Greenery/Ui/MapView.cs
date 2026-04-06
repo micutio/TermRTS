@@ -242,7 +242,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
                 var cellVisual = _cachedWorld[y * ViewportWidth + x];
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
-                var isFov = _cachedFov[y * ViewportWidth + x];
+                var isFov = true; //_cachedFov[y * ViewportWidth + x];
                 _canvas.Set(
                     X + x + _spaceForScaleLeft,
                     Y + y + SpaceForScaleTop,
@@ -254,17 +254,13 @@ public class MapView : KeyInputProcessorBase, IEventSink
         // Step 2: Render drone paths and drones on top of them.
         foreach (var path in _cachedDronePaths.Values)
             foreach (var (pathX, pathY, pathCol) in path)
-            {
                 if (IsInCamera(pathX, pathY))
-                {
                     _canvas.Set(
                         X + WorldToViewportX(pathX) + _spaceForScaleLeft,
                         Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                         pathCol,
                         ConsoleColor.Red,
                         Visual.DefaultBg);
-                }
-            }
 
         foreach (var pos in _cachedDronePositions.Values)
         {
