@@ -70,18 +70,18 @@ public class Greenery : IRunnableExample
 
         var scheduler = new Scheduler(core);
         var renderer =
-            new Renderer(scheduler.EventQueue, WorldMath.WorldWidth, WorldMath.WorldHeight);
+            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 
         // Listen to commands
-        _commandRunner = new CommandRunner(scheduler.EventQueue);
+        _commandRunner = new CommandRunner(scheduler.FutureEvents);
         scheduler.AddEventSink(renderer, typeof(MapRenderMode)); // render option events
         scheduler.AddEventSink(_commandRunner, typeof(Event.Command));
         scheduler.AddEventSink(pathFindingSystem, typeof(Move));
 
         // Init input
-        var input = new ConsoleInput(scheduler.EventQueue, ConsoleKey.Escape);
+        var input = new ConsoleInput(scheduler.FutureEvents, ConsoleKey.Escape);
         scheduler.AddEventSink(input, typeof(Shutdown));
         scheduler.AddEventSink(renderer, typeof(ConsoleKeyInfo));
         scheduler.AddEventSink(renderer.LogArea, typeof(SystemLog));
@@ -95,7 +95,7 @@ public class Greenery : IRunnableExample
         Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
+            scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
             Console.Clear();
             Console.WriteLine("Simulation was shut down. Press a key to exit the program:");
         };

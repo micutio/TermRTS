@@ -26,26 +26,27 @@ internal class NullRenderer : IRenderer
 
 internal class WatcherSystem : ISimSystem
 {
-    private readonly SchedulerEventQueue _evtQueue;
     private int _remainingTicks;
 
-    public WatcherSystem(SchedulerEventQueue evtQueue, int remainingTicks)
+    public WatcherSystem(int remainingTicks)
     {
-        _evtQueue = evtQueue;
         _remainingTicks = remainingTicks;
     }
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         _remainingTicks -= 1;
 
         if (_remainingTicks == 0)
-            _evtQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
+            emittedEvents.Add(ScheduledEvent.From(new Shutdown()));
 
         if (_remainingTicks % 60 == 0)
-            _evtQueue.EnqueueEvent(ScheduledEvent.From(new Profile(), 60UL));
+            emittedEvents.Add(ScheduledEvent.From(new Profile(), 60UL));
     }
 
     #endregion
@@ -62,7 +63,7 @@ internal class MinimalApp : IRunnableExample
             Renderer = new NullRenderer()
         };
         var scheduler = new Scheduler(core);
-        var watcherSystem = new WatcherSystem(scheduler.EventQueue, 12);
+        var watcherSystem = new WatcherSystem(12);
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new Entity());
 

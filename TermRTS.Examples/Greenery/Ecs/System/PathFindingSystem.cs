@@ -24,7 +24,10 @@ public class PathFindingSystem(int worldWidth, int worldHeight) : ISimSystem, IE
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         foreach (var drone in storage.GetAllForType<DroneComponent>())
         {

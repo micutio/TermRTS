@@ -31,14 +31,14 @@ public class Simulation(Scheduler scheduler) : IEventSink
                     Persistence
                         .LoadJsonFromFile(out var loadedJsonStr, filePath, out var loadResponse);
                 if (IsSystemLogEnabled)
-                    _scheduler.EventQueue.EnqueueEvent(
+                    _scheduler.FutureEvents.EnqueueEvent(
                         ScheduledEvent.From(new SystemLog(loadResponse)));
                 if (!isLoadSuccess) break;
 
                 _persistence.GetSimStateFromJson(ref _scheduler, loadedJsonStr,
                     out var getResponse);
                 if (IsSystemLogEnabled)
-                    _scheduler.EventQueue.EnqueueEvent(
+                    _scheduler.FutureEvents.EnqueueEvent(
                         ScheduledEvent.From(new SystemLog(getResponse)));
                 break;
 
@@ -49,13 +49,13 @@ public class Simulation(Scheduler scheduler) : IEventSink
                         out var savedJsonStr,
                         out var putResponse);
                 if (IsSystemLogEnabled)
-                    _scheduler.EventQueue.EnqueueEvent(
+                    _scheduler.FutureEvents.EnqueueEvent(
                         ScheduledEvent.From(new SystemLog(putResponse)));
                 if (!isSerializeSuccess) break;
 
                 Persistence.SaveJsonToFile(savedJsonStr, filePath, out var saveResponse);
                 if (!string.IsNullOrEmpty(saveResponse) && IsSystemLogEnabled)
-                    _scheduler.EventQueue.EnqueueEvent(
+                    _scheduler.FutureEvents.EnqueueEvent(
                         ScheduledEvent.From(new SystemLog(saveResponse)));
                 break;
             default:

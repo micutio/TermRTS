@@ -103,19 +103,22 @@ public class StorageImplementations : TheoryData<IStorage>
     }
 }
 
-public class TerminatorSystem(SchedulerEventQueue queue, int remainingTicks) : ISimSystem
+public class TerminatorSystem(int remainingTicks) : ISimSystem
 {
     private int _remainingTicks = remainingTicks;
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         Interlocked.Decrement(ref _remainingTicks);
 
         if (_remainingTicks != 0) return;
 
-        queue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
+        emittedEvents.Add(ScheduledEvent.From(new Shutdown()));
     }
 
     #endregion
@@ -128,7 +131,10 @@ public class BusySystem(double workTimeMs) : ISimSystem
 {
     private readonly TimeSpan _workTime = TimeSpan.FromMilliseconds(workTimeMs);
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         var start = DateTime.Now;
         while (DateTime.Now - start < _workTime) ;

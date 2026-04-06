@@ -11,7 +11,8 @@ public class Fov
         int startX,
         int startY,
         int range,
-        Func<int, int, bool> isWall)
+        in object grid,
+        Func<int, int, object, bool> isWall)
     {
         VisibleCells.Clear();
 
@@ -32,7 +33,7 @@ public class Fov
                 var gridX = (int)Math.Floor(x);
                 var gridY = (int)Math.Floor(y);
 
-                if (isWall(gridX, gridY)) break; // Stop the ray if it hits a wall
+                if (isWall(gridX, gridY, grid)) break; // Stop the ray if it hits a wall
 
                 VisibleCells.Add(new Pos(gridX, gridY));
             }
@@ -45,24 +46,26 @@ public class Fov
         int startX,
         int startY,
         int range,
-        Func<int, int, bool> isWall)
+        in object grid,
+        Func<int, int, object, bool> isWall)
     {
         VisibleCells.Clear();
         VisibleCells.Add(new Pos(startX, startY)); // Start is always visible
 
         for (var octant = 0; octant < 8; octant++)
-            CastOctant(startX, startY, range, 1, 1.0f, 0.0f, octant, isWall);
+            CastOctant(startX, startY, in grid, range, 1, 1.0f, 0.0f, octant, isWall);
     }
 
     private void CastOctant(
         int startX,
         int startY,
+        in object grid,
         int range,
         int x,
         float slopeStart,
         float slopeEnd,
         int octant,
-        Func<int, int, bool> isWall)
+        Func<int, int, object, bool> isWall)
     {
         for (var y = x; y <= range; y++)
         {
@@ -116,8 +119,8 @@ public class Fov
             if (tx < 0 || ty < 0) continue; //Bounds Check
             VisibleCells.Add(new Pos(tx, ty));
 
-            if (isWall(tx, ty))
-                CastOctant(startX, startY, range, x + 1, slopeStart, prevSlope,
+            if (isWall(tx, ty, grid))
+                CastOctant(startX, startY, in grid, range, x + 1, slopeStart, prevSlope,
                     octant, isWall);
             else
                 slopeStart = currentSlope;

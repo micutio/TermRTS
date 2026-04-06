@@ -1,4 +1,5 @@
 using TermRTS.Algorithms;
+using TermRTS.Event;
 using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Storage;
@@ -14,7 +15,10 @@ public class FovSystem : ISimSystem
     // TODO: Hand over viewport position IF we only want FOV in visible area.
     // TODO: Alternatively get chunk idx from drone positions.
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         // TODO: Skip drones that haven't moved!
         // TODO: Change FOV component to chunks too!

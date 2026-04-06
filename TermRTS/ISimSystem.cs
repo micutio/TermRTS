@@ -1,3 +1,4 @@
+using TermRTS.Event;
 using TermRTS.Storage;
 
 namespace TermRTS;
@@ -11,5 +12,8 @@ namespace TermRTS;
 /// </summary>
 public interface ISimSystem
 {
-    void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage);
+    void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> eventBuffer);
 }

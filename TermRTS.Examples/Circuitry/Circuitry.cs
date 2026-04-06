@@ -53,7 +53,7 @@ internal class Circuitry : IRunnableExample
         var scheduler = new Scheduler(core);
         scheduler.AddEventSink(renderer, typeof(Profile));
 
-        var input = new ConsoleInput(scheduler.EventQueue);
+        var input = new ConsoleInput(scheduler.FutureEvents);
         scheduler.AddEventSink(input, typeof(Shutdown));
         input.Run();
 
@@ -61,12 +61,12 @@ internal class Circuitry : IRunnableExample
         Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
-            scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
+            scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
         };
 
         // Shutdown after one hour
         const ulong oneHour = 1000UL * 60UL * 60UL;
-        scheduler.EventQueue.EnqueueEvent(new ScheduledEvent(new Event<Shutdown>(), oneHour));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown(), oneHour));
 
         // Run it
         var simulation = new Simulation(scheduler);
@@ -359,7 +359,10 @@ internal class Circuitry : IRunnableExample
 
         #region ISimSystem Members
 
-        public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+        public void ProcessComponents(
+            ulong timeStepSizeMs,
+            in IReadonlyStorage storage,
+            in List<ScheduledEvent> emittedEvents)
         {
             foreach (var bus in storage.GetAllForType<Bus>())
             {

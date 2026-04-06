@@ -8,11 +8,12 @@ public class EngineTest
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void TestCoreShutdown(Core core)
     {
+        var emittedEvents = new List<ScheduledEvent>();
         Assert.True(core.IsRunning());
-        core.Tick(16L);
-        core.Tick(16L);
-        core.Tick(16L);
-        core.Tick(16L);
+        core.Tick(16L, emittedEvents);
+        core.Tick(16L, emittedEvents);
+        core.Tick(16L, emittedEvents);
+        core.Tick(16L, emittedEvents);
         core.ProcessEvent(new Event<Shutdown>());
         Assert.False(core.IsRunning());
     }
@@ -23,7 +24,7 @@ public class EngineTest
     {
         // Setup Scheduler
         var scheduler = new Scheduler(core);
-        var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
+        var watcherSystem = new TerminatorSystem(12);
 
         core.AddSimSystem(watcherSystem);
         core.AddSimSystem(new BusySystem(2.0d));
@@ -48,7 +49,7 @@ public class EngineTest
     {
         // Setup Scheduler
         var scheduler = new Scheduler(core);
-        var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
+        var watcherSystem = new TerminatorSystem(12);
 
         core.AddSimSystem(watcherSystem);
         core.AddSimSystem(new BusySystem(2.0d));
@@ -73,7 +74,7 @@ public class EngineTest
     {
         // Set up Scheduler
         var scheduler = new Scheduler(core);
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 12 * 16));
 
         // Run it (with timeout so a stuck loop fails instead of hanging CI)
         var simulation = new Simulation(scheduler);
@@ -90,7 +91,7 @@ public class EngineTest
     {
         // Setup Scheduler
         var scheduler = new Scheduler(core);
-        var watcherSystem = new TerminatorSystem(scheduler.EventQueue, 12);
+        var watcherSystem = new TerminatorSystem(12);
         scheduler.AddEventSink(core, typeof(Shutdown));
         core.AddSimSystem(watcherSystem);
         core.AddEntity(new Entity());

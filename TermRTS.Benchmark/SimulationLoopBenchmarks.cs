@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using TermRTS.Event;
 using TermRTS.Storage;
 
 namespace TermRTS.Benchmark;
@@ -128,6 +129,7 @@ public class SchedulerStepTickLoadBenchmark
 public class CoreTickOnlyBenchmark
 {
     private Core _core = null!;
+    private readonly List<ScheduledEvent> _emittedEvents = [];
 
     [Params(100, 1000, 5000)] public int EntityCount { get; set; }
 
@@ -146,7 +148,7 @@ public class CoreTickOnlyBenchmark
     [Benchmark(Description = "Core.Tick only")]
     public void Tick()
     {
-        _core.Tick(16);
+        _core.Tick(16, _emittedEvents);
     }
 }
 
@@ -157,6 +159,7 @@ public class CoreTickOnlyBenchmark
 public class CoreTickWithComponentsBenchmark
 {
     private Core _core = null!;
+    private readonly List<ScheduledEvent> _emittedEvents = [];
 
     [Params(100, 1000, 5000)] public int EntityCount { get; set; }
 
@@ -173,10 +176,10 @@ public class CoreTickWithComponentsBenchmark
             _core.AddEntity(entities[i]);
         }
 
-        _core.Tick(16); // flush deferred adds
+        _core.Tick(16, _emittedEvents); // flush deferred adds
         for (var i = 0; i < EntityCount; i++)
             _core.AddComponent(new BenchmarkComponent(entities[i].Id));
-        _core.Tick(16); // flush components
+        _core.Tick(16, _emittedEvents); // flush components
         for (var i = 0; i < SystemCount; i++)
             _core.AddSimSystem(new GetAllAndTouchSystem());
     }
@@ -184,7 +187,7 @@ public class CoreTickWithComponentsBenchmark
     [Benchmark(Description = "Core.Tick with components + GetAllForType system")]
     public void Tick()
     {
-        _core.Tick(16);
+        _core.Tick(16, _emittedEvents);
     }
 }
 
@@ -195,6 +198,7 @@ public class CoreTickWithComponentsBenchmark
 public class CoreTickWithEntityChurnBenchmark
 {
     private Core _core = null!;
+    private readonly List<ScheduledEvent> _emittedEvents = [];
     private List<Entity> _entities = null!;
     private int _indexToRemove;
 
@@ -215,10 +219,10 @@ public class CoreTickWithEntityChurnBenchmark
             _core.AddEntity(e);
         }
 
-        _core.Tick(16);
+        _core.Tick(16, _emittedEvents);
         for (var i = 0; i < InitialEntityCount; i++)
             _core.AddComponent(new BenchmarkComponent(_entities[i].Id));
-        _core.Tick(16);
+        _core.Tick(16, _emittedEvents);
         _indexToRemove = 0;
     }
 
@@ -226,18 +230,18 @@ public class CoreTickWithEntityChurnBenchmark
     public void TickWithChurn()
     {
         for (var t = 0; t < TicksPerChurn; t++)
-            _core.Tick(16);
+            _core.Tick(16, _emittedEvents);
         if (_entities.Count <= 0) return;
 
         var entity = _entities[_indexToRemove];
         entity.IsMarkedForRemoval = true;
         _entities[_indexToRemove] = entity;
-        _core.Tick(16);
+        _core.Tick(16, _emittedEvents);
         var e = new Entity();
         _entities[_indexToRemove] = e;
         _core.AddEntity(e);
         _core.AddComponent(new BenchmarkComponent(e.Id));
-        _core.Tick(16);
+        _core.Tick(16, _emittedEvents);
         _indexToRemove = (_indexToRemove + 1) % _entities.Count;
     }
 }

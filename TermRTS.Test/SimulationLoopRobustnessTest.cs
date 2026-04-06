@@ -17,7 +17,7 @@ public class SimulationLoopRobustnessTest
         const int tickCount = 12;
         const ulong timeStepSizeMs = 16;
         var scheduler = new Scheduler(core);
-        core.AddSimSystem(new TerminatorSystem(scheduler.EventQueue, tickCount));
+        core.AddSimSystem(new TerminatorSystem(tickCount));
         core.AddSimSystem(new BusySystem(2.0));
         core.AddSimSystem(new BusySystem(1.0));
         core.AddSimSystem(new BusySystem(3.0));
@@ -42,7 +42,7 @@ public class SimulationLoopRobustnessTest
         const ulong timeStepSizeMs = 16;
         core.Renderer = new SlowRenderer(TimeSpan.FromMilliseconds(6));
         var scheduler = new Scheduler(core);
-        core.AddSimSystem(new TerminatorSystem(scheduler.EventQueue, tickCount));
+        core.AddSimSystem(new TerminatorSystem(tickCount));
         core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
@@ -60,7 +60,7 @@ public class SimulationLoopRobustnessTest
     {
         const int tickCount = 20;
         var scheduler = new Scheduler(core);
-        core.AddSimSystem(new TerminatorSystem(scheduler.EventQueue, tickCount));
+        core.AddSimSystem(new TerminatorSystem(tickCount));
         core.AddEntity(new Entity());
 
         var simulation = new Simulation(scheduler);
@@ -76,7 +76,7 @@ public class SimulationLoopRobustnessTest
     {
         const ulong shutdownAtMs = 12 * 16;
         var scheduler = new Scheduler(core);
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown(), shutdownAtMs));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown(), shutdownAtMs));
         core.AddSimSystem(new BusySystem(1.0));
         core.AddSimSystem(new BusySystem(2.0));
         core.AddEntity(new Entity());
@@ -96,7 +96,7 @@ public class SimulationLoopRobustnessTest
         const int entityCount = 500;
         const int systemCount = 10;
         var scheduler = new Scheduler(core);
-        core.AddSimSystem(new TerminatorSystem(scheduler.EventQueue, tickCount));
+        core.AddSimSystem(new TerminatorSystem(tickCount));
         for (var i = 0; i < systemCount; i++)
             core.AddSimSystem(new BusySystem(0.05));
         for (var i = 0; i < entityCount; i++)

@@ -1,3 +1,4 @@
+using TermRTS.Event;
 using TermRTS.Storage;
 
 namespace TermRTS.Benchmark;
@@ -22,7 +23,10 @@ internal sealed class NoOpRenderer : IRenderer
 /// <summary>System that does nothing; used for Core.Tick throughput benchmarks.</summary>
 internal sealed class NoOpSystem : ISimSystem
 {
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
     }
 }
@@ -32,7 +36,10 @@ internal sealed class BusySystem(double workTimeMs) : ISimSystem
 {
     private readonly TimeSpan _workTime = TimeSpan.FromMilliseconds(workTimeMs);
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         var start = DateTime.UtcNow;
         while (DateTime.UtcNow - start < _workTime)
@@ -44,7 +51,10 @@ internal sealed class BusySystem(double workTimeMs) : ISimSystem
 /// <summary>System that calls GetAllForType and touches each component; used for Tick-with-components benchmarks.</summary>
 internal sealed class GetAllAndTouchSystem : ISimSystem
 {
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         foreach (var c in storage.GetAllForType<BenchmarkComponent>()) c.Touch++;
     }

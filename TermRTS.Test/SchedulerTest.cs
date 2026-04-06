@@ -13,7 +13,7 @@ public class SchedulerTest
         scheduler.AddEventSink(sink, typeof(Shutdown));
 
         scheduler.Prepare();
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 0UL));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown(), 0UL));
         scheduler.SimulationStep();
 
         Assert.Single(sink.Received);
@@ -31,8 +31,8 @@ public class SchedulerTest
         scheduler.AddEventSink(sinkProfile, typeof(Profile));
 
         scheduler.Prepare();
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog("log"), 0UL));
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new Profile("profile"), 0UL));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new SystemLog("log"), 0UL));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Profile("profile"), 0UL));
         scheduler.SimulationStep();
 
         Assert.Single(sinkSystemLog.Received);
@@ -50,13 +50,13 @@ public class SchedulerTest
         scheduler.AddEventSink(sink, typeof(SystemLog));
 
         scheduler.Prepare();
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog("first"), 0UL));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new SystemLog("first"), 0UL));
         scheduler.SimulationStep();
 
         Assert.Single(sink.Received);
 
         scheduler.RemoveEventSink(sink, typeof(SystemLog));
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog("second"), 0UL));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new SystemLog("second"), 0UL));
         scheduler.SimulationStep();
 
         Assert.Single(sink.Received);
@@ -76,7 +76,7 @@ public class SchedulerTest
         scheduler.AddEventSink(sink2, typeof(SystemLog));
 
         scheduler.Prepare();
-        scheduler.EventQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog("msg"), 0UL));
+        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new SystemLog("msg"), 0UL));
         scheduler.SimulationStep();
 
         Assert.Single(sink1.Received);

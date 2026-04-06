@@ -1,3 +1,4 @@
+using TermRTS.Event;
 using TermRTS.Storage;
 
 namespace TermRTS.Test;
@@ -9,7 +10,10 @@ internal sealed class StorageSpySystem : ISimSystem
 {
     public IReadonlyStorage? Storage { get; private set; }
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         Storage = storage;
     }
@@ -21,6 +25,7 @@ public class CoreTest
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void AddEntity_and_AddComponent_appear_in_storage_after_Tick(Core core)
     {
+        var emittedEvents = new List<ScheduledEvent>();
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
@@ -29,7 +34,7 @@ public class CoreTest
         core.AddComponent(new ComponentA(entity.Id));
 
         Assert.Null(spy.Storage);
-        core.Tick(1);
+        core.Tick(1, emittedEvents);
 
         Assert.NotNull(spy.Storage);
         var components = spy.Storage!.GetAllForType<ComponentA>().ToList();
@@ -42,20 +47,21 @@ public class CoreTest
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Entity_marked_for_removal_is_removed_after_Tick_components_cleaned(Core core)
     {
+        var emittedEvents = new List<ScheduledEvent>();
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
         var entity = new Entity();
         core.AddEntity(entity);
         core.AddComponent(new ComponentA(entity.Id));
-        core.Tick(1);
+        core.Tick(1, emittedEvents);
 
         Assert.NotNull(spy.Storage);
         Assert.Single(spy.Storage!.GetAllForType<ComponentA>());
         Assert.Single(spy.Storage.GetAllForEntity(entity.Id));
 
         entity.IsMarkedForRemoval = true;
-        core.Tick(1);
+        core.Tick(1, emittedEvents);
 
         Assert.Empty(spy.Storage.GetAllForEntity(entity.Id));
         Assert.Empty(spy.Storage.GetAllForType<ComponentA>());
@@ -65,6 +71,7 @@ public class CoreTest
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void AddAllEntities_and_AddAllComponents_appear_after_Tick(Core core)
     {
+        var emittedEvents = new List<ScheduledEvent>();
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
@@ -77,7 +84,7 @@ public class CoreTest
             new ComponentA(e2.Id)
         ]);
 
-        core.Tick(1);
+        core.Tick(1, emittedEvents);
 
         Assert.NotNull(spy.Storage);
         Assert.Equal(2, spy.Storage!.GetAllForType<ComponentA>().Count());
@@ -93,20 +100,21 @@ public class CoreTest
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]
     public void Deferred_add_component_for_existing_entity_appears_after_Tick(Core core)
     {
+        var emittedEvents = new List<ScheduledEvent>();
         var spy = new StorageSpySystem();
         core.AddSimSystem(spy);
 
         var entity = new Entity();
         core.AddEntity(entity);
         core.AddComponent(new ComponentA(entity.Id));
-        core.Tick(1);
+        core.Tick(1, emittedEvents);
 
         Assert.NotNull(spy.Storage);
         Assert.Single(spy.Storage!.GetAllForType<ComponentA>());
 
         core.AddComponent(new ComponentB(entity.Id));
         Assert.Empty(spy.Storage.GetAllForType<ComponentB>()); // not yet visible
-        core.Tick(1);
+        core.Tick(1, emittedEvents);
         Assert.Single(spy.Storage.GetAllForType<ComponentB>().ToList());
         Assert.Equal(entity.Id,
             spy.Storage.GetSingleForTypeAndEntity<ComponentB>(entity.Id)!.EntityId);

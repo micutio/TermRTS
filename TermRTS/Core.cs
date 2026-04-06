@@ -36,6 +36,11 @@ public class Core(IStorage storage) : IEventSink
     private readonly List<Entity> _newEntities = [];
     private readonly List<ComponentBase> _newComponents = [];
 
+    // Use ThreadLocal to give every CPU core it own private bucket to collect events from
+    // SimSystem execution.
+    private readonly ThreadLocal<List<ScheduledEvent>> _threadLocalEvents
+        = new(() => new List<ScheduledEvent>(2048), true);
+
     private bool _isGameRunning = true;
 
     #endregion
@@ -104,19 +109,46 @@ public class Core(IStorage storage) : IEventSink
     /// <param name="timeStepSizeMs">
     ///     Indicates how much time is being simulated within this one tick.
     /// </param>
-    public void Tick(ulong timeStepSizeMs)
+    /// <param name="emittedEvents">
+    ///     List of events that have been emitted by the processed systems.
+    /// </param>
+    public void Tick(
+        ulong timeStepSizeMs,
+        in List<ScheduledEvent> emittedEvents)
     {
         // Two-step simulation
         // Step 1: Iterate over each system and apply it to the respective entities.
         // When IsParallelized is true, systems run with no ordering guarantee; use only for independent systems.
         if (IsParallelized)
             foreach (var sys in _systems.AsParallel())
-                sys.ProcessComponents(timeStepSizeMs, storage);
+            {
+                var eventBuffer = _threadLocalEvents.Value;
+                // TODO: Check whether this can ever be null.
+                if (eventBuffer == null) throw new SystemException();
+
+                sys.ProcessComponents(timeStepSizeMs, storage, in eventBuffer);
+                _threadLocalEvents.Value = eventBuffer;
+            }
         else
             foreach (var sys in _systems)
-                sys.ProcessComponents(timeStepSizeMs, storage);
+            {
+                var eventBuffer = _threadLocalEvents.Value;
+                // TODO: Check whether this can ever be null.
+                if (eventBuffer == null) throw new SystemException();
+
+                sys.ProcessComponents(timeStepSizeMs, storage, in eventBuffer);
+                _threadLocalEvents.Value = eventBuffer;
+            }
 
         storage.SwapBuffers();
+
+        // TODO: Collect events in event manager
+        foreach (var buffer in _threadLocalEvents.Values)
+        {
+            emittedEvents.AddRange(buffer);
+            buffer.Clear(); // Keep capacity for next tick
+            // TODO: Check whether buffer is actually clear.
+        }
 
         // Clean up operations: remove 'dead' entities and add new ones
 

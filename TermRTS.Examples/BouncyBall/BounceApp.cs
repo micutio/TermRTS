@@ -65,7 +65,10 @@ internal class BouncePhysicsSystem : ISimSystem, IEventSink
 
     #region ISimSystem Members
 
-    public void ProcessComponents(ulong timeStepSizeMs, in IReadonlyStorage storage)
+    public void ProcessComponents(
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         var ballComponents = storage.GetAllForType<BounceBall>();
 
@@ -138,7 +141,7 @@ public class BounceApp : IRunnableExample
         var scheduler = new Scheduler(core);
         scheduler.AddEventSink(bouncePhysics, typeof(ConsoleKeyInfo));
 
-        var input = new ConsoleInput(scheduler.EventQueue);
+        var input = new ConsoleInput(scheduler.FutureEvents);
         input.Run();
 
         var simulation = new Simulation(scheduler);

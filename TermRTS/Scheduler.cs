@@ -20,7 +20,7 @@ public class SchedulerEventQueue
     /// </param>
     public void EnqueueEvent(ScheduledEvent evt)
     {
-        if (!Instance.TryAdd((evt.Event, evt.ScheduledTime)))
+        if (!Instance.TryAdd((evt.Event, evt.Event.TriggerTime)))
             throw new Exception($"Cannot add event to queue: {evt.Event}");
     }
 }
@@ -45,7 +45,12 @@ public class Scheduler
 
     // the meaty bits - actual simulation loop logic
 
-    private readonly SchedulerEventQueue _schedulerEventQueue = new();
+    // Events received from processing the game systems
+    private readonly List<ScheduledEvent> _emittedEvents = new(2048);
+
+    // The "Fast Lane" - 90% of traffic
+    private readonly List<ScheduledEvent> _nextTickEvents = new(2048);
+
     private readonly Dictionary<Type, List<IEventSink>> _eventSinks = new();
     private readonly Core _core;
 
@@ -82,7 +87,9 @@ public class Scheduler
 
     public bool IsActive => _core.IsRunning();
 
-    public SchedulerEventQueue EventQueue => _schedulerEventQueue;
+    // The "Slow Lane" - for future-dated events
+    // TODO: Try to make this private.
+    public readonly SchedulerEventQueue FutureEvents = new();
 
     #endregion
 
@@ -145,7 +152,14 @@ public class Scheduler
 
             // STEP 2: UPDATE ////////////////////////////////////////////////////////////////////
 
-            _core.Tick(_timeStepSizeMs);
+            _core.Tick(_timeStepSizeMs, _emittedEvents);
+
+            foreach (var evt in _emittedEvents)
+                if (evt.Event.TriggerTime <= TimeMs)
+                    _nextTickEvents.Add(evt);
+                else
+                    FutureEvents.EnqueueEvent(evt);
+
             TimeMs += _timeStepSizeMs;
             _lag -= _msPerUpdate;
             tickCount += 1;
@@ -183,7 +197,7 @@ public class Scheduler
         );
         // Push out profiling results every 10 samples
         if (_profiler.SampleSize % 10 == 0)
-            _schedulerEventQueue.EnqueueEvent(
+            FutureEvents.EnqueueEvent(
                 ScheduledEvent.From(new Profile(_profiler.ToString())));
 #endif
     }
@@ -194,9 +208,11 @@ public class Scheduler
 
     internal SchedulerState GetSchedulerState()
     {
+        // TODO: Serialize event sources and sinks!
+
         return new SchedulerState(
             TimeMs,
-            _schedulerEventQueue.Instance.GetSerializableElements(),
+            FutureEvents.Instance.GetSerializableElements(),
             _core.GetSerializableCoreState()
         );
     }
@@ -210,9 +226,9 @@ public class Scheduler
         _renderTimer.Reset();
         _pauseTimer.Reset();
 
-        _schedulerEventQueue.Instance.Clear();
+        FutureEvents.Instance.Clear();
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems)
-            if (!_schedulerEventQueue.Instance.TryAdd((eventItem, priority)))
+            if (!FutureEvents.Instance.TryAdd((eventItem, priority)))
                 throw new Exception($"Cannot add event to queue: {eventItem}");
     }
 
@@ -267,7 +283,17 @@ public class Scheduler
     /// </summary>
     private void ProcessInput()
     {
-        while (_schedulerEventQueue.Instance.TryTakeIf(priority => priority <= TimeMs,
+        // CLear out all immediate events.
+        foreach (var evt in _nextTickEvents)
+        {
+            if (!_eventSinks.TryGetValue(evt.Event.EvtType, out var sinks))
+                continue;
+
+            foreach (var sink in sinks) sink.ProcessEvent(evt.Event);
+        }
+
+        // Drain due events from the future. // TODO: Maybe move elsewhere
+        while (FutureEvents.Instance.TryTakeIf(priority => priority <= TimeMs,
                    out var eventItem))
         {
             var (evt, _) = eventItem;
