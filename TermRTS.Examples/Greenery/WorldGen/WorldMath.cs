@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace TermRTS.Examples.Greenery.WorldGen;
 
 public static class WorldMath
@@ -21,6 +23,7 @@ public static class WorldMath
         public int LocalIndex => (LocalY << 5) + LocalX;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (int chunkX, int chunkY, int localX, int localY) ToRelative(int x, int y)
     {
         // 1. Wrap X for the cylinder before calculating
@@ -37,6 +40,7 @@ public static class WorldMath
         return (cx, cy, lx, ly);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (int x, int y) ToWorld(int cx, int cy, int lx, int ly)
     {
         var x = (cx << 5) + lx; // Same as (cx * 32) + lx
@@ -48,11 +52,13 @@ public static class WorldMath
     /// <summary>
     /// Converts world-grid X to wrapped cylinder X.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int WrapX(int x)
     {
         return (x % WorldWidth + WorldWidth) % WorldWidth;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetChunkIndex(int x, int y)
     {
         // 1. Handle Cylindrical Horizontal Wrap
@@ -67,6 +73,7 @@ public static class WorldMath
     }
 
     // Optimized for ChunkSize = 32
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetChunkIndexFast(int x, int y)
     {
         // Wrap x for the cylinder
@@ -79,6 +86,7 @@ public static class WorldMath
         return cy * ChunksAcross + cx;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetNeighborChunkIndex(int currentIdx, int dx, int dy)
     {
         var cx = currentIdx % ChunksAcross;
@@ -104,6 +112,7 @@ public static class WorldMath
     /// <returns>
     ///     Distance between both points on a cylinder.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float GetCylindricalDistance(int x1, int y1, int x2, int y2)
     {
         var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
@@ -121,6 +130,7 @@ public static class WorldMath
     /// <returns>
     ///     Distance between both points on a cylinder.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float GetCylindricalDistanceSq(float x1, float y1, float x2, float y2)
     {
         var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
