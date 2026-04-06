@@ -6,6 +6,9 @@ namespace TermRTS;
 internal record SchedulerState(
     ulong TimeMs,
     List<(IEvent, ulong)> EventQueueItems,
+    Dictionary<Type, List<IEventSink>> EventSinks,
+    List<ScheduledEvent> EmittedEvents,
+    List<ScheduledEvent> NextTickEvents,
     CoreState CoreState);
 
 public class SchedulerEventQueue
@@ -42,8 +45,6 @@ public class Scheduler
 
     // statistics recording for profiling
     private readonly Profiler _profiler;
-
-    // the meaty bits - actual simulation loop logic
 
     // Events received from processing the game systems
     private readonly List<ScheduledEvent> _emittedEvents = new(2048);
@@ -213,6 +214,9 @@ public class Scheduler
         return new SchedulerState(
             TimeMs,
             FutureEvents.Instance.GetSerializableElements(),
+            new Dictionary<Type, List<IEventSink>>(_eventSinks),
+            [.. _emittedEvents],
+            [.. _nextTickEvents],
             _core.GetSerializableCoreState()
         );
     }
@@ -230,6 +234,13 @@ public class Scheduler
         foreach (var (eventItem, priority) in schedulerState.EventQueueItems)
             if (!FutureEvents.Instance.TryAdd((eventItem, priority)))
                 throw new Exception($"Cannot add event to queue: {eventItem}");
+
+        _emittedEvents.Clear();
+        _emittedEvents.AddRange(schedulerState.EmittedEvents);
+        _nextTickEvents.Clear();
+        _nextTickEvents.AddRange(schedulerState.NextTickEvents);
+        _eventSinks.Clear();
+        foreach (var item in schedulerState.EventSinks) _eventSinks.Add(item.Key, item.Value);
     }
 
     #endregion
