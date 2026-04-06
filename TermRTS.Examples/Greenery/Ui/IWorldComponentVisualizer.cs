@@ -163,23 +163,29 @@ internal static class Visual
     internal static readonly Dictionary<Biome, CellVisual> BiomeMap = new()
     {
         // Water and Ice
-        { Biome.Ocean, new CellVisual(Cp437.Approximation, ConsoleColor.Blue, DefaultBg) },
-        { Biome.IceCap, new CellVisual(Cp437.BlockFull, ConsoleColor.White, DefaultBg) },
-        { Biome.PolarDesert, new CellVisual(Cp437.Interpunct, ConsoleColor.White, DefaultBg) },
-        { Biome.Glacier, new CellVisual(Cp437.LeftNegate, ConsoleColor.White, DefaultBg) },
+        {
+            Biome.Ocean,
+            new CellVisual(Cp437.Approximation, ConsoleColor.Blue, ConsoleColor.DarkBlue)
+        },
+        { Biome.IceCap, new CellVisual(Cp437.BlockFull, ConsoleColor.White, ConsoleColor.White) },
+        {
+            Biome.PolarDesert,
+            new CellVisual(Cp437.Minus, ConsoleColor.DarkGray, ConsoleColor.White)
+        },
+        { Biome.Glacier, new CellVisual(Cp437.MediumShade, ConsoleColor.Cyan, ConsoleColor.White) },
         // Frost
         { Biome.RockPeak, new CellVisual(Cp437.Caret, ConsoleColor.Gray, ConsoleColor.DarkGray) },
         {
             Biome.AlpineTundra,
-            new CellVisual(Cp437.Intersection, ConsoleColor.Gray, ConsoleColor.DarkGray)
+            new CellVisual(Cp437.Minus, ConsoleColor.Gray, ConsoleColor.DarkGray)
         },
         {
             Biome.Tundra,
-            new CellVisual(Cp437.TripleBar, ConsoleColor.DarkYellow, ConsoleColor.DarkGreen)
+            new CellVisual(Cp437.BoxHorizontal, ConsoleColor.DarkYellow, ConsoleColor.Gray)
         },
         {
             Biome.SnowyForest,
-            new CellVisual(Cp437.Yen, ConsoleColor.DarkCyan, ConsoleColor.DarkGray)
+            new CellVisual(Cp437.ArrowUpDownWithBase, ConsoleColor.White, ConsoleColor.Gray)
         },
         {
             Biome.Taiga,
@@ -188,23 +194,23 @@ internal static class Visual
         // Temperate
         {
             Biome.ColdDesert,
-            new CellVisual(Cp437.MediumShade, ConsoleColor.DarkYellow, ConsoleColor.Gray)
+            new CellVisual(Cp437.MediumShade, ConsoleColor.Cyan, ConsoleColor.DarkYellow)
         },
         {
             Biome.HighlandMoor,
-            new CellVisual(Cp437.Infinity, ConsoleColor.Gray, ConsoleColor.DarkGreen)
+            new CellVisual(Cp437.TripleBar, ConsoleColor.DarkBlue, ConsoleColor.DarkGreen)
         },
         {
             Biome.Steppe,
-            new CellVisual(Cp437.BoxDownRight, ConsoleColor.Gray, ConsoleColor.DarkYellow)
+            new CellVisual(Cp437.Rectangle, ConsoleColor.DarkGreen, ConsoleColor.DarkYellow)
         },
         {
             Biome.Grassland,
-            new CellVisual(Cp437.BoxDoubleDownRight, ConsoleColor.Green, ConsoleColor.DarkGreen)
+            new CellVisual(Cp437.LowerV, ConsoleColor.Green, ConsoleColor.DarkGreen)
         },
         {
             Biome.TemperateForest,
-            new CellVisual(Cp437.DeckHeart, ConsoleColor.DarkGreen, ConsoleColor.Green)
+            new CellVisual(Cp437.DeckSpade, ConsoleColor.Yellow, ConsoleColor.Green)
         },
         // Tropical
         {
@@ -214,14 +220,14 @@ internal static class Visual
             Biome.HotDesert,
             new CellVisual(Cp437.SparseShade, ConsoleColor.Yellow, ConsoleColor.DarkYellow)
         },
-        { Biome.Savanna, new CellVisual(Cp437.Mu, ConsoleColor.Green, ConsoleColor.Yellow) },
+        { Biome.Savanna, new CellVisual(Cp437.Mu, ConsoleColor.DarkGreen, ConsoleColor.Yellow) },
         {
             Biome.TropicalSeasonalForest,
             new CellVisual(Cp437.DeckClub, ConsoleColor.Green, ConsoleColor.DarkGreen)
         },
         {
             Biome.TropicalRainforest,
-            new CellVisual(Cp437.PhiLower, ConsoleColor.DarkGreen, ConsoleColor.Green)
+            new CellVisual(Cp437.PhiLower, ConsoleColor.Green, ConsoleColor.DarkGreen)
         },
         // Rivers
         {
