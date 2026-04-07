@@ -6,7 +6,6 @@ namespace TermRTS;
 internal record SchedulerState(
     ulong TimeMs,
     List<(IEvent, ulong)> EventQueueItems,
-    Dictionary<Type, List<IEventSink>> EventSinks,
     List<ScheduledEvent> EmittedEvents,
     List<ScheduledEvent> NextTickEvents,
     CoreState CoreState);
@@ -214,7 +213,6 @@ public class Scheduler
         return new SchedulerState(
             TimeMs,
             FutureEvents.Instance.GetSerializableElements(),
-            new Dictionary<Type, List<IEventSink>>(_eventSinks),
             [.. _emittedEvents],
             [.. _nextTickEvents],
             _core.GetSerializableCoreState()
@@ -240,7 +238,6 @@ public class Scheduler
         _nextTickEvents.Clear();
         _nextTickEvents.AddRange(schedulerState.NextTickEvents);
         _eventSinks.Clear();
-        foreach (var item in schedulerState.EventSinks) _eventSinks.Add(item.Key, item.Value);
     }
 
     #endregion
