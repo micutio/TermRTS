@@ -205,11 +205,11 @@ public class CylinderWorld : IWorldGen
     public int RainfallWaterDistanceRadius { get; set; } =
         2; // search radius to nearest water for rainfall boost
 
-    public float RainfallWaterDistancePenalty { get; set; } = 0.2f; // weight for distance penalty
-    public float RainfallMinValue { get; set; } = 0.1f; // minimum rainfall on land
+    public float RainfallWaterDistancePenalty { get; set; } = 0.3f; // weight for distance penalty
+    public float RainfallMinValue { get; set; } = 0.0f; // minimum rainfall on land
 
-    public float RainfallElevationDecay { get; set; } =
-        0.1f; // how quickly rainfall falls with elevation
+    // how quickly rainfall falls with elevation
+    public float RainfallElevationDecay { get; set; } = 0.1f;
 
     public float RainfallMinModifier { get; set; } = 0.2f; // minimum modifier due to elevation
 
@@ -1444,7 +1444,7 @@ public class CylinderWorld : IWorldGen
     private void GenerateRivers()
     {
         // Step 0: Fix local minima so water doesn't get stuck
-        FillDepressions();
+        // FillDepressions();
 
         // Step 1: Generate rainfall map
         var rainfall = GenerateRainfall();
