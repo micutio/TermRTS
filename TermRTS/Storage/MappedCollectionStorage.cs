@@ -11,7 +11,6 @@ using EntityComponents = Dictionary<int, List<ComponentBase>>;
 ///     Storage of components by component type and entity id. Supports multiple components
 ///     of the same type per entity (stored in a list per (type, entity)).
 /// </summary>
-// TODO: Make implementation thread-safe
 public class MappedCollectionStorage : IStorage
 {
     #region Fields

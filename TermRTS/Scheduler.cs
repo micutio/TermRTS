@@ -88,7 +88,6 @@ public class Scheduler
     public bool IsActive => _core.IsRunning();
 
     // The "Slow Lane" - for future-dated events
-    // TODO: Try to make this private.
     public readonly SchedulerEventQueue FutureEvents = new();
 
     #endregion
@@ -208,8 +207,9 @@ public class Scheduler
 
     internal SchedulerState GetSchedulerState()
     {
-        // TODO: Serialize event sources and sinks!
-
+        // Event sources and sinks are not serialized as it is assumed the application
+        // is started already with the wiring in place and only needs to restore the
+        // component data.
         return new SchedulerState(
             TimeMs,
             FutureEvents.Instance.GetSerializableElements(),

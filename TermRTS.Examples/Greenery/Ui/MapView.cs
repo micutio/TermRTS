@@ -41,7 +41,7 @@ internal readonly struct CellVisual(char marker, ConsoleColor foreground, Consol
     }
 }
 
-public class MapView : KeyInputProcessorBase, IEventSink
+public class MapView : UiElementBase, IEventSink
 {
     #region Fields
 
@@ -324,7 +324,7 @@ public class MapView : KeyInputProcessorBase, IEventSink
 
     #region KeyInputProcessorBase Members
 
-    public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
+    public void HandleKeyInput(in ConsoleKeyInfo keyInfo)
     {
         switch (keyInfo.Key)
         {

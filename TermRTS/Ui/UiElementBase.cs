@@ -1,49 +1,6 @@
-using System.Threading.Channels;
 using TermRTS.Storage;
 
 namespace TermRTS.Ui;
-
-public abstract class KeyInputProcessorBase : UiElementBase
-{
-    #region Fields
-
-    private static int _runningId;
-
-    private readonly int id;
-
-    internal readonly ChannelReader<int> FocusSignalReader;
-
-    // TODO: Do I really need a channel for this?
-    /// <summary>
-    /// Send <c>true</c> to try and claim focus, <c>false</c> to yield it again.
-    /// </summary>
-    private readonly Channel<int> _focusSignal;
-
-    #endregion
-
-    #region Constructor
-
-    protected KeyInputProcessorBase()
-    {
-        id = Interlocked.Increment(ref _runningId);
-        _focusSignal = Channel.CreateUnbounded<int>();
-        FocusSignalReader = _focusSignal.Reader;
-    }
-
-    #endregion
-
-    protected void ClaimFocus()
-    {
-        _focusSignal.Writer.TryWrite(id);
-    }
-
-    protected void YieldFocus()
-    {
-        _focusSignal.Writer.TryWrite(id);
-    }
-
-    public abstract void HandleKeyInput(in ConsoleKeyInfo keyInfo);
-}
 
 public abstract class UiElementBase
 {

@@ -4,10 +4,6 @@ namespace TermRTS.Ui;
 
 public abstract class UiRootBase : UiElementBase
 {
-    // TODO: Possibly create a stack to keep track of focused elements.
-    //       If one of the child elements claims focus to this, then this claims focus to its
-    //       parent and so on.
-
     #region Fields
 
     private readonly List<UiElementBase> _uiElements = [];
@@ -16,7 +12,6 @@ public abstract class UiRootBase : UiElementBase
 
     #region UIElementBase Members
 
-    // TODO: Find better method names to distinguish between UiRoot and UiElement members.
     public override void UpdateFromComponents(
         in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
@@ -85,7 +80,6 @@ public abstract class UiRootBase : UiElementBase
         _uiElements.Add(uiElement);
     }
 
-    // TODO: Should this be allowed? Will require much bookkeeping
     public void RemoveUiElement(UiElementBase uiElement)
     {
         _uiElements.Remove(uiElement);

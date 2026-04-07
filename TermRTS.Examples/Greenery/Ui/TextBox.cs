@@ -11,7 +11,7 @@ internal enum InputState
     OngoingInput
 }
 
-public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : KeyInputProcessorBase
+public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiElementBase
 {
     #region Fields
 
@@ -32,7 +32,7 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : KeyIn
 
     #region IEventSink Members
 
-    public override void HandleKeyInput(in ConsoleKeyInfo keyInfo)
+    public void HandleKeyInput(in ConsoleKeyInfo keyInfo)
     {
         if (keyInfo.Key == ConsoleKey.Enter)
             switch (_state)
