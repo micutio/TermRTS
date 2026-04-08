@@ -208,7 +208,7 @@ public class CylinderWorld : IWorldGen
     public int RainfallWaterDistanceRadius { get; set; } = 2;
 
     public float RainfallWaterDistancePenalty { get; set; } = 0.07f; // weight for distance penalty
-    public float RainfallMinValue { get; set; } = 0.23f; // minimum rainfall on land
+    public float RainfallMinValue { get; set; } = 0.0f; // minimum rainfall on land
 
     // how quickly rainfall falls with elevation
     public float RainfallElevationDecay { get; set; } = 0.1f;
@@ -1698,7 +1698,7 @@ public class CylinderWorld : IWorldGen
                     if (ny < 0 || ny >= _worldHeight) continue;
 
                     var neighborElevation = elevationsF[ny * _worldWidth + nx];
-                    var drop = currentElevation - neighborElevation + noiseMap[ny * _worldWidth + nx];
+                    var drop = currentElevation - neighborElevation * noiseMap[ny * _worldWidth + nx];
 
                     if (drop <= steepestDrop) continue;
 
@@ -1853,7 +1853,7 @@ public class CylinderWorld : IWorldGen
             }
 
             inDegree[nx, ny]--;
-            if (inDegree[nx, ny] != 0) continue;
+            if (inDegree[nx, ny] > 0) continue;
             // RESOLVE ORDER: If two or more tributaries of the same MAX order meet, level up.
             // Otherwise, inherit the max incoming order.
             strahlerRiver[ny * _worldWidth + nx] = countOfMaxOrder[nx, ny] >= 2
@@ -1882,7 +1882,7 @@ public class CylinderWorld : IWorldGen
             maxOrder = Math.Max(maxOrder, strahlerRiver[i]);
 
         // 2. Visual and Physical Thresholds
-        const int minOrderToVisualise = 1;
+        const int minOrderToVisualise = 2;
         const int minOrderToCarve = 3;
 
         for (var y = 0; y < _worldHeight; y++)
@@ -1904,7 +1904,7 @@ public class CylinderWorld : IWorldGen
                 while (maxSteps-- > 0)
                 {
                     var index = cy * _worldWidth + cx;
-                    var currentOrder = strahlerRiver[cy * _worldWidth + cx];
+                    var currentOrder = strahlerRiver[index];
 
                     // --- THE STRAHLER UPGRADE ---
 
