@@ -141,7 +141,7 @@ public class CylinderWorld : IWorldGen
     private const float LatitudeAmplitudeModifier = 20.0f;
 
     // Constants for river carving
-    private const int RiverCarveMinElevation = 3;
+    private const int RiverCarveMinElevation = 4;
 
     #endregion
 
@@ -196,18 +196,19 @@ public class CylinderWorld : IWorldGen
 
     // River tuning parameters (adjust at runtime)
     // Lower thresholds create more rivers; higher thresholds make rivers rarer.
-    public float RiverFormationThreshold { get; set; } =
-        0.01f; // normalized flow-level for river initiation
 
-    public float RiverCarveScale { get; set; } = 3.0f; // scaling factor for river depth from flow
-    public float RiverMaxCarveDepth { get; set; } = 2.0f; // maximum depth a river can carve
+    // normalized flow-level for river initiation
+    public float RiverFormationThreshold { get; set; } = 0.01f;
+
+    public float RiverCarveScale { get; set; } = 0.01f; // scaling factor for river depth from flow
+    public float RiverMaxCarveDepth { get; set; } = 3.0f; // maximum depth a river can carve
 
     // Rainfall tuning parameters (used in river generation)
-    public int RainfallWaterDistanceRadius { get; set; } =
-        2; // search radius to nearest water for rainfall boost
+    // search radius to nearest water for rainfall boost
+    public int RainfallWaterDistanceRadius { get; set; } = 2;
 
     public float RainfallWaterDistancePenalty { get; set; } = 0.07f; // weight for distance penalty
-    public float RainfallMinValue { get; set; } = 0.0f; // minimum rainfall on land
+    public float RainfallMinValue { get; set; } = 0.23f; // minimum rainfall on land
 
     // how quickly rainfall falls with elevation
     public float RainfallElevationDecay { get; set; } = 0.1f;
@@ -954,6 +955,7 @@ public class CylinderWorld : IWorldGen
         var humidity = _humidity.Memory.Span;
         var distToWaterMap = _distToWaterMap.Memory.Span;
         var strahlerRiver = _strahlerRiver.Memory.Span;
+        var riverMap = _riverMap.Memory.Span;
         var biomes = _biomes.Memory.Span;
 
         for (var y = 0; y < _worldHeight; y++)
@@ -1021,14 +1023,16 @@ public class CylinderWorld : IWorldGen
                 var relHumidity = Math.Clamp(humidity[idx] / possibleHumidityAtTemp, 0.0f, 1.0f);
                 humidity[idx] = relHumidity;
 
-                var river = strahlerRiver[idx];
+                var isRiver = riverMap[idx];
+                var strahler = strahlerRiver[idx];
                 // Determine biome
                 biomes[idx] = DetermineBiome(
                     temperature[idx],
                     relHumidity,
                     elevation,
                     isWater,
-                    river);
+                    isRiver,
+                    strahler);
             }
         }
     }
@@ -1105,13 +1109,17 @@ public class CylinderWorld : IWorldGen
     /// <param name="isWater">True if the cell is sea, false otherwise.</param>
     /// <param name="strahlerOrder">Strahler order for river cells.</param>
     /// <returns>Biome of the cell.</returns>
-    private static Biome DetermineBiome(float temp, float relHumidity, float elevation,
+    private static Biome DetermineBiome(
+        float temp,
+        float relHumidity,
+        float elevation,
         bool isWater,
+        bool isRiver,
         int strahlerOrder)
     {
         if (isWater) return Biome.Ocean;
 
-        if (strahlerOrder > 1)
+        if (isRiver)
             return strahlerOrder switch
             {
                 <= 2 => Biome.Creek,
@@ -1452,7 +1460,7 @@ public class CylinderWorld : IWorldGen
     private void GenerateRivers()
     {
         // Step 0: Fix local minima so water doesn't get stuck
-        // FillDepressions();
+        FillDepressions();
 
         // Step 1: Generate rainfall map
         var rainfall = GenerateRainfall();
@@ -1490,9 +1498,7 @@ public class CylinderWorld : IWorldGen
             for (var x = 0; x < _worldWidth; x++)
             {
                 var elevation = elevationsF[y * _worldWidth + x];
-                // TODO: Parameterize water surface elevation
-                const int waterSurfaceElevation = 3;
-                var isWater = elevation <= waterSurfaceElevation; // Water cells get maximum rainfall
+                var isWater = elevation <= SeaLevelElevation; // Water cells get maximum rainfall
 
                 // Distance to nearest water (simplified - just check neighbors)
                 var waterDistance = distToWaterMap[y * _worldWidth + x];
@@ -1517,7 +1523,7 @@ public class CylinderWorld : IWorldGen
     ///     Adjusts the rainfall map based on global wind bands (Trade Winds, Westerlies) 
     ///     and terrain height to simulate realistic rain shadows.
     /// </summary>
-    private void ApplyRainShadows(float[,] rainfall)
+    private void ApplyRainShadows(in float[,] rainfall)
     {
         var elevationsF = _elevation.Memory.Span;
 
@@ -1544,10 +1550,9 @@ public class CylinderWorld : IWorldGen
             {
                 // If windDir is 1 (West->East), we read left to right.
                 // If windDir is -1 (East->West), we read right to left.
-                var logicalX = windDir == 1 ? step : _worldWidth * 2 - 1 - step;
-                var realX = logicalX % _worldWidth;
-
-                var index = y * _worldWidth + realX;
+                var logicalX = windDir == 1 ? step : -step;
+                var windX = WorldMath.WrapX(logicalX);
+                var index = y * _worldWidth + windX;
                 var elevation = elevationsF[index];
 
                 var isSecondPass = step >= _worldWidth;
@@ -1566,7 +1571,7 @@ public class CylinderWorld : IWorldGen
                 {
                     // DISCHARGE: The 'previous' cell is where the wind came FROM.
                     // We subtract the windDir to look backward into the wind.
-                    var prevX = WorldMath.WrapX(realX - windDir);
+                    var prevX = WorldMath.WrapX(windX - windDir);
                     var prevElevation = elevationsF[y * _worldWidth + prevX];
 
                     var lift = elevation - prevElevation;
@@ -1583,8 +1588,8 @@ public class CylinderWorld : IWorldGen
                     if (isSecondPass)
                     {
                         // Apply shadow penalty, then add mountain rain
-                        rainfall[realX, y] *= 0.5f + cloudMoisture * 0.5f;
-                        rainfall[realX, y] += rainDropped;
+                        rainfall[windX, y] *= 0.5f + cloudMoisture * 0.5f;
+                        rainfall[windX, y] += rainDropped;
                     }
 
                     // SHADOW decay
@@ -1671,6 +1676,7 @@ public class CylinderWorld : IWorldGen
     private (int, int)[,] CalculateFlowDirections()
     {
         var elevationsF = _elevation.Memory.Span;
+        var noiseMap = _noiseMap.Memory.Span;
         var flowDirections = new (int, int)[_worldWidth, _worldHeight];
 
         for (var y = 0; y < _worldHeight; y++)
@@ -1680,25 +1686,25 @@ public class CylinderWorld : IWorldGen
                 var steepestDrop = 0f;
                 var bestDirection = (0, 0);
 
-                // Check all 8 neighbors
-                for (var dy = -1; dy <= 1; dy++)
-                    for (var dx = -1; dx <= 1; dx++)
-                    {
-                        if (dx == 0 && dy == 0) continue;
+                // Check 4 neighbors
+                (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+                foreach (var (dx, dy) in directions)
+                {
+                    if (dx == 0 && dy == 0) continue;
 
-                        var nx = WorldMath.WrapX(x + dx);
-                        var ny = y + dy;
+                    var nx = WorldMath.WrapX(x + dx);
+                    var ny = y + dy;
 
-                        if (ny < 0 || ny >= _worldHeight) continue;
+                    if (ny < 0 || ny >= _worldHeight) continue;
 
-                        var neighborElevation = elevationsF[ny * _worldWidth + nx];
-                        var drop = currentElevation - neighborElevation;
+                    var neighborElevation = elevationsF[ny * _worldWidth + nx];
+                    var drop = currentElevation - neighborElevation + noiseMap[ny * _worldWidth + nx];
 
-                        if (drop <= steepestDrop) continue;
+                    if (drop <= steepestDrop) continue;
 
-                        steepestDrop = drop;
-                        bestDirection = (dx, dy);
-                    }
+                    steepestDrop = drop;
+                    bestDirection = (dx, dy);
+                }
 
                 flowDirections[x, y] = bestDirection;
             }
@@ -1713,8 +1719,8 @@ public class CylinderWorld : IWorldGen
     /// <param name="rainfall">Mapping of rainfall amount per cell.</param>
     /// <returns>Map of accumulated flow for each cell.</returns>
     private float[,] AccumulateFlow(
-        (int, int)[,] flowDirections,
-        float[,] rainfall)
+        in (int, int)[,] flowDirections,
+        in float[,] rainfall)
     {
         var flowAccumulation = new float[_worldWidth, _worldHeight];
         var inDegree = new int[_worldWidth, _worldHeight];
@@ -1756,8 +1762,18 @@ public class CylinderWorld : IWorldGen
 
             if (ny < 0 || ny >= _worldHeight) continue;
 
-            // Pass the accumulated water downstream
-            flowAccumulation[nx, ny] += flowAccumulation[x, y];
+            // --- EVAPORATION LOGIC ---
+            // If the local area is dry (low rainfall), evaporation is high.
+            // Base evaporation rate (e.g., 0.02 means up to 2% volume lost per tile in dry areas)
+            const float maxEvapRate = 0.05f;
+            var aridity = 1.0f - rainfall[x, y];
+            var evaporationLoss = aridity * maxEvapRate;
+
+            // Calculate how much water actually makes it to the next tile
+            var waterToPass = flowAccumulation[x, y] * (1.0f - evaporationLoss);
+
+            // Pass the remaining water downstream
+            flowAccumulation[nx, ny] += waterToPass;
 
             // Mark that one upstream dependency is resolved
             inDegree[nx, ny]--;
@@ -1866,8 +1882,8 @@ public class CylinderWorld : IWorldGen
             maxOrder = Math.Max(maxOrder, strahlerRiver[i]);
 
         // 2. Visual and Physical Thresholds
-        const int minOrderToVisualise = 3;
-        const int minOrderToCarve = 1;
+        const int minOrderToVisualise = 1;
+        const int minOrderToCarve = 3;
 
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
@@ -1899,7 +1915,7 @@ public class CylinderWorld : IWorldGen
                     // B. Physical Carving: Depth scales with ACTUAL WATER VOLUME (Flow Accumulation)
                     // Assuming base rainfall is roughly 1.0 per cell, a flow accumulation of 100 means 100 cells drained here.
                     var waterVolume = flowAccumulation[cx, cy];
-                    var erosionPower = MathF.Pow(waterVolume, 0.4f) * 0.05f; // Tweak exponents to taste
+                    var erosionPower = MathF.Pow(waterVolume, 0.1f) * 0.01f; // Tweak exponents to taste
 
                     var cellElevation = elevationsF[index];
                     var targetDepth = MathF.Min(RiverMaxCarveDepth, erosionPower * RiverCarveScale);
@@ -1915,7 +1931,7 @@ public class CylinderWorld : IWorldGen
                     if (dx == 0 && dy == 0) break;
 
                     cx = WorldMath.WrapX(cx + dx);
-                    cy = cy + dy;
+                    cy += dy;
 
                     if (cy < 0 || cy >= _worldHeight) break;
                 }
