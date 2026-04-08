@@ -6,8 +6,8 @@ public static class WorldMath
 {
     // These would be set during engine initialization
     public const int ChunkSize = 32;
-    public const int WorldWidth = 1024; // Must be multiple of ChunkSize
-    public const int WorldHeight = 512; //96;
+    public const int WorldWidth = 1024; // 320 // Must be multiple of ChunkSize
+    public const int WorldHeight = 512; // 96;
     public const int ChunksAcross = WorldWidth / ChunkSize;
 
     public readonly struct WorldCoord(int x, int y)

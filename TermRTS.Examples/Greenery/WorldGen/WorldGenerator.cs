@@ -177,6 +177,7 @@ public class CylinderWorld : IWorldGen
     private readonly WorldBuffer<float> _temperature;
     private readonly WorldBuffer<float> _temperatureAmplitude;
     private readonly WorldBuffer<float> _humidity;
+    private readonly WorldBuffer<float> _distToWaterMap;
     private readonly WorldBuffer<Biome> _biomes;
 
     private readonly WorldBuffer<SurfaceFeature> _surfaceFeatures;
@@ -205,7 +206,7 @@ public class CylinderWorld : IWorldGen
     public int RainfallWaterDistanceRadius { get; set; } =
         2; // search radius to nearest water for rainfall boost
 
-    public float RainfallWaterDistancePenalty { get; set; } = 0.3f; // weight for distance penalty
+    public float RainfallWaterDistancePenalty { get; set; } = 0.07f; // weight for distance penalty
     public float RainfallMinValue { get; set; } = 0.0f; // minimum rainfall on land
 
     // how quickly rainfall falls with elevation
@@ -285,6 +286,7 @@ public class CylinderWorld : IWorldGen
         _temperature = new WorldBuffer<float>(worldWidth * worldHeight);
         _temperatureAmplitude = new WorldBuffer<float>(worldWidth * worldHeight);
         _humidity = new WorldBuffer<float>(worldWidth * worldHeight);
+        _distToWaterMap = new WorldBuffer<float>(_worldWidth * _worldHeight);
         _biomes = new WorldBuffer<Biome>(worldWidth * worldHeight);
         _surfaceFeatures = new WorldBuffer<SurfaceFeature>(worldWidth * worldHeight);
         _riverMap = new WorldBuffer<bool>(worldWidth * worldHeight);
@@ -324,9 +326,9 @@ public class CylinderWorld : IWorldGen
         GenerateHotspots();
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
         ApplyNoiseAndSlopes();
-        var distToWaterMap = CalculateDistanceToWaterMap();
+        CalculateDistanceToWaterMap();
         // Generate climate (temperature, humidity, biomes, seasonal effects)
-        GenerateClimate(true, distToWaterMap);
+        GenerateClimate(true);
 
         // Apply erosion to smooth terrain and create realistic features
         // if (UseAdvancedErosion)
@@ -339,7 +341,7 @@ public class CylinderWorld : IWorldGen
 
         // TODO: Re-generate distance to water?
         // Re-generate climate, now that we have rivers:
-        GenerateClimate(false, distToWaterMap);
+        GenerateClimate(false);
 
         // Apply mountain details (ridges, snow, glacier, lava)
         ApplyMountainDetails();
@@ -944,12 +946,13 @@ public class CylinderWorld : IWorldGen
     /// <summary>
     ///     Generates world maps for various climate features.
     /// </summary>
-    private void GenerateClimate(bool changeHumidity, float[,] distToWaterMap)
+    private void GenerateClimate(bool changeHumidity)
     {
         var elevations = _elevation.Memory.Span;
         var temperature = _temperature.Memory.Span;
         var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
         var humidity = _humidity.Memory.Span;
+        var distToWaterMap = _distToWaterMap.Memory.Span;
         var strahlerRiver = _strahlerRiver.Memory.Span;
         var biomes = _biomes.Memory.Span;
 
@@ -989,7 +992,7 @@ public class CylinderWorld : IWorldGen
                 if (changeHumidity)
                 {
                     // 1. Exponential decay from water
-                    var dist = distToWaterMap[x, y];
+                    var dist = distToWaterMap[idx];
                     var humidityBase = MathF.Exp(-dist * AridityConstant);
 
                     // 2. Apply Latitude and Elevation penalties
@@ -1011,11 +1014,18 @@ public class CylinderWorld : IWorldGen
                       + LatitudeAmplitudeModifier * latitudeFactor
                       + elevation * elevationFactor;
 
+
+                // Calculate Relative Humidity
+                // This scales Absolute Moisture by the air's carrying capacity at a given temperature.
+                var possibleHumidityAtTemp = MathF.Min(0.1f, (temperature[idx] + 50f) / 80f);
+                var relHumidity = Math.Clamp(humidity[idx] / possibleHumidityAtTemp, 0.0f, 1.0f);
+                humidity[idx] = relHumidity;
+
                 var river = strahlerRiver[idx];
                 // Determine biome
                 biomes[idx] = DetermineBiome(
                     temperature[idx],
-                    humidity[idx],
+                    relHumidity,
                     elevation,
                     isWater,
                     river);
@@ -1027,26 +1037,29 @@ public class CylinderWorld : IWorldGen
     ///     Calculates the distance from every land cell to the nearest water cell 
     ///     using an O(N) Breadth-First Search.
     /// </summary>
-    private float[,] CalculateDistanceToWaterMap()
+    private void CalculateDistanceToWaterMap()
     {
         var elevations = _elevation.Memory.Span;
-        var distanceMap = new float[_worldWidth, _worldHeight];
+        var distToWaterMap = _distToWaterMap.Memory.Span;
         var visited = new bool[_worldWidth, _worldHeight];
         var queue = new Queue<(int x, int y, int dist)>();
 
         // 1. Initialize: Find all water and add to queue
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                if (elevations[y * _worldWidth + x] <= SeaLevelElevation)
+            {
+                var idx = y * _worldWidth + x;
+                if (elevations[idx] <= SeaLevelElevation)
                 {
-                    distanceMap[x, y] = 0;
+                    distToWaterMap[idx] = 0;
                     visited[x, y] = true;
                     queue.Enqueue((x, y, 0));
                 }
                 else
                 {
-                    distanceMap[x, y] = -1; // Mark land as uncalculated
+                    distToWaterMap[idx] = -1; // Mark land as uncalculated
                 }
+            }
 
         // Directions for 4-way connectivity (N, S, E, W)
         // Use 8-way if you want diagonal distances accounted for
@@ -1069,15 +1082,13 @@ public class CylinderWorld : IWorldGen
                 if (visited[nx, ny]) continue;
                 visited[nx, ny] = true;
                 var nextDist = currentDist + 1;
-                distanceMap[nx, ny] = nextDist;
+                distToWaterMap[ny * _worldWidth + nx] = nextDist;
 
                 // Optimization: You can stop the queue if nextDist > MaxSearchRadius
                 // but usually, a full distance map is useful for AI city placement!
                 queue.Enqueue((nx, ny, nextDist));
             }
         }
-
-        return distanceMap;
     }
 
     /// <summary>
@@ -1089,12 +1100,13 @@ public class CylinderWorld : IWorldGen
     ///     High	Taiga (Boreal)	Seasonal Forest	Tropical Rainforest
     /// </summary>
     /// <param name="temp">Temperature of the cell.</param>
-    /// <param name="humidity">Humidity of the cell.</param>
+    /// <param name="relHumidity">Humidity of the cell.</param>
     /// <param name="elevation">Elevation of the cell.</param>
     /// <param name="isWater">True if the cell is sea, false otherwise.</param>
     /// <param name="strahlerOrder">Strahler order for river cells.</param>
     /// <returns>Biome of the cell.</returns>
-    private static Biome DetermineBiome(float temp, float humidity, float elevation, bool isWater,
+    private static Biome DetermineBiome(float temp, float relHumidity, float elevation,
+        bool isWater,
         int strahlerOrder)
     {
         if (isWater) return Biome.Ocean;
@@ -1107,12 +1119,8 @@ public class CylinderWorld : IWorldGen
                 _ => Biome.MajorRiver
             };
 
-        // 1. Calculate Relative Humidity
-        // This scales Absolute Moisture by the air's carrying capacity at a given temperature.
-        var possibleHumidityAtTemp = MathF.Min(0.1f, (temp + 50f) / 80f);
-        var relHumidity = Math.Clamp(humidity / possibleHumidityAtTemp, 0.0f, 1.0f);
 
-        // 2. High Altitude "Dead Zone" (Above the Tree Line)
+        // High Altitude "Dead Zone" (Above the Tree Line)
         if (elevation > HighMountainThreshold) return temp < 0f ? Biome.Glacier : Biome.RockPeak;
 
         switch (temp)
@@ -1474,6 +1482,7 @@ public class CylinderWorld : IWorldGen
     private float[,] GenerateRainfall()
     {
         var elevationsF = _elevation.Memory.Span;
+        var distToWaterMap = _distToWaterMap.Memory.Span;
         var rainfall = new float[_worldWidth, _worldHeight];
 
         // Base rainfall increases with proximity to water and decreases with elevation
@@ -1486,28 +1495,7 @@ public class CylinderWorld : IWorldGen
                 var isWater = elevation <= waterSurfaceElevation; // Water cells get maximum rainfall
 
                 // Distance to nearest water (simplified - just check neighbors)
-                var waterDistance = 0f;
-                if (!isWater)
-                {
-                    var minDistance = float.MaxValue;
-                    for (var dy = -RainfallWaterDistanceRadius; dy <= RainfallWaterDistanceRadius; dy++)
-                        for (var dx = -RainfallWaterDistanceRadius; dx <= RainfallWaterDistanceRadius; dx++)
-                        {
-                            var nx = WorldMath.WrapX(x + dx);
-                            var ny = y + dy;
-                            if (ny < 0 || ny >= _worldHeight) continue;
-
-                            if (elevationsF[ny * _worldWidth + nx] > waterSurfaceElevation) continue;
-
-                            var distance = MathF.Sqrt(dx * dx + dy * dy);
-                            minDistance = MathF.Min(minDistance, distance);
-                        }
-
-                    const float tolerance = 0.1f;
-                    waterDistance = Math.Abs(minDistance - float.MaxValue) < tolerance
-                        ? RainfallWaterDistanceRadius
-                        : minDistance;
-                }
+                var waterDistance = distToWaterMap[y * _worldWidth + x];
 
                 // Rainfall formula: high near water, decreases with elevation and distance
                 var baseRainfall = isWater
@@ -2397,7 +2385,6 @@ public class CylinderWorld : IWorldGen
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
         const int chunksAcross = worldWidth / chunkSize;
-        const int totalCells = worldWidth * worldHeight;
 
         var chunks = new WorldSurfaceFeatureChunk[chunksAcross * (worldHeight / chunkSize)];
 
@@ -2433,11 +2420,6 @@ public class CylinderWorld : IWorldGen
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
         const int chunksAcross = worldWidth / chunkSize;
-        const int totalCells = worldWidth * worldHeight;
-
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        var masterBuffer = new float[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
 
         var chunks = new WorldTemperatureChunk[chunksAcross * (worldHeight / chunkSize)];
 
@@ -2473,11 +2455,6 @@ public class CylinderWorld : IWorldGen
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
         const int chunksAcross = worldWidth / chunkSize;
-        const int totalCells = worldWidth * worldHeight;
-
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        var masterBuffer = new float[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
 
         var chunks = new WorldTemperatureAmplitudeChunk[chunksAcross * (worldHeight / chunkSize)];
 
@@ -2513,11 +2490,6 @@ public class CylinderWorld : IWorldGen
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
         const int chunksAcross = worldWidth / chunkSize;
-        const int totalCells = worldWidth * worldHeight;
-
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        var masterBuffer = new float[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
 
         var chunks = new WorldHumidityChunk[chunksAcross * (worldHeight / chunkSize)];
 
@@ -2552,11 +2524,6 @@ public class CylinderWorld : IWorldGen
         const int chunkSize = WorldMath.ChunkSize;
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
-        const int totalCells = worldWidth * worldHeight;
-
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        var masterBuffer = new Biome[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
 
         var chunks = new WorldBiomeChunk[WorldMath.ChunksAcross * (worldHeight / chunkSize)];
 
@@ -2592,11 +2559,6 @@ public class CylinderWorld : IWorldGen
         const int worldWidth = WorldMath.WorldWidth;
         const int worldHeight = WorldMath.WorldHeight;
         const int chunksAcross = worldWidth / chunkSize;
-        const int totalCells = worldWidth * worldHeight;
-
-        // 1. Allocate ONE giant buffer for all chunk data combined
-        var masterBuffer = new bool[totalCells];
-        var masterSpan = masterBuffer.AsMemory();
 
         var chunks = new WorldRiverChunk[chunksAcross * (worldHeight / chunkSize)];
 
