@@ -116,6 +116,9 @@ public class CylinderWorld : IWorldGen
     private const int HighMountainThreshold = 7;
     private const int SnowThreshold = 8;
 
+    // How much seasons change by altitude (0 - 10 mild, 10-20 noticeable, >20 extreme.
+    private const float ElevationAmplitudeModifier = 15f;
+
     // Constants for coastal slopes
     private const float MaxCoastalSlope = 5.0f;
 
@@ -136,7 +139,7 @@ public class CylinderWorld : IWorldGen
     // Constants for climate
     private const float BaseTempMax = 35.0f;
     private const float BaseTempMin = -40.0f;
-    private const float AridityConstant = 0.005f;
+    private const float AridityConstant = 0.05f;
     private const float BaseTemperatureAmplitude = 10.0f;
     private const float LatitudeAmplitudeModifier = 20.0f;
 
@@ -207,11 +210,13 @@ public class CylinderWorld : IWorldGen
     // search radius to nearest water for rainfall boost
     public int RainfallWaterDistanceRadius { get; set; } = 2;
 
-    public float RainfallWaterDistancePenalty { get; set; } = 0.07f; // weight for distance penalty
-    public float RainfallMinValue { get; set; } = 0.0f; // minimum rainfall on land
+    public float RainfallOceanBase { get; set; } = 2f;
+    public float RainfallLandBase { get; set; } = 1f;
+    public float RainfallWaterDistancePenalty { get; set; } = 0.007f; // weight for distance penalty
+    public float RainfallMinValue { get; set; } = 0.4f; // minimum rainfall on land
 
     // how quickly rainfall falls with elevation
-    public float RainfallElevationDecay { get; set; } = 0.1f;
+    public float RainfallElevationDecay { get; set; } = 0.01f;
 
     public float RainfallMinModifier { get; set; } = 0.2f; // minimum modifier due to elevation
 
@@ -243,7 +248,7 @@ public class CylinderWorld : IWorldGen
         0.001f; // rate at which sediment is deposited (much slower)
 
     public float EvaporationRate { get; set; } = 0.001f; // water evaporation rate
-    public float RainRate { get; set; } = 0.00005f; // rainfall rate (much less water)
+    public float RainRate { get; set; } = 0.5f; // rainfall rate (much less water)
     public float ThermalErosionRate { get; set; } = 0.05f; // thermal erosion rate (very gentle)
     public float TalusAngle { get; set; } = 0.5f; // minimum slope for material to slide
     public float MinSlope { get; set; } = 0.01f; // minimum slope for water flow
@@ -329,7 +334,7 @@ public class CylinderWorld : IWorldGen
         ApplyNoiseAndSlopes();
         CalculateDistanceToWaterMap();
         // Generate climate (temperature, humidity, biomes, seasonal effects)
-        GenerateClimate(true);
+        GenerateClimate();
 
         // Apply erosion to smooth terrain and create realistic features
         // if (UseAdvancedErosion)
@@ -342,7 +347,7 @@ public class CylinderWorld : IWorldGen
 
         // TODO: Re-generate distance to water?
         // Re-generate climate, now that we have rivers:
-        GenerateClimate(false);
+        GenerateClimate();
 
         // Apply mountain details (ridges, snow, glacier, lava)
         ApplyMountainDetails();
@@ -942,97 +947,129 @@ public class CylinderWorld : IWorldGen
 
     #region Climate and Biomes
 
+    private float[,] CalculatePhysicalRainfall()
+    {
+        var elevations = _elevation.Memory.Span;
+        var noiseMap = _noiseMap.Memory.Span;
+        var rainfall = new float[_worldWidth, _worldHeight];
+        const float moistureRechargeRate = 0.09f;
+        const float rainDropFactor = 0.06f;
+
+        for (var y = 0; y < _worldHeight; y++)
+        {
+            // 1. Warped Latitude: Prevents perfectly horizontal "shear" lines
+            // We use the y-coordinate + a tiny bit of noise based on y to wiggle the bands
+            var latWarp = noiseMap[y * _worldWidth] * 2.04f;
+            var latitude = MathF.Abs(y - _worldHeight / 2f) / (_worldHeight / 2f) + latWarp;
+
+            var windDir = latitude is < 0.33f or >= 0.66f ? -1 : 1;
+
+            // 2. Priming: Start with a base, but don't write to the map yet
+            var cloudMoisture = RainfallLandBase;
+
+            // Sweep 2x the width. Pass 1 'primes' the moisture; Pass 2 'records' it.
+            for (var step = 0; step < _worldWidth * 2; step++)
+            {
+                // windX moves East or West based on windDir
+                var windX = WorldMath.WrapX(windDir == 1 ? step : _worldWidth - step);
+                var idx = y * _worldWidth + windX;
+                var elev = elevations[idx];
+                var isSecondPass = step >= _worldWidth;
+
+                if (elev <= SeaLevelElevation)
+                {
+                    // Ocean Recharge
+                    cloudMoisture = MathF.Min(RainfallOceanBase,
+                        cloudMoisture + moistureRechargeRate);
+                    if (isSecondPass) rainfall[windX, y] = RainfallOceanBase; // Base ocean rain
+                }
+                else
+                {
+                    var prevX = WorldMath.WrapX(windX - windDir);
+                    var lift = elev - elevations[y * _worldWidth + prevX];
+
+                    float rainDropped = 0;
+                    if (lift > 0)
+                    {
+                        // Squeeze moisture out on the windward side
+                        rainDropped = MathF.Min(cloudMoisture,
+                            lift * cloudMoisture * rainDropFactor);
+                        cloudMoisture -= rainDropped;
+                    }
+
+                    if (isSecondPass)
+                        // Ambient rain + Orographic (mountain) rain
+                        rainfall[windX, y] = cloudMoisture * 0.15f + rainDropped * 2.0f;
+
+                    // Deserts happen here: naturally lose moisture over land
+                    cloudMoisture *= 0.992f;
+                }
+            }
+        }
+
+        return rainfall;
+    }
+
     // TODO: Can we structure our world generation steps better than to use this bool flag?
     // TODO: Separate biomes out of this
     /// <summary>
     ///     Generates world maps for various climate features.
     /// </summary>
-    private void GenerateClimate(bool changeHumidity)
+    private void GenerateClimate()
     {
+        // 1. Initialise Spans
         var elevations = _elevation.Memory.Span;
         var temperature = _temperature.Memory.Span;
-        var temperatureAmplitude = _temperatureAmplitude.Memory.Span;
         var humidity = _humidity.Memory.Span;
-        var distToWaterMap = _distToWaterMap.Memory.Span;
-        var strahlerRiver = _strahlerRiver.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
+        var strahlerRiver = _strahlerRiver.Memory.Span;
         var biomes = _biomes.Memory.Span;
+        var noiseMap = _noiseMap.Memory.Span;
 
+        // 2. Step One: Generate the "Baked" Rainfall Map (with Shadows)
+        // We do this first because River Flow AND Biomes depend on it.
+        var rainfallMap = CalculatePhysicalRainfall();
+
+        // 3. Step Two: Calculate Temperature and Relative Humidity
         for (var y = 0; y < _worldHeight; y++)
         {
-            // Latitude factor: 0 at equator (middle), 1 at poles
-            // 1. Calculate the raw 0 to 1 factor as before
-            var rawLat = Math.Abs(y - _worldHeight / 2.0f) / (_worldHeight / 2.0f);
-
-            // 2. Apply a shaping function to "stretch" the middle
-            // Option A: The "Equator Stretch" (Pushes temperate zones toward poles)
-            // var latitudeFactor = Math.Pow(rawLat, 1.5f); 
-
-            // Option B: The "Sine Curve" (Most realistic distribution)
-            // This makes the temperature drop-off very slow at the equator, 
-            // faster in the mid-latitudes, and slow again at the poles.
-            // var latitudeFactor = MathF.Sin((float)(rawLat * Math.PI / 2.0));
-            var latitudeFactor = (float)Math.Pow(rawLat, 1.1);
-            // Temperature: base -30 to 30, decreases with latitude and elevation
+            // 1. Warped Latitude: Prevents perfectly horizontal "shear" lines
+            // We use the y-coordinate + a tiny bit of noise based on y to wiggle the bands
+            var noise = 1 - noiseMap[y * _worldWidth] * 2; // normalise to (-1,1)
+            var latWarp = noise * 5.04f;
+            var latitude = MathF.Abs(y + latWarp - _worldHeight / 2f) / (_worldHeight / 2f);
+            var latitudeFactor = (float)Math.Pow(latitude, 1.1);
             var baseTemp = BaseTempMax - (BaseTempMax - BaseTempMin) * latitudeFactor;
-
-            // Creates peaks of moisture at 0 and 60 degrees, and troughs at 30 and 90.
-            var latRad = latitudeFactor * MathF.PI;
-            var latMoistureMod = 0.5f + 0.5f * MathF.Cos(3 * latRad);
-            var rowOffset = y * _worldWidth;
 
             for (var x = 0; x < _worldWidth; x++)
             {
-                var idx = rowOffset + x;
-                var elevation = elevations[idx];
-                var elevationFactor = elevation / MaxElevation;
-                var isWater = elevation <= 3;
+                var idx = y * _worldWidth + x;
+                var elevationFactor = Math.Clamp(elevations[idx] / MaxElevation, 0f, 1f);
 
-                // Colder at higher elevation.
-                temperature[idx] = baseTemp + elevationFactor * elevation;
+                // Temperature with Lapse Rate
+                temperature[idx] = baseTemp + elevationFactor * 10;
 
-                if (changeHumidity)
-                {
-                    // 1. Exponential decay from water
-                    var dist = distToWaterMap[idx];
-                    var humidityBase = MathF.Exp(-dist * AridityConstant);
+                // Get the rainfall we calculated in Step 1
+                var absoluteMoisture = rainfallMap[x, y];
 
-                    // 2. Apply Latitude and Elevation penalties
-                    // Higher elevations hold less total moisture (colder air)
-                    var elevationPenalty = elevation * 0.02f;
+                // Add local River Humidity (The "Nile Greenery" effect)
+                if (riverMap[idx]) absoluteMoisture += 0.15f;
 
-                    var finalHumidity = humidityBase * latMoistureMod - elevationPenalty;
+                // Calculate Relative Humidity (Carrying Capacity logic)
+                var normalizedTemp = Math.Clamp((temperature[idx] + 50f) / 100f, 0.01f, 1.0f);
+                var carryingCapacity = MathF.Pow(normalizedTemp, 2.0f);
 
-                    // 3. Add River Influence
-                    // Rivers provide a small "humidity corridor" in dry areas
-                    finalHumidity += strahlerRiver[idx] * 0.1f;
+                // This is the final humidity value passed to the Biome selector
+                humidity[idx] = Math.Clamp(absoluteMoisture / carryingCapacity, 0.0f, 1.0f);
 
-                    humidity[idx] = Math.Clamp(finalHumidity, 0.0f, 1.0f);
-                }
-
-                // Seasonal amplitude: larger at higher latitudes and higher elevations
-                temperatureAmplitude[idx]
-                    = BaseTemperatureAmplitude
-                      + LatitudeAmplitudeModifier * latitudeFactor
-                      + elevation * elevationFactor;
-
-
-                // Calculate Relative Humidity
-                // This scales Absolute Moisture by the air's carrying capacity at a given temperature.
-                var possibleHumidityAtTemp = MathF.Min(0.1f, (temperature[idx] + 50f) / 80f);
-                var relHumidity = Math.Clamp(humidity[idx] / possibleHumidityAtTemp, 0.0f, 1.0f);
-                humidity[idx] = relHumidity;
-
-                var isRiver = riverMap[idx];
-                var strahler = strahlerRiver[idx];
-                // Determine biome
+                // 4. Step Three: Determine Biome
                 biomes[idx] = DetermineBiome(
                     temperature[idx],
-                    relHumidity,
-                    elevation,
-                    isWater,
-                    isRiver,
-                    strahler);
+                    humidity[idx],
+                    elevations[idx],
+                    elevations[idx] <= SeaLevelElevation,
+                    riverMap[idx],
+                    strahlerRiver[idx]);
             }
         }
     }
@@ -1463,7 +1500,7 @@ public class CylinderWorld : IWorldGen
         FillDepressions();
 
         // Step 1: Generate rainfall map
-        var rainfall = GenerateRainfall();
+        var rainfall = CalculatePhysicalRainfall();
         ApplyRainShadows(rainfall);
 
         // Step 2: Calculate flow directions (steepest downhill neighbor)
@@ -1471,48 +1508,13 @@ public class CylinderWorld : IWorldGen
 
         // Step 3: Accumulate flow from upstream cells
         var flowAccumulation = AccumulateFlow(flowDirections, rainfall);
-        CalculateStrahlerOrder(flowDirections);
+        CalculateStrahlerOrder(flowDirections, flowAccumulation);
 
         // Step 4: Carve rivers where flow accumulation is high enough
         CarveRivers(flowDirections, flowAccumulation);
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(flowAccumulation);
-
-        GenerateMoistureMap(rainfall);
-    }
-
-    /// <summary>
-    ///     Generate a map of rainfall per cell.
-    ///     Rainfall increases with proximity to water and decreases with elevation.
-    /// </summary>
-    /// <returns>A grid of rain fall per cell.</returns>
-    private float[,] GenerateRainfall()
-    {
-        var elevationsF = _elevation.Memory.Span;
-        var distToWaterMap = _distToWaterMap.Memory.Span;
-        var rainfall = new float[_worldWidth, _worldHeight];
-
-        // Base rainfall increases with proximity to water and decreases with elevation
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-            {
-                var elevation = elevationsF[y * _worldWidth + x];
-                var isWater = elevation <= SeaLevelElevation; // Water cells get maximum rainfall
-
-                // Distance to nearest water (simplified - just check neighbors)
-                var waterDistance = distToWaterMap[y * _worldWidth + x];
-
-                // Rainfall formula: high near water, decreases with elevation and distance
-                var baseRainfall = isWater
-                    ? 1.0f
-                    : MathF.Max(RainfallMinValue, 1.0f - waterDistance * RainfallWaterDistancePenalty);
-                var elevationModifier = MathF.Max(RainfallMinModifier,
-                    1.0f - elevation * RainfallElevationDecay);
-                rainfall[x, y] = baseRainfall * elevationModifier;
-            }
-
-        return rainfall;
     }
 
     /// <summary>
@@ -1543,7 +1545,7 @@ public class CylinderWorld : IWorldGen
             // < 0.33f is Tropical (Trade Winds: East to West)
             // < 0.66f is Temperate (Westerlies: West to East)
             // >= 0.66f is Polar (Easterlies: East to West)
-            var windDir = latitude < 0.33f || latitude >= 0.66f ? -1 : 1;
+            var windDir = latitude is < 0.33f or >= 0.66f ? -1 : 1;
 
             // 3. Sweep across the map
             for (var step = 0; step < _worldWidth * 2; step++)
@@ -1697,8 +1699,10 @@ public class CylinderWorld : IWorldGen
 
                     if (ny < 0 || ny >= _worldHeight) continue;
 
-                    var neighborElevation = elevationsF[ny * _worldWidth + nx];
-                    var drop = currentElevation - neighborElevation * noiseMap[ny * _worldWidth + nx];
+                    var idx = ny * _worldWidth + nx;
+                    var neighborElevation = elevationsF[idx];
+                    var noiseOffset = noiseMap[idx] * 2 - 1;
+                    var drop = currentElevation - (neighborElevation + noiseOffset);
 
                     if (drop <= steepestDrop) continue;
 
@@ -1762,18 +1766,26 @@ public class CylinderWorld : IWorldGen
 
             if (ny < 0 || ny >= _worldHeight) continue;
 
-            // --- EVAPORATION LOGIC ---
-            // If the local area is dry (low rainfall), evaporation is high.
-            // Base evaporation rate (e.g., 0.02 means up to 2% volume lost per tile in dry areas)
-            const float maxEvapRate = 0.05f;
+            // --- EVAPORATION & SEEPAGE LOGIC ---
+            var currentVolume = flowAccumulation[x, y];
+
+            // 1. Ground Seepage (Absolute loss per tile)
+            // Keep this small (e.g., 0.05f) so it only kills tiny streams, not main rivers.
+            const float groundSeepage = 0.05f;
+
+            // 2. Surface Evaporation (Scales with the square root of volume)
             var aridity = 1.0f - rainfall[x, y];
-            var evaporationLoss = aridity * maxEvapRate;
+            const float evaporationFactor = 0.05f; // Tweak this based on map size
 
-            // Calculate how much water actually makes it to the next tile
-            var waterToPass = flowAccumulation[x, y] * (1.0f - evaporationLoss);
+            // A river of volume 100 loses 10 * 0.05 = 0.5 volume.
+            // A river of volume 10,000 loses 100 * 0.05 = 5.0 volume. (Much more survivable!)
+            var evaporationLoss = MathF.Sqrt(currentVolume) * aridity * evaporationFactor;
 
-            // Pass the remaining water downstream
-            flowAccumulation[nx, ny] += waterToPass;
+            // 3. Calculate remaining water
+            var waterToPass = currentVolume - groundSeepage - evaporationLoss;
+
+            // Ensure we don't pass negative water
+            if (waterToPass > 0) flowAccumulation[nx, ny] += waterToPass;
 
             // Mark that one upstream dependency is resolved
             inDegree[nx, ny]--;
@@ -1797,20 +1809,25 @@ public class CylinderWorld : IWorldGen
     ///     - Order 3-4: small rivers
     ///     - Order  5+: major rivers
     /// </returns>
-    private void CalculateStrahlerOrder((int, int)[,] flowDirections)
+    private void CalculateStrahlerOrder((int, int)[,] flowDirections, float[,] flowAccumulation)
     {
         var strahlerRiver = _strahlerRiver.Memory.Span;
-        var inDegree = new int[_worldWidth, _worldHeight];
+        strahlerRiver.Clear(); // Critical: reset before calculation
 
-        // Track the highest order seen so far for a cell, 
-        // and whether we've seen it more than once.
+        var inDegree = new int[_worldWidth, _worldHeight];
         var maxIncomingOrder = new int[_worldWidth, _worldHeight];
         var countOfMaxOrder = new int[_worldWidth, _worldHeight];
 
-        // 1. Calculate in-degrees (same as AccumulateFlow)
+        // 1. Minimum volume required to even be considered a "stream"
+        const float MinVolumeThreshold = 1.0f;
+
+        // Calculate in-degrees
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
+                // Only count in-degree if the upstream cell actually has water!
+                if (flowAccumulation[x, y] < MinVolumeThreshold) continue;
+
                 var (dx, dy) = flowDirections[x, y];
                 if (dx == 0 && dy == 0) continue;
                 var nx = WorldMath.WrapX(x + dx);
@@ -1818,11 +1835,12 @@ public class CylinderWorld : IWorldGen
                 if (ny >= 0 && ny < _worldHeight) inDegree[nx, ny]++;
             }
 
-        // 2. Queue the sources (Order 1)
+        // 2. Queue the sources
         var queue = new Queue<(int, int)>();
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
-                if (inDegree[x, y] == 0)
+                // A source is a cell with water but no water flowing into it
+                if (inDegree[x, y] == 0 && flowAccumulation[x, y] >= MinVolumeThreshold)
                 {
                     strahlerRiver[y * _worldWidth + x] = 1;
                     queue.Enqueue((x, y));
@@ -1853,7 +1871,7 @@ public class CylinderWorld : IWorldGen
             }
 
             inDegree[nx, ny]--;
-            if (inDegree[nx, ny] > 0) continue;
+            if (inDegree[nx, ny] != 0) continue;
             // RESOLVE ORDER: If two or more tributaries of the same MAX order meet, level up.
             // Otherwise, inherit the max incoming order.
             strahlerRiver[ny * _worldWidth + nx] = countOfMaxOrder[nx, ny] >= 2
@@ -1883,13 +1901,19 @@ public class CylinderWorld : IWorldGen
 
         // 2. Visual and Physical Thresholds
         const int minOrderToVisualise = 2;
-        const int minOrderToCarve = 3;
+        const int minOrderToCarve = 2;
+        // This is your 'Safety Valve' for zero rainfall
+        const float MinVolumeToCarve = 0.1f;
 
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
                 var order = strahlerRiver[y * _worldWidth + x];
-                if (order < minOrderToCarve || elevationsF[y * _worldWidth + x] <= SeaLevelElevation)
+                var volume = flowAccumulation[x, y];
+
+                if (volume < MinVolumeToCarve
+                    || order < minOrderToCarve
+                    || elevationsF[y * _worldWidth + x] <= SeaLevelElevation)
                     continue;
 
                 // We only trace from the 'tips' of the network to avoid redundant carving
@@ -1928,7 +1952,8 @@ public class CylinderWorld : IWorldGen
                     if (elevationsF[index] <= SeaLevelElevation) break;
 
                     var (dx, dy) = flowDirections[cx, cy];
-                    if (dx == 0 && dy == 0) break;
+                    if (dx == 0 && dy == 0)
+                        break;
 
                     cx = WorldMath.WrapX(cx + dx);
                     cy += dy;
@@ -1969,67 +1994,6 @@ public class CylinderWorld : IWorldGen
                 elevationsF[y * _worldWidth + x] =
                     Math.Min(SeaLevelElevation + 1f, currentElevation + sedimentAmount);
             }
-    }
-
-    /// <summary>
-    ///     Combines rainfall, river proximity, and elevation to create a final humidity map.
-    /// </summary>
-    private void GenerateMoistureMap(float[,] rainfall)
-    {
-        var elevationsF = _elevation.Memory.Span;
-        var riverMap = _riverMap.Memory.Span;
-        var strahlerRiver = _strahlerRiver.Memory.Span;
-        var humidity = _humidity.Memory.Span;
-
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-            {
-                var index = y * _worldWidth + x;
-                var elevation = elevationsF[index];
-                var strahler = strahlerRiver[y * _worldWidth + x];
-                //     - Order 1-2: small creeks
-                //     - Order 3-4: small rivers
-                //     - Order  5+: major rivers
-                var neighborhood = strahler switch
-                {
-                    <= 2 => new[] { (0, 0) },
-                    <= 4 => new[] { (0, 1), (0, -1), (1, 0), (-1, 0) },
-                    _ => new[]
-                    {
-                    (0, 1), (0, -1), (1, 0), (-1, 0),
-                    (-1, 1), (1, -1), (1, 1), (-1, -1),
-                    (0, 2), (0, -2), (2, 0), (-2, 0)
-                }
-                };
-
-                // 1. Start with the base rainfall
-                var baseMoisture = rainfall[x, y];
-
-                // 2. Add a bonus for being near a river (Floodplain effect)
-                var riverBonus = 0f;
-                if (riverMap[index])
-                    riverBonus = 0.3f; // Significant boost for the river cell itself
-                else
-                    // Simple 1-pixel neighbor check for "lush banks"
-                    foreach (var (dx, dy) in neighborhood)
-                    {
-                        var nx = WorldMath.WrapX(x + dx);
-                        var ny = y + dy;
-                        if (ny < 0 || ny >= _worldHeight || !riverMap[ny * _worldWidth + nx]) continue;
-                        riverBonus = 0.15f;
-                        break;
-                    }
-
-                // 3. Elevation Penalty: Higher = Drier (simplified drainage)
-                // We assume anything above SeaLevelElevation starts losing moisture retention
-                var elevationFactor = MathF.Max(0.2f, 1.0f - elevation / MaxElevation);
-
-                // 4. Combine and Clamp
-                humidity[index] = Math.Clamp((baseMoisture + riverBonus) * elevationFactor, 0f, 1f);
-            }
-
-        // 5. Optional: Blur the moisture map slightly to create smoother biome transitions
-        // return moisture;  //SmoothMoisture(moisture);
     }
 
     #endregion
