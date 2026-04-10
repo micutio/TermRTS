@@ -112,8 +112,10 @@ public class CylinderWorld : IWorldGen
 
     // Constants for elevation thresholds
     private const int MaxElevation = 9;
+
     private const int LandElevationThreshold = 4;
-    private const int SeaLevelElevation = 3;
+
+    // private const int SeaLevelElevation = 3;
     private const int HighMountainThreshold = 7;
     private const int SnowThreshold = 8;
 
@@ -236,14 +238,14 @@ public class CylinderWorld : IWorldGen
     // Advanced erosion tuning parameters
     public bool UseAdvancedErosion { get; set; } = true; // enable advanced erosion system
 
-    public int ErosionIterations { get; set; } =
-        10; // number of erosion iterations (further reduced)
+    // number of erosion iterations (further reduced)
+    public int ErosionIterations { get; set; } = 10;
 
     public float HydraulicErosionRate { get; set; } =
         0.001f; // base hydraulic erosion rate (much more gentle)
 
     public float SedimentCapacity { get; set; } =
-        0.01f; // maximum sediment a water cell can carry (much lower)
+        0.001f; // maximum sediment a water cell can carry (much lower)
 
     public float DepositionRate { get; set; } =
         0.001f; // rate at which sediment is deposited (much slower)
@@ -339,7 +341,7 @@ public class CylinderWorld : IWorldGen
 
         // Apply erosion to smooth terrain and create realistic features
         // if (UseAdvancedErosion)
-        ApplyAdvancedErosion();
+        // ApplyAdvancedErosion();
         // else
         // ApplyErosion();
 
@@ -522,7 +524,7 @@ public class CylinderWorld : IWorldGen
         var pTypes = _voronoiCellTypes.Memory.Span;
         for (var i = 0; i < VoronoiCellCount; i += 1)
             // Lower oceanic plates to create deeper oceans
-            landWater[i] = pTypes[i] ? LandElevationThreshold : SeaLevelElevation;
+            landWater[i] = pTypes[i] ? LandElevationThreshold : LandElevationThreshold - 1;
     }
 
     /// <summary>
@@ -576,9 +578,9 @@ public class CylinderWorld : IWorldGen
 
                 vIdx[idx] = winnerCell;
                 elevations[idx] = landWater[winnerCell] >= LandElevationThreshold
-                    ? SeaLevelElevation + MathF.Pow(noiseMap[idx], 2) *
-                    (MaxElevation - SeaLevelElevation)
-                    : noiseMap[idx] * SeaLevelElevation;
+                    ? LandElevationThreshold + MathF.Pow(noiseMap[idx], 2) *
+                    (MaxElevation - LandElevationThreshold)
+                    : noiseMap[idx] * (LandElevationThreshold - 1);
             }
     }
 
@@ -675,21 +677,16 @@ public class CylinderWorld : IWorldGen
             coastalSlopes[i] = MaxCoastalSlope;
 
         var q = new Queue<(int, int)>(_worldWidth * _worldHeight);
-        const float tolerance = 0.5f;
         for (var y = 1; y < _worldHeight - 1; y += 1)
             for (var x = 1; x < _worldWidth - 1; x += 1)
             {
-                if (Math.Abs(elevations[y * _worldWidth + x] - LandElevationThreshold) >
-                    tolerance) continue;
+                if (elevations[y * _worldWidth + x] >= LandElevationThreshold) continue;
 
                 // Must have at least one water cell in its neighbourhood.
-                if (Math.Abs(elevations[(y - 1) * _worldWidth + x] - SeaLevelElevation) >
-                    tolerance && // north
-                    Math.Abs(elevations[y * _worldWidth + x + 1] - SeaLevelElevation) >
-                    tolerance && // east
-                    Math.Abs(elevations[(y + 1) * _worldWidth + x] - SeaLevelElevation) >
-                    tolerance && // south
-                    Math.Abs(elevations[y * _worldWidth + (x - 1)] - SeaLevelElevation) > tolerance)
+                if (elevations[(y - 1) * _worldWidth + x] >= LandElevationThreshold // north
+                    && elevations[y * _worldWidth + x + 1] >= LandElevationThreshold // east
+                    && elevations[(y + 1) * _worldWidth + x] >= LandElevationThreshold // south
+                    && elevations[y * _worldWidth + (x - 1)] >= LandElevationThreshold)
                     continue; // west
 
                 coastalSlopes[y * _worldWidth + x] = 0.0f;
@@ -1108,7 +1105,7 @@ public class CylinderWorld : IWorldGen
             for (var x = 0; x < _worldWidth; x++)
             {
                 var idx = y * _worldWidth + x;
-                if (elevations[idx] < SeaLevelElevation)
+                if (elevations[idx] < LandElevationThreshold)
                 {
                     distToWaterMap[idx] = 0;
                     visited[x, y] = true;
@@ -1529,16 +1526,12 @@ public class CylinderWorld : IWorldGen
         CalculateStrahlerOrder(flowDirections, flowAccumulation);
 
         // Step 4: Carve rivers where flow accumulation is high enough
-        CarveRivers(flowDirections, flowAccumulation);
+        CarveRivers(flowAccumulation);
 
         // Step 5: Deposit sediment in river valleys (optional)
         DepositSediment(flowAccumulation);
     }
 
-    /// <summary>
-    ///     Adjusts the rainfall map based on wind direction and terrain height.
-    ///     Simulates moisture being 'squeezed' out of clouds by mountains.
-    /// </summary>
     /// <summary>
     ///     Adjusts the rainfall map based on global wind bands (Trade Winds, Westerlies) 
     ///     and terrain height to simulate realistic rain shadows.
@@ -1651,25 +1644,24 @@ public class CylinderWorld : IWorldGen
                 for (var x = 0; x < _worldWidth; x++)
                 {
                     var currentElevation = elevationsF[y * _worldWidth + x];
-                    if (Math.Abs(filledElevations[x, y] - currentElevation) < 0.1)
-                        continue; // Already at minimum
-
                     var minNeighborWaterLevel = float.MaxValue;
 
                     // Check all 8 neighbors
-                    for (var dy = -1; dy <= 1; dy++)
-                        for (var dx = -1; dx <= 1; dx++)
-                        {
-                            if (dx == 0 && dy == 0) continue;
+                    // for (var dy = -1; dy <= 1; dy++)
+                    // for (var dx = -1; dx <= 1; dx++) 
+                    (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+                    foreach (var (dx, dy) in directions)
+                    {
+                        if (dx == 0 && dy == 0) continue;
 
-                            var nx = WorldMath.WrapX(x + dx);
-                            var ny = y + dy;
+                        var nx = WorldMath.WrapX(x + dx);
+                        var ny = y + dy;
 
-                            if (ny < 0 || ny >= _worldHeight) continue;
+                        if (ny < 0 || ny >= _worldHeight) continue;
 
-                            if (filledElevations[nx, ny] < minNeighborWaterLevel)
-                                minNeighborWaterLevel = filledElevations[nx, ny];
-                        }
+                        if (filledElevations[nx, ny] < minNeighborWaterLevel)
+                            minNeighborWaterLevel = filledElevations[nx, ny];
+                    }
 
                     // The new water level is the highest of either the actual terrain height, 
                     // or the lowest neighbor + a tiny slope to guarantee water flows across flats.
@@ -1696,7 +1688,6 @@ public class CylinderWorld : IWorldGen
     private (int, int)[,] CalculateFlowDirections()
     {
         var elevationsF = _elevation.Memory.Span;
-        var noiseMap = _noiseMap.Memory.Span;
         var flowDirections = new (int, int)[_worldWidth, _worldHeight];
 
         for (var y = 0; y < _worldHeight; y++)
@@ -1719,8 +1710,9 @@ public class CylinderWorld : IWorldGen
 
                     var idx = ny * _worldWidth + nx;
                     var neighborElevation = elevationsF[idx];
-                    var noiseOffset = noiseMap[idx] * 2 - 1;
-                    var drop = currentElevation - (neighborElevation + noiseOffset);
+                    var drop = currentElevation - neighborElevation;
+                    // if (dx != 0 && dy != 0) 
+                    //     drop /= 1.4142135f; // Normalizes diagonal drop rate
 
                     if (drop <= steepestDrop) continue;
 
@@ -1837,14 +1829,14 @@ public class CylinderWorld : IWorldGen
         var countOfMaxOrder = new int[_worldWidth, _worldHeight];
 
         // 1. Minimum volume required to even be considered a "stream"
-        const float MinVolumeThreshold = 1.0f;
+        const float minVolumeThreshold = 0.51f;
 
         // Calculate in-degrees
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
                 // Only count in-degree if the upstream cell actually has water!
-                if (flowAccumulation[x, y] < MinVolumeThreshold) continue;
+                if (flowAccumulation[x, y] < minVolumeThreshold) continue;
 
                 var (dx, dy) = flowDirections[x, y];
                 if (dx == 0 && dy == 0) continue;
@@ -1858,20 +1850,26 @@ public class CylinderWorld : IWorldGen
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
                 // A source is a cell with water but no water flowing into it
-                if (inDegree[x, y] == 0 && flowAccumulation[x, y] >= MinVolumeThreshold)
+                if (inDegree[x, y] == 0 && flowAccumulation[x, y] >= minVolumeThreshold)
                 {
                     strahlerRiver[y * _worldWidth + x] = 1;
                     queue.Enqueue((x, y));
                 }
 
+        var maxOrder = float.MinValue;
         // 3. Process topologically
+        var breakAtDirection = 0;
         while (queue.Count > 0)
         {
             var (x, y) = queue.Dequeue();
             var currentOrder = strahlerRiver[y * _worldWidth + x];
 
             var (dx, dy) = flowDirections[x, y];
-            if (dx == 0 && dy == 0) continue;
+            if (dx == 0 && dy == 0)
+            {
+                breakAtDirection++;
+                continue;
+            }
 
             var nx = WorldMath.WrapX(x + dx);
             var ny = y + dy;
@@ -1896,88 +1894,63 @@ public class CylinderWorld : IWorldGen
                 ? maxIncomingOrder[nx, ny] + 1
                 : maxIncomingOrder[nx, ny];
 
+            maxOrder = MathF.Max(strahlerRiver[ny * _worldWidth + nx], maxOrder);
+
             queue.Enqueue((nx, ny));
         }
+
+        Console.WriteLine(maxOrder);
+        Console.WriteLine(breakAtDirection);
     }
 
     /// <summary>
     ///     Create a boolean river map of the world where true -> belongs to a river, false otherwise.
     /// </summary>
-    /// <param name="flowDirections">Flow direction for each cell.</param>
     /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
-    private void CarveRivers((int, int)[,] flowDirections, float[,] flowAccumulation)
+    private void CarveRivers(float[,] flowAccumulation)
     {
         var elevationsF = _elevation.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
         var strahlerRiver = _strahlerRiver.Memory.Span;
         riverMap.Clear();
 
-        // 1. Identify "Major" vs "Minor" for normalization
-        var maxOrder = 0;
-        for (var i = 0; i < _worldWidth * _worldHeight; i++)
-            maxOrder = Math.Max(maxOrder, strahlerRiver[i]);
-
-        // 2. Visual and Physical Thresholds
+        // Visual and Physical Thresholds
         const int minOrderToVisualise = 2;
         const int minOrderToCarve = 2;
-        // This is your 'Safety Valve' for zero rainfall
         const float MinVolumeToCarve = 0.1f;
 
+        // A single pass is all we need. Flow accumulation already guarantees continuity.
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
             {
-                var order = strahlerRiver[y * _worldWidth + x];
-                var volume = flowAccumulation[x, y];
+                var index = y * _worldWidth + x;
+                var cellElevation = elevationsF[index];
 
-                if (volume < MinVolumeToCarve
-                    || order < minOrderToCarve
-                    || elevationsF[y * _worldWidth + x] < LandElevationThreshold)
+                // 1. Skip immediately if we are already in the ocean
+                if (cellElevation < LandElevationThreshold)
                     continue;
 
-                // We only trace from the 'tips' of the network to avoid redundant carving
-                // (If inDegree is 0, it's a headwater/source)
-                // Note: You'll need to pass inDegree or calculate it, or just keep the trace logic.
-                // Let's stick to your trace logic but check the 'riverMap' to prevent double-carving.
+                var order = strahlerRiver[index];
+                var volume = flowAccumulation[x, y];
 
-                var cx = x;
-                var cy = y;
-                var maxSteps = _worldWidth + _worldHeight;
+                // 2. Skip if this cell doesn't meet the requirements for a river
+                if (volume < MinVolumeToCarve || order < minOrderToCarve)
+                    continue;
 
-                while (maxSteps-- > 0)
-                {
-                    var index = cy * _worldWidth + cx;
-                    var currentOrder = strahlerRiver[index];
+                // --- THE STRAHLER UPGRADE ---
+                // A. Visual Overlay: Only show the big boys
+                if (order >= minOrderToVisualise) riverMap[index] = true;
 
-                    // --- THE STRAHLER UPGRADE ---
+                // B. Physical Carving: Depth scales with ACTUAL WATER VOLUME
+                var erosionPower = MathF.Pow(volume, 0.1f) * 0.01f; // Tweak exponents to taste
+                var targetDepth = MathF.Min(RiverMaxCarveDepth, erosionPower * RiverCarveScale);
 
-                    // A. Visual Overlay: Only show the big boys
-                    if (currentOrder >= minOrderToVisualise)
-                        riverMap[index] = true;
+                // C. Apply the carve safely
+                // We ensure we never carve below your designated min elevation AND never accidentally carve below sea level
+                var minAllowedElevation = MathF.Max(RiverCarveMinElevation, LandElevationThreshold);
+                var carvedElevation = cellElevation - targetDepth;
 
-                    // B. Physical Carving: Depth scales with ACTUAL WATER VOLUME (Flow Accumulation)
-                    // Assuming base rainfall is roughly 1.0 per cell, a flow accumulation of 100 means 100 cells drained here.
-                    var waterVolume = flowAccumulation[cx, cy];
-                    var erosionPower = MathF.Pow(waterVolume, 0.1f) * 0.01f; // Tweak exponents to taste
-
-                    var cellElevation = elevationsF[index];
-                    var targetDepth = MathF.Min(RiverMaxCarveDepth, erosionPower * RiverCarveScale);
-
-                    // Only carve if we are deeper than the current elevation
-                    var newElevation = MathF.Max(RiverCarveMinElevation, cellElevation - targetDepth);
-                    elevationsF[index] = MathF.Min(cellElevation, newElevation);
-
-                    // Stop if we hit the sea
-                    if (elevationsF[index] < LandElevationThreshold) break;
-
-                    var (dx, dy) = flowDirections[cx, cy];
-                    if (dx == 0 && dy == 0)
-                        break;
-
-                    cx = WorldMath.WrapX(cx + dx);
-                    cy += dy;
-
-                    if (cy < 0 || cy >= _worldHeight) break;
-                }
+                elevationsF[index] = MathF.Max(minAllowedElevation, carvedElevation);
             }
     }
 
@@ -2005,11 +1978,11 @@ public class CylinderWorld : IWorldGen
                 // or in extremely flat lowlands (floodplains)
                 if (currentElevation >= LandElevationThreshold) continue;
                 // The more water, the more sediment. 
-                var sedimentAmount = waterVolume * 0.01f;
+                var sedimentAmount = waterVolume * 0.11f;
 
                 // Build up the land, potentially creating new landmasses (deltas) right at the coast
                 elevationsF[y * _worldWidth + x] =
-                    Math.Min(SeaLevelElevation + 1f, currentElevation + sedimentAmount);
+                    Math.Min(LandElevationThreshold, currentElevation + sedimentAmount);
             }
     }
 
@@ -2038,11 +2011,11 @@ public class CylinderWorld : IWorldGen
             {
                 // 1. Check for Glaciers (Requires freezing temps and moisture, no rivers)
                 // Assuming temperature < 0.1f is deep freeze
-                case < 0.1f when !riverMap[i] && elevation > SeaLevelElevation:
+                case < 0.1f when !riverMap[i] && elevation >= LandElevationThreshold:
                     surfaceMap[i] = SurfaceFeature.Glacier;
                     continue;
                 // 2. Check for Snow (Slightly warmer than glaciers, or high mountains)
-                case < 0.25f when elevation > SeaLevelElevation:
+                case < 0.25f when elevation >= LandElevationThreshold:
                     surfaceMap[i] = SurfaceFeature.Snow;
                     continue;
             }
@@ -2280,8 +2253,8 @@ public class CylinderWorld : IWorldGen
 
                     if (adjacentWater > 0)
                     {
-                        var slope =
-                            elevation - SeaLevelElevation; // How high is this coast above the water?
+                        // How high is this coast above the water?
+                        var slope = elevation - LandElevationThreshold - 1;
 
                         switch (slope)
                         {
@@ -2363,7 +2336,7 @@ public class CylinderWorld : IWorldGen
                     {
                         var normalisedElevation = sourceRow[i] / _maxElevation * 9;
                         var elevationClamped = Math.Max(0, normalisedElevation);
-                        destRow[i] = Convert.ToInt32(elevationClamped);
+                        destRow[i] = Convert.ToInt32(MathF.Floor(elevationClamped));
                     }
                 }
 
