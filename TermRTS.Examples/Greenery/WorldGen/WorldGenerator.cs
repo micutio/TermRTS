@@ -340,10 +340,7 @@ public class CylinderWorld : IWorldGen
         GenerateClimate();
 
         // Apply erosion to smooth terrain and create realistic features
-        // if (UseAdvancedErosion)
         // ApplyAdvancedErosion();
-        // else
-        // ApplyErosion();
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         GenerateRivers();
@@ -1230,186 +1227,118 @@ public class CylinderWorld : IWorldGen
 
     #region Erosion
 
-    // TODO: Clarify that this meets the definition of thermal erosion.
-    // TODO: Possibly delete in favour of advanced erosion!
-    /// <summary>
-    ///     Apply thermal and hydraulic erosion to
-    /// </summary>
-    private void ApplyErosion()
-    {
-        var elevationsF = _elevation.Memory.Span;
-        var elevationBuf = new Span<float>(new float[_worldWidth * _worldHeight]);
-        for (var i = 0; i < _worldWidth * _worldHeight; i++) elevationBuf[i] = elevationsF[i];
-
-        var elevationSource = elevationsF;
-        var elevationDest = elevationBuf;
-        // Simple thermal erosion + hydraulic erosion simulation
-
-        for (var iter = 0; iter < SimpleErosionIterations; iter++)
-        {
-            for (var y = 1; y < _worldHeight - 1; y++)
-                for (var x = 0; x < _worldWidth; x++)
-                {
-                    var currentHeight = elevationSource[y * _worldWidth + x];
-                    var lowestNeighbor = currentHeight;
-                    var lowestX = x;
-                    var lowestY = y;
-
-                    // Find lowest neighbor
-                    (int, int)[] directions =
-                        [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
-                    foreach (var (dx, dy) in directions)
-                    {
-                        var nx = WorldMath.WrapX(x + dx);
-                        var ny = y + dy;
-                        var neighborHeight = elevationSource[ny * _worldWidth + nx];
-
-                        if (neighborHeight >= lowestNeighbor) continue;
-                        lowestNeighbor = neighborHeight;
-                        lowestX = nx;
-                        lowestY = ny;
-                    }
-
-                    var slope = currentHeight - lowestNeighbor;
-
-                    // Thermal erosion: material slides if slope is too steep, even underwater.
-                    if (slope > SimpleTalusAngle)
-                    {
-                        var slideAmount = Math.Min(SimpleErosionRate * slope, slope * 0.5f);
-                        elevationDest[y * _worldWidth + x] -= slideAmount;
-                        elevationDest[lowestY * _worldWidth + lowestX] += slideAmount;
-                    }
-
-                    // Hydraulic erosion: water flow simulation (simplified)
-                    // TODO: Possibly parameterize water surface level (=3)
-                    var waterFlow = Math.Max(0, currentHeight - 3); // Water surface at 3
-                    if (waterFlow <= 0) continue;
-
-                    var erosionAmount = Math.Min(SimpleErosionRate * waterFlow * 0.1f, 0.5f);
-                    elevationDest[y * _worldWidth + x] -= erosionAmount;
-                }
-
-            var tmp = elevationSource;
-            elevationSource = elevationDest;
-            elevationDest = tmp;
-        }
-    }
-
     /// <summary>
     ///     Apply erosion with hydraulic simulation, sediment transport and thermal erosion.
     /// </summary>
     private void ApplyAdvancedErosion()
     {
-        // TODO: Borrow arrays!
-        // Advanced erosion with hydraulic simulation, sediment transport, and thermal erosion
-        var water = new float[_worldWidth * _worldHeight];
-        var sediment = new float[_worldWidth * _worldHeight];
-        var terrain = new float[_worldWidth * _worldHeight];
-
         var elevationsF = _elevation.Memory.Span;
-        var biomes = _biomes.Memory.Span;
         var humidity = _humidity.Memory.Span;
         var hotspots = _hotspotMap.Memory.Span;
 
-        // Copy elevations to terrain (already float)
-        for (var i = 0; i < _worldHeight * _worldWidth; i++)
-            terrain[i] = elevationsF[i];
+        // 1. Allocate arrays ONCE outside the loop (Double Buffering)
+        var terrain = new float[_worldWidth * _worldHeight];
+        var nextTerrain = new float[_worldWidth * _worldHeight];
+
+        var water = new float[_worldWidth * _worldHeight];
+        var nextWater = new float[_worldWidth * _worldHeight];
+
+        var sediment = new float[_worldWidth * _worldHeight];
+        var nextSediment = new float[_worldWidth * _worldHeight];
+
+        // Initialize terrain
+        elevationsF.CopyTo(terrain);
+
+        // Pre-calculate wrapped coordinates for performance
+        var leftX = new int[_worldWidth];
+        var rightX = new int[_worldWidth];
+        for (var x = 0; x < _worldWidth; x++)
+        {
+            leftX[x] = WorldMath.WrapX(x - 1);
+            rightX[x] = WorldMath.WrapX(x + 1);
+        }
 
         for (var iter = 0; iter < ErosionIterations; iter++)
         {
-            // Step 1: Add rainfall (climate-aware)
+            // Copy current state to 'next' state for delta accumulation
+            Array.Copy(terrain, nextTerrain, terrain.Length);
+            Array.Copy(water, nextWater, water.Length);
+            Array.Copy(sediment, nextSediment, sediment.Length);
+
+            // --- STEP 1: Pipeline-Integrated Rainfall ---
             for (var i = 0; i < _worldWidth * _worldHeight; i++)
             {
-                // TODO: Possibly turn localRainRate coefficients into constants or tweakable properties
-                var localRainRate = RainRate;
-                // Drier regions get less rainfall
-                if (biomes[i] == Biome.HotDesert || biomes[i] == Biome.Tundra)
-                    localRainRate *= 0.3f; // 70% less rain in dry/arid regions
-                else if (humidity[i] < 0.3f)
-                    localRainRate *= 0.5f; // 50% less rain in dry areas
-
+                // Reuse the humidity map generated by GenerateClimate(). 
+                // 0 humidity = 10% base rain, 1.0 humidity = 110% rain.
+                var localRainRate = RainRate * (0.1f + humidity[i]);
                 water[i] += localRainRate;
+                nextWater[i] += localRainRate; // Ensure next state has the rain too
             }
 
-            // Step 2: Water flow simulation
-            var velocityX = new float[_worldWidth, _worldHeight];
-            var velocityY = new float[_worldWidth, _worldHeight];
-
-            // Calculate water flow directions and velocities
-            // TODO: Make this work with wrapped X-coordinates.
+            // --- STEP 2 & 3: Hydraulic Flow & Sediment Transport ---
+            // Y goes from 1 to Height-1 (assuming poles don't wrap), X wraps completely.
             for (var y = 1; y < _worldHeight - 1; y++)
-                for (var x = 1; x < _worldWidth - 1; x++)
+            {
+                for (var x = 0; x < _worldWidth; x++)
                 {
-                    // Calculate slope in all directions
-                    var slopeX =
-                        (terrain[y * _worldWidth + (x - 1)] + terrain[y * _worldWidth + x + 1]) * 0.5f -
-                        terrain[y * _worldWidth + x];
-                    var slopeY =
-                        (terrain[(y - 1) * _worldWidth + x] + terrain[(y + 1) * _worldWidth + x]) *
-                        0.5f - terrain[y * _worldWidth + x];
+                    var index = y * _worldWidth + x;
+                    var currentWater = water[index];
+
+                    if (currentWater <= 0) continue;
+                    
+                    /*
+                    // The Ocean Sink
+                    // If this cell is underwater, the ocean absorbs the water and dissolves the sediment.
+                    // (Assuming you use LandElevationThreshold to define sea level like in your FillDepressions method)
+                    if (terrain[index] < LandElevationThreshold)
+                    {
+                        nextWater[index] = 0f;
+                        nextSediment[index] = 0f;
+                        continue; 
+                    }
+                    */
+                    
+                    // Correct gradient math using wrapped neighbors
+                    var lX = leftX[x];
+                    var rX = rightX[x];
+
+                    // Central difference: (Right - Left) / 2
+                    var slopeX = (terrain[y * _worldWidth + rX] - terrain[y * _worldWidth + lX]) *
+                                 0.5f;
+                    var slopeY = (terrain[(y + 1) * _worldWidth + x] -
+                                  terrain[(y - 1) * _worldWidth + x]) * 0.5f;
 
                     var slope = MathF.Sqrt(slopeX * slopeX + slopeY * slopeY);
-                    if (slope < MinSlope) continue;
 
-                    // Calculate flow direction
-                    var flowX = slopeX / slope;
-                    var flowY = slopeY / slope;
-
-                    // Calculate velocity based on slope and water depth
-                    var velocity = MathF.Sqrt(Gravity * slope) * water[y * _worldWidth + x];
-                    velocityX[x, y] = flowX * velocity;
-                    velocityY[x, y] = flowY * velocity;
-                }
-
-            // Step 3: Hydraulic erosion and sediment transport
-            var newTerrain = new float[_worldWidth * _worldHeight];
-            terrain.CopyTo(newTerrain);
-            var newWater = new float[_worldWidth * _worldHeight];
-            water.CopyTo(newWater);
-            var newSediment = new float[_worldWidth * _worldHeight];
-            sediment.CopyTo(newSediment);
-
-            for (var y = 1; y < _worldHeight - 1; y++)
-                for (var x = 1; x < _worldWidth - 1; x++)
-                {
-                    var currentWater = water[y * _worldWidth + x];
-                    if (currentWater <= 0) continue;
-
-                    // Calculate sediment capacity based on water velocity
-                    var velocity = MathF.Sqrt(velocityX[x, y] * velocityX[x, y] +
-                                              velocityY[x, y] * velocityY[x, y]);
+                    var velocity = slope < MinSlope
+                        ? 0f
+                        : MathF.Sqrt(Gravity * slope) * currentWater;
                     var capacity = SedimentCapacity * velocity * currentWater;
-
-                    var currentSediment = sediment[y * _worldWidth + x];
+                    var currentSediment = sediment[index];
 
                     if (currentSediment > capacity)
                     {
-                        // Deposit sediment
+                        // Deposit
                         var depositAmount = (currentSediment - capacity) * DepositionRate;
-                        newTerrain[y * _worldWidth + x] += depositAmount;
-                        newSediment[y * _worldWidth + x] -= depositAmount;
+                        nextTerrain[index] += depositAmount;
+                        nextSediment[index] -= depositAmount;
                     }
                     else
                     {
-                        // Erode terrain (with volcanic resistance)
+                        // Erode
                         var erodeAmount = (capacity - currentSediment) * HydraulicErosionRate;
 
-                        // Volcanic areas are much more resistant to erosion
-                        var volcanicResistance = 1.0f;
-                        if (hotspots[y * _worldWidth + x] > 0.1f) // Areas with volcanic activity
-                                                                  // 90% less erosion in volcanic areas
-                            volcanicResistance = VolcanicResistance;
+                        // Pipeline reuse: Hotspots resist erosion
+                        if (hotspots[index] > 0.1f) erodeAmount *= VolcanicResistance;
 
-                        erodeAmount *= volcanicResistance;
-                        // Don't erode too much. // TODO: Do we really need this guard?
-                        erodeAmount = Math.Min(erodeAmount, terrain[y * _worldWidth + x] * 0.1f);
-                        newTerrain[y * _worldWidth + x] -= erodeAmount;
-                        newSediment[y * _worldWidth + x] += erodeAmount;
+                        erodeAmount = MathF.Min(erodeAmount, terrain[index] * 0.1f);
+                        nextTerrain[index] -= erodeAmount;
+                        nextSediment[index] += erodeAmount;
                     }
 
-                    // Water flow to neighboring cells
+                    // Outflow routing
                     var totalOutflow = 0f;
-                    (int, int)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+                    (int dx, int dy)[] directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
                     foreach (var (dx, dy) in directions)
                     {
@@ -1418,84 +1347,89 @@ public class CylinderWorld : IWorldGen
 
                         if (ny < 0 || ny >= _worldHeight) continue;
 
-                        var neighborSlope =
-                            terrain[y * _worldWidth + x] - terrain[ny * _worldWidth + nx];
+                        var neighborIndex = ny * _worldWidth + nx;
+                        var neighborSlope = terrain[index] - terrain[neighborIndex];
+
                         if (neighborSlope <= 0) continue;
 
                         var outflow = currentWater * neighborSlope * HydraulicErosionRate;
-                        newWater[ny * _worldWidth + nx] += outflow * 0.25f; // Distribute to neighbors
-                        newSediment[ny * _worldWidth + nx] += currentSediment * outflow /
-                            Math.Max(currentWater, WaterViscosity) * 0.25f;
+
+                        // Distribute to next state
+                        nextWater[neighborIndex] += outflow * 0.25f;
+                        nextSediment[neighborIndex] += currentSediment * outflow /
+                            MathF.Max(currentWater, WaterViscosity) * 0.25f;
                         totalOutflow += outflow;
                     }
 
-                    newWater[y * _worldWidth + x] -= totalOutflow;
-                    newSediment[y * _worldWidth + x] -=
-                        currentSediment * totalOutflow / Math.Max(currentWater, 0.001f);
+                    nextWater[index] -= totalOutflow;
+                    nextSediment[index] -= currentSediment * totalOutflow /
+                                           MathF.Max(currentWater, 0.001f);
                 }
+            }
 
-            // Step 4: Thermal erosion (material sliding)
-            // TODO: Fix reading and writing form/to newTerrain in the same loop!
-            // TODO: Make this work with wrapped x-coordinate.
+            // Swap buffers before thermal erosion so it acts on hydraulically updated terrain
+            var tempT = terrain;
+            terrain = nextTerrain;
+            nextTerrain = tempT;
+            (sediment, nextSediment) = (nextSediment, sediment);
+            (water, nextWater) = (nextWater, water);
+
+            // Reset nextTerrain to current for thermal modifications
+            Array.Copy(terrain, nextTerrain, terrain.Length);
+
+            // --- STEP 4: Thermal Erosion (Avalanche) ---
             for (var y = 1; y < _worldHeight - 1; y++)
-                for (var x = 1; x < _worldWidth - 1; x++)
+            {
+                for (var x = 0; x < _worldWidth; x++)
                 {
-                    var currentHeight = newTerrain[y * _worldWidth + x];
-                    var lowestNeighbor = currentHeight;
-                    var lowestX = x;
-                    var lowestY = y;
+                    var index = y * _worldWidth + x;
+                    var currentHeight = terrain[index]; // READ from static state
+                    var lowestNeighborHeight = currentHeight;
+                    var lowestIndex = index;
 
-                    // Find lowest neighbor
-                    (int, int)[] directions =
+                    // 8-way check with wrapping
+                    (int dx, int dy)[] directions =
                         [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
                     foreach (var (dx, dy) in directions)
                     {
-                        var nx = x + dx;
+                        var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
-                        var neighborHeight = newTerrain[ny * _worldWidth + nx];
+                        if (ny < 0 || ny >= _worldHeight) continue;
 
-                        if (neighborHeight >= lowestNeighbor) continue;
-                        lowestNeighbor = neighborHeight;
-                        lowestX = nx;
-                        lowestY = ny;
+                        var nIndex = ny * _worldWidth + nx;
+                        var neighborHeight = terrain[nIndex];
+
+                        if (neighborHeight >= lowestNeighborHeight) continue;
+                        lowestNeighborHeight = neighborHeight;
+                        lowestIndex = nIndex;
                     }
 
-                    var slope = currentHeight - lowestNeighbor;
-
-                    // Material slides if slope is too steep
+                    var slope = currentHeight - lowestNeighborHeight;
                     if (slope <= TalusAngle) continue;
-                    var slideAmount = Math.Min(ThermalErosionRate * slope, slope * 0.5f);
-                    newTerrain[y * _worldWidth + x] -= slideAmount;
-                    newTerrain[lowestY * _worldWidth + lowestX] += slideAmount;
+                    
+                    var slideAmount = MathF.Min(ThermalErosionRate * slope, slope * 0.5f);
+                    // WRITE to dynamic state
+                    nextTerrain[index] -= slideAmount;
+                    nextTerrain[lowestIndex] += slideAmount;
                 }
+            }
 
-            // Step 5: Evaporation (climate-aware)
-            for (var y = 0; y < _worldHeight; y++)
-                for (var x = 0; x < _worldWidth; x++)
-                {
-                    // Higher evaporation in dry/hot climates
-                    var climateModifier = 1.0f;
-                    var biome = biomes[y * _worldWidth + x];
-                    var humidityValue = humidity[y * _worldWidth + x];
+            // Final swap for this iteration
+            tempT = terrain;
+            terrain = nextTerrain;
+            nextTerrain = tempT;
 
-                    if (biome is Biome.HotDesert or Biome.ColdDesert or Biome.Tundra)
-                        climateModifier = 2.0f; // 2x evaporation in dry areas
-                    else if (humidityValue < 0.3f)
-                        climateModifier = 1.5f; // 1.5x evaporation in low humidity areas
-
-                    var adjustedEvaporation = EvaporationRate * climateModifier;
-                    newWater[y * _worldWidth + x] =
-                        Math.Max(0, newWater[y * _worldWidth + x] - adjustedEvaporation);
-                }
-
-            // Update arrays
-            // TODO: Double buffer to swap between arrays.
-            terrain = newTerrain;
-            water = newWater;
-            sediment = newSediment;
+            // --- STEP 5: Pipeline-Integrated Evaporation ---
+            for (var i = 0; i < _worldWidth * _worldHeight; i++)
+            {
+                // Lower humidity = higher evaporation
+                var climateModifier = 2.0f - humidity[i];
+                var adjustedEvaporation = EvaporationRate * climateModifier;
+                water[i] = MathF.Max(0, water[i] - adjustedEvaporation);
+            }
         }
 
-        // Copy back to elevations (keep as float for now)
+        // Apply the final terrain back to the global elevation span
         for (var i = 0; i < _worldWidth * _worldHeight; i++)
             elevationsF[i] = terrain[i];
     }
@@ -2317,6 +2251,8 @@ public class CylinderWorld : IWorldGen
         const int chunksAcross = worldWidth / chunkSize;
 
         var chunks = new WorldElevationChunk[chunksAcross * (worldHeight / chunkSize)];
+        var land = 0f;
+        var water = 0f;
 
         for (var cy = 0; cy < worldHeight; cy += chunkSize)
             for (var cx = 0; cx < worldWidth; cx += chunkSize)
@@ -2337,6 +2273,15 @@ public class CylinderWorld : IWorldGen
                         var normalisedElevation = sourceRow[i] / _maxElevation * 9;
                         var elevationClamped = Math.Max(0, normalisedElevation);
                         destRow[i] = Convert.ToInt32(MathF.Floor(elevationClamped));
+
+                        if (destRow[i] >= LandElevationThreshold)
+                        {
+                            land++;
+                        }
+                        else
+                        {
+                            water++;
+                        }
                     }
                 }
 
@@ -2344,6 +2289,8 @@ public class CylinderWorld : IWorldGen
                 chunks[chunkIdx] =
                     new WorldElevationChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
+
+        var ratio = land / (land + water);
 
         return chunks;
     }
