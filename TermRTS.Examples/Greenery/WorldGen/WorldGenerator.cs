@@ -479,7 +479,7 @@ public class CylinderWorld : IWorldGen
     private void GenerateLandWaterDistribution()
     {
         var noiseMap = _noiseMap.Memory.Span;
-        const int jiggle = 80;
+        const int jiggle = 20;
         var vCells = _voronoiCells.Memory.Span;
         var vIdx = _voronoiCellIndex.Memory.Span;
         var elevations = _elevation.Memory.Span;
@@ -709,7 +709,8 @@ public class CylinderWorld : IWorldGen
                     // Positive stress means they are pulling apart.
                     var divergence = MathF.Max(0f, stress);
                     // Only true if both are continents.
-                    var continentalInteraction = plateTypes[currentPlate] && plateTypes[neighbourPlate];
+                    var continentalInteraction =
+                        plateTypes[currentPlate] && plateTypes[neighbourPlate];
                     // Only true if one plate is continental and the other is oceanic.
                     var mixedInteraction = plateTypes[currentPlate] ^ plateTypes[neighbourPlate];
 
@@ -727,8 +728,10 @@ public class CylinderWorld : IWorldGen
                         }
                         else if (mixedInteraction)
                         {
-                            minMixedConvergence = MathF.Min(minMixedConvergence, convergence * 4.5f);
-                            maxMixedConvergence = MathF.Max(maxMixedConvergence, convergence * 4.5f);
+                            minMixedConvergence =
+                                MathF.Min(minMixedConvergence, convergence * 4.5f);
+                            maxMixedConvergence =
+                                MathF.Max(maxMixedConvergence, convergence * 4.5f);
                             // Lesser mountains for mixed convergence.
                             // TODO: turn into adjustable parameter
                             totalDelta += convergence * 4.5f;
@@ -770,8 +773,6 @@ public class CylinderWorld : IWorldGen
                 _maxTectonicDelta = MathF.Max(totalDelta, _maxTectonicDelta);
                 tectonicDelta[y * _worldWidth + x] = totalDelta;
             }
-
-        Console.WriteLine($"");
     }
 
     // TODO: Turn numeric parameters in to constants and later tweakable Properties
@@ -938,6 +939,9 @@ public class CylinderWorld : IWorldGen
                 water++;
             }
         }
+
+        var ratio = land / (water + land);
+        Console.WriteLine($"Tectonics: {ratio * 100} % land");
     }
 
     #endregion
@@ -1283,17 +1287,15 @@ public class CylinderWorld : IWorldGen
 
                     if (currentWater <= 0) continue;
 
-                    /*
-                    // The Ocean Sink
-                    // If this cell is underwater, the ocean absorbs the water and dissolves the sediment.
-                    // (Assuming you use LandElevationThreshold to define sea level like in your FillDepressions method)
+                    // // The Ocean Sink
+                    // // If this cell is underwater, the ocean absorbs the water and dissolves the sediment.
+                    // // (Assuming you use LandElevationThreshold to define sea level like in your FillDepressions method)
                     if (terrain[index] < LandElevationThreshold)
                     {
                         nextWater[index] = 0f;
                         nextSediment[index] = 0f;
-                        continue; 
+                        continue;
                     }
-                    */
 
                     // Correct gradient math using wrapped neighbors
                     var lX = leftX[x];
@@ -1381,6 +1383,10 @@ public class CylinderWorld : IWorldGen
                 {
                     var index = y * _worldWidth + x;
                     var currentHeight = terrain[index]; // READ from static state
+
+                    // Ignore water terrain.
+                    if (currentHeight < LandElevationThreshold) continue;
+
                     var lowestNeighborHeight = currentHeight;
                     var lowestIndex = index;
 
@@ -1458,9 +1464,6 @@ public class CylinderWorld : IWorldGen
 
         // Step 4: Carve rivers where flow accumulation is high enough
         CarveRivers(flowAccumulation);
-
-        // Step 5: Deposit sediment in river valleys (optional)
-        DepositSediment(flowAccumulation);
     }
 
     /// <summary>
@@ -1669,6 +1672,7 @@ public class CylinderWorld : IWorldGen
     {
         var flowAccumulation = new float[_worldWidth, _worldHeight];
         var inDegree = new int[_worldWidth, _worldHeight];
+        var elevations = _elevation.Memory.Span;
 
         // Step 1: Initialize rainfall and calculate In-Degrees
         for (var y = 0; y < _worldHeight; y++)
@@ -1707,28 +1711,38 @@ public class CylinderWorld : IWorldGen
 
             if (ny < 0 || ny >= _worldHeight) continue;
 
-            // --- EVAPORATION & SEEPAGE LOGIC ---
             var currentVolume = flowAccumulation[x, y];
+            var waterToPass = 0f;
 
-            // 1. Ground Seepage (Absolute loss per tile)
-            // Keep this small (e.g., 0.05f) so it only kills tiny streams, not main rivers.
-            const float groundSeepage = 0.05f;
+            // --- The Ocean Sink ---
+            // If the current cell is in the ocean, it absorbs the water. 
+            // We do NOT pass water to the next ocean cell.
+            var isOcean = elevations[y * _worldWidth + x] < LandElevationThreshold;
+            if (!isOcean)
+            {
+                // Ground Seepage (Absolute loss per tile)
+                // Keep this small (e.g., 0.05f) so it only kills tiny streams, not main rivers.
+                const float groundSeepage = 0.05f;
 
-            // 2. Surface Evaporation (Scales with the square root of volume)
-            var aridity = 1.0f - rainfall[x, y];
-            const float evaporationFactor = 0.05f; // Tweak this based on map size
+                // Surface Evaporation (Scales with the square root of volume)
+                var aridity = 1.0f - rainfall[x, y];
+                const float evaporationFactor = 0.05f; // Tweak this based on map size
 
-            // A river of volume 100 loses 10 * 0.05 = 0.5 volume.
-            // A river of volume 10,000 loses 100 * 0.05 = 5.0 volume. (Much more survivable!)
-            var evaporationLoss = MathF.Sqrt(currentVolume) * aridity * evaporationFactor;
+                // A river of volume 100 loses 10 * 0.05 = 0.5 volume.
+                // A river of volume 10,000 loses 100 * 0.05 = 5.0 volume. (Much more survivable!)
+                var evaporationLoss = MathF.Sqrt(currentVolume) * aridity * evaporationFactor;
 
-            // 3. Calculate remaining water
-            var waterToPass = currentVolume - groundSeepage - evaporationLoss;
+                // Calculate remaining water
+                waterToPass = currentVolume - groundSeepage - evaporationLoss;
+            }
 
-            // Ensure we don't pass negative water
+
+            // Ensure we don't pass negative water (ocean cells pass 0).
             if (waterToPass > 0) flowAccumulation[nx, ny] += waterToPass;
 
-            // Mark that one upstream dependency is resolved
+            // Mark that one upstream dependency is resolved.
+            // We MUST still decrement the neighbor's inDegree even if we pass 0 water,
+            // otherwise the topological sort will freeze and skip the rest of the map.
             inDegree[nx, ny]--;
 
             // If all upstream dependencies are resolved, this cell is ready to flow
@@ -1829,9 +1843,6 @@ public class CylinderWorld : IWorldGen
 
             queue.Enqueue((nx, ny));
         }
-
-        Console.WriteLine(maxOrder);
-        Console.WriteLine(breakAtDirection);
     }
 
     /// <summary>
@@ -1882,38 +1893,6 @@ public class CylinderWorld : IWorldGen
                 var carvedElevation = cellElevation - targetDepth;
 
                 elevationsF[index] = MathF.Max(minAllowedElevation, carvedElevation);
-            }
-    }
-
-    /// <summary>
-    ///     Deposits sediments carried along by the rivers.
-    /// </summary>
-    /// <param name="flowAccumulation">Map of flow accumulation per cell.</param>
-    private void DepositSediment(
-        float[,] flowAccumulation)
-    {
-        var elevationsF = _elevation.Memory.Span;
-
-        // Only rivers carrying a significant amount of water deposit noticeable sediment
-        const float sedimentThreshold = 50f;
-
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-            {
-                var waterVolume = flowAccumulation[x, y];
-                if (waterVolume < sedimentThreshold) continue;
-
-                var currentElevation = elevationsF[y * _worldWidth + x];
-
-                // Deposit sediment in shallow waters (forming river deltas)
-                // or in extremely flat lowlands (floodplains)
-                if (currentElevation >= LandElevationThreshold) continue;
-                // The more water, the more sediment. 
-                var sedimentAmount = waterVolume * 0.11f;
-
-                // Build up the land, potentially creating new landmasses (deltas) right at the coast
-                elevationsF[y * _worldWidth + x] =
-                    Math.Min(LandElevationThreshold, currentElevation + sedimentAmount);
             }
     }
 
@@ -2080,8 +2059,8 @@ public class CylinderWorld : IWorldGen
             surfaceMap[centerY * _worldWidth + centerX] = elevation switch
             {
                 >= CraterElevationThreshold when volcanoType == SurfaceFeature.Stratovolcano ||
-                                                 (volcanoType == SurfaceFeature.Shield &&
-                                                  strength > 0.8f) => SurfaceFeature.Crater,
+                                                 volcanoType == SurfaceFeature.Shield &&
+                                                 strength > 0.8f => SurfaceFeature.Crater,
                 >= CinderElevationThreshold when volcanoType == SurfaceFeature.Cinder =>
                     SurfaceFeature.Cinder,
                 _ => surfaceMap[centerY * _worldWidth + centerX]
@@ -2104,7 +2083,8 @@ public class CylinderWorld : IWorldGen
 
                 // Skip if already has strong features
                 var existing = surfaceMap[y * _worldWidth + wrappedX];
-                if (existing is SurfaceFeature.River or SurfaceFeature.Glacier or SurfaceFeature.Lava)
+                if (existing is SurfaceFeature.River or SurfaceFeature.Glacier or
+                    SurfaceFeature.Lava)
                     continue;
 
                 surfaceMap[y * _worldWidth + wrappedX] = volcanoType switch
@@ -2156,7 +2136,8 @@ public class CylinderWorld : IWorldGen
             {
                 // Skip existing assigned strong surface features: river, lava, glacier
                 var existing = surfaceMap[y * _worldWidth + x];
-                if (existing is SurfaceFeature.River or SurfaceFeature.Lava or SurfaceFeature.Glacier)
+                if (existing is SurfaceFeature.River or SurfaceFeature.Lava or
+                    SurfaceFeature.Glacier)
                     continue;
 
                 var elevation = elevationsF[y * _worldWidth + x];
@@ -2267,8 +2248,7 @@ public class CylinderWorld : IWorldGen
                     var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
                     for (var i = 0; i < sourceRow.Length; i++)
                     {
-                        var normalisedElevation = sourceRow[i] / _maxElevation * 9;
-                        var elevationClamped = Math.Max(0, normalisedElevation);
+                        var elevationClamped = Math.Clamp(sourceRow[i], 0f, MaxElevation);
                         destRow[i] = Convert.ToInt32(MathF.Floor(elevationClamped));
 
                         if (destRow[i] >= LandElevationThreshold)
