@@ -45,7 +45,13 @@ public class Greenery : IRunnableExample
                 0.40f,
                 Seed,
                 VoronoiCellCount,
-                PlateCount);
+                PlateCount,
+                new ElevationParameters(),
+                new CoastalParameters(),
+                new VolcanicParameters(),
+                new ErosionParameters(),
+                new ClimateParameters(),
+                new RiverParameters());
         var worldData = worldGen.Generate();
         core.AddNewComponents(worldData.ElevationChunk);
         core.AddNewComponents(worldData.SurfaceFeatureChunk);
