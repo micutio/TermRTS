@@ -7,8 +7,8 @@ namespace TermRTS.Examples.Greenery.Ui;
 
 internal static class Visual
 {
-    internal static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
-    internal static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
+    internal static readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
+    internal static readonly ConsoleColor DefaultBg = ConsoleColor.Black;
 
     internal static readonly char[] MarkersElevation =
         ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];

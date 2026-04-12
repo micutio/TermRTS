@@ -23,21 +23,39 @@ public enum MapRenderMode
     TemperatureAmplitude
 }
 
-internal readonly struct CellVisual(char marker, ConsoleColor foreground, ConsoleColor background)
+internal readonly struct CellVisual
 {
+    private readonly char _marker;
+    private readonly ConsoleColor _foreground;
+    private readonly ConsoleColor _background;
+
+    public CellVisual()
+    {
+        _marker = ' ';
+        _foreground = ConsoleColor.Gray;
+        _background = ConsoleColor.Black;
+    }
+
+    public CellVisual(char marker, ConsoleColor foreground, ConsoleColor background)
+    {
+        _marker = marker;
+        _foreground = foreground;
+        _background = background;
+    }
+
     internal char GetMarker()
     {
-        return marker;
+        return _marker;
     }
 
     internal ConsoleColor GetForeground()
     {
-        return foreground;
+        return _foreground;
     }
 
     internal ConsoleColor GetBackground()
     {
-        return background;
+        return _background;
     }
 }
 
@@ -96,6 +114,11 @@ public class MapView : UiElementBase, IEventSink
         // _canvas.Interlaced = true;
 
         _cachedWorld = new CellVisual[ViewportWidth * ViewportHeight];
+        for (var i = 0; i < _cachedWorld.Length; i++)
+        {
+            _cachedWorld[i] = new CellVisual();
+        }
+
         _cachedFov = new bool[ViewportWidth * ViewportHeight];
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
@@ -296,6 +319,10 @@ public class MapView : UiElementBase, IEventSink
     {
         var newSize = Math.Max(0, ViewportWidth * ViewportHeight);
         _cachedWorld = new CellVisual[newSize];
+        for (var i = 0; i < _cachedWorld.Length; i++)
+        {
+            _cachedWorld[i] = new CellVisual();
+        }
         _cachedFov = new bool[newSize];
         IsRequireReRender = true;
         IsRequireRootReRender = true;
@@ -306,6 +333,10 @@ public class MapView : UiElementBase, IEventSink
         UpdateSpaceForScaleLeft();
         var newSize = Math.Max(0, ViewportWidth * ViewportHeight);
         _cachedWorld = new CellVisual[newSize];
+        for (var i = 0; i < _cachedWorld.Length; i++)
+        {
+            _cachedWorld[i] = new CellVisual();
+        }
         _cachedFov = new bool[newSize];
         IsRequireReRender = true;
         IsRequireRootReRender = true;
@@ -533,6 +564,11 @@ public class MapView : UiElementBase, IEventSink
         // var keyMap =
         //     "Keys: Q=Elevation | W=Surface | U=Rivers | E=Temperature | R=Humidity | T=Biomes | Y=TempAmp";
         var legend = GetLegendText(MapRenderMode);
+
+        for (var x = 0; x < Width; x++)
+        {
+            _canvas.Set(x, Y + Height - 1, ' ', ConsoleColor.Gray, ConsoleColor.Black);
+        }
 
         // Don't show keymap for the time being.
         // _canvas.Text(X + _spaceForScaleLeft, Y + Height - 2, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);

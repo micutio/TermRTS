@@ -15,8 +15,8 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
 {
     #region Fields
 
-    private readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private readonly ConsoleColor DefaultBg = ConsoleColor.Black;
+    private readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
 
     private readonly char[] _msg = new char[80];
     private int _idx;

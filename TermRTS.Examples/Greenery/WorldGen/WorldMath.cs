@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace TermRTS.Examples.Greenery.WorldGen;
@@ -136,6 +137,23 @@ public static class WorldMath
         var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
         var dy = Math.Abs(y2 - y1);
         return MathF.Sqrt(dx * dx + dy * dy);
+    }
+
+    public static Vector2 GetWrappedVector(Vector2 from, Vector2 to)
+    {
+        return GetWrappedVector(to.X - from.X, to.Y - from.Y);
+    }
+
+    public static Vector2 GetWrappedVector((int, int) from, (int, int) to)
+    {
+        return GetWrappedVector(to.Item1 - from.Item1, to.Item2 - from.Item2);
+    }
+
+    public static Vector2 GetWrappedVector(float dx, float dy)
+    {
+        // If the distance is more than half the map, wrapping around is shorter
+        if (MathF.Abs(dx) > WorldWidth / 2f) dx -= MathF.Sign(dx) * WorldWidth;
+        return new Vector2(dx, dy);
     }
 }
 

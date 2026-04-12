@@ -14,8 +14,8 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     #region Fields
 
     private static readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private static readonly ConsoleColor DefaultBg = ConsoleColor.Black;
+    private static readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
 
     private readonly ConsoleCanvas _canvas;
     private readonly MapView _mapview;

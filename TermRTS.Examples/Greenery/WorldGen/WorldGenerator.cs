@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Net;
 using System.Numerics;
 using TermRTS.Examples.Greenery.Ecs.Component;
 
@@ -8,7 +7,7 @@ namespace TermRTS.Examples.Greenery.WorldGen;
 // Refer to link below for a nice layered noise map implementation:
 // https://github.com/SebLague/Procedural-Landmass-Generation/blob/master/Proc%20Gen%20E03/Assets/Scripts/Noise.cs
 
-// TODO: Extract chunk classes into another file.
+// TODO: Combine surface feature and biome into one enum?
 
 public enum SurfaceFeature : byte
 {
@@ -112,7 +111,6 @@ public class CylinderWorld : IWorldGen
 
     // Constants for elevation thresholds
     private const int MaxElevation = 9;
-
     private const int LandElevationThreshold = 4;
 
     // private const int SeaLevelElevation = 3;
@@ -166,7 +164,6 @@ public class CylinderWorld : IWorldGen
     private float _maxHotspotHeight = float.MinValue;
 
     // TODO: Distinguish between voronoi cells and tectonic plates
-    // private readonly WorldBuffer<byte> _elevation;
     private readonly WorldBuffer<float> _elevation;
     private readonly WorldBuffer<int> _landWaterMap;
     private readonly WorldBuffer<(int, int)> _voronoiCells;
@@ -311,47 +308,42 @@ public class CylinderWorld : IWorldGen
 
     public WorldGenerationResult Generate()
     {
-        ValidateParameters();
-
-        // TODO: Then reactivate step by step.
-        // TODO: Find appropriate visualisations per step to examine visually.
-        // TODO: Verify world generation works!
-        // TODO: Optimize data structures and copying, streamline pipeline.
-        // TODO: Decide on final world data necessary for game and visualisation.
-        // TODO: Final optimisation of data structure use.
-
-        // STAGE 1: Voronoi Cells and Land/Water distribution /////////////////////////////////////
-        // Associate each grid cell to one of the voronoi cells.
-        InitializeVoronoiCells();
+        // Stage 0: Preparation ~> Noise Map ///////////////////////////////////////////////////////
         GenerateNoiseMap();
+
+        // STAGE 1: Voronoi Cells and Land/Water distribution //////////////////////////////////////
+        // Associate each grid cell to one of the voronoi cells.
+        // For each voronoi land cell, apply perlin or simplex noise to generate height.
+        InitializeVoronoiCells();
         GenerateLandWaterDistribution();
-        // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
-        InitializePlateTectonics();
+
         // Generate coastal slopes for each voronoi cell.
         // GenerateSlopedCoasts();
+
+        // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
+        InitializePlateTectonics();
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
         ComputePlateTectonicHeight();
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
         GenerateHotspots();
-        // For each voronoi land cell, apply perlin or simplex noise to generate height.
-        ApplyNoiseAndSlopes();
-        CalculateDistanceToWaterMap();
+
+        // Apply all elevation changes from tectonics, hotspots etc.
+        ApplyTectonics();
+
+        // Stage 3: Climate ////////////////////////////////////////////////////////////////////////
+        // CalculateDistanceToWaterMap(); // TODO: This does not seem to be used.
         // Generate climate (temperature, humidity, biomes, seasonal effects)
         GenerateClimate();
-
         // Apply erosion to smooth terrain and create realistic features
-        // ApplyAdvancedErosion();
-
+        ApplyErosion();
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         GenerateRivers();
 
         // TODO: Re-generate distance to water?
         // Re-generate climate, now that we have rivers:
         GenerateClimate();
-
         // Apply mountain details (ridges, snow, glacier, lava)
         ApplyMountainDetails();
-
         // Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures();
 
@@ -393,25 +385,6 @@ public class CylinderWorld : IWorldGen
 
     #endregion
 
-    #region Validation
-
-    private void ValidateParameters()
-    {
-        if (_worldWidth <= 0)
-            throw new ArgumentOutOfRangeException(nameof(_worldWidth),
-                "World width must be greater than 0.");
-
-        if (_worldHeight <= 0)
-            throw new ArgumentOutOfRangeException(nameof(_worldHeight),
-                "World height must be greater than 0.");
-
-        if (LandRatio is < 0.0f or > 1.0f)
-            throw new ArgumentOutOfRangeException(nameof(LandRatio),
-                "Land ratio must be between 0 and 1.");
-    }
-
-    #endregion
-
     #region Noise Map
 
     /// <summary>
@@ -449,57 +422,6 @@ public class CylinderWorld : IWorldGen
             }
     }
 
-    private void ApplyNoiseAndSlopes()
-    {
-        var elevations = _elevation.Memory.Span;
-        var coastalSlopes = _coastalSlopes.Memory.Span;
-        var noiseField = _noiseMap.Memory.Span;
-        var tectonicDelta = _tectonicDelta.Memory.Span;
-        var hotspots = _hotspotMap.Memory.Span;
-
-        var max = float.MinValue;
-        var min = float.MaxValue;
-
-        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
-        {
-            max = Math.Max(max, hotspots[i]);
-            min = Math.Min(min, hotspots[i]);
-        }
-
-
-        // Apply noise and slopes to elevation map.
-        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
-        {
-            // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
-            var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
-            var normalizedNoise = noiseField[i];
-            var tectonicD = tectonicDelta[i];
-            var hotspot = hotspots[i];
-
-            // For oceanic plates, reduce noise impact to allow deeper trenches
-            // var cellElevationContribution = elevations[i] >= LandElevationThreshold
-            //     ? elevations[i]
-            //     : 0;
-            var noiseMultiplier = elevations[i] >= LandElevationThreshold
-                ? 1.0f
-                : -1.0f;
-
-            var elevation = // cellElevationContribution +
-                elevations[i] +
-                slopeFactor *
-                normalizedNoise * noiseMultiplier * elevations[i]; // *
-            // var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
-            elevation = Math.Min(MaxElevation, elevation + tectonicD + hotspot);
-            // Only apply hotspots if max elevation is not exceeded.
-            // This should not happen in most cases as hotspots are supposed to be generated
-            // in oceanic tiles.
-            // if (hotspot > 0 && elevation + hotspot < MaxElevation) elevation += hotspot;
-
-            // Store as float, don't clamp yet
-            elevations[i] = Math.Max(0, elevation);
-        }
-    }
-
     #endregion
 
     #region World Base Structure
@@ -531,8 +453,24 @@ public class CylinderWorld : IWorldGen
     private void GenerateVoronoiCellTypes()
     {
         var pTypes = _voronoiCellTypes.Memory.Span;
+
+        var land = 0f;
+        var water = 0f;
         for (var i = 0; i < VoronoiCellCount; i += 1)
+        {
             pTypes[i] = _rng.NextDouble() < LandRatio;
+            if (pTypes[i])
+            {
+                land++;
+            }
+            else
+            {
+                water++;
+            }
+        }
+
+        var ratio = land / (land + water);
+        Console.WriteLine($"Generate Voronoi Cell Types: {ratio * 100} % land");
     }
 
     /// <summary>
@@ -547,6 +485,8 @@ public class CylinderWorld : IWorldGen
         var elevations = _elevation.Memory.Span;
         var landWater = _landWaterMap.Memory.Span;
 
+        var land = 0f;
+        var water = 0f;
 
         for (var y = 0; y < _worldHeight; y += 1)
             for (var x = 0; x < _worldWidth; x += 1)
@@ -575,10 +515,22 @@ public class CylinderWorld : IWorldGen
 
                 vIdx[idx] = winnerCell;
                 elevations[idx] = landWater[winnerCell] >= LandElevationThreshold
-                    ? LandElevationThreshold + MathF.Pow(noiseMap[idx], 2) *
-                    (MaxElevation - LandElevationThreshold)
+                    ? LandElevationThreshold + MathF.Pow(noiseMap[idx], 1) *
+                    (MaxElevation - LandElevationThreshold - 1)
                     : noiseMap[idx] * (LandElevationThreshold - 1);
+
+                if (elevations[idx] >= LandElevationThreshold)
+                {
+                    land++;
+                }
+                else
+                {
+                    water++;
+                }
             }
+
+        var ratio = land / (land + water);
+        Console.WriteLine($"Generate Land Water Distribution: {ratio * 100} % land");
     }
 
     #endregion
@@ -586,22 +538,6 @@ public class CylinderWorld : IWorldGen
     #region Tectonics
 
     // TODO: Move this where it makes sense.
-    private Vector2 GetWrappedVector(Vector2 from, Vector2 to)
-    {
-        return GetWrappedVector(to.X - from.X, to.Y - from.Y);
-    }
-
-    private Vector2 GetWrappedVector((int, int) from, (int, int) to)
-    {
-        return GetWrappedVector(to.Item1 - from.Item1, to.Item2 - from.Item2);
-    }
-
-    private Vector2 GetWrappedVector(float dx, float dy)
-    {
-        // If the distance is more than half the map, wrapping around is shorter
-        if (MathF.Abs(dx) > _worldWidth / 2f) dx -= MathF.Sign(dx) * _worldWidth;
-        return new Vector2(dx, dy);
-    }
 
     /// <summary>
     ///     Initializes plates and tectonic parameters.
@@ -761,11 +697,11 @@ public class CylinderWorld : IWorldGen
 
                     var pA = plateCenters[currentPlate];
                     var pB = plateCenters[neighbourPlate];
-                    var direction = GetWrappedVector(pA, pB);
+                    var direction = WorldMath.GetWrappedVector(pA, pB);
                     if (direction.LengthSquared() < 0.0001f) continue;
 
                     var normal = Vector2.Normalize(direction);
-                    var relativeMotion = GetWrappedVector(plateMotions[neighbourPlate],
+                    var relativeMotion = WorldMath.GetWrappedVector(plateMotions[neighbourPlate],
                         plateMotions[currentPlate]);
                     var stress = Vector2.Dot(relativeMotion, normal);
                     // Negative stress means they are crashing.
@@ -942,9 +878,129 @@ public class CylinderWorld : IWorldGen
         }
     }
 
+    private void ApplyTectonics()
+    {
+        var elevations = _elevation.Memory.Span;
+        var coastalSlopes = _coastalSlopes.Memory.Span;
+        var noiseField = _noiseMap.Memory.Span;
+        var tectonicDelta = _tectonicDelta.Memory.Span;
+        var hotspots = _hotspotMap.Memory.Span;
+
+        var max = float.MinValue;
+        var min = float.MaxValue;
+
+        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
+        {
+            max = Math.Max(max, hotspots[i]);
+            min = Math.Min(min, hotspots[i]);
+        }
+
+
+        var land = 0f;
+        var water = 0f;
+        // Apply noise and slopes to elevation map.
+        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
+        {
+            // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
+            var slopeFactor = coastalSlopes[i] / MaxCoastalSlope;
+            var normalizedNoise = noiseField[i];
+            var tectonicD = tectonicDelta[i];
+            var hotspot = hotspots[i];
+
+            // For oceanic plates, reduce noise impact to allow deeper trenches
+            // var cellElevationContribution = elevations[i] >= LandElevationThreshold
+            //     ? elevations[i]
+            //     : 0;
+            var noiseMultiplier = elevations[i] >= LandElevationThreshold
+                ? 1.0f
+                : -1.0f;
+
+            var elevation = // cellElevationContribution +
+                elevations[i] +
+                slopeFactor *
+                normalizedNoise * noiseMultiplier * elevations[i]; // *
+            // var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
+            elevation = Math.Min(MaxElevation, elevation + tectonicD + hotspot);
+            // Only apply hotspots if max elevation is not exceeded.
+            // This should not happen in most cases as hotspots are supposed to be generated
+            // in oceanic tiles.
+            // if (hotspot > 0 && elevation + hotspot < MaxElevation) elevation += hotspot;
+
+            // Store as float, don't clamp yet
+            elevations[i] = Math.Min(9, elevation);
+
+            if (elevations[i] >= LandElevationThreshold)
+            {
+                land++;
+            }
+            else
+            {
+                water++;
+            }
+        }
+    }
+
     #endregion
 
     #region Climate and Biomes
+
+    /// <summary>
+    ///     Calculates the distance from every land cell to the nearest water cell 
+    ///     using an O(N) Breadth-First Search.
+    /// </summary>
+    private void CalculateDistanceToWaterMap()
+    {
+        var elevations = _elevation.Memory.Span;
+        var distToWaterMap = _distToWaterMap.Memory.Span;
+        var visited = new bool[_worldWidth, _worldHeight];
+        var queue = new Queue<(int x, int y, int dist)>();
+
+        // 1. Initialize: Find all water and add to queue
+        for (var y = 0; y < _worldHeight; y++)
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var idx = y * _worldWidth + x;
+                if (elevations[idx] < LandElevationThreshold)
+                {
+                    distToWaterMap[idx] = 0;
+                    visited[x, y] = true;
+                    queue.Enqueue((x, y, 0));
+                }
+                else
+                {
+                    distToWaterMap[idx] = -1; // Mark land as uncalculated
+                }
+            }
+
+        // Directions for 4-way connectivity (N, S, E, W)
+        // Use 8-way if you want diagonal distances accounted for
+        var directions = new (int dx, int dy)[] { (0, 1), (0, -1), (1, 0), (-1, 0) };
+
+        // 2. Process the queue
+        while (queue.Count > 0)
+        {
+            var (cx, cy, currentDist) = queue.Dequeue();
+
+            foreach (var (dx, dy) in directions)
+            {
+                var nx = WorldMath.WrapX(cx + dx);
+                var ny = cy + dy;
+
+                // Check vertical bounds
+                if (ny < 0 || ny >= _worldHeight) continue;
+
+                // If not visited, it's the closest we've found so far
+                if (visited[nx, ny]) continue;
+                visited[nx, ny] = true;
+                var nextDist = currentDist + 1;
+                distToWaterMap[ny * _worldWidth + nx] = nextDist;
+
+                // Optimization: You can stop the queue if nextDist > MaxSearchRadius
+                // but usually, a full distance map is useful for AI city placement!
+                queue.Enqueue((nx, ny, nextDist));
+            }
+        }
+    }
 
     private float[,] CalculatePhysicalRainfall()
     {
@@ -1022,8 +1078,6 @@ public class CylinderWorld : IWorldGen
         return rainfall;
     }
 
-    // TODO: Can we structure our world generation steps better than to use this bool flag?
-    // TODO: Separate biomes out of this
     /// <summary>
     ///     Generates world maps for various climate features.
     /// </summary>
@@ -1087,64 +1141,6 @@ public class CylinderWorld : IWorldGen
     }
 
     /// <summary>
-    ///     Calculates the distance from every land cell to the nearest water cell 
-    ///     using an O(N) Breadth-First Search.
-    /// </summary>
-    private void CalculateDistanceToWaterMap()
-    {
-        var elevations = _elevation.Memory.Span;
-        var distToWaterMap = _distToWaterMap.Memory.Span;
-        var visited = new bool[_worldWidth, _worldHeight];
-        var queue = new Queue<(int x, int y, int dist)>();
-
-        // 1. Initialize: Find all water and add to queue
-        for (var y = 0; y < _worldHeight; y++)
-            for (var x = 0; x < _worldWidth; x++)
-            {
-                var idx = y * _worldWidth + x;
-                if (elevations[idx] < LandElevationThreshold)
-                {
-                    distToWaterMap[idx] = 0;
-                    visited[x, y] = true;
-                    queue.Enqueue((x, y, 0));
-                }
-                else
-                {
-                    distToWaterMap[idx] = -1; // Mark land as uncalculated
-                }
-            }
-
-        // Directions for 4-way connectivity (N, S, E, W)
-        // Use 8-way if you want diagonal distances accounted for
-        var directions = new (int dx, int dy)[] { (0, 1), (0, -1), (1, 0), (-1, 0) };
-
-        // 2. Process the queue
-        while (queue.Count > 0)
-        {
-            var (cx, cy, currentDist) = queue.Dequeue();
-
-            foreach (var (dx, dy) in directions)
-            {
-                var nx = WorldMath.WrapX(cx + dx);
-                var ny = cy + dy;
-
-                // Check vertical bounds
-                if (ny < 0 || ny >= _worldHeight) continue;
-
-                // If not visited, it's the closest we've found so far
-                if (visited[nx, ny]) continue;
-                visited[nx, ny] = true;
-                var nextDist = currentDist + 1;
-                distToWaterMap[ny * _worldWidth + nx] = nextDist;
-
-                // Optimization: You can stop the queue if nextDist > MaxSearchRadius
-                // but usually, a full distance map is useful for AI city placement!
-                queue.Enqueue((nx, ny, nextDist));
-            }
-        }
-    }
-
-    /// <summary>
     ///     Determine the biome of a cell by its properties.
     ///     Suggestion:
     ///     Moisture	Low Temp (Tundra)	Mid Temp (Temperate)	High Temp (Tropical)
@@ -1156,6 +1152,7 @@ public class CylinderWorld : IWorldGen
     /// <param name="relHumidity">Humidity of the cell.</param>
     /// <param name="elevation">Elevation of the cell.</param>
     /// <param name="isWater">True if the cell is sea, false otherwise.</param>
+    /// <param name="isRiver">True if the cell is river, false otherwise.</param>
     /// <param name="strahlerOrder">Strahler order for river cells.</param>
     /// <returns>Biome of the cell.</returns>
     private static Biome DetermineBiome(
@@ -1230,7 +1227,7 @@ public class CylinderWorld : IWorldGen
     /// <summary>
     ///     Apply erosion with hydraulic simulation, sediment transport and thermal erosion.
     /// </summary>
-    private void ApplyAdvancedErosion()
+    private void ApplyErosion()
     {
         var elevationsF = _elevation.Memory.Span;
         var humidity = _humidity.Memory.Span;
@@ -1285,7 +1282,7 @@ public class CylinderWorld : IWorldGen
                     var currentWater = water[index];
 
                     if (currentWater <= 0) continue;
-                    
+
                     /*
                     // The Ocean Sink
                     // If this cell is underwater, the ocean absorbs the water and dissolves the sediment.
@@ -1297,7 +1294,7 @@ public class CylinderWorld : IWorldGen
                         continue; 
                     }
                     */
-                    
+
                     // Correct gradient math using wrapped neighbors
                     var lX = leftX[x];
                     var rX = rightX[x];
@@ -1406,7 +1403,7 @@ public class CylinderWorld : IWorldGen
 
                     var slope = currentHeight - lowestNeighborHeight;
                     if (slope <= TalusAngle) continue;
-                    
+
                     var slideAmount = MathF.Min(ThermalErosionRate * slope, slope * 0.5f);
                     // WRITE to dynamic state
                     nextTerrain[index] -= slideAmount;
@@ -2291,6 +2288,7 @@ public class CylinderWorld : IWorldGen
             }
 
         var ratio = land / (land + water);
+        Console.WriteLine($"Final World Map: {ratio * 100} % land");
 
         return chunks;
     }

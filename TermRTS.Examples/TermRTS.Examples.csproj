@@ -9,7 +9,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="ConsoleRenderer" Version="0.7.1"/>
+        <PackageReference Include="ConsoleRenderer" Version="0.8.0" />
         <PackageReference Include="log4net" Version="3.3.0"/>
         <PackageReference Include="Xdg.Directories" Version="0.1.2"/>
     </ItemGroup>
