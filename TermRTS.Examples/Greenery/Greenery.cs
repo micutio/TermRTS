@@ -76,7 +76,7 @@ public class Greenery : IRunnableExample
 
         var scheduler = new Scheduler(core);
         var renderer =
-            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight);
+            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight, new UiThemes());
         core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 
