@@ -33,14 +33,14 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     #region Constructor
 
-    public Renderer(SchedulerEventQueue evtQueue, int worldWidth, int worldHeight)
+    public Renderer(SchedulerEventQueue evtQueue, int worldWidth, int worldHeight, UiThemes theme)
     {
         _canvas = new ConsoleCanvas().Render();
         _canvas.AutoResize = true;
         _lastCanvasWidth = _canvas.Width;
         _lastCanvasHeight = _canvas.Height;
         // _canvas.Interlaced = true;
-        _mapview = new MapView(_canvas, worldWidth, worldHeight)
+        _mapview = new MapView(_canvas, worldWidth, worldHeight, theme)
         {
             Height = _canvas.Height - 1,
             // For debugging, mapview takes up the entire width.

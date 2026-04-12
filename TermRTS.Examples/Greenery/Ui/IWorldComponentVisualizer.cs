@@ -265,9 +265,12 @@ internal interface IWorldComponentVisualizer
     );
 }
 
-internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
+internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
+    private readonly char[] _markers = markers;
+    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -315,8 +318,8 @@ internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
                 var elevation = currentChunk.Elevation[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.MarkersElevation[elevation];
-                var (fg, bg) = colors[elevation];
+                var marker = _markers[elevation];
+                var (fg, bg) = _colors[elevation];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -325,9 +328,12 @@ internal class ElevationVisualizer((ConsoleColor, ConsoleColor)[] colors)
     }
 }
 
-internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
+internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
+    private readonly char[] _markers = markers;
+    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -376,8 +382,8 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
                 var index = Visual.GetScalarIndex(elevation, 0, 9);
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (fg, bg) = colors[index];
+                var marker = _markers[index];
+                var (fg, bg) = _colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -386,9 +392,11 @@ internal class ElevationHeatmapVisualizer((ConsoleColor, ConsoleColor)[] colors)
     }
 }
 
-internal class SurfaceFeatureVisualizer()
+internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> surfaceFeatureMap)
     : IWorldComponentVisualizer
 {
+    private readonly Dictionary<SurfaceFeature, CellVisual> _surfaceFeatureMap = surfaceFeatureMap;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -436,18 +444,22 @@ internal class SurfaceFeatureVisualizer()
                 var feature = currentChunk.SurfaceFeature[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.CellVisualSurfaceFeatures[(int)feature];
-
-                // 6. Write to the VIEWPORT-relative buffer
-                viewportBuffer[vY * viewportWidth + vX] = marker;
+                if (_surfaceFeatureMap.TryGetValue(feature, out var marker))
+                {
+                    // 6. Write to the VIEWPORT-relative buffer
+                    viewportBuffer[vY * viewportWidth + vX] = marker;
+                }
             }
         }
     }
 }
 
-internal class TemperatureVisualizer()
+internal class TemperatureVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
+    private readonly char[] _markers = markers;
+    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -457,8 +469,6 @@ internal class TemperatureVisualizer()
         int viewportHeight
     )
     {
-        var colors = Visual.ColorsHeatmapTemperature;
-
         for (var vY = 0; vY < viewportHeight; vY++)
         {
             var worldY = viewWorldY + vY;
@@ -499,8 +509,8 @@ internal class TemperatureVisualizer()
                 var index = Visual.GetScalarIndex(temperature, -50, 35);
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (fg, bg) = colors[index];
+                var marker = _markers[index];
+                var (fg, bg) = _colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -509,9 +519,12 @@ internal class TemperatureVisualizer()
     }
 }
 
-internal class HumidityVisualizer()
+internal class HumidityVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
+    private readonly char[] _markers = markers;
+    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -521,8 +534,6 @@ internal class HumidityVisualizer()
         int viewportHeight
     )
     {
-        var colors = Visual.ColorsHeatmapHumidity;
-
         for (var vY = 0; vY < viewportHeight; vY++)
         {
             var worldY = viewWorldY + vY;
@@ -563,8 +574,8 @@ internal class HumidityVisualizer()
                 // var index = Visual.GetScalarIndex(humidity, 0, 9);
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (fg, bg) = colors[index];
+                var marker = _markers[index];
+                var (fg, bg) = _colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -573,9 +584,12 @@ internal class HumidityVisualizer()
     }
 }
 
-internal class TemperatureAmplitudeVisualizer()
+internal class TemperatureAmplitudeVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
+    private readonly char[] _markers = markers;
+    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -585,8 +599,6 @@ internal class TemperatureAmplitudeVisualizer()
         int viewportHeight
     )
     {
-        var colors = Visual.ColorsHeatmapTemperature;
-
         for (var vY = 0; vY < viewportHeight; vY++)
         {
             var worldY = viewWorldY + vY;
@@ -628,8 +640,8 @@ internal class TemperatureAmplitudeVisualizer()
                 // var index = Visual.GetScalarIndex(tempAmplitude, 0, 9);
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.MarkersHeatmapMonochrome[index];
-                var (fg, bg) = colors[index];
+                var marker = _markers[index];
+                var (fg, bg) = _colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -638,9 +650,11 @@ internal class TemperatureAmplitudeVisualizer()
     }
 }
 
-internal class BiomeVisualizer()
+internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
     : IWorldComponentVisualizer
 {
+    private readonly Dictionary<Biome, CellVisual> _biomeMap = biomeMap;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -688,18 +702,23 @@ internal class BiomeVisualizer()
                 var biome = currentChunk.Biome[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
-                var marker = Visual.BiomeMap[biome];
-
-                // 6. Write to the VIEWPORT-relative buffer
-                viewportBuffer[vY * viewportWidth + vX] = marker;
+                if (_biomeMap.TryGetValue(biome, out var marker))
+                {
+                    // 6. Write to the VIEWPORT-relative buffer
+                    viewportBuffer[vY * viewportWidth + vX] = marker;
+                }
             }
         }
     }
 }
 
-internal class RiverVisualizer()
+internal class RiverVisualizer(ConsoleColor riverFg, ConsoleColor defaultFg, ConsoleColor defaultBg)
     : IWorldComponentVisualizer
 {
+    private readonly ConsoleColor _riverFg = riverFg;
+    private readonly ConsoleColor _defaultFg = defaultFg;
+    private readonly ConsoleColor _defaultBg = defaultBg;
+
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -748,8 +767,8 @@ internal class RiverVisualizer()
 
                 // 5. Map to your TUI visuals
                 var marker = hasRiver
-                    ? new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, Visual.DefaultBg)
-                    : new CellVisual(Cp437.WhiteSpace, Visual.DefaultFg, Visual.DefaultBg);
+                    ? new CellVisual(Cp437.Tilde, _riverFg, _defaultBg)
+                    : new CellVisual(Cp437.WhiteSpace, _defaultFg, _defaultBg);
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = marker;

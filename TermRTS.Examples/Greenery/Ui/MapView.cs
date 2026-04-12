@@ -23,7 +23,7 @@ public enum MapRenderMode
     TemperatureAmplitude
 }
 
-internal readonly struct CellVisual
+public readonly struct CellVisual
 {
     private readonly char _marker;
     private readonly ConsoleColor _foreground;
@@ -80,6 +80,9 @@ public class MapView : UiElementBase, IEventSink
     // reference to canvas to render on
     private readonly ConsoleCanvas _canvas;
 
+    // theme
+    private readonly UiThemes _theme;
+
     // cached world and drone paths
     // TODO: Change to (TerminalColor, char)[] _cachedWorld;
     private readonly Dictionary<int, Vector2> _cachedDronePositions;
@@ -107,11 +110,13 @@ public class MapView : UiElementBase, IEventSink
 
     #region Constructor
 
-    public MapView(ConsoleCanvas canvas, int worldWidth, int worldHeight)
+    public MapView(ConsoleCanvas canvas, int worldWidth, int worldHeight, UiThemes theme)
     {
         _canvas = canvas;
         _canvas.AutoResize = true;
         // _canvas.Interlaced = true;
+
+        _theme = theme;
 
         _cachedWorld = new CellVisual[ViewportWidth * ViewportHeight];
         for (var i = 0; i < _cachedWorld.Length; i++)
@@ -123,18 +128,29 @@ public class MapView : UiElementBase, IEventSink
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
 
-        _elevationColorVisualizer = new ElevationVisualizer(Visual.ColorsElevation);
-        _elevationMonochromeVisualizer = new ElevationVisualizer(Visual.ColorsElevationMonochrome);
-        _heatmapColorVisualizer = new ElevationHeatmapVisualizer(Visual.ColorsElevation);
+        _elevationColorVisualizer = new ElevationVisualizer(theme.Elevation.MarkersElevation,
+            theme.Elevation.ColorsElevation);
+        _elevationMonochromeVisualizer = new ElevationVisualizer(theme.Elevation.MarkersElevation,
+            theme.Elevation.ColorsElevationMonochrome);
+        _heatmapColorVisualizer =
+            new ElevationHeatmapVisualizer(theme.Heatmap.MarkersHeatmapMonochrome,
+                theme.Elevation.ColorsElevation);
         _heatmapMonochromeVisualizer =
-            new ElevationHeatmapVisualizer(Visual.ColorsElevationMonochrome);
+            new ElevationHeatmapVisualizer(theme.Heatmap.MarkersHeatmapMonochrome,
+                theme.Elevation.ColorsElevationMonochrome);
 
-        _surfaceFeatureVisualizer = new SurfaceFeatureVisualizer();
-        _temperatureVisualizer = new TemperatureVisualizer();
-        _humidityVisualizer = new HumidityVisualizer();
-        _temperatureAmplitudeVisualizer = new TemperatureAmplitudeVisualizer();
-        _biomeVisualizer = new BiomeVisualizer();
-        _riverVisualizer = new RiverVisualizer();
+        _surfaceFeatureVisualizer =
+            new SurfaceFeatureVisualizer(theme.SurfaceFeature.SurfaceFeatureMap);
+        _temperatureVisualizer = new TemperatureVisualizer(theme.Scalar.MarkersScalar,
+            theme.Heatmap.ColorsHeatmapTemperature);
+        _humidityVisualizer = new HumidityVisualizer(theme.Scalar.MarkersScalar,
+            theme.Heatmap.ColorsHeatmapHumidity);
+        _temperatureAmplitudeVisualizer =
+            new TemperatureAmplitudeVisualizer(theme.Scalar.MarkersScalar,
+                theme.Heatmap.ColorsHeatmapTemperature);
+        _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap);
+        _riverVisualizer = new RiverVisualizer(theme.Default.RiverFg, theme.Default.DefaultFg,
+            theme.Default.DefaultBg);
 
         _fovVisualizer = new FovVisualizer();
 
@@ -270,8 +286,8 @@ public class MapView : UiElementBase, IEventSink
                     X + x + _spaceForScaleLeft,
                     Y + y + SpaceForScaleTop,
                     cellVisual.GetMarker(),
-                    isFov ? cellVisual.GetForeground() : Visual.DefaultFg,
-                    isFov ? cellVisual.GetBackground() : Visual.DefaultBg);
+                    isFov ? cellVisual.GetForeground() : _theme.Default.DefaultFg,
+                    isFov ? cellVisual.GetBackground() : _theme.Default.DefaultBg);
             }
 
         // Step 2: Render drone paths and drones on top of them.
@@ -283,7 +299,7 @@ public class MapView : UiElementBase, IEventSink
                         Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                         pathCol,
                         ConsoleColor.Red,
-                        Visual.DefaultBg);
+                        _theme.Default.DefaultBg);
 
         foreach (var pos in _cachedDronePositions.Values)
         {
@@ -294,7 +310,7 @@ public class MapView : UiElementBase, IEventSink
                     X + WorldToViewportX(droneX) + _spaceForScaleLeft,
                     Y + WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
-                    Visual.DefaultBg,
+                    _theme.Default.DefaultBg,
                     ConsoleColor.Red);
         }
 
@@ -323,6 +339,7 @@ public class MapView : UiElementBase, IEventSink
         {
             _cachedWorld[i] = new CellVisual();
         }
+
         _cachedFov = new bool[newSize];
         IsRequireReRender = true;
         IsRequireRootReRender = true;
@@ -337,6 +354,7 @@ public class MapView : UiElementBase, IEventSink
         {
             _cachedWorld[i] = new CellVisual();
         }
+
         _cachedFov = new bool[newSize];
         IsRequireReRender = true;
         IsRequireRootReRender = true;
@@ -499,7 +517,7 @@ public class MapView : UiElementBase, IEventSink
     private void RenderCoordinates()
     {
         for (var x = 0; x < _spaceForScaleLeft; x++)
-            _canvas.Set(X + x, Y, Cp437.BlockFull, Visual.DefaultBg);
+            _canvas.Set(X + x, Y, Cp437.BlockFull, _theme.Default.DefaultBg);
 
         // Horizontal
         // tick marks
@@ -507,7 +525,7 @@ public class MapView : UiElementBase, IEventSink
         {
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
-            var fg = isTick ? Visual.DefaultFg : Visual.DefaultBg;
+            var fg = isTick ? _theme.Default.DefaultFg : _theme.Default.DefaultBg;
             _canvas.Set(X + _spaceForScaleLeft + x, Y, Cp437.BlockFull, fg);
         }
 
@@ -527,8 +545,8 @@ public class MapView : UiElementBase, IEventSink
                 Y,
                 tickLabel,
                 false,
-                Visual.DefaultBg,
-                Visual.DefaultFg);
+                _theme.Default.DefaultBg,
+                _theme.Default.DefaultFg);
         }
 
         // Vertical
@@ -538,7 +556,7 @@ public class MapView : UiElementBase, IEventSink
             {
                 var worldY = ViewportToWorldY(y);
                 var isTick = worldY > 0 && worldY % 5 == 0;
-                var fg = isTick ? Visual.DefaultFg : Visual.DefaultBg;
+                var fg = isTick ? _theme.Default.DefaultFg : _theme.Default.DefaultBg;
                 _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
             }
 
@@ -553,8 +571,8 @@ public class MapView : UiElementBase, IEventSink
                     y + SpaceForScaleTop,
                     Convert.ToString(worldY),
                     false,
-                    Visual.DefaultBg,
-                    Visual.DefaultFg);
+                    _theme.Default.DefaultBg,
+                    _theme.Default.DefaultFg);
         }
     }
 
@@ -577,8 +595,8 @@ public class MapView : UiElementBase, IEventSink
             Y + Height - 1,
             ClipToWidth(legend, maxWidth),
             false,
-            Visual.DefaultBg,
-            Visual.DefaultFg);
+            _theme.Default.DefaultBg,
+            _theme.Default.DefaultFg);
     }
 
     private static string ClipToWidth(string text, int maxWidth)

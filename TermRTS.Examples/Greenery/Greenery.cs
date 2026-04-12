@@ -16,7 +16,7 @@ namespace TermRTS.Examples.Greenery;
 
 public class Greenery : IRunnableExample
 {
-    private const int Seed = 0;
+    private const int Seed = 2;
     private const int VoronoiCellCount = 175;
     private const int PlateCount = 28;
 
@@ -76,7 +76,7 @@ public class Greenery : IRunnableExample
 
         var scheduler = new Scheduler(core);
         var renderer =
-            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight);
+            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight, new UiThemes());
         core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 
