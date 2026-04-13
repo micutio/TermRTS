@@ -5,4 +5,5 @@
     <Project Path="TermRTS.Test\TermRTS.Test.csproj"/>
     <Project Path="TermRTS.Benchmark\TermRTS.Benchmark.csproj"/>
     <Project Path="TermRTS\TermRTS.csproj"/>
+    <Project Path="ConsoleRenderer\ConsoleRenderer\ConsoleRenderer.csproj"/>
 </Solution>
