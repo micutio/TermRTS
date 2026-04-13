@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\TermRTS\TermRTS.csproj"/>
+        <ProjectReference Include="..\ConsoleRenderer\ConsoleRenderer\ConsoleRenderer.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
