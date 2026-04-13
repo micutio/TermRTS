@@ -1,0 +1,3 @@
+[submodule "ConsoleRenderer"]
+	path = ConsoleRenderer
+	url = https://github.com/micutio/ConsoleRenderer
