@@ -128,28 +128,34 @@ public class MapView : UiElementBase, IEventSink
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
 
-        _elevationColorVisualizer = new ElevationVisualizer(theme.Elevation.MarkersElevation,
+        _elevationColorVisualizer = new ElevationVisualizer(
+            theme.Elevation.MarkersElevation,
             theme.Elevation.ColorsElevation);
-        _elevationMonochromeVisualizer = new ElevationVisualizer(theme.Elevation.MarkersElevation,
+        _elevationMonochromeVisualizer = new ElevationVisualizer(
+            theme.Elevation.MarkersElevation,
             theme.Elevation.ColorsElevationMonochrome);
-        _heatmapColorVisualizer =
-            new ElevationHeatmapVisualizer(theme.Heatmap.MarkersHeatmapMonochrome,
-                theme.Elevation.ColorsElevation);
-        _heatmapMonochromeVisualizer =
-            new ElevationHeatmapVisualizer(theme.Heatmap.MarkersHeatmapMonochrome,
-                theme.Elevation.ColorsElevationMonochrome);
+        _heatmapColorVisualizer = new ElevationHeatmapVisualizer(
+            theme.Heatmap.MarkersHeatmapMonochrome,
+            theme.Elevation.ColorsElevation);
+        _heatmapMonochromeVisualizer = new ElevationHeatmapVisualizer(
+            theme.Heatmap.MarkersHeatmapMonochrome,
+            theme.Elevation.ColorsElevationMonochrome);
 
         _surfaceFeatureVisualizer =
             new SurfaceFeatureVisualizer(theme.SurfaceFeature.SurfaceFeatureMap);
-        _temperatureVisualizer = new TemperatureVisualizer(theme.Scalar.MarkersScalar,
+        _temperatureVisualizer = new TemperatureVisualizer(
+            theme.Scalar.MarkersScalar,
             theme.Heatmap.ColorsHeatmapTemperature);
-        _humidityVisualizer = new HumidityVisualizer(theme.Scalar.MarkersScalar,
+        _humidityVisualizer = new HumidityVisualizer(
+            theme.Scalar.MarkersScalar,
             theme.Heatmap.ColorsHeatmapHumidity);
         _temperatureAmplitudeVisualizer =
-            new TemperatureAmplitudeVisualizer(theme.Scalar.MarkersScalar,
+            new TemperatureAmplitudeVisualizer(
+                theme.Scalar.MarkersScalar,
                 theme.Heatmap.ColorsHeatmapTemperature);
         _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap);
-        _riverVisualizer = new RiverVisualizer(theme.Default.RiverFg, theme.Default.DefaultFg,
+        _riverVisualizer = new RiverVisualizer(
+            theme.Default.RiverFg, theme.Default.DefaultFg,
             theme.Default.DefaultBg);
 
         _fovVisualizer = new FovVisualizer();

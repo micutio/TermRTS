@@ -20,16 +20,16 @@ public class ElevationTheme
 
     public (ConsoleColor, ConsoleColor)[] ColorsElevation { get; init; } =
     [
-        (ConsoleColor.Black, ConsoleColor.Black),
         (ConsoleColor.DarkBlue, ConsoleColor.Black),
+        (ConsoleColor.Blue, ConsoleColor.Black),
         (ConsoleColor.Blue, ConsoleColor.DarkBlue),
         (ConsoleColor.Cyan, ConsoleColor.Blue),
-        (ConsoleColor.Green, ConsoleColor.Cyan),
+        (ConsoleColor.Cyan, ConsoleColor.Yellow),
+        (ConsoleColor.Green, ConsoleColor.DarkGreen),
         (ConsoleColor.Yellow, ConsoleColor.Green),
-        (ConsoleColor.DarkYellow, ConsoleColor.Yellow),
-        (ConsoleColor.Red, ConsoleColor.DarkYellow),
-        (ConsoleColor.DarkRed, ConsoleColor.Red),
-        (ConsoleColor.White, ConsoleColor.DarkRed)
+        (ConsoleColor.Green, ConsoleColor.DarkYellow),
+        (ConsoleColor.DarkGray, ConsoleColor.Gray),
+        (ConsoleColor.Gray, ConsoleColor.White)
     ];
 
     public (ConsoleColor, ConsoleColor)[] ColorsElevationMonochrome { get; init; } =
@@ -158,8 +158,20 @@ public class BiomeTheme
     {
         // Water and Ice
         {
+            Biome.HighSeas,
+            new CellVisual(Cp437.SquareRoot, ConsoleColor.DarkBlue, ConsoleColor.Black)
+        },
+        {
             Biome.Ocean,
-            new CellVisual(Cp437.Approximation, ConsoleColor.Blue, ConsoleColor.DarkBlue)
+            new CellVisual(Cp437.Approximation, ConsoleColor.Blue, ConsoleColor.Black)
+        },
+        {
+            Biome.Shelf,
+            new CellVisual(Cp437.Tilde, ConsoleColor.Blue, ConsoleColor.DarkBlue)
+        },
+        {
+            Biome.Shallows,
+            new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, ConsoleColor.Blue)
         },
         { Biome.IceCap, new CellVisual(Cp437.Asterisk, ConsoleColor.Gray, ConsoleColor.White) },
         {
@@ -171,7 +183,7 @@ public class BiomeTheme
         { Biome.RockPeak, new CellVisual(Cp437.Caret, ConsoleColor.Gray, ConsoleColor.DarkGray) },
         {
             Biome.AlpineTundra,
-            new CellVisual(Cp437.TriangleDown, ConsoleColor.Gray, ConsoleColor.DarkGray)
+            new CellVisual(Cp437.Dot, ConsoleColor.Gray, ConsoleColor.DarkGray)
         },
         {
             Biome.Tundra,
@@ -188,7 +200,7 @@ public class BiomeTheme
         // Temperate
         {
             Biome.ColdDesert,
-            new CellVisual(Cp437.BulletHollow, ConsoleColor.Cyan, ConsoleColor.DarkYellow)
+            new CellVisual(Cp437.BulletHollow, ConsoleColor.Yellow, ConsoleColor.DarkYellow)
         },
         {
             Biome.HighlandMoor,
@@ -212,7 +224,7 @@ public class BiomeTheme
         },
         {
             Biome.HotDesert,
-            new CellVisual(Cp437.TriangleRight, ConsoleColor.Red, ConsoleColor.Yellow)
+            new CellVisual(Cp437.Solar, ConsoleColor.Red, ConsoleColor.Yellow)
         },
         { Biome.Savanna, new CellVisual(Cp437.Mu, ConsoleColor.DarkGreen, ConsoleColor.Yellow) },
         {
@@ -226,7 +238,7 @@ public class BiomeTheme
         // Rivers
         {
             Biome.Creek,
-            new CellVisual(Cp437.Minus, ConsoleColor.Cyan, ConsoleColor.Blue)
+            new CellVisual(Cp437.Minus, ConsoleColor.Gray, ConsoleColor.Blue)
         },
         {
             Biome.MinorRiver,
@@ -234,14 +246,26 @@ public class BiomeTheme
         },
         {
             Biome.MajorRiver,
-            new CellVisual(Cp437.TripleBar, ConsoleColor.Cyan, ConsoleColor.Blue)
+            new CellVisual(Cp437.TripleBar, ConsoleColor.White, ConsoleColor.Blue)
         }
     };
 }
 
 public class ScalarTheme
 {
-    public char[] MarkersScalar { get; init; } = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    public char[] MarkersScalar { get; init; } =
+    [
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade,
+        Cp437.DenseShade
+    ];
 }
 
 public class DefaultTheme
