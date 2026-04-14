@@ -142,12 +142,10 @@ public class Core(IStorage storage) : IEventSink
 
         storage.SwapBuffers();
 
-        // TODO: Collect events in event manager
         foreach (var buffer in _threadLocalEvents.Values)
         {
             emittedEvents.AddRange(buffer);
             buffer.Clear(); // Keep capacity for next tick
-            // TODO: Check whether buffer is actually clear.
         }
 
         // Clean up operations: remove 'dead' entities and add new ones
