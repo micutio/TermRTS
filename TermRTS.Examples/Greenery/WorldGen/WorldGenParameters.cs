@@ -8,6 +8,10 @@ public class ElevationParameters
     public int LandElevationThreshold { get; set; } = 4;
     public int HighMountainThreshold { get; set; } = 7;
     public int SnowThreshold { get; set; } = 8;
+    public int HighSeaThreshold { get; set; } = 1;
+    public int OceanThreshold { get; set; } = 2;
+    public int ShelfThreshold { get; set; } = 3;
+    public int ShallowsThreshold { get; set; } = 4;
     public float ElevationAmplitudeModifier { get; set; } = 15f;
 }
 
@@ -38,18 +42,14 @@ public class VolcanicParameters
 
 public class ErosionParameters
 {
-    public int SimpleErosionIterations { get; set; } = 5;
-    public float SimpleTalusAngle { get; set; } = 0.5f;
-    public float SimpleErosionRate { get; set; } = 0.1f;
-    public bool UseAdvancedErosion { get; set; } = true;
     public int ErosionIterations { get; set; } = 10;
-    public float HydraulicErosionRate { get; set; } = 0.001f;
-    public float SedimentCapacity { get; set; } = 0.001f;
-    public float DepositionRate { get; set; } = 0.001f;
-    public float EvaporationRate { get; set; } = 0.001f;
-    public float RainRate { get; set; } = 0.5f;
+    public float HydraulicErosionRate { get; set; } = 0.111f;
+    public float SedimentCapacity { get; set; } = 0.111f;
+    public float DepositionRate { get; set; } = 0.111f;
+    public float EvaporationRate { get; set; } = 0.111f;
+    public float RainRate { get; set; } = 0.7f;
     public float ThermalErosionRate { get; set; } = 0.05f;
-    public float TalusAngle { get; set; } = 0.5f;
+    public float TalusAngle { get; set; } = 0.4f;
     public float MinSlope { get; set; } = 0.01f;
     public float Gravity { get; set; } = 9.81f;
     public float WaterViscosity { get; set; } = 0.001f;
