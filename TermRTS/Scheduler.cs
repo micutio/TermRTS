@@ -300,7 +300,7 @@ public class Scheduler
             foreach (var sink in sinks) sink.ProcessEvent(evt.Event);
         }
 
-        // Drain due events from the future. // TODO: Maybe move elsewhere
+        // Drain due events from the future.
         while (FutureEvents.Instance.TryTakeIf(priority => priority <= TimeMs,
                    out var eventItem))
         {
