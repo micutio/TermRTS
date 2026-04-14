@@ -268,9 +268,6 @@ internal interface IWorldComponentVisualizer
 internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
-    private readonly char[] _markers = markers;
-    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
-
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -318,8 +315,8 @@ internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[
                 var elevation = currentChunk.Elevation[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
-                var marker = _markers[elevation];
-                var (fg, bg) = _colors[elevation];
+                var marker = markers[elevation];
+                var (fg, bg) = colors[elevation];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -331,9 +328,6 @@ internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[
 internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
-    private readonly char[] _markers = markers;
-    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
-
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -382,8 +376,8 @@ internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, Console
                 var index = Visual.GetScalarIndex(elevation, 0, 9);
 
                 // 5. Map to your TUI visuals
-                var marker = _markers[index];
-                var (fg, bg) = _colors[index];
+                var marker = markers[index];
+                var (fg, bg) = colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -395,8 +389,6 @@ internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, Console
 internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> surfaceFeatureMap)
     : IWorldComponentVisualizer
 {
-    private readonly Dictionary<SurfaceFeature, CellVisual> _surfaceFeatureMap = surfaceFeatureMap;
-
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -444,7 +436,7 @@ internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> s
                 var feature = currentChunk.SurfaceFeature[(ly << 5) + lx];
 
                 // 5. Map to your TUI visuals
-                if (_surfaceFeatureMap.TryGetValue(feature, out var marker))
+                if (surfaceFeatureMap.TryGetValue(feature, out var marker))
                 {
                     // 6. Write to the VIEWPORT-relative buffer
                     viewportBuffer[vY * viewportWidth + vX] = marker;

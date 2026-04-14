@@ -31,7 +31,10 @@ public enum SurfaceFeature : byte
 public enum Biome : byte
 {
     // Water and Ice
+    HighSeas,
     Ocean,
+    Shelf,
+    Shallows,
     IceCap,
     PolarDesert,
     Glacier,
@@ -1101,7 +1104,23 @@ public class CylinderWorld : IWorldGen
         bool isRiver,
         int strahlerOrder)
     {
-        if (isWater) return Biome.Ocean;
+        if (isWater)
+            if (elevation < _elevationCfg.HighSeaThreshold)
+            {
+                return Biome.HighSeas;
+            }
+            else if (elevation < _elevationCfg.OceanThreshold)
+            {
+                return Biome.Ocean;
+            }
+            else if (elevation < _elevationCfg.ShelfThreshold)
+            {
+                return Biome.Shelf;
+            }
+            else if (elevation < _elevationCfg.ShallowsThreshold)
+            {
+                return Biome.Shallows;
+            }
 
         if (isRiver)
             return strahlerOrder switch
@@ -1127,19 +1146,19 @@ public class CylinderWorld : IWorldGen
             case < 5f when relHumidity < 0.25f:
                 return Biome.Tundra;
             // Use elevation for Alpine variations
-            case < 5f when elevation > _volcanicCfg.CinderElevationThreshold:
+            case < 5f when elevation > _volcanicCfg.CraterElevationThreshold:
                 return Biome.AlpineTundra;
             // Differentiate between standard Boreal forest and heavy precipitation zones
             case < 5f:
-                return relHumidity > 0.75f ? Biome.SnowyForest : Biome.Taiga;
+                return relHumidity > 0.65f ? Biome.SnowyForest : Biome.Taiga;
             // 5. Temperate
             case < 22f when relHumidity < 0.15f:
                 return Biome.ColdDesert;
-            case < 22f when elevation > _volcanicCfg.CinderElevationThreshold && relHumidity > 0.5f:
+            case < 22f when elevation > _volcanicCfg.CraterElevationThreshold && relHumidity > 0.6f:
                 return Biome.HighlandMoor;
             case < 22f when relHumidity < 0.4f:
                 return Biome.Steppe;
-            case < 22f when relHumidity < 0.7f:
+            case < 22f when relHumidity < 0.6f:
                 return Biome.Grassland;
             case < 22f:
                 return Biome.TemperateForest; // High humidity temperate zones
@@ -1147,14 +1166,14 @@ public class CylinderWorld : IWorldGen
 
         // 6. Tropical / Hot
         // High altitude tropics create unique "Cloud Forests" (very high humidity + altitude)
-        if (elevation > _volcanicCfg.CinderElevationThreshold && relHumidity > 0.8f)
+        if (elevation > _volcanicCfg.CraterElevationThreshold && relHumidity > 0.75f)
             return Biome.CloudForest;
 
         return relHumidity switch
         {
             < 0.15f => Biome.HotDesert,
             < 0.45f => Biome.Savanna,
-            < 0.8f => Biome.TropicalSeasonalForest,
+            < 0.6f => Biome.TropicalSeasonalForest,
             _ => Biome.TropicalRainforest
         };
     }
@@ -1743,7 +1762,6 @@ public class CylinderWorld : IWorldGen
 
         var maxOrder = float.MinValue;
         // 3. Process topologically
-        var breakAtDirection = 0;
         while (queue.Count > 0)
         {
             var (x, y) = queue.Dequeue();
@@ -1752,7 +1770,6 @@ public class CylinderWorld : IWorldGen
             var (dx, dy) = flowDirections[x, y];
             if (dx == 0 && dy == 0)
             {
-                breakAtDirection++;
                 continue;
             }
 
