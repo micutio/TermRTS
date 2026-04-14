@@ -11,6 +11,7 @@ namespace TermRTS.Examples.Greenery.Ui;
 //       - RingBuffer, containing lines of text
 //       - Method for adding new text into buffer
 //       - make it scrollable?
+// TODO: Move log area to the bottom of the screen?
 public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEventSink
 {
     #region Fields

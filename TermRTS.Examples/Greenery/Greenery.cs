@@ -12,11 +12,11 @@ using TermRTS.Io;
 namespace TermRTS.Examples.Greenery;
 
 // TODO: Make world generation parameters changeable in-game.
-// TODO: --> Create concept of a debug mode.
+// TODO: --> Create concept for a debug mode.
 
 public class Greenery : IRunnableExample
 {
-    private const int Seed = 2;
+    private const int Seed = 3;
     private const int VoronoiCellCount = 175;
     private const int PlateCount = 28;
 
@@ -76,7 +76,8 @@ public class Greenery : IRunnableExample
 
         var scheduler = new Scheduler(core);
         var renderer =
-            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight, new UiThemes());
+            new Renderer(scheduler.FutureEvents, WorldMath.WorldWidth, WorldMath.WorldHeight,
+                new UiThemes());
         core.Renderer = renderer;
         scheduler.AddEventSink(renderer, typeof(Profile));
 

@@ -131,7 +131,6 @@ public class CylinderWorld : IWorldGen
     private float _minHotspotHeight = float.MaxValue;
     private float _maxHotspotHeight = float.MinValue;
 
-    // TODO: Distinguish between voronoi cells and tectonic plates
     private readonly WorldBuffer<float> _elevation;
     private readonly WorldBuffer<int> _landWaterMap;
     private readonly WorldBuffer<(int, int)> _voronoiCells;
@@ -461,8 +460,6 @@ public class CylinderWorld : IWorldGen
 
     #region Tectonics
 
-    // TODO: Move this where it makes sense.
-
     /// <summary>
     ///     Initializes plates and tectonic parameters.
     /// </summary>
@@ -517,7 +514,7 @@ public class CylinderWorld : IWorldGen
         {
             var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
             // TODO: Play around with the speed formula.
-            var speed = (float)_rng.NextDouble(); // * 0.5 + 0.1);
+            var speed = (float)_rng.NextDouble() * 1.5f; // * 0.5 + 0.1);
             motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
         }
     }
@@ -705,7 +702,6 @@ public class CylinderWorld : IWorldGen
             }
     }
 
-    // TODO: Turn numeric parameters in to constants and later tweakable Properties
     /// <summary>
     ///     Assign hotspots to certain cells in the world.
     /// </summary>
@@ -1173,7 +1169,7 @@ public class CylinderWorld : IWorldGen
         {
             < 0.15f => Biome.HotDesert,
             < 0.45f => Biome.Savanna,
-            < 0.6f => Biome.TropicalSeasonalForest,
+            < 0.5f => Biome.TropicalSeasonalForest,
             _ => Biome.TropicalRainforest
         };
     }
@@ -1572,8 +1568,6 @@ public class CylinderWorld : IWorldGen
                 elevationsF[y * _worldWidth + x] = filledElevations[x, y];
     }
 
-    // TODO: See whether we can reuse this flow field for other functions.
-
     /// <summary>
     ///     Calculates a map of hypothetical water flow directions for each cell.
     /// </summary>
@@ -1710,9 +1704,6 @@ public class CylinderWorld : IWorldGen
 
         return flowAccumulation;
     }
-
-    // TODO: Add to generation steps and visualisation.
-    // TODO: Flatten result array and probably replace river map completely.
 
     /// <summary>
     ///     Calculates the Strahler Stream Order for the entire river network.
@@ -1946,8 +1937,6 @@ public class CylinderWorld : IWorldGen
                 }
             }
     }
-
-    // TODO: Didn't we calculate hotspot centers already?
 
     /// <summary>
     ///     Finds center points of strong hot spots.

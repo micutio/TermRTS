@@ -221,7 +221,6 @@ public class MapView : UiElementBase, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        // TODO: Figure out which chunks we need for rendering the visible map.
         IWorldComponentVisualizer visualizer = _mapRenderMode switch
         {
             MapRenderMode.ElevationColor => _elevationColorVisualizer,

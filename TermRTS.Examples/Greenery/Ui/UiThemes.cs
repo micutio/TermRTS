@@ -212,7 +212,7 @@ public class BiomeTheme
         },
         {
             Biome.Grassland,
-            new CellVisual(Cp437.LowerV, ConsoleColor.Green, ConsoleColor.DarkGreen)
+            new CellVisual(Cp437.LowerV, ConsoleColor.DarkGreen, ConsoleColor.Green)
         },
         {
             Biome.TemperateForest,
@@ -229,7 +229,7 @@ public class BiomeTheme
         { Biome.Savanna, new CellVisual(Cp437.Mu, ConsoleColor.DarkGreen, ConsoleColor.Yellow) },
         {
             Biome.TropicalSeasonalForest,
-            new CellVisual(Cp437.DeckClub, ConsoleColor.Green, ConsoleColor.DarkGreen)
+            new CellVisual(Cp437.DeckClub, ConsoleColor.DarkGreen, ConsoleColor.Green)
         },
         {
             Biome.TropicalRainforest,

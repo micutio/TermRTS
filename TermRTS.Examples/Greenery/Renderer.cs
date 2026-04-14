@@ -7,8 +7,6 @@ using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery;
 
-// TODO:
-// - Implement handling of focus requests
 public class Renderer : UiRootBase, IRenderer, IEventSink
 {
     #region Fields
@@ -154,7 +152,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void OnXChanged()
     {
-        // TODO: Implement proper layouting
         _mapview.X = X;
         _logArea.X = X + _mapview.Width;
         _textbox.X = X;
@@ -162,7 +159,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void OnYChanged()
     {
-        // TODO: Implement proper layouting
         _mapview.Y = Y;
         _logArea.Y = Y;
         _textbox.Y = Y + _mapview.Height - 1;
@@ -170,7 +166,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void OnWidthChanged()
     {
-        // TODO: Implement proper layouting
         _mapview.Width = (int)(Width * 0.7);
         _logArea.Width = Width - _mapview.Width;
         _textbox.Width = Width;
@@ -178,7 +173,6 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     protected override void OnHeightChanged()
     {
-        // TODO: Implement proper layouting
         _mapview.Height = Height - 1;
         _logArea.Height = Height - 1;
         // _textbox.Height remains constant at 1
