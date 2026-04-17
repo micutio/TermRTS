@@ -139,7 +139,7 @@ public class CylinderWorld : IWorldGen
     private readonly WorldBuffer<(int, int)> _plateCells;
     private readonly WorldBuffer<bool> _plateTypes;
     private readonly WorldBuffer<int> _plateIndex;
-    private readonly WorldBuffer<Vector2> _plateMotions;
+    private readonly WorldBuffer<(int, int)> _plateMotions;
     private readonly WorldBuffer<float> _coastalSlopes;
     private readonly WorldBuffer<float> _tectonicDelta;
     private readonly WorldBuffer<float> _hotspotMap;
@@ -206,7 +206,7 @@ public class CylinderWorld : IWorldGen
         _plateCells = new WorldBuffer<(int, int)>(plateCount);
         _plateTypes = new WorldBuffer<bool>(plateCount);
         _plateIndex = new WorldBuffer<int>(voronoiCellCount);
-        _plateMotions = new WorldBuffer<Vector2>(voronoiCellCount);
+        _plateMotions = new WorldBuffer<(int, int)>(voronoiCellCount);
         _coastalSlopes = new WorldBuffer<float>(worldWidth * worldHeight);
         _tectonicDelta = new WorldBuffer<float>(worldWidth * worldHeight);
         _hotspotMap = new WorldBuffer<float>(worldWidth * worldHeight);
@@ -2439,6 +2439,74 @@ public class CylinderWorld : IWorldGen
                 // The chunk now holds a 'view' of the master buffer, not a unique array
                 chunks[chunkIdx] =
                     new WorldRiverChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
+            }
+
+        return chunks;
+    }
+
+    private WorldPackedChunk[] ToPackedChunks()
+    {
+        var elevation = _elevation.Memory.Span;
+        var humidity = _humidity.Memory.Span;
+        var temperature = _temperature.Memory.Span;
+        var biome = _biomes.Memory.Span;
+        var surfaceFeatures = _surfaceFeatures.Memory.Span;
+        // TODO: Replace with flow directions and wind directions!
+        var motions = _plateMotions.Memory.Span;
+
+        const int chunkSize = WorldMath.ChunkSize;
+        const int chunksAcross = WorldMath.ChunksAcross;
+        const int worldWidth = WorldMath.WorldWidth;
+        const int worldHeight = WorldMath.WorldHeight;
+
+        var chunks = new WorldPackedChunk[chunksAcross * (worldHeight / chunkSize)];
+        // Temporary buffer to copy humidity as byte values.
+        var elevationBuffer = new byte[chunkSize];
+        var humidityBuffer = new byte[chunkSize];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+                var chunk = new PackedTile[chunkSize * chunkSize];
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var srcElevation = elevation.Slice(sourceStart, chunkSize);
+                    var srcHumidityFloat = humidity.Slice(sourceStart, chunkSize);
+                    var srcTemperature = temperature.Slice(sourceStart, chunkSize);
+                    var srcBiome = biome.Slice(sourceStart, chunkSize);
+                    var srcSurfaceFeatures = surfaceFeatures.Slice(sourceStart, chunkSize);
+                    var srcMotions = motions.Slice(sourceStart, chunkSize);
+
+                    for (var i = 0; i < srcHumidityFloat.Length; i++)
+                    {
+                        // Ensure that humidity floats are always in range (0,1)!
+                        humidityBuffer[i] = Convert.ToByte(srcHumidityFloat[i] * 100);
+                        var elevationClamped =
+                            Math.Clamp(srcElevation[i], 0f, _elevationCfg.MaxElevation);
+                        elevationBuffer[i] = Convert.ToByte(MathF.Floor(elevationClamped));
+                    }
+
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
+
+                    WorldPacker.Pack(
+                        srcBiome,
+                        elevationBuffer,
+                        srcTemperature,
+                        humidityBuffer,
+                        srcMotions,
+                        srcMotions,
+                        srcSurfaceFeatures).CopyTo(destRow);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] =
+                    new WorldPackedChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
             }
 
         return chunks;

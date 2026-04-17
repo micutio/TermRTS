@@ -78,3 +78,11 @@ public sealed class WorldRiverChunk(int entityId, int cx, int cy, bool[] river)
     public readonly int Cy = cy;
     public readonly bool[] River = river;
 }
+
+public sealed class WorldPackedChunk(int entityId, int cx, int cy, PackedTile[] packedTiles)
+    : ComponentBase(entityId)
+{
+    public readonly int Cx = cx;
+    public readonly int Cy = cy;
+    public readonly PackedTile[] PackedTiles = packedTiles;
+}
