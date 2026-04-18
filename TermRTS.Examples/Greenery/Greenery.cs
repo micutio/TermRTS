@@ -60,6 +60,7 @@ public class Greenery : IRunnableExample
         core.AddNewComponents(worldData.TemperatureAmplitudeChunk);
         core.AddNewComponents(worldData.BiomeChunk);
         core.AddNewComponents(worldData.RiverChunk);
+        core.AddNewComponents(worldData.PackedData);
 
         var fovSystem = new FovSystem();
         core.AddNewComponents(fovSystem.InitializeFovChunks());

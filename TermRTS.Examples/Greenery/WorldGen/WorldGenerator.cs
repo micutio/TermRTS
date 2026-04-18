@@ -73,7 +73,8 @@ public sealed class WorldGenerationResult(
     WorldHumidityChunk[] humidity,
     WorldTemperatureAmplitudeChunk[] temperatureAmplitude,
     WorldBiomeChunk[] biome,
-    WorldRiverChunk[] river)
+    WorldRiverChunk[] river,
+    WorldPackedChunk[] packedData)
 {
     public WorldElevationChunk[] ElevationChunk { get; } = elevation;
     public WorldSurfaceFeatureChunk[] SurfaceFeatureChunk { get; } = surface;
@@ -85,6 +86,8 @@ public sealed class WorldGenerationResult(
 
     public WorldBiomeChunk[] BiomeChunk { get; } = biome;
     public WorldRiverChunk[] RiverChunk { get; } = river;
+
+    public WorldPackedChunk[] PackedData { get; } = packedData;
 }
 
 public sealed class WorldBuffer<T> : IDisposable
@@ -139,7 +142,8 @@ public class CylinderWorld : IWorldGen
     private readonly WorldBuffer<(int, int)> _plateCells;
     private readonly WorldBuffer<bool> _plateTypes;
     private readonly WorldBuffer<int> _plateIndex;
-    private readonly WorldBuffer<(int, int)> _plateMotions;
+    private readonly WorldBuffer<Vector2> _plateMotions;
+    private readonly WorldBuffer<(int, int)> _flowDirections;
     private readonly WorldBuffer<float> _coastalSlopes;
     private readonly WorldBuffer<float> _tectonicDelta;
     private readonly WorldBuffer<float> _hotspotMap;
@@ -206,7 +210,8 @@ public class CylinderWorld : IWorldGen
         _plateCells = new WorldBuffer<(int, int)>(plateCount);
         _plateTypes = new WorldBuffer<bool>(plateCount);
         _plateIndex = new WorldBuffer<int>(voronoiCellCount);
-        _plateMotions = new WorldBuffer<(int, int)>(voronoiCellCount);
+        _plateMotions = new WorldBuffer<Vector2>(voronoiCellCount);
+        _flowDirections = new WorldBuffer<(int, int)>(worldWidth * worldHeight);
         _coastalSlopes = new WorldBuffer<float>(worldWidth * worldHeight);
         _tectonicDelta = new WorldBuffer<float>(worldWidth * worldHeight);
         _hotspotMap = new WorldBuffer<float>(worldWidth * worldHeight);
@@ -275,7 +280,8 @@ public class CylinderWorld : IWorldGen
             ToHumidityChunks(),
             ToTemperatureAmplitudeChunks(),
             ToBiomeChunks(),
-            ToRiverChunks()
+            ToRiverChunks(),
+            ToPackedChunks()
         );
     }
 
@@ -1410,11 +1416,11 @@ public class CylinderWorld : IWorldGen
         ApplyRainShadows(rainfall);
 
         // Step 2: Calculate flow directions (steepest downhill neighbor)
-        var flowDirections = CalculateFlowDirections();
+        CalculateFlowDirections();
 
         // Step 3: Accumulate flow from upstream cells
-        var flowAccumulation = AccumulateFlow(flowDirections, rainfall);
-        CalculateStrahlerOrder(flowDirections, flowAccumulation);
+        var flowAccumulation = AccumulateFlow(rainfall);
+        CalculateStrahlerOrder(flowAccumulation);
 
         // Step 4: Carve rivers where flow accumulation is high enough
         CarveRivers(flowAccumulation);
@@ -1572,10 +1578,10 @@ public class CylinderWorld : IWorldGen
     ///     Calculates a map of hypothetical water flow directions for each cell.
     /// </summary>
     /// <returns>A grid of flow vectors per cell.</returns>
-    private (int, int)[,] CalculateFlowDirections()
+    private void CalculateFlowDirections()
     {
         var elevationsF = _elevation.Memory.Span;
-        var flowDirections = new (int, int)[_worldWidth, _worldHeight];
+        var flowDirections = _flowDirections.Memory.Span;
 
         for (var y = 0; y < _worldHeight; y++)
             for (var x = 0; x < _worldWidth; x++)
@@ -1607,10 +1613,8 @@ public class CylinderWorld : IWorldGen
                     bestDirection = (dx, dy);
                 }
 
-                flowDirections[x, y] = bestDirection;
+                flowDirections[y * _worldWidth + x] = bestDirection;
             }
-
-        return flowDirections;
     }
 
     /// <summary>
@@ -1619,10 +1623,9 @@ public class CylinderWorld : IWorldGen
     /// <param name="flowDirections">Direction of flow for each cell.</param>
     /// <param name="rainfall">Mapping of rainfall amount per cell.</param>
     /// <returns>Map of accumulated flow for each cell.</returns>
-    private float[,] AccumulateFlow(
-        in (int, int)[,] flowDirections,
-        in float[,] rainfall)
+    private float[,] AccumulateFlow(in float[,] rainfall)
     {
+        var flowDirections = _flowDirections.Memory.Span;
         var flowAccumulation = new float[_worldWidth, _worldHeight];
         var inDegree = new int[_worldWidth, _worldHeight];
         var elevations = _elevation.Memory.Span;
@@ -1633,7 +1636,7 @@ public class CylinderWorld : IWorldGen
             {
                 flowAccumulation[x, y] = rainfall[x, y];
 
-                var (dx, dy) = flowDirections[x, y];
+                var (dx, dy) = flowDirections[y * _worldWidth + x];
                 if (dx == 0 && dy == 0) continue;
 
                 var nx = WorldMath.WrapX(x + dx);
@@ -1655,7 +1658,7 @@ public class CylinderWorld : IWorldGen
         while (queue.Count > 0)
         {
             var (x, y) = queue.Dequeue();
-            var (dx, dy) = flowDirections[x, y];
+            var (dx, dy) = flowDirections[y * _worldWidth + x];
 
             if (dx == 0 && dy == 0) continue;
 
@@ -1714,8 +1717,9 @@ public class CylinderWorld : IWorldGen
     ///     - Order 3-4: small rivers
     ///     - Order  5+: major rivers
     /// </returns>
-    private void CalculateStrahlerOrder((int, int)[,] flowDirections, float[,] flowAccumulation)
+    private void CalculateStrahlerOrder(float[,] flowAccumulation)
     {
+        var flowDirections = _flowDirections.Memory.Span;
         var strahlerRiver = _strahlerRiver.Memory.Span;
         strahlerRiver.Clear(); // Critical: reset before calculation
 
@@ -1733,7 +1737,7 @@ public class CylinderWorld : IWorldGen
                 // Only count in-degree if the upstream cell actually has water!
                 if (flowAccumulation[x, y] < minVolumeThreshold) continue;
 
-                var (dx, dy) = flowDirections[x, y];
+                var (dx, dy) = flowDirections[y * _worldWidth + x];
                 if (dx == 0 && dy == 0) continue;
                 var nx = WorldMath.WrapX(x + dx);
                 var ny = y + dy;
@@ -1758,7 +1762,7 @@ public class CylinderWorld : IWorldGen
             var (x, y) = queue.Dequeue();
             var currentOrder = strahlerRiver[y * _worldWidth + x];
 
-            var (dx, dy) = flowDirections[x, y];
+            var (dx, dy) = flowDirections[y * _worldWidth + x];
             if (dx == 0 && dy == 0)
             {
                 continue;
@@ -2452,7 +2456,7 @@ public class CylinderWorld : IWorldGen
         var biome = _biomes.Memory.Span;
         var surfaceFeatures = _surfaceFeatures.Memory.Span;
         // TODO: Replace with flow directions and wind directions!
-        var motions = _plateMotions.Memory.Span;
+        var flowDirections = _flowDirections.Memory.Span;
 
         const int chunkSize = WorldMath.ChunkSize;
         const int chunksAcross = WorldMath.ChunksAcross;
@@ -2481,7 +2485,7 @@ public class CylinderWorld : IWorldGen
                     var srcTemperature = temperature.Slice(sourceStart, chunkSize);
                     var srcBiome = biome.Slice(sourceStart, chunkSize);
                     var srcSurfaceFeatures = surfaceFeatures.Slice(sourceStart, chunkSize);
-                    var srcMotions = motions.Slice(sourceStart, chunkSize);
+                    var srcFlowDir = flowDirections.Slice(sourceStart, chunkSize);
 
                     for (var i = 0; i < srcHumidityFloat.Length; i++)
                     {
@@ -2499,8 +2503,8 @@ public class CylinderWorld : IWorldGen
                         elevationBuffer,
                         srcTemperature,
                         humidityBuffer,
-                        srcMotions,
-                        srcMotions,
+                        srcFlowDir,
+                        srcFlowDir,
                         srcSurfaceFeatures).CopyTo(destRow);
                 }
 
