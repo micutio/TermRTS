@@ -285,7 +285,7 @@ internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldElevationChunk? currentChunk = null;
+            WorldPackedChunk? currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
@@ -301,7 +301,7 @@ internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -312,7 +312,7 @@ internal class ElevationVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var elevation = currentChunk.Elevation[(ly << 5) + lx];
+                var elevation = currentChunk.PackedTiles[(ly << 5) + lx].Elevation;
 
                 // 5. Map to your TUI visuals
                 var marker = markers[elevation];
@@ -345,7 +345,7 @@ internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, Console
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldElevationChunk? currentChunk = null;
+            WorldPackedChunk currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
@@ -361,7 +361,7 @@ internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, Console
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -372,7 +372,7 @@ internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, Console
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var elevation = currentChunk.Elevation[(ly << 5) + lx];
+                var elevation = currentChunk.PackedTiles[(ly << 5) + lx].Elevation;
                 var index = Visual.GetScalarIndex(elevation, 0, 9);
 
                 // 5. Map to your TUI visuals
