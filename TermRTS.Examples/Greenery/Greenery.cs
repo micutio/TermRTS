@@ -42,7 +42,7 @@ public class Greenery : IRunnableExample
             new CylinderWorld(
                 WorldMath.WorldWidth,
                 WorldMath.WorldHeight,
-                0.40f,
+                0.35f,
                 Seed,
                 VoronoiCellCount,
                 PlateCount,
@@ -100,7 +100,7 @@ public class Greenery : IRunnableExample
         simulation.IsSystemLogEnabled = true;
 
         // Graceful shutdown on canceling via CTRL+C.
-        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
