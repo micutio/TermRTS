@@ -53,13 +53,6 @@ public class Greenery : IRunnableExample
                 new ClimateParameters(),
                 new RiverParameters());
         var worldData = worldGen.Generate();
-        core.AddNewComponents(worldData.ElevationChunk);
-        core.AddNewComponents(worldData.SurfaceFeatureChunk);
-        core.AddNewComponents(worldData.TemperatureChunk);
-        core.AddNewComponents(worldData.HumidityChunk);
-        core.AddNewComponents(worldData.TemperatureAmplitudeChunk);
-        core.AddNewComponents(worldData.BiomeChunk);
-        core.AddNewComponents(worldData.RiverChunk);
         core.AddNewComponents(worldData.PackedData);
 
         var fovSystem = new FovSystem();
@@ -100,7 +93,7 @@ public class Greenery : IRunnableExample
         simulation.IsSystemLogEnabled = true;
 
         // Graceful shutdown on canceling via CTRL+C.
-        Console.CancelKeyPress += delegate(object? _, ConsoleCancelEventArgs e)
+        Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new Shutdown()));
