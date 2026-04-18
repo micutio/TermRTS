@@ -66,27 +66,8 @@ public enum Biome : byte
     MajorRiver
 }
 
-public sealed class WorldGenerationResult(
-    WorldElevationChunk[] elevation,
-    WorldSurfaceFeatureChunk[] surface,
-    WorldTemperatureChunk[] temperature,
-    WorldHumidityChunk[] humidity,
-    WorldTemperatureAmplitudeChunk[] temperatureAmplitude,
-    WorldBiomeChunk[] biome,
-    WorldRiverChunk[] river,
-    WorldPackedChunk[] packedData)
+public sealed class WorldGenerationResult(WorldPackedChunk[] packedData)
 {
-    public WorldElevationChunk[] ElevationChunk { get; } = elevation;
-    public WorldSurfaceFeatureChunk[] SurfaceFeatureChunk { get; } = surface;
-    public WorldTemperatureChunk[] TemperatureChunk { get; } = temperature;
-    public WorldHumidityChunk[] HumidityChunk { get; } = humidity;
-
-    public WorldTemperatureAmplitudeChunk[] TemperatureAmplitudeChunk { get; } =
-        temperatureAmplitude;
-
-    public WorldBiomeChunk[] BiomeChunk { get; } = biome;
-    public WorldRiverChunk[] RiverChunk { get; } = river;
-
     public WorldPackedChunk[] PackedData { get; } = packedData;
 }
 
@@ -134,6 +115,7 @@ public class CylinderWorld : IWorldGen
     private float _minHotspotHeight = float.MaxValue;
     private float _maxHotspotHeight = float.MinValue;
 
+    // TODO: Clean up this mess of buffers.
     private readonly WorldBuffer<float> _elevation;
     private readonly WorldBuffer<int> _landWaterMap;
     private readonly WorldBuffer<(int, int)> _voronoiCells;
@@ -273,16 +255,7 @@ public class CylinderWorld : IWorldGen
         // Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures();
 
-        return new WorldGenerationResult(
-            ToElevationChunks(),
-            ToSurfaceFeatureChunks(),
-            ToTemperatureChunks(),
-            ToHumidityChunks(),
-            ToTemperatureAmplitudeChunks(),
-            ToBiomeChunks(),
-            ToRiverChunks(),
-            ToPackedChunks()
-        );
+        return new WorldGenerationResult(ToPackedChunks());
     }
 
     /// <summary>
