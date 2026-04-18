@@ -511,9 +511,6 @@ internal class TemperatureVisualizer(char[] markers, (ConsoleColor, ConsoleColor
 internal class HumidityVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
-    private readonly char[] _markers = markers;
-    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
-
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -531,7 +528,7 @@ internal class HumidityVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[]
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldHumidityChunk? currentChunk = null;
+            WorldPackedChunk? currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
@@ -547,7 +544,7 @@ internal class HumidityVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[]
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldHumidityChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -558,13 +555,13 @@ internal class HumidityVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[]
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var humidity = currentChunk.Humidity[(ly << 5) + lx];
-                var index = Convert.ToInt32(9 * humidity);
+                var humidity = currentChunk.PackedTiles[(ly << 5) + lx].Humidity;
+                var index = Convert.ToInt32(9 * (humidity / 100f));
                 // var index = Visual.GetScalarIndex(humidity, 0, 9);
 
                 // 5. Map to your TUI visuals
-                var marker = _markers[index];
-                var (fg, bg) = _colors[index];
+                var marker = markers[index];
+                var (fg, bg) = colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
@@ -642,8 +639,6 @@ internal class TemperatureAmplitudeVisualizer(char[] markers, (ConsoleColor, Con
 internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
     : IWorldComponentVisualizer
 {
-    private readonly Dictionary<Biome, CellVisual> _biomeMap = biomeMap;
-
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -661,7 +656,7 @@ internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldBiomeChunk? currentChunk = null;
+            WorldPackedChunk? currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
@@ -677,7 +672,7 @@ internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldBiomeChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -688,10 +683,10 @@ internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var biome = currentChunk.Biome[(ly << 5) + lx];
+                var biome = currentChunk.PackedTiles[(ly << 5) + lx].Biome;
 
                 // 5. Map to your TUI visuals
-                if (_biomeMap.TryGetValue(biome, out var marker))
+                if (biomeMap.TryGetValue(biome, out var marker))
                 {
                     // 6. Write to the VIEWPORT-relative buffer
                     viewportBuffer[vY * viewportWidth + vX] = marker;
