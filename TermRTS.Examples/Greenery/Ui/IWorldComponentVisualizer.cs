@@ -406,7 +406,7 @@ internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> s
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldSurfaceFeatureChunk? currentChunk = null;
+            WorldPackedChunk? currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
@@ -422,7 +422,7 @@ internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> s
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldSurfaceFeatureChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -433,7 +433,7 @@ internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> s
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var feature = currentChunk.SurfaceFeature[(ly << 5) + lx];
+                var feature = currentChunk.PackedTiles[(ly << 5) + lx].SurfaceFeature;
 
                 // 5. Map to your TUI visuals
                 if (surfaceFeatureMap.TryGetValue(feature, out var marker))
@@ -449,9 +449,6 @@ internal class SurfaceFeatureVisualizer(Dictionary<SurfaceFeature, CellVisual> s
 internal class TemperatureVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
-    private readonly char[] _markers = markers;
-    private readonly (ConsoleColor, ConsoleColor)[] _colors = colors;
-
     public void SetVisuals(
         in IReadonlyStorage storage,
         in CellVisual[] viewportBuffer,
@@ -469,7 +466,7 @@ internal class TemperatureVisualizer(char[] markers, (ConsoleColor, ConsoleColor
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldTemperatureChunk? currentChunk = null;
+            WorldPackedChunk? currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
@@ -485,7 +482,7 @@ internal class TemperatureVisualizer(char[] markers, (ConsoleColor, ConsoleColor
 
                 if (cx != lastCx || cy != lastCy)
                 {
-                    if (!storage.TryGetSingleForTypeAndEntity<WorldTemperatureChunk>(chunkIdx,
+                    if (!storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkIdx,
                             out var chunk) || chunk == null) continue;
 
                     currentChunk = chunk;
@@ -496,13 +493,13 @@ internal class TemperatureVisualizer(char[] markers, (ConsoleColor, ConsoleColor
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var temperature = currentChunk.Temperature[(ly << 5) + lx];
+                var temperature = currentChunk.PackedTiles[(ly << 5) + lx].Temperature;
                 // TODO: Tie to world gen constants.
                 var index = Visual.GetScalarIndex(temperature, -50, 35);
 
                 // 5. Map to your TUI visuals
-                var marker = _markers[index];
-                var (fg, bg) = _colors[index];
+                var marker = markers[index];
+                var (fg, bg) = colors[index];
 
                 // 6. Write to the VIEWPORT-relative buffer
                 viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, fg, bg);
