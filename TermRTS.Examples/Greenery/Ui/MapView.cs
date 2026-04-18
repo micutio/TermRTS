@@ -97,9 +97,7 @@ public class MapView : UiElementBase, IEventSink
     private readonly SurfaceFeatureVisualizer _surfaceFeatureVisualizer;
     private readonly TemperatureVisualizer _temperatureVisualizer;
     private readonly HumidityVisualizer _humidityVisualizer;
-    private readonly TemperatureAmplitudeVisualizer _temperatureAmplitudeVisualizer;
     private readonly BiomeVisualizer _biomeVisualizer;
-    private readonly RiverVisualizer _riverVisualizer;
 
     private readonly FovVisualizer _fovVisualizer;
 
@@ -149,14 +147,7 @@ public class MapView : UiElementBase, IEventSink
         _humidityVisualizer = new HumidityVisualizer(
             theme.Scalar.MarkersScalar,
             theme.Heatmap.ColorsHeatmapHumidity);
-        _temperatureAmplitudeVisualizer =
-            new TemperatureAmplitudeVisualizer(
-                theme.Scalar.MarkersScalar,
-                theme.Heatmap.ColorsHeatmapTemperature);
         _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap);
-        _riverVisualizer = new RiverVisualizer(
-            theme.Default.RiverFg, theme.Default.DefaultFg,
-            theme.Default.DefaultBg);
 
         _fovVisualizer = new FovVisualizer();
 
@@ -228,11 +219,9 @@ public class MapView : UiElementBase, IEventSink
             MapRenderMode.HeatMapColor => _heatmapColorVisualizer,
             MapRenderMode.HeatMapMonochrome => _heatmapMonochromeVisualizer,
             MapRenderMode.SurfaceFeatures => _surfaceFeatureVisualizer,
-            MapRenderMode.Rivers => _riverVisualizer,
             MapRenderMode.Temperature => _temperatureVisualizer,
             MapRenderMode.Humidity => _humidityVisualizer,
             MapRenderMode.Biomes => _biomeVisualizer,
-            MapRenderMode.TemperatureAmplitude => _temperatureAmplitudeVisualizer,
             _ => throw new ArgumentOutOfRangeException()
         };
         var viewX = ViewportPositionInWorldX;
@@ -408,12 +397,6 @@ public class MapView : UiElementBase, IEventSink
                 return;
             case ConsoleKey.T:
                 MapRenderMode = MapRenderMode.Biomes;
-                return;
-            case ConsoleKey.U:
-                MapRenderMode = MapRenderMode.Rivers;
-                return;
-            case ConsoleKey.Y:
-                MapRenderMode = MapRenderMode.TemperatureAmplitude;
                 return;
             default:
                 return;
