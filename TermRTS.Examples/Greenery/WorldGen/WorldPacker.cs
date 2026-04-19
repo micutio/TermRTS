@@ -94,12 +94,13 @@ public static class WorldPacker
         ReadOnlySpan<byte> humidities,
         ReadOnlySpan<(int x, int y)> waterflows,
         ReadOnlySpan<(int x, int y)> winds,
+        ReadOnlySpan<byte> windSpeeds,
         ReadOnlySpan<SurfaceFeature> features)
     {
         var length = biomes.Length;
         if (length != elevations.Length || length != temperatures.Length ||
             length != humidities.Length || length != waterflows.Length ||
-            length != winds.Length || length != features.Length)
+            length != winds.Length || length != windSpeeds.Length || length != features.Length)
         {
             throw new ArgumentException("All input spans must have the same length.");
         }
@@ -117,7 +118,8 @@ public static class WorldPacker
                     features[i]),
                 Temperature = PackTemperature(temperatures[i]),
                 VisibilityFlags = 0,
-                PackedVectors = PackVectors(waterflows[i], winds[i])
+                PackedVectors = PackVectors(waterflows[i], winds[i]),
+                Reserved = windSpeeds[i]
             };
         }
 
@@ -132,6 +134,7 @@ public static class WorldPacker
         out sbyte temperature,
         out (int x, int y) waterflow,
         out (int x, int y) wind,
+        out byte windSpeed,
         out SurfaceFeature feature)
     {
         biome = packed.Biome;
@@ -141,6 +144,7 @@ public static class WorldPacker
         feature = packed.SurfaceFeature;
         waterflow = packed.WaterFlow;
         wind = packed.Wind;
+        windSpeed = packed.Reserved;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -181,12 +185,13 @@ public static class WorldPacker
         ReadOnlySpan<byte> humidities,
         ReadOnlySpan<(int x, int y)> waterflows,
         ReadOnlySpan<(int x, int y)> winds,
+        ReadOnlySpan<byte> windSpeeds,
         ReadOnlySpan<SurfaceFeature> features)
     {
         var length = biomes.Length;
         if (length != elevations.Length || length != temperatures.Length ||
             length != humidities.Length || length != waterflows.Length ||
-            length != winds.Length || length != features.Length)
+            length != winds.Length || length != windSpeeds.Length || length != features.Length)
         {
             throw new ArgumentException("All input spans must have the same length.");
         }
@@ -205,11 +210,53 @@ public static class WorldPacker
                     features[i]),
                 Temperature = PackTemperature(temperatures[i]),
                 VisibilityFlags = 0,
-                PackedVectors = PackVectors(waterflows[i], winds[i])
+                PackedVectors = PackVectors(waterflows[i], winds[i]),
+                Reserved = windSpeeds[i]
             };
         }
 
         return buffer;
+    }
+
+    /// <summary>
+    /// Packs the provided spans directly into the destination span. This avoids
+    /// intermediate allocations and is ideal when packing into an existing
+    /// buffer (for example a row within a chunk).
+    /// </summary>
+    public static void PackToSpan(
+        Span<PackedTile> destination,
+        ReadOnlySpan<Biome> biomes,
+        ReadOnlySpan<byte> elevations,
+        ReadOnlySpan<float> temperatures,
+        ReadOnlySpan<byte> humidities,
+        ReadOnlySpan<(int x, int y)> waterflows,
+        ReadOnlySpan<(int x, int y)> winds,
+        ReadOnlySpan<byte> windSpeeds,
+        ReadOnlySpan<SurfaceFeature> features)
+    {
+        var length = biomes.Length;
+        if (destination.Length < length || length != elevations.Length || length != temperatures.Length ||
+            length != humidities.Length || length != waterflows.Length || length != winds.Length ||
+            length != windSpeeds.Length || length != features.Length)
+        {
+            throw new ArgumentException("All input spans must have the same length and destination must be large enough.");
+        }
+
+        for (var i = 0; i < length; i++)
+        {
+            destination[i] = new PackedTile
+            {
+                PackedAttributes = PackAttributes(
+                    biomes[i],
+                    elevations[i],
+                    humidities[i],
+                    features[i]),
+                Temperature = PackTemperature(temperatures[i]),
+                VisibilityFlags = 0,
+                PackedVectors = PackVectors(waterflows[i], winds[i]),
+                Reserved = windSpeeds[i]
+            };
+        }
     }
 
     /// <summary>
