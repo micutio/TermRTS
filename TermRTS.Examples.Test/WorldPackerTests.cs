@@ -17,6 +17,7 @@ public class WorldPackerTests
         var waterflows = new (int x, int y)[length];
         var winds = new (int x, int y)[length];
         var features = new SurfaceFeature[length];
+        var windSpeeds = new byte[length];
 
         var random = new Random(1234);
         for (var i = 0; i < length; i++)
@@ -32,6 +33,7 @@ public class WorldPackerTests
                 random.Next(-1, 2),
                 random.Next(-1, 2));
             features[i] = (SurfaceFeature)random.Next(Enum.GetValues<SurfaceFeature>().Length);
+            windSpeeds[i] = (byte)random.Next(0, 256);
         }
 
         var packed = WorldPacker.Pack(
@@ -41,6 +43,7 @@ public class WorldPackerTests
             humidities,
             waterflows,
             winds,
+            windSpeeds,
             features);
 
         Assert.Equal(length, packed.Length);
@@ -55,6 +58,7 @@ public class WorldPackerTests
                 out var temperature,
                 out var waterflow,
                 out var wind,
+                out var windSpeed,
                 out var feature);
 
             Assert.Equal(biomes[i], biome);
@@ -64,6 +68,7 @@ public class WorldPackerTests
             Assert.Equal(Convert.ToSByte(temperatures[i]), temperature);
             Assert.Equal(waterflows[i], waterflow);
             Assert.Equal(winds[i], wind);
+            Assert.Equal(windSpeeds[i], windSpeed);
         }
     }
 
@@ -77,6 +82,7 @@ public class WorldPackerTests
         var waterflows = new[] { (x: -1, y: -1), (x: 1, y: 1) };
         var winds = new[] { (x: -1, y: 1), (x: 1, y: -1) };
         var features = new[] { SurfaceFeature.None, SurfaceFeature.Snow };
+        var windSpeeds = new byte[] { 0, 255 };
 
         var packed = WorldPacker.Pack(
             biomes,
@@ -85,6 +91,7 @@ public class WorldPackerTests
             humidities,
             waterflows,
             winds,
+            windSpeeds,
             features);
 
         Assert.Equal((byte)0, packed[0].PackedVectors);
@@ -101,6 +108,8 @@ public class WorldPackerTests
         Assert.Equal((1, 1), packed[1].WaterFlow);
         Assert.Equal((-1, 1), packed[0].Wind);
         Assert.Equal((1, -1), packed[1].Wind);
+        Assert.Equal((byte)0, packed[0].Reserved);
+        Assert.Equal((byte)255, packed[1].Reserved);
     }
 
     [Fact]
@@ -113,6 +122,7 @@ public class WorldPackerTests
         var waterflows = new (int x, int y)[4];
         var winds = new (int x, int y)[4];
         var features = new SurfaceFeature[4];
+        var windSpeeds = new byte[4];
 
         Assert.Throws<ArgumentException>(() => WorldPacker.Pack(
             biomes,
@@ -121,6 +131,7 @@ public class WorldPackerTests
             humidities,
             waterflows,
             winds,
+            windSpeeds,
             features));
     }
 
@@ -134,6 +145,7 @@ public class WorldPackerTests
         var waterflows = new[] { (x: -2, y: 0), (x: 0, y: 0) };
         var winds = new[] { (x: 0, y: 0), (x: 0, y: 0) };
         var features = new SurfaceFeature[2];
+        var windSpeeds = new byte[2];
 
         Assert.Throws<ArgumentOutOfRangeException>(() => WorldPacker.Pack(
             biomes,
@@ -142,6 +154,7 @@ public class WorldPackerTests
             humidities,
             waterflows,
             winds,
+            windSpeeds,
             features));
     }
 
@@ -187,6 +200,7 @@ public class WorldPackerTests
         var waterflows = new (int x, int y)[length];
         var winds = new (int x, int y)[length];
         var features = new SurfaceFeature[length];
+        var windSpeeds = new byte[length];
 
         for (var i = 0; i < length; i++)
         {
@@ -197,6 +211,7 @@ public class WorldPackerTests
             waterflows[i] = (0, 0);
             winds[i] = (0, 0);
             features[i] = SurfaceFeature.None;
+            windSpeeds[i] = (byte)(i % 256);
         }
 
         var buffer = WorldPacker.PackPooled(
@@ -206,6 +221,7 @@ public class WorldPackerTests
             humidities,
             waterflows,
             winds,
+            windSpeeds,
             features);
 
         Assert.NotNull(buffer);
