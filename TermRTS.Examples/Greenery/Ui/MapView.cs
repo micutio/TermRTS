@@ -16,11 +16,11 @@ public enum MapRenderMode
     HeatMapColor,
     HeatMapMonochrome,
     SurfaceFeatures,
-    Rivers,
     Temperature,
     Humidity,
     Biomes,
-    TemperatureAmplitude
+    Wind,
+    WaterFlow,
 }
 
 public readonly struct CellVisual
@@ -98,6 +98,8 @@ public class MapView : UiElementBase, IEventSink
     private readonly TemperatureVisualizer _temperatureVisualizer;
     private readonly HumidityVisualizer _humidityVisualizer;
     private readonly BiomeVisualizer _biomeVisualizer;
+    private readonly WindVisualizer _windVisualizer;
+    private readonly WaterFlowVisualizer _waterFlowVisualizer;
 
     private readonly FovVisualizer _fovVisualizer;
 
@@ -148,6 +150,9 @@ public class MapView : UiElementBase, IEventSink
             theme.Scalar.MarkersScalar,
             theme.Heatmap.ColorsHeatmapHumidity);
         _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap);
+        // TODO: Use theme to get WindDirectionTheme.
+        _windVisualizer = new WindVisualizer(new WindDirectionTheme());
+        _waterFlowVisualizer = new WaterFlowVisualizer(new DirectionMarkerTheme(), theme.Elevation.ColorsElevation);
 
         _fovVisualizer = new FovVisualizer();
 
@@ -222,6 +227,8 @@ public class MapView : UiElementBase, IEventSink
             MapRenderMode.Temperature => _temperatureVisualizer,
             MapRenderMode.Humidity => _humidityVisualizer,
             MapRenderMode.Biomes => _biomeVisualizer,
+            MapRenderMode.Wind => _windVisualizer,
+            MapRenderMode.WaterFlow => _waterFlowVisualizer,
             _ => throw new ArgumentOutOfRangeException()
         };
         var viewX = ViewportPositionInWorldX;
@@ -397,6 +404,12 @@ public class MapView : UiElementBase, IEventSink
                 return;
             case ConsoleKey.T:
                 MapRenderMode = MapRenderMode.Biomes;
+                return;
+            case ConsoleKey.Y:
+                MapRenderMode = MapRenderMode.Wind;
+                return;
+            case ConsoleKey.U:
+                MapRenderMode = MapRenderMode.WaterFlow;
                 return;
             default:
                 return;
@@ -598,16 +611,16 @@ public class MapView : UiElementBase, IEventSink
         {
             MapRenderMode.SurfaceFeatures =>
                 "Legend: ~ River | ^ Mountain | s Snow | . Beach | # Lava",
-            MapRenderMode.Rivers => "Legend: ~ River",
             MapRenderMode.Biomes =>
                 "Legend: ~ Ocean | t Tundra | T Taiga | F TemperateForest | g Grassland | d Desert | J TropicalForest | s Savanna | I IceCap",
             MapRenderMode.Temperature => "Legend: 0..9 = Temperature",
             MapRenderMode.Humidity => "Legend: 0..9 = Humidity",
-            MapRenderMode.TemperatureAmplitude => "Legend: 0..9 = Temp Amplitude",
             MapRenderMode.ElevationColor or MapRenderMode.ElevationMonochrome =>
                 "Legend: 0..9 = Elevation",
             MapRenderMode.HeatMapColor or MapRenderMode.HeatMapMonochrome =>
                 "Legend: shade = Heatmap",
+            MapRenderMode.Wind => "Wind",
+            MapRenderMode.WaterFlow => "Water Flow",
             _ => "Legend: map visualization"
         };
     }

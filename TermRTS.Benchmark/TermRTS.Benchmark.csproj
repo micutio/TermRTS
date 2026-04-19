@@ -9,6 +9,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\TermRTS.Examples\TermRTS.Examples.csproj" />
         <ProjectReference Include="..\TermRTS\TermRTS.csproj" />
     </ItemGroup>
 
