@@ -159,15 +159,15 @@ public class BiomeTheme
         // Water and Ice
         {
             Biome.HighSeas,
-            new CellVisual(Cp437.SquareRoot, ConsoleColor.DarkBlue, ConsoleColor.Black)
+            new CellVisual(Cp437.SquareRoot, ConsoleColor.Black, ConsoleColor.DarkBlue)
         },
         {
             Biome.Ocean,
-            new CellVisual(Cp437.Approximation, ConsoleColor.Blue, ConsoleColor.Black)
+            new CellVisual(Cp437.Approximation, ConsoleColor.Blue, ConsoleColor.DarkBlue)
         },
         {
             Biome.Shelf,
-            new CellVisual(Cp437.Tilde, ConsoleColor.Blue, ConsoleColor.DarkBlue)
+            new CellVisual(Cp437.Tilde, ConsoleColor.DarkBlue, ConsoleColor.Blue)
         },
         {
             Biome.Shallows,
