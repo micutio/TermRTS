@@ -159,7 +159,7 @@ public class BiomeTheme
         // Water and Ice
         {
             Biome.HighSeas,
-            new CellVisual(Cp437.SquareRoot, ConsoleColor.Black, ConsoleColor.DarkBlue)
+            new CellVisual(Cp437.Approximation, ConsoleColor.Black, ConsoleColor.DarkBlue)
         },
         {
             Biome.Ocean,
