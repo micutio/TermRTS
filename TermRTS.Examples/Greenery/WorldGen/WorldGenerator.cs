@@ -928,6 +928,92 @@ public class CylinderWorld : IWorldGen
         }
     }
 
+    /// <summary>
+    /// Generates a wind direction field influenced by global bands (Hadley cells,
+    /// trade winds, westerlies, polar easterlies), small-scale noise and elevation.
+    /// Results are stored in `_windDirections` as discrete (-1,0,1) integer vectors.
+    /// </summary>
+    private void CalculateWindField()
+    {
+        var elevations = _elevation.Memory.Span;
+        var noiseMap = _noiseMap.Memory.Span;
+        var windDirections = _windDirections.Memory.Span;
+        var windSpeeds = _windSpeeds.Memory.Span;
+
+        // Compute max elevation for normalization (avoid using _maxElevation which is set later)
+        var maxElev = float.MinValue;
+        var total = _worldWidth * _worldHeight;
+        for (var i = 0; i < total; i++) maxElev = MathF.Max(maxElev, elevations[i]);
+        if (maxElev <= 0) maxElev = 1f;
+
+        var mid = _worldHeight / 2f;
+
+        for (var y = 0; y < _worldHeight; y++)
+        {
+            // Absolute latitude 0 at equator -> 1 at poles
+            var latitudeAbs = MathF.Abs(y - mid) / mid;
+
+            // Band selection: trade winds (near equator) and westerlies (mid-latitudes)
+            // and polar easterlies (near poles). This mirrors common atmospheric cells.
+            var bandDx = latitudeAbs < 0.33f || latitudeAbs >= 0.66f ? -1f : 1f;
+
+            // Hemispheric sign: north (y < mid) => -1, south (y > mid) => +1, equator => 0
+            var hemisphere = MathF.Sign(y - mid);
+
+            // Meridional component: trades blow toward the equator, westerlies toward poles
+            var bandDy = bandDx < 0 ? -hemisphere : hemisphere;
+
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var idx = y * _worldWidth + x;
+
+                // Local noise to add small-scale variation
+                var localNoise = (noiseMap[idx] * 2f - 1f) * 0.25f; // approx -0.25..0.25
+
+                // Base floating vector
+                var fx = bandDx + localNoise;
+                var fy = bandDy + localNoise * 0.5f;
+
+                // Slow down wind with elevation: higher elevation -> reduced magnitude
+                var elev = elevations[idx];
+                var elevNorm = Math.Clamp(elev / maxElev, 0f, 1f);
+                var slowdown = elevNorm * 0.8f; // up to 80% slowdown on highest peaks
+                fx *= (1f - slowdown);
+                fy *= (1f - slowdown);
+
+                // Threshold to consider the flow effectively calm
+                const float calmThreshold = 0.33f;
+
+                var finalDx = MathF.Abs(fx) < calmThreshold ? 0 : Math.Sign(fx);
+                var finalDy = MathF.Abs(fy) < calmThreshold ? 0 : Math.Sign(fy);
+
+                // Occasional local blocking: very steep local slopes reduce wind to calm
+                // Check simple slope with immediate west/east neighbor
+                var left = elevations[y * _worldWidth + WorldMath.WrapX(x - 1)];
+                var right = elevations[y * _worldWidth + WorldMath.WrapX(x + 1)];
+                var slope = MathF.Abs(right - left);
+                if (slope > (_elevationCfg.MaxElevation * 0.5f))
+                {
+                    finalDx = 0;
+                }
+
+                // Store discrete wind direction
+                windDirections[idx] = (finalDx, finalDy);
+
+                // Compute a simple magnitude (pre-discretization) and quantize to 0..255
+                var mag = MathF.Sqrt(fx * fx + fy * fy);
+                // normalize by a heuristic max (2.0f covers bandDx +- noise)
+                var normalized = Math.Clamp(mag / 2f, 0f, 1f);
+                var speedByte = (byte)(normalized * 255f);
+
+                // If blocked to calm, zero the speed
+                if (finalDx == 0 && finalDy == 0) speedByte = 0;
+
+                windSpeeds[idx] = speedByte;
+            }
+        }
+    }
+    
     private float[,] CalculatePhysicalRainfall()
     {
         var elevations = _elevation.Memory.Span;
@@ -1624,93 +1710,7 @@ public class CylinderWorld : IWorldGen
                 flowDirections[y * _worldWidth + x] = bestDirection;
             }
     }
-
-    /// <summary>
-    /// Generates a wind direction field influenced by global bands (Hadley cells,
-    /// trade winds, westerlies, polar easterlies), small-scale noise and elevation.
-    /// Results are stored in `_windDirections` as discrete (-1,0,1) integer vectors.
-    /// </summary>
-    private void CalculateWindField()
-    {
-        var elevations = _elevation.Memory.Span;
-        var noiseMap = _noiseMap.Memory.Span;
-        var windDirections = _windDirections.Memory.Span;
-        var windSpeeds = _windSpeeds.Memory.Span;
-
-        // Compute max elevation for normalization (avoid using _maxElevation which is set later)
-        var maxElev = float.MinValue;
-        var total = _worldWidth * _worldHeight;
-        for (var i = 0; i < total; i++) maxElev = MathF.Max(maxElev, elevations[i]);
-        if (maxElev <= 0) maxElev = 1f;
-
-        var mid = _worldHeight / 2f;
-
-        for (var y = 0; y < _worldHeight; y++)
-        {
-            // Absolute latitude 0 at equator -> 1 at poles
-            var latitudeAbs = MathF.Abs(y - mid) / mid;
-
-            // Band selection: trade winds (near equator) and westerlies (mid-latitudes)
-            // and polar easterlies (near poles). This mirrors common atmospheric cells.
-            var bandDx = latitudeAbs < 0.33f || latitudeAbs >= 0.66f ? -1f : 1f;
-
-            // Hemispheric sign: north (y < mid) => -1, south (y > mid) => +1, equator => 0
-            var hemisphere = MathF.Sign(y - mid);
-
-            // Meridional component: trades blow toward the equator, westerlies toward poles
-            var bandDy = bandDx < 0 ? -hemisphere : hemisphere;
-
-            for (var x = 0; x < _worldWidth; x++)
-            {
-                var idx = y * _worldWidth + x;
-
-                // Local noise to add small-scale variation
-                var localNoise = (noiseMap[idx] * 2f - 1f) * 0.25f; // approx -0.25..0.25
-
-                // Base floating vector
-                var fx = bandDx + localNoise;
-                var fy = bandDy + localNoise * 0.5f;
-
-                // Slow down wind with elevation: higher elevation -> reduced magnitude
-                var elev = elevations[idx];
-                var elevNorm = Math.Clamp(elev / maxElev, 0f, 1f);
-                var slowdown = elevNorm * 0.8f; // up to 80% slowdown on highest peaks
-                fx *= (1f - slowdown);
-                fy *= (1f - slowdown);
-
-                // Threshold to consider the flow effectively calm
-                const float calmThreshold = 0.33f;
-
-                var finalDx = MathF.Abs(fx) < calmThreshold ? 0 : Math.Sign(fx);
-                var finalDy = MathF.Abs(fy) < calmThreshold ? 0 : Math.Sign(fy);
-
-                // Occasional local blocking: very steep local slopes reduce wind to calm
-                // Check simple slope with immediate west/east neighbor
-                var left = elevations[y * _worldWidth + WorldMath.WrapX(x - 1)];
-                var right = elevations[y * _worldWidth + WorldMath.WrapX(x + 1)];
-                var slope = MathF.Abs(right - left);
-                if (slope > (_elevationCfg.MaxElevation * 0.5f))
-                {
-                    finalDx = 0;
-                }
-
-                // Store discrete wind direction
-                windDirections[idx] = (finalDx, finalDy);
-
-                // Compute a simple magnitude (pre-discretization) and quantize to 0..255
-                var mag = MathF.Sqrt(fx * fx + fy * fy);
-                // normalize by a heuristic max (2.0f covers bandDx +- noise)
-                var normalized = Math.Clamp(mag / 2f, 0f, 1f);
-                var speedByte = (byte)(normalized * 255f);
-
-                // If blocked to calm, zero the speed
-                if (finalDx == 0 && finalDy == 0) speedByte = 0;
-
-                windSpeeds[idx] = speedByte;
-            }
-        }
-    }
-
+    
     /// <summary>
     ///     Simulate the flow of water down the elevations and keep track of where it ends up.
     /// </summary>
