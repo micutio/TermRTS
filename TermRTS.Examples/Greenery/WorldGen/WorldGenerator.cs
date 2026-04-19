@@ -1013,7 +1013,7 @@ public class CylinderWorld : IWorldGen
             }
         }
     }
-    
+
     private float[,] CalculatePhysicalRainfall()
     {
         var elevations = _elevation.Memory.Span;
@@ -1710,7 +1710,7 @@ public class CylinderWorld : IWorldGen
                 flowDirections[y * _worldWidth + x] = bestDirection;
             }
     }
-    
+
     /// <summary>
     ///     Simulate the flow of water down the elevations and keep track of where it ends up.
     /// </summary>
