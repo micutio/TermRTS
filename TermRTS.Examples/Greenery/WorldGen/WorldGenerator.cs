@@ -126,6 +126,8 @@ public class CylinderWorld : IWorldGen
     private readonly WorldBuffer<int> _plateIndex;
     private readonly WorldBuffer<Vector2> _plateMotions;
     private readonly WorldBuffer<(int, int)> _flowDirections;
+    private readonly WorldBuffer<(int, int)> _windDirections;
+    private readonly WorldBuffer<byte> _windSpeeds;
     private readonly WorldBuffer<float> _coastalSlopes;
     private readonly WorldBuffer<float> _tectonicDelta;
     private readonly WorldBuffer<float> _hotspotMap;
@@ -194,6 +196,8 @@ public class CylinderWorld : IWorldGen
         _plateIndex = new WorldBuffer<int>(voronoiCellCount);
         _plateMotions = new WorldBuffer<Vector2>(voronoiCellCount);
         _flowDirections = new WorldBuffer<(int, int)>(worldWidth * worldHeight);
+        _windDirections = new WorldBuffer<(int, int)>(worldWidth * worldHeight);
+        _windSpeeds = new WorldBuffer<byte>(worldWidth * worldHeight);
         _coastalSlopes = new WorldBuffer<float>(worldWidth * worldHeight);
         _tectonicDelta = new WorldBuffer<float>(worldWidth * worldHeight);
         _hotspotMap = new WorldBuffer<float>(worldWidth * worldHeight);
@@ -239,6 +243,11 @@ public class CylinderWorld : IWorldGen
         ApplyTectonics();
 
         // Stage 3: Climate ////////////////////////////////////////////////////////////////////////
+        // Generate wind field now that elevation and noise are available. Wind
+        // is used by the rainfall/shadow simulation and must be generated
+        // before biome assignment.
+        CalculateWindField();
+
         // CalculateDistanceToWaterMap(); // TODO: This does not seem to be used.
         // Generate climate (temperature, humidity, biomes, seasonal effects)
         GenerateClimate();
@@ -254,6 +263,8 @@ public class CylinderWorld : IWorldGen
         ApplyMountainDetails();
         // Apply coastal features (beach, cliff, fjord)
         ApplyCoastalFeatures();
+
+        // Wind field was calculated earlier (before biome generation).
 
         return new WorldGenerationResult(ToPackedChunks());
     }
@@ -280,6 +291,8 @@ public class CylinderWorld : IWorldGen
         _tectonicDelta.Memory.Span.Clear();
         _coastalSlopes.Memory.Span.Clear();
         _noiseMap.Memory.Span.Clear();
+        _windDirections.Memory.Span.Clear();
+        _windSpeeds.Memory.Span.Clear();
         _strahlerRiver.Memory.Span.Clear();
     }
 
@@ -920,6 +933,8 @@ public class CylinderWorld : IWorldGen
         var elevations = _elevation.Memory.Span;
         var noiseMap = _noiseMap.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
+        var windDirections = _windDirections.Memory.Span;
+        var windSpeeds = _windSpeeds.Memory.Span;
         var rainfall = new float[_worldWidth, _worldHeight];
         const float moistureRechargeRate = 0.09f;
         const float rainDropFactor = 0.06f;
@@ -934,7 +949,14 @@ public class CylinderWorld : IWorldGen
             var latWarp = noiseMap[y * _worldWidth] * 2.04f;
             var latitude = MathF.Abs(y - _worldHeight / 2f) / (_worldHeight / 2f) + latWarp;
 
-            var windDir = latitude is < 0.33f or >= 0.66f ? -1 : 1;
+            // Determine predominant row-wise wind direction from generated wind field.
+            var bandWindDir = latitude is < 0.33f or >= 0.66f ? -1 : 1;
+            var sumX = 0;
+            for (var sx = 0; sx < _worldWidth; sx++)
+                sumX += windDirections[y * _worldWidth + sx].Item1;
+
+            var windDir = Math.Sign(sumX);
+            if (windDir == 0) windDir = bandWindDir;
 
             // 2. Priming: Start with a base, but don't write to the map yet
             var cloudMoisture = _riverCfg.RainfallLandBase;
@@ -942,7 +964,7 @@ public class CylinderWorld : IWorldGen
             // Sweep 2x the width. Pass 1 'primes' the moisture; Pass 2 'records' it.
             for (var step = 0; step < _worldWidth * 2; step++)
             {
-                // windX moves East or West based on windDir
+                // windX moves East or West based on predominant row windDir
                 var windX = WorldMath.WrapX(windDir == 1 ? step : _worldWidth - step);
                 var idx = y * _worldWidth + windX;
                 var elev = elevations[idx];
@@ -958,14 +980,17 @@ public class CylinderWorld : IWorldGen
                 }
                 else
                 {
-                    var prevX = WorldMath.WrapX(windX - windDir);
+                    // Use the per-cell wind vector where available to find the upwind neighbor.
+                    var cellWindX = windDirections[idx].Item1;
+                    var dx = cellWindX != 0 ? cellWindX : windDir;
+                    var prevX = WorldMath.WrapX(windX - dx);
                     var lift = elev - elevations[y * _worldWidth + prevX];
 
                     // Make it wet around rivers.
-                    foreach (var (dx, dy) in directions)
+                    foreach (var (dirX, dirY) in directions)
                     {
-                        var nx = WorldMath.WrapX(windX + dx);
-                        var ny = y + dy;
+                        var nx = WorldMath.WrapX(windX + dirX);
+                        var ny = y + dirY;
                         if (ny > 0 && ny < _worldHeight && riverMap[ny * _worldWidth + nx])
                             cloudMoisture = _riverCfg.RainfallOceanBase;
                     }
@@ -1406,6 +1431,8 @@ public class CylinderWorld : IWorldGen
     private void ApplyRainShadows(in float[,] rainfall)
     {
         var elevationsF = _elevation.Memory.Span;
+        var windDirections = _windDirections.Memory.Span;
+        var windSpeeds = _windSpeeds.Memory.Span;
 
         const float moistureRechargeRate = 0.08f;
         const float rainDropFactor = 0.05f;
@@ -1423,7 +1450,13 @@ public class CylinderWorld : IWorldGen
             // < 0.33f is Tropical (Trade Winds: East to West)
             // < 0.66f is Temperate (Westerlies: West to East)
             // >= 0.66f is Polar (Easterlies: East to West)
-            var windDir = latitude is < 0.33f or >= 0.66f ? -1 : 1;
+            var bandSign = latitude is < 0.33f or >= 0.66f ? -1 : 1;
+            // Aggregate per-row wind x-component to choose sweep order. If calm,
+            // fall back to band-based sign.
+            var sumX = 0;
+            for (var sx = 0; sx < _worldWidth; sx++) sumX += windDirections[y * _worldWidth + sx].Item1;
+            var windDir = Math.Sign(sumX);
+            if (windDir == 0) windDir = bandSign;
 
             // 3. Sweep across the map
             for (var step = 0; step < _worldWidth * 2; step++)
@@ -1449,9 +1482,11 @@ public class CylinderWorld : IWorldGen
                 }
                 else
                 {
-                    // DISCHARGE: The 'previous' cell is where the wind came FROM.
-                    // We subtract the windDir to look backward into the wind.
-                    var prevX = WorldMath.WrapX(windX - windDir);
+                    // DISCHARGE: Use per-cell wind to find the upwind neighbor.
+                    var cellWindX = windDirections[y * _worldWidth + windX].Item1;
+                    // TODO: Possibly add wind speed to propagate further
+                    var dx = cellWindX != 0 ? cellWindX : windDir;
+                    var prevX = WorldMath.WrapX(windX - dx);
                     var prevElevation = elevationsF[y * _worldWidth + prevX];
 
                     var lift = elevation - prevElevation;
@@ -1588,6 +1623,92 @@ public class CylinderWorld : IWorldGen
 
                 flowDirections[y * _worldWidth + x] = bestDirection;
             }
+    }
+
+    /// <summary>
+    /// Generates a wind direction field influenced by global bands (Hadley cells,
+    /// trade winds, westerlies, polar easterlies), small-scale noise and elevation.
+    /// Results are stored in `_windDirections` as discrete (-1,0,1) integer vectors.
+    /// </summary>
+    private void CalculateWindField()
+    {
+        var elevations = _elevation.Memory.Span;
+        var noiseMap = _noiseMap.Memory.Span;
+        var windDirections = _windDirections.Memory.Span;
+        var windSpeeds = _windSpeeds.Memory.Span;
+
+        // Compute max elevation for normalization (avoid using _maxElevation which is set later)
+        var maxElev = float.MinValue;
+        var total = _worldWidth * _worldHeight;
+        for (var i = 0; i < total; i++) maxElev = MathF.Max(maxElev, elevations[i]);
+        if (maxElev <= 0) maxElev = 1f;
+
+        var mid = _worldHeight / 2f;
+
+        for (var y = 0; y < _worldHeight; y++)
+        {
+            // Absolute latitude 0 at equator -> 1 at poles
+            var latitudeAbs = MathF.Abs(y - mid) / mid;
+
+            // Band selection: trade winds (near equator) and westerlies (mid-latitudes)
+            // and polar easterlies (near poles). This mirrors common atmospheric cells.
+            var bandDx = latitudeAbs < 0.33f || latitudeAbs >= 0.66f ? -1f : 1f;
+
+            // Hemispheric sign: north (y < mid) => -1, south (y > mid) => +1, equator => 0
+            var hemisphere = MathF.Sign(y - mid);
+
+            // Meridional component: trades blow toward the equator, westerlies toward poles
+            var bandDy = bandDx < 0 ? -hemisphere : hemisphere;
+
+            for (var x = 0; x < _worldWidth; x++)
+            {
+                var idx = y * _worldWidth + x;
+
+                // Local noise to add small-scale variation
+                var localNoise = (noiseMap[idx] * 2f - 1f) * 0.25f; // approx -0.25..0.25
+
+                // Base floating vector
+                var fx = bandDx + localNoise;
+                var fy = bandDy + localNoise * 0.5f;
+
+                // Slow down wind with elevation: higher elevation -> reduced magnitude
+                var elev = elevations[idx];
+                var elevNorm = Math.Clamp(elev / maxElev, 0f, 1f);
+                var slowdown = elevNorm * 0.8f; // up to 80% slowdown on highest peaks
+                fx *= (1f - slowdown);
+                fy *= (1f - slowdown);
+
+                // Threshold to consider the flow effectively calm
+                const float calmThreshold = 0.33f;
+
+                var finalDx = MathF.Abs(fx) < calmThreshold ? 0 : Math.Sign(fx);
+                var finalDy = MathF.Abs(fy) < calmThreshold ? 0 : Math.Sign(fy);
+
+                // Occasional local blocking: very steep local slopes reduce wind to calm
+                // Check simple slope with immediate west/east neighbor
+                var left = elevations[y * _worldWidth + WorldMath.WrapX(x - 1)];
+                var right = elevations[y * _worldWidth + WorldMath.WrapX(x + 1)];
+                var slope = MathF.Abs(right - left);
+                if (slope > (_elevationCfg.MaxElevation * 0.5f))
+                {
+                    finalDx = 0;
+                }
+
+                // Store discrete wind direction
+                windDirections[idx] = (finalDx, finalDy);
+
+                // Compute a simple magnitude (pre-discretization) and quantize to 0..255
+                var mag = MathF.Sqrt(fx * fx + fy * fy);
+                // normalize by a heuristic max (2.0f covers bandDx +- noise)
+                var normalized = Math.Clamp(mag / 2f, 0f, 1f);
+                var speedByte = (byte)(normalized * 255f);
+
+                // If blocked to calm, zero the speed
+                if (finalDx == 0 && finalDy == 0) speedByte = 0;
+
+                windSpeeds[idx] = speedByte;
+            }
+        }
     }
 
     /// <summary>
@@ -2428,8 +2549,10 @@ public class CylinderWorld : IWorldGen
         var temperature = _temperature.Memory.Span;
         var biome = _biomes.Memory.Span;
         var surfaceFeatures = _surfaceFeatures.Memory.Span;
-        // TODO: Replace with flow directions and wind directions!
+        // Flow and Wind directions
         var flowDirections = _flowDirections.Memory.Span;
+        var windDirections = _windDirections.Memory.Span;
+        var windSpeeds = _windSpeeds.Memory.Span;
 
         const int chunkSize = WorldMath.ChunkSize;
         const int chunksAcross = WorldMath.ChunksAcross;
@@ -2459,6 +2582,8 @@ public class CylinderWorld : IWorldGen
                     var srcBiome = biome.Slice(sourceStart, chunkSize);
                     var srcSurfaceFeatures = surfaceFeatures.Slice(sourceStart, chunkSize);
                     var srcFlowDir = flowDirections.Slice(sourceStart, chunkSize);
+                    var srcWindDir = windDirections.Slice(sourceStart, chunkSize);
+                    var srcWindSpeeds = windSpeeds.Slice(sourceStart, chunkSize);
 
                     for (var i = 0; i < srcHumidityFloat.Length; i++)
                     {
@@ -2471,14 +2596,16 @@ public class CylinderWorld : IWorldGen
 
                     var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
 
-                    WorldPacker.Pack(
+                    WorldPacker.PackToSpan(
+                        destRow,
                         srcBiome,
                         elevationBuffer,
                         srcTemperature,
                         humidityBuffer,
                         srcFlowDir,
-                        srcFlowDir,
-                        srcSurfaceFeatures).CopyTo(destRow);
+                        srcWindDir,
+                        srcWindSpeeds,
+                        srcSurfaceFeatures);
                 }
 
                 // The chunk now holds a 'view' of the master buffer, not a unique array
