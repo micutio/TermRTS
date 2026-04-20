@@ -6,8 +6,8 @@ namespace TermRTS.Examples.Greenery.WorldGen;
 
 public static class VisibilityMasks
 {
-    public const byte InFOV = 1 << 0; // 0000_0001
-    public const byte ExploredFOW = 1 << 1; // 0000_0010
+    public const byte SubInFov = 1 << 0; // 0000_0001
+    public const byte SubExploredFow = 1 << 1; // 0000_0010
 }
 
 public static class PackedAttribute
@@ -29,7 +29,7 @@ public struct PackedTile
     // 1 Byte (-128 to +127 Celsius)
     public sbyte Temperature;
 
-    // 1 Byte (FOV, FOW, and six more bools)
+    // 1 Byte (FOV, FOW, and six more bool)
     public byte VisibilityFlags;
 
     // 1 Byte (Holds FlowX, FlowY, WindX, WindY)
@@ -49,8 +49,8 @@ public struct PackedTile
     public SurfaceFeature SurfaceFeature =>
         (SurfaceFeature)(PackedAttributes >> PackedAttribute.FeatShift & 0xFF);
 
-    public bool IsVisible => (VisibilityFlags & VisibilityMasks.InFOV) != 0;
-    public bool IsExplored => (VisibilityFlags & VisibilityMasks.ExploredFOW) != 0;
+    public bool IsVisible => (VisibilityFlags & VisibilityMasks.SubInFov) != 0;
+    public bool IsExplored => (VisibilityFlags & VisibilityMasks.SubExploredFow) != 0;
 
     public (int x, int y) WaterFlow => (
         (PackedVectors >> 0 & 0x3) - 1,
@@ -66,17 +66,17 @@ public struct PackedTile
 
     public void SetInFov()
     {
-        VisibilityFlags |= VisibilityMasks.InFOV;
+        VisibilityFlags |= VisibilityMasks.SubInFov;
     }
 
     public void SetOutOfFov()
     {
-        VisibilityFlags &= unchecked((byte)~VisibilityMasks.InFOV);
+        VisibilityFlags &= unchecked((byte)~VisibilityMasks.SubInFov);
     }
 
     public void SetExplored()
     {
-        VisibilityFlags |= VisibilityMasks.ExploredFOW;
+        VisibilityFlags |= VisibilityMasks.SubExploredFow;
     }
 
     #endregion
@@ -166,8 +166,12 @@ public static class WorldPacker
         // Clamp instead of throwing to avoid exceptions on occasional out-of-range
         // values. This keeps the hot path exception-free and predictable.
         var clamped = temperature;
-        if (clamped < sbyte.MinValue) clamped = sbyte.MinValue;
-        else if (clamped > sbyte.MaxValue) clamped = sbyte.MaxValue;
+        clamped = clamped switch
+        {
+            < sbyte.MinValue => sbyte.MinValue,
+            > sbyte.MaxValue => sbyte.MaxValue,
+            _ => clamped
+        };
 
         return Convert.ToSByte(clamped);
     }
@@ -265,7 +269,6 @@ public static class WorldPacker
     /// </summary>
     public static void ReturnPackedArray(PackedTile[] buffer, bool clearArray = false)
     {
-        if (buffer is null) return;
         ArrayPool<PackedTile>.Shared.Return(buffer, clearArray);
     }
 
