@@ -43,10 +43,10 @@ public class VolcanicParameters
 public class ErosionParameters
 {
     public int ErosionIterations { get; set; } = 10;
-    public float HydraulicErosionRate { get; set; } = 0.111f;
-    public float SedimentCapacity { get; set; } = 0.111f;
-    public float DepositionRate { get; set; } = 0.111f;
-    public float EvaporationRate { get; set; } = 0.111f;
+    public float HydraulicErosionRate { get; set; } = 0.041f;
+    public float SedimentCapacity { get; set; } = 0.041f;
+    public float DepositionRate { get; set; } = 0.041f;
+    public float EvaporationRate { get; set; } = 0.041f;
     public float RainRate { get; set; } = 0.7f;
     public float ThermalErosionRate { get; set; } = 0.05f;
     public float TalusAngle { get; set; } = 0.4f;
