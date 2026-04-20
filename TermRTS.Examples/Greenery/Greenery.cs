@@ -17,8 +17,8 @@ namespace TermRTS.Examples.Greenery;
 public class Greenery : IRunnableExample
 {
     private const int Seed = 3;
-    private const int VoronoiCellCount = 175;
-    private const int PlateCount = 28;
+    private const int VoronoiCellCount = 500;
+    private const int PlateCount = 18;
 
     // private readonly ILog _log;
     private CommandRunner _commandRunner;

@@ -158,6 +158,10 @@ public class BiomeTheme
     {
         // Water and Ice
         {
+            Biome.PackIce,
+            new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, ConsoleColor.White)
+        },
+        {
             Biome.HighSeas,
             new CellVisual(Cp437.Approximation, ConsoleColor.Black, ConsoleColor.DarkBlue)
         },
@@ -170,6 +174,10 @@ public class BiomeTheme
             new CellVisual(Cp437.Tilde, ConsoleColor.DarkBlue, ConsoleColor.Blue)
         },
         {
+            Biome.Reef,
+            new CellVisual(Cp437.Tilde, ConsoleColor.DarkMagenta, ConsoleColor.Blue)
+        },
+        {
             Biome.Shallows,
             new CellVisual(Cp437.Tilde, ConsoleColor.Cyan, ConsoleColor.Blue)
         },
@@ -178,7 +186,7 @@ public class BiomeTheme
             Biome.PolarDesert,
             new CellVisual(Cp437.Interpunct, ConsoleColor.DarkGray, ConsoleColor.White)
         },
-        { Biome.Glacier, new CellVisual(Cp437.Dollar, ConsoleColor.Cyan, ConsoleColor.White) },
+        { Biome.Glacier, new CellVisual(Cp437.Dollar, ConsoleColor.Cyan, ConsoleColor.Gray) },
         // Frost
         { Biome.RockPeak, new CellVisual(Cp437.Caret, ConsoleColor.Gray, ConsoleColor.DarkGray) },
         {
@@ -187,7 +195,7 @@ public class BiomeTheme
         },
         {
             Biome.Tundra,
-            new CellVisual(Cp437.TriangleLeft, ConsoleColor.DarkYellow, ConsoleColor.Gray)
+            new CellVisual(Cp437.SingleQuote, ConsoleColor.DarkYellow, ConsoleColor.Gray)
         },
         {
             Biome.SnowyForest,
@@ -200,7 +208,7 @@ public class BiomeTheme
         // Temperate
         {
             Biome.ColdDesert,
-            new CellVisual(Cp437.BulletHollow, ConsoleColor.Yellow, ConsoleColor.DarkYellow)
+            new CellVisual(Cp437.Asterisk, ConsoleColor.Yellow, ConsoleColor.DarkYellow)
         },
         {
             Biome.HighlandMoor,
