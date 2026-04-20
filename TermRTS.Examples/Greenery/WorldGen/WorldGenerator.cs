@@ -1676,7 +1676,7 @@ public class CylinderWorld : IWorldGen
     private void FillDepressions()
     {
         var elevationsF = _elevation.Memory.Span;
-        var filledElevations = new float[_worldWidth, _worldHeight];
+        var filledElevations = new float[_worldWidth * _worldHeight];
 
         // Step 1: Initialize the water levels
         for (var y = 0; y < _worldHeight; y++)
@@ -1684,14 +1684,15 @@ public class CylinderWorld : IWorldGen
             var rowOffset = y * _worldWidth;
             for (var x = 0; x < _worldWidth; x++)
             {
-                var elevation = elevationsF[rowOffset + x];
+                var idx =  rowOffset + x;
+                var elevation = elevationsF[idx];
                 // If it's an ocean cell or on the top/bottom edge of the map, it's an outlet.
                 if (elevation < _elevationCfg.LandElevationThreshold || y == 0 ||
                     y == _worldHeight - 1)
-                    filledElevations[x, y] = elevation;
+                    filledElevations[idx] = elevation;
                 else
                     // Flood all inland cells to maximum height initially
-                    filledElevations[x, y] = float.MaxValue;
+                    filledElevations[idx] = float.MaxValue;
             }
         }
 
@@ -1706,7 +1707,8 @@ public class CylinderWorld : IWorldGen
                 var rowOffset = y * _worldWidth;
                 for (var x = 0; x < _worldWidth; x++)
                 {
-                    var currentElevation = elevationsF[rowOffset + x];
+                    var idx = rowOffset + x;
+                    var currentElevation = elevationsF[idx];
                     var minNeighborWaterLevel = float.MaxValue;
 
                     // Check all 8 neighbors
@@ -1722,16 +1724,16 @@ public class CylinderWorld : IWorldGen
 
                         if (ny < 0 || ny >= _worldHeight) continue;
 
-                        if (filledElevations[nx, ny] < minNeighborWaterLevel)
-                            minNeighborWaterLevel = filledElevations[nx, ny];
+                        if (filledElevations[ny * _worldWidth + nx] < minNeighborWaterLevel)
+                            minNeighborWaterLevel = filledElevations[ny * _worldWidth + nx];
                     }
 
                     // The new water level is the highest of either the actual terrain height, 
                     // or the lowest neighbor + a tiny slope to guarantee water flows across flats.
                     var newWaterLevel = MathF.Max(currentElevation, minNeighborWaterLevel + 0.001f);
 
-                    if (newWaterLevel >= filledElevations[x, y]) continue;
-                    filledElevations[x, y] = newWaterLevel;
+                    if (newWaterLevel >= filledElevations[idx]) continue;
+                    filledElevations[idx] = newWaterLevel;
                     changed = true;
                 }
             }
@@ -1742,7 +1744,10 @@ public class CylinderWorld : IWorldGen
         {
             var rowOffset = y * _worldWidth;
             for (var x = 0; x < _worldWidth; x++)
-                elevationsF[rowOffset + x] = filledElevations[x, y];
+            {
+                var idx  = rowOffset + x;
+                elevationsF[idx] = filledElevations[idx];
+            }
         }
     }
 

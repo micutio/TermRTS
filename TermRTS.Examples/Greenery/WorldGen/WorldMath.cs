@@ -7,8 +7,8 @@ public static class WorldMath
 {
     // These would be set during engine initialization
     public const int ChunkSize = 32;
-    public const int WorldWidth = 1024; // 320 // Must be multiple of ChunkSize
-    public const int WorldHeight = 512; // 96;
+    public const int WorldWidth = 4096; // 320 // Must be multiple of ChunkSize
+    public const int WorldHeight = 2048; // 96;
     public const int ChunksAcross = WorldWidth / ChunkSize;
 
     public readonly struct WorldCoord(int x, int y)
@@ -122,21 +122,21 @@ public static class WorldMath
     }
 
     /// <summary>
-    ///     Calculates the distance between two points on a cylindrical world.
+    ///     Calculates the squared distance between two points on a cylindrical world.
     /// </summary>
     /// <param name="x1">X-coordinate of the first point.</param>
     /// <param name="y1">Y-coordinate of the first point.</param>
     /// <param name="x2">X-coordinate of the second point.</param>
     /// <param name="y2">Y-coordinate of the second point.</param>
     /// <returns>
-    ///     Distance between both points on a cylinder.
+    ///     Squared distance between both points on a cylinder.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float GetCylindricalDistanceSq(float x1, float y1, float x2, float y2)
     {
         var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
         var dy = Math.Abs(y2 - y1);
-        return MathF.Sqrt(dx * dx + dy * dy);
+        return dx * dx + dy * dy;
     }
 
     public static Vector2 GetWrappedVector(Vector2 from, Vector2 to)
