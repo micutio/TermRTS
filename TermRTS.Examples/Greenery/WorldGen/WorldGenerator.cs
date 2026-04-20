@@ -225,6 +225,7 @@ public class CylinderWorld : IWorldGen
         GenerateNoiseMap();
 
         // STAGE 1: Voronoi Cells and Land/Water distribution //////////////////////////////////////
+        
         // Associate each grid cell to one of the voronoi cells.
         // For each voronoi land cell, apply perlin or simplex noise to generate height.
         InitializeVoronoiCells();
@@ -233,7 +234,8 @@ public class CylinderWorld : IWorldGen
         // Generate coastal slopes for each voronoi cell.
         // GenerateSlopedCoasts();
 
-        // Stage 2: Plate Tectonics ///////////////////////////////////////////////////////////////
+        // Stage 2: Plate Tectonics ////////////////////////////////////////////////////////////////
+        
         InitializePlateTectonics();
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
         ComputePlateTectonicHeight();
@@ -243,6 +245,7 @@ public class CylinderWorld : IWorldGen
         ApplyTectonics();
 
         // Stage 3: Climate ////////////////////////////////////////////////////////////////////////
+        
         // Generate wind field now that elevation and noise are available. Wind
         // is used by the rainfall/shadow simulation and must be generated
         // before biome assignment.
@@ -259,6 +262,9 @@ public class CylinderWorld : IWorldGen
         // TODO: Re-generate distance to water?
         // Re-generate climate, now that we have rivers:
         GenerateClimate();
+        
+        // Stage 4: Surface features ///////////////////////////////////////////////////////////////
+        
         // Apply mountain details (ridges, snow, glacier, lava)
         ApplyMountainDetails();
         // Apply coastal features (beach, cliff, fjord)
@@ -1020,7 +1026,6 @@ public class CylinderWorld : IWorldGen
         var noiseMap = _noiseMap.Memory.Span;
         var riverMap = _riverMap.Memory.Span;
         var windDirections = _windDirections.Memory.Span;
-        var windSpeeds = _windSpeeds.Memory.Span;
         var rainfall = new float[_worldWidth, _worldHeight];
         const float moistureRechargeRate = 0.09f;
         const float rainDropFactor = 0.06f;
@@ -1036,13 +1041,11 @@ public class CylinderWorld : IWorldGen
             var latitude = MathF.Abs(y - _worldHeight / 2f) / (_worldHeight / 2f) + latWarp;
 
             // Determine predominant row-wise wind direction from generated wind field.
-            var bandWindDir = latitude is < 0.33f or >= 0.66f ? -1 : 1;
             var sumX = 0;
             for (var sx = 0; sx < _worldWidth; sx++)
                 sumX += windDirections[y * _worldWidth + sx].Item1;
 
             var windDir = Math.Sign(sumX);
-            if (windDir == 0) windDir = bandWindDir;
 
             // 2. Priming: Start with a base, but don't write to the map yet
             var cloudMoisture = _riverCfg.RainfallLandBase;
@@ -1068,9 +1071,13 @@ public class CylinderWorld : IWorldGen
                 {
                     // Use the per-cell wind vector where available to find the upwind neighbor.
                     var cellWindX = windDirections[idx].Item1;
+                    var cellWindY = windDirections[idx].Item2;
                     var dx = cellWindX != 0 ? cellWindX : windDir;
                     var prevX = WorldMath.WrapX(windX - dx);
-                    var lift = elev - elevations[y * _worldWidth + prevX];
+                    var prevY = y - cellWindY;
+                    prevY = prevY < 0 ? y : prevY;
+                    prevY = prevY >= _worldHeight ? y : prevY;
+                    var lift = elev - elevations[prevY * _worldWidth + prevX];
 
                     // Make it wet around rivers.
                     foreach (var (dirX, dirY) in directions)
@@ -1528,21 +1535,11 @@ public class CylinderWorld : IWorldGen
         {
             var cloudMoisture = baseCloudMoisture;
 
-            // 1. Calculate Latitude (0.0 at the equator, 1.0 at the poles)
-            // Assuming y=0 is the North Pole, and y=_worldHeight/2 is the Equator
-            var latitude = MathF.Abs(y - _worldHeight / 2f) / (_worldHeight / 2f);
-
-            // 2. Determine Wind Direction based on Global Bands
-            // < 0.33f is Tropical (Trade Winds: East to West)
-            // < 0.66f is Temperate (Westerlies: West to East)
-            // >= 0.66f is Polar (Easterlies: East to West)
-            var bandSign = latitude is < 0.33f or >= 0.66f ? -1 : 1;
             // Aggregate per-row wind x-component to choose sweep order. If calm,
             // fall back to band-based sign.
             var sumX = 0;
             for (var sx = 0; sx < _worldWidth; sx++) sumX += windDirections[y * _worldWidth + sx].Item1;
             var windDir = Math.Sign(sumX);
-            if (windDir == 0) windDir = bandSign;
 
             // 3. Sweep across the map
             for (var step = 0; step < _worldWidth * 2; step++)
@@ -1570,10 +1567,14 @@ public class CylinderWorld : IWorldGen
                 {
                     // DISCHARGE: Use per-cell wind to find the upwind neighbor.
                     var cellWindX = windDirections[y * _worldWidth + windX].Item1;
+                    var cellWindY = windDirections[y * _worldWidth + windX].Item2;
                     // TODO: Possibly add wind speed to propagate further
                     var dx = cellWindX != 0 ? cellWindX : windDir;
                     var prevX = WorldMath.WrapX(windX - dx);
-                    var prevElevation = elevationsF[y * _worldWidth + prevX];
+                    var prevY = y - cellWindY;
+                    prevY = prevY < 0 ? y : prevY;
+                    prevY = prevY >= _worldHeight ? y : prevY;
+                    var prevElevation = elevationsF[prevY * _worldWidth + prevX];
 
                     var lift = elevation - prevElevation;
                     var rainDropped = 0f;
