@@ -1,4 +1,3 @@
-using System;
 using TermRTS.Examples.Greenery.WorldGen;
 using Xunit;
 
@@ -178,9 +177,9 @@ public class WorldPackerTests
         var result = worldGen.Generate();
 
         var expectedChunkCount = WorldMath.ChunksAcross * (WorldMath.WorldHeight / WorldMath.ChunkSize);
-        Assert.Equal(expectedChunkCount, result.PackedData.Length);
+        Assert.Equal(expectedChunkCount, result.Length);
 
-        foreach (var chunk in result.PackedData)
+        foreach (var chunk in result)
         {
             Assert.Equal(WorldMath.ChunkSize * WorldMath.ChunkSize, chunk.PackedTiles.Length);
             Assert.InRange(chunk.Cx, 0, WorldMath.ChunksAcross - 1);
