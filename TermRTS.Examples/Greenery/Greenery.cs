@@ -33,27 +33,36 @@ public class Greenery : IRunnableExample
             previousTitle = Console.Title;
             Console.Title = "TermRTS - Greenery";
         }
-
-
+        
         // Set up engine
         var core = new Core();
 
-        var worldGen =
-            new CylinderWorld(
-                WorldMath.WorldWidth,
-                WorldMath.WorldHeight,
-                0.35f,
-                Seed,
-                VoronoiCellCount,
-                PlateCount,
-                new ElevationParameters(),
-                new CoastalParameters(),
-                new VolcanicParameters(),
-                new ErosionParameters(),
-                new ClimateParameters(),
-                new RiverParameters());
-        var worldData = worldGen.Generate();
-        core.AddNewComponents(worldData.PackedData);
+        WorldPackedChunk[] worldData;
+        {
+            worldData =
+                new CylinderWorld(
+                    WorldMath.WorldWidth,
+                    WorldMath.WorldHeight,
+                    0.35f,
+                    Seed,
+                    VoronoiCellCount,
+                    PlateCount,
+                    new ElevationParameters(),
+                    new CoastalParameters(),
+                    new VolcanicParameters(),
+                    new ErosionParameters(),
+                    new ClimateParameters(),
+                    new RiverParameters()).Generate();
+        }
+        
+        // 1. Tell the GC to compact the Large Object Heap on the next sweep
+        // System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        // 2. Force a full, blocking Generation 2 collection
+        GC.Collect(2, GCCollectionMode.Forced, true, true);
+        // 3. Wait for any straggling finalizers
+        GC.WaitForPendingFinalizers();
+        
+        core.AddNewComponents(worldData);
 
         var fovSystem = new FovSystem();
         core.AddNewComponents(fovSystem.InitializeFovChunks());
