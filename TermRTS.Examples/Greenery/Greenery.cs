@@ -33,7 +33,7 @@ public class Greenery : IRunnableExample
             previousTitle = Console.Title;
             Console.Title = "TermRTS - Greenery";
         }
-        
+
         // Set up engine
         var core = new Core();
 
@@ -54,14 +54,14 @@ public class Greenery : IRunnableExample
                     new ClimateParameters(),
                     new RiverParameters()).Generate();
         }
-        
+
         // 1. Tell the GC to compact the Large Object Heap on the next sweep
         // System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
         // 2. Force a full, blocking Generation 2 collection
         GC.Collect(2, GCCollectionMode.Forced, true, true);
         // 3. Wait for any straggling finalizers
         GC.WaitForPendingFinalizers();
-        
+
         core.AddNewComponents(worldData);
 
         var fovSystem = new FovSystem();
