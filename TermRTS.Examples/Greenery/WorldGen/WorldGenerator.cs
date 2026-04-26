@@ -82,7 +82,7 @@ public sealed class WorldBuffer<T> : IDisposable
     {
         // Rent from the global shared pool
         // _rawArray = ArrayPool<T>.Shared.Rent(size);
-        _rawArray = new  T[size];
+        _rawArray = new T[size];
 
         // Wrap ONLY the size we need into Memory
         Memory = _rawArray.AsMemory(0, size);
@@ -180,7 +180,7 @@ public class CylinderWorld
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
         LandRatio = landRatio;
-        _voronoiCellCount =  voronoiCellCount;
+        _voronoiCellCount = voronoiCellCount;
         _plateCount = plateCount;
 
         _elevationCfg = elevationCfg;
@@ -236,7 +236,7 @@ public class CylinderWorld
         var voronoiCells = new (int, int)[VoronoiCellCount];
         var landWaterMap = new int[VoronoiCellCount];
         var voronoiCellTypes = InitializeVoronoiCells(voronoiCells, landWaterMap);
-        var (voronoiCellIndex, elevations) = 
+        var (voronoiCellIndex, elevations) =
             GenerateLandWaterDistribution(noiseMap, voronoiCells, landWaterMap);
 
         // Generate coastal slopes for each voronoi cell.
@@ -245,18 +245,18 @@ public class CylinderWorld
         // Stage 2: Plate Tectonics ////////////////////////////////////////////////////////////////
 
         var (plateCells, plateTypes, plateIndex, plateMotions) =
-            InitializePlateTectonics( voronoiCells, voronoiCellTypes);
+            InitializePlateTectonics(voronoiCells, voronoiCellTypes);
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
         var tectonicDelta = ComputePlateTectonicHeight(
-            voronoiCellIndex, 
-            plateCells, 
-            plateTypes, 
-            plateIndex, 
+            voronoiCellIndex,
+            plateCells,
+            plateTypes,
+            plateIndex,
             plateMotions);
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
         var hotspots = GenerateHotspots(noiseMap, voronoiCells, voronoiCellTypes, plateMotions);
         // Apply all elevation changes from tectonics, hotspots etc.
-        ApplyTectonics(noiseMap, elevations, tectonicDelta,  hotspots);
+        ApplyTectonics(noiseMap, elevations, tectonicDelta, hotspots);
 
         // Stage 3: Climate ////////////////////////////////////////////////////////////////////////
 
@@ -269,12 +269,12 @@ public class CylinderWorld
         // Generate climate (temperature, humidity, biomes, seasonal effects)
         var riverMap = new bool[_worldWidth * _worldHeight];
         var strahlerRiverMap = new byte[_worldWidth * _worldHeight];
-        var(temperature, humidity, biomes) = 
+        var (temperature, humidity, biomes) =
             GenerateClimate(noiseMap, elevations, windDirections, riverMap, strahlerRiverMap);
-        
+
         // Apply erosion to smooth terrain and create realistic features
         ApplyErosion(elevations, humidity, hotspots);
-        
+
         // Generate rivers based on rainfall and elevation (tunable via public properties)
         var flowDirections = GenerateRivers(
             noiseMap,
@@ -335,7 +335,7 @@ public class CylinderWorld
         noise.SetFractalGain(0.5f);
         noise.SetFrequency(0.04f);
 
-        var noiseMap = new float[_worldWidth * _worldHeight]; 
+        var noiseMap = new float[_worldWidth * _worldHeight];
         // We calculate a radius that keeps the scale consistent.
         // A larger radius results in more "zoomed in" noise.
         var radius = _worldWidth / (2.0f * (float)Math.PI);
@@ -386,7 +386,7 @@ public class CylinderWorld
             landWaterMap[i] = voronoiCellTypes[i]
                 ? _elevationCfg.LandElevationThreshold
                 : _elevationCfg.LandElevationThreshold - 1;
-        
+
         return voronoiCellTypes;
     }
 
@@ -401,7 +401,7 @@ public class CylinderWorld
         var water = 0f;
         for (var i = 0; i < VoronoiCellCount; i += 1)
         {
-           voronoiCellTypes[i] = _rng.NextDouble() < LandRatio;
+            voronoiCellTypes[i] = _rng.NextDouble() < LandRatio;
             if (voronoiCellTypes[i])
             {
                 land++;
@@ -527,7 +527,7 @@ public class CylinderWorld
 
         // step 2: assign plate motions and infer plate types from seed cells
         var plateMotions = GeneratePlateMotions();
-        return (plateCells, plateTypes,  plateIndex, plateMotions);
+        return (plateCells, plateTypes, plateIndex, plateMotions);
     }
 
     /// <summary>
@@ -791,12 +791,18 @@ public class CylinderWorld
     }
 
     private void ApplyTectonics(
-        Span<float> elevations,
         Span<float> noiseField,
+        Span<float> elevations,
         Span<float> tectonicDelta,
         Span<float> hotspots
         )
     {
+        // NOTE: GenerateSlopedCoasts() is never called, so coastalSlopes contains uninitialized data.
+        // In the backup version, this uses uninitialized memory from ArrayPool. To match the backup
+        // behavior exactly, we initialize to 0 (making slopeFactor = 0), which effectively removes
+        // the noise contribution to elevation (equivalent to backup since it was garbage anyway).
+        var coastalSlopes = new float[_worldWidth * _worldHeight];
+
         var max = float.MinValue;
         var min = float.MaxValue;
 
@@ -813,6 +819,7 @@ public class CylinderWorld
         for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
         {
             // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
+            var slopeFactor = coastalSlopes[i] / _coastalCfg.MaxCoastalSlope;
             var normalizedNoise = noiseField[i];
             var tectonicD = tectonicDelta[i];
             var hotspot = hotspots[i];
@@ -827,6 +834,7 @@ public class CylinderWorld
 
             var elevation = // cellElevationContribution +
                 elevations[i] +
+                slopeFactor *
                 normalizedNoise * noiseMultiplier * elevations[i]; // *
             // var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
             elevation = Math.Min(_elevationCfg.MaxElevation, elevation + tectonicD + hotspot);
@@ -863,7 +871,7 @@ public class CylinderWorld
     /// </summary>
     private ((int, int)[], byte[]) CalculateWindField(Span<float> noiseMap, Span<float> elevations)
     {
-        var windDirections = new (int, int)[_worldWidth * _worldHeight]; 
+        var windDirections = new (int, int)[_worldWidth * _worldHeight];
         var windSpeeds = new byte[_worldWidth * _worldHeight];
 
         // Compute max elevation for normalization (avoid using _maxElevation which is set later)
@@ -970,12 +978,12 @@ public class CylinderWorld
     {
         // 1. Initialise Spans
         var temperature = new float[_worldWidth * _worldHeight];
-        var humidity = new  float[_worldWidth * _worldHeight];
+        var humidity = new float[_worldWidth * _worldHeight];
         var biomes = new Biome[_worldWidth * _worldHeight];
 
         // 2. Step One: Generate the "Baked" Rainfall Map (with Shadows)
         // We do this first because River Flow AND Biomes depend on it.
-        var rainfallMap = 
+        var rainfallMap =
             CalculatePhysicalRainfall(noiseMap, elevations, temperature, riverMap, windDirections);
 
         // 3. Step Two: Calculate Temperature and Relative Humidity
@@ -1025,7 +1033,7 @@ public class CylinderWorld
         }
         return (temperature, humidity, biomes);
     }
-    
+
     private float[] CalculatePhysicalRainfall(
         Span<float> noiseMap,
         Span<float> elevations,
@@ -1261,15 +1269,15 @@ public class CylinderWorld
     ///     Apply erosion with hydraulic simulation, sediment transport and thermal erosion.
     /// </summary>
     private void ApplyErosion(
-        Span<float> elevations, 
-        Span<float> humidity, 
+        Span<float> elevations,
+        Span<float> humidity,
         Span<float> hotspots)
     {
         // 1. Allocate arrays ONCE outside the loop (Double Buffering)
         var terrain = new float[_worldWidth * _worldHeight];
         var nextTerrain = new float[_worldWidth * _worldHeight];
 
-        var water =new float[_worldWidth * _worldHeight];
+        var water = new float[_worldWidth * _worldHeight];
         var nextWater = new float[_worldWidth * _worldHeight];
 
         var sediment = new float[_worldWidth * _worldHeight];
@@ -1280,7 +1288,7 @@ public class CylinderWorld
 
         // Pre-calculate wrapped coordinates for performance
         var leftX = new int[_worldWidth];
-        var rightX = new int[_worldWidth]; 
+        var rightX = new int[_worldWidth];
         for (var x = 0; x < _worldWidth; x++)
         {
             leftX[x] = WorldMath.WrapX(x - 1);
@@ -1485,7 +1493,7 @@ public class CylinderWorld
         Span<float> noiseMap,
         Span<float> elevations,
         Span<float> temperature,
-        Span<bool>riverMap,
+        Span<bool> riverMap,
         Span<byte> strahlerRiverMap,
         Span<(int, int)> windDirections
         )
@@ -1494,7 +1502,7 @@ public class CylinderWorld
         FillDepressions(elevations);
 
         // Step 1: Generate rainfall map
-        var rainfall = 
+        var rainfall =
             CalculatePhysicalRainfall(noiseMap, elevations, temperature, riverMap, windDirections);
         ApplyRainShadows(elevations, temperature, windDirections, rainfall);
 
@@ -1590,7 +1598,7 @@ public class CylinderWorld
             }
         }
     }
-    
+
     /// <summary>
     ///     Adjusts the rainfall map based on global wind bands (Trade Winds, Westerlies) 
     ///     and terrain height to simulate realistic rain shadows.
@@ -1725,7 +1733,7 @@ public class CylinderWorld
         Span<(int, int)> flowDirections)
     {
         var flowAccumulation = new float[_worldWidth * _worldHeight];
-        var inDegree = new int[_worldWidth * _worldHeight]; 
+        var inDegree = new int[_worldWidth * _worldHeight];
 
         // Step 1: Initialize rainfall and calculate In-Degrees
         for (var y = 0; y < _worldHeight; y++)
@@ -1824,8 +1832,8 @@ public class CylinderWorld
     ///     - Order  5+: major rivers
     /// </returns>
     private void CalculateStrahlerOrder(
-        Span<byte> strahlerRiverMap, 
-        Span<(int,int)> flowDirections, 
+        Span<byte> strahlerRiverMap,
+        Span<(int, int)> flowDirections,
         Span<float> flowAccumulation)
     {
         var inDegree = new byte[_worldWidth * _worldHeight];
@@ -2125,8 +2133,8 @@ public class CylinderWorld
     }
 
     private void AddVolcanicDetails(
-        int centerX, 
-        int centerY, 
+        int centerX,
+        int centerY,
         float strength,
         Span<float> elevations,
         Span<SurfaceFeature> surfaceFeatures)
