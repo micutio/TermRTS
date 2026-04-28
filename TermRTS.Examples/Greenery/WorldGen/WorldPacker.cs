@@ -52,13 +52,13 @@ public struct PackedTile
     public bool IsVisible => (VisibilityFlags & VisibilityMasks.SubInFov) != 0;
     public bool IsExplored => (VisibilityFlags & VisibilityMasks.SubExploredFow) != 0;
 
-    public (int x, int y) WaterFlow => (
-        (PackedVectors >> 0 & 0x3) - 1,
-        (PackedVectors >> 2 & 0x3) - 1);
+    public Point WaterFlow => (
+        new((PackedVectors >> 0 & 0x3) - 1,
+            (PackedVectors >> 2 & 0x3) - 1));
 
-    public (int x, int y) Wind => (
-        (PackedVectors >> 4 & 0x3) - 1,
-        (PackedVectors >> 6 & 0x3) - 1);
+    public Point Wind => (
+        new((PackedVectors >> 4 & 0x3) - 1,
+        (PackedVectors >> 6 & 0x3) - 1));
 
     #endregion
 
@@ -92,8 +92,8 @@ public static class WorldPacker
         ReadOnlySpan<byte> elevations,
         ReadOnlySpan<float> temperatures,
         ReadOnlySpan<byte> humidities,
-        ReadOnlySpan<(int x, int y)> waterflows,
-        ReadOnlySpan<(int x, int y)> winds,
+        ReadOnlySpan<Point> waterflows,
+        ReadOnlySpan<Point> winds,
         ReadOnlySpan<byte> windSpeeds,
         ReadOnlySpan<SurfaceFeature> features)
     {
@@ -132,8 +132,8 @@ public static class WorldPacker
         out byte elevation,
         out byte humidity,
         out sbyte temperature,
-        out (int x, int y) waterflow,
-        out (int x, int y) wind,
+        out Point waterflow,
+        out Point wind,
         out byte windSpeed,
         out SurfaceFeature feature)
     {
@@ -187,8 +187,8 @@ public static class WorldPacker
         ReadOnlySpan<byte> elevations,
         ReadOnlySpan<float> temperatures,
         ReadOnlySpan<byte> humidities,
-        ReadOnlySpan<(int x, int y)> waterflows,
-        ReadOnlySpan<(int x, int y)> winds,
+        ReadOnlySpan<Point> waterflows,
+        ReadOnlySpan<Point> winds,
         ReadOnlySpan<byte> windSpeeds,
         ReadOnlySpan<SurfaceFeature> features)
     {
@@ -233,8 +233,8 @@ public static class WorldPacker
         ReadOnlySpan<byte> elevations,
         ReadOnlySpan<float> temperatures,
         ReadOnlySpan<byte> humidities,
-        ReadOnlySpan<(int x, int y)> waterflows,
-        ReadOnlySpan<(int x, int y)> winds,
+        ReadOnlySpan<Point> waterflows,
+        ReadOnlySpan<Point> winds,
         ReadOnlySpan<byte> windSpeeds,
         ReadOnlySpan<SurfaceFeature> features)
     {
@@ -274,19 +274,19 @@ public static class WorldPacker
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte PackVectors(
-        (int x, int y) waterflow,
-        (int x, int y) wind)
+        Point waterflow,
+        Point wind)
     {
-        ValidateDirection(waterflow.x, nameof(waterflow));
-        ValidateDirection(waterflow.y, nameof(waterflow));
-        ValidateDirection(wind.x, nameof(wind));
-        ValidateDirection(wind.y, nameof(wind));
+        ValidateDirection(waterflow.X, nameof(waterflow));
+        ValidateDirection(waterflow.Y, nameof(waterflow));
+        ValidateDirection(wind.X, nameof(wind));
+        ValidateDirection(wind.Y, nameof(wind));
 
         return (byte)(
-            (waterflow.x + 1 & 0x3) |
-            ((waterflow.y + 1 & 0x3) << 2) |
-            ((wind.x + 1 & 0x3) << 4) |
-            ((wind.y + 1 & 0x3) << 6));
+            (waterflow.X + 1 & 0x3) |
+            ((waterflow.Y + 1 & 0x3) << 2) |
+            ((wind.X + 1 & 0x3) << 4) |
+            ((wind.Y + 1 & 0x3) << 6));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

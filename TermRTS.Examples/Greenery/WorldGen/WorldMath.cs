@@ -134,7 +134,8 @@ public static class WorldMath
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float GetCylindricalDistanceSq(float x1, float y1, float x2, float y2)
     {
-        var dx = Math.Min(Math.Abs(x2 - x1), WorldWidth - Math.Abs(x2 - x1));
+        var diffX = Math.Abs(x2 - x1);
+        var dx = Math.Min(diffX, WorldWidth - diffX);
         var dy = Math.Abs(y2 - y1);
         return dx * dx + dy * dy;
     }
@@ -147,6 +148,11 @@ public static class WorldMath
     public static Vector2 GetWrappedVector((int, int) from, (int, int) to)
     {
         return GetWrappedVector(to.Item1 - from.Item1, to.Item2 - from.Item2);
+    }
+
+    public static Vector2 GetWrappedVector(Point from, Point to)
+    {
+        return GetWrappedVector(to.X - from.Y, to.X - from.Y);
     }
 
     public static Vector2 GetWrappedVector(float dx, float dy)

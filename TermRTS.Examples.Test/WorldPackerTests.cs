@@ -13,8 +13,8 @@ public class WorldPackerTests
         var elevations = new byte[length];
         var humidities = new byte[length];
         var temperatures = new float[length];
-        var waterflows = new (int x, int y)[length];
-        var winds = new (int x, int y)[length];
+        var waterflows = new Point[length];
+        var winds = new Point[length];
         var features = new SurfaceFeature[length];
         var windSpeeds = new byte[length];
 
@@ -25,10 +25,10 @@ public class WorldPackerTests
             elevations[i] = (byte)random.Next(0, 255);
             humidities[i] = (byte)random.Next(0, 100);
             temperatures[i] = random.Next(-40, 40);
-            waterflows[i] = (
+            waterflows[i] = new Point(
                 random.Next(-1, 2),
                 random.Next(-1, 2));
-            winds[i] = (
+            winds[i] = new Point(
                 random.Next(-1, 2),
                 random.Next(-1, 2));
             features[i] = (SurfaceFeature)random.Next(Enum.GetValues<SurfaceFeature>().Length);
@@ -74,12 +74,12 @@ public class WorldPackerTests
     [Fact]
     public void Pack_BitsArePackedCorrectly_ForEdgeValues()
     {
-        var biomes = new Biome[] { Biome.HighSeas, Biome.MajorRiver };
+        var biomes = new[] { Biome.HighSeas, Biome.MajorRiver };
         var elevations = new byte[] { 0, 255 };
         var temperatures = new float[] { -40, 127 };
         var humidities = new byte[] { 0, 100 };
-        var waterflows = new[] { (x: -1, y: -1), (x: 1, y: 1) };
-        var winds = new[] { (x: -1, y: 1), (x: 1, y: -1) };
+        var waterflows = new[] { new Point(-1, -1), new Point(1, 1) };
+        var winds = new[] { new Point(-1, 1), new Point(1, -1) };
         var features = new[] { SurfaceFeature.None, SurfaceFeature.Snow };
         var windSpeeds = new byte[] { 0, 255 };
 
@@ -103,10 +103,10 @@ public class WorldPackerTests
         Assert.Equal(SurfaceFeature.None, packed[0].SurfaceFeature);
         Assert.Equal(SurfaceFeature.Snow, packed[1].SurfaceFeature);
 
-        Assert.Equal((-1, -1), packed[0].WaterFlow);
-        Assert.Equal((1, 1), packed[1].WaterFlow);
-        Assert.Equal((-1, 1), packed[0].Wind);
-        Assert.Equal((1, -1), packed[1].Wind);
+        Assert.Equal(new Point(-1, -1), packed[0].WaterFlow);
+        Assert.Equal(new Point(1, 1), packed[1].WaterFlow);
+        Assert.Equal(new Point(-1, 1), packed[0].Wind);
+        Assert.Equal(new Point(1, -1), packed[1].Wind);
         Assert.Equal((byte)0, packed[0].Reserved);
         Assert.Equal((byte)255, packed[1].Reserved);
     }
@@ -118,8 +118,8 @@ public class WorldPackerTests
         var elevations = new byte[4];
         var humidities = new byte[3];
         var temperatures = new float[4];
-        var waterflows = new (int x, int y)[4];
-        var winds = new (int x, int y)[4];
+        var waterflows = new Point[4];
+        var winds = new Point[4];
         var features = new SurfaceFeature[4];
         var windSpeeds = new byte[4];
 
@@ -141,8 +141,8 @@ public class WorldPackerTests
         var elevations = new byte[2];
         var humidities = new byte[2];
         var temperatures = new float[2];
-        var waterflows = new[] { (x: -2, y: 0), (x: 0, y: 0) };
-        var winds = new[] { (x: 0, y: 0), (x: 0, y: 0) };
+        var waterflows = new[] { new Point(-2, 0), new Point(0, 0) };
+        var winds = new[] { new Point(0, 0), new Point(0, 0) };
         var features = new SurfaceFeature[2];
         var windSpeeds = new byte[2];
 
@@ -196,8 +196,8 @@ public class WorldPackerTests
         var elevations = new byte[length];
         var humidities = new byte[length];
         var temperatures = new float[length];
-        var waterflows = new (int x, int y)[length];
-        var winds = new (int x, int y)[length];
+        var waterflows = new Point[length];
+        var winds = new Point[length];
         var features = new SurfaceFeature[length];
         var windSpeeds = new byte[length];
 
@@ -207,8 +207,8 @@ public class WorldPackerTests
             elevations[i] = (byte)(i % 256);
             humidities[i] = (byte)(i % 101);
             temperatures[i] = i % 120 - 40;
-            waterflows[i] = (0, 0);
-            winds[i] = (0, 0);
+            waterflows[i] = new Point(0, 0);
+            winds[i] = new Point(0, 0);
             features[i] = SurfaceFeature.None;
             windSpeeds[i] = (byte)(i % 256);
         }
