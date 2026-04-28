@@ -10,8 +10,8 @@ public class PackBenchmarks
     private byte[]? _elevation;
     private float[]? _temperature;
     private byte[]? _humidity;
-    private (int x, int y)[]? _waterflow;
-    private (int x, int y)[]? _wind;
+    private Point[]? _waterflow;
+    private Point[]? _wind;
     private byte[]? _windSpeed;
     private SurfaceFeature[]? _feature;
     private PackedTile[]? _destRow;
@@ -27,8 +27,8 @@ public class PackBenchmarks
         _elevation = new byte[_length];
         _temperature = new float[_length];
         _humidity = new byte[_length];
-        _waterflow = new (int x, int y)[_length];
-        _wind = new (int x, int y)[_length];
+        _waterflow = new Point[_length];
+        _wind = new Point[_length];
         _windSpeed = new byte[_length];
         _feature = new SurfaceFeature[_length];
         _destRow = new PackedTile[_length];
@@ -42,8 +42,8 @@ public class PackBenchmarks
             _elevation[i] = (byte)rnd.Next(0, 256);
             _temperature[i] = rnd.Next(-40, 50);
             _humidity[i] = (byte)rnd.Next(0, 101);
-            _waterflow[i] = (rnd.Next(-1, 2), rnd.Next(-1, 2));
-            _wind[i] = (rnd.Next(-1, 2), rnd.Next(-1, 2));
+            _waterflow[i] = new Point(rnd.Next(-1, 2), rnd.Next(-1, 2));
+            _wind[i] = new Point(rnd.Next(-1, 2), rnd.Next(-1, 2));
             _windSpeed[i] = (byte)rnd.Next(0, 256);
             _feature[i] = (SurfaceFeature)featValues.GetValue(rnd.Next(featValues.Length))!;
         }

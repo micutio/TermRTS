@@ -261,42 +261,42 @@ public class BiomeTheme
 
 public class DirectionMarkerTheme
 {
-    public Dictionary<(int, int), char> DirectionMarkerMap { get; init; } = new()
+    public Dictionary<Point, char> DirectionMarkerMap { get; init; } = new()
     {
         {
-            (0, 0), // No Direction?
+            new Point(0, 0), // No Direction?
             (Cp437.Question)
         },
         {
-            (0, 1), // Down
+            new Point(0, 1), // Down
             (Cp437.ArrowDown)
         },
         {
-            (1, 0), // Right
+            new Point(1, 0), // Right
             (Cp437.ArrowRight)
         },
         {
-            (-1, 0), // Left
+            new Point(-1, 0), // Left
             (Cp437.ArrowLeft)
         },
         {
-            (0, -1), // Up
+            new Point(0, -1), // Up
             (Cp437.ArrowUp)
         },
         {
-            (1, 1), // Down Right
+            new Point(1, 1), // Down Right
             (Cp437.BoxUpLeft)
         },
         {
-            (1, -1), // Up Right
+            new Point(1, -1), // Up Right
             (Cp437.BoxDownLeft)
         },
         {
-            (-1, -1), // Up Left
+            new Point(-1, -1), // Up Left
             (Cp437.BoxDownRight)
         },
         {
-            (-1, 1), // Down Left
+            new Point(-1, 1), // Down Left
             (Cp437.BoxUpRight)
         },
     };
@@ -304,42 +304,42 @@ public class DirectionMarkerTheme
 
 public class WindDirectionTheme
 {
-    public Dictionary<(int, int), CellVisual> WindDirectionMap { get; init; } = new()
+    public Dictionary<Point, CellVisual> WindDirectionMap { get; init; } = new()
     {
         {
-            (0, 0), // No Direction?
+            new Point(0, 0), // No Direction?
             new CellVisual(Cp437.Question, ConsoleColor.Black, ConsoleColor.Red)
         },
         {
-            (0, 1), // Down
+            new Point(0, 1), // Down
             new CellVisual(Cp437.ArrowDown, ConsoleColor.Blue, ConsoleColor.Black)
         },
         {
-            (1, 0), // Right
+            new Point(1, 0), // Right
             new CellVisual(Cp437.ArrowRight, ConsoleColor.Green, ConsoleColor.Black)
         },
         {
-            (-1, 0), // Left
+            new Point (-1, 0), // Left
             new CellVisual(Cp437.ArrowLeft, ConsoleColor.Green, ConsoleColor.Black)
         },
         {
-            (0, -1), // Up
+            new Point(0, -1), // Up
             new CellVisual(Cp437.ArrowUp, ConsoleColor.Blue, ConsoleColor.Black)
         },
         {
-            (1, 1), // Down Right
+            new Point  (1, 1), // Down Right
             new CellVisual(Cp437.BoxUpLeft, ConsoleColor.Yellow, ConsoleColor.Black)
         },
         {
-            (1, -1), // Up Right
+            new Point (1, -1), // Up Right
             new CellVisual(Cp437.BoxDownLeft, ConsoleColor.Yellow, ConsoleColor.Black)
         },
         {
-            (-1, -1), // Up Left
+            new Point (-1, -1), // Up Left
             new CellVisual(Cp437.BoxDownRight, ConsoleColor.Yellow, ConsoleColor.Black)
         },
         {
-            (-1, 1), // Down Left
+            new Point(-1, 1), // Down Left
             new CellVisual(Cp437.BoxUpRight, ConsoleColor.Yellow, ConsoleColor.Black)
         },
     };
