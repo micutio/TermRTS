@@ -1026,13 +1026,6 @@ public class CylinderWorld
         {
             var absoluteMoisture = rainfallMap[idx];
 
-            // River Humidity: High Strahler scores (larger rivers) provide more humidity
-            if (riverMap[idx])
-            {
-                float riverBonus = 0.2f + (strahlerRiver[idx] * 0.05f);
-                absoluteMoisture += riverBonus;
-            }
-
             // STABILIZED HUMIDITY: 
             // Instead of raw division, we use a softer saturation curve.
             // As air gets colder, it needs less moisture to reach 100% humidity.
@@ -1093,13 +1086,15 @@ public class CylinderWorld
                     tempAtTile switch
                     {
                         < -20 => 0.0f,
-                        < -10 => 0.1f,
-                        < 0 => 0.8f,
+                        < -15 => 0.6f,
+                        < -10 => 0.8f,
+                        < -5 => 0.9f,
+                        < 0 => 0.95f,
                         _ => 1.0f
                     };
                 var evapPower = Math.Clamp((tempAtTile + 50) / 80f, 0.2f, 1.5f);
 
-                if (elev < _elevationCfg.LandElevationThreshold)
+                if (elev < _elevationCfg.LandElevationThreshold || riverMap[idx])
                 {
                     // OCEAN: Recharge
                     cloudMoisture = (MathF.Min(_riverCfg.RainfallOceanBase,
@@ -1130,10 +1125,10 @@ public class CylinderWorld
                     {
                         // Apply Rain Shadow: Air with low moisture produces less ambient rain
                         // We blend 20% base rain with 80% moisture-dependent rain
-                        float shadowMultiplier = 0.2f + (cloudMoisture * 0.8f);
+                        var shadowMultiplier = 0.2f + (cloudMoisture * 0.8f);
 
-                        float finalRain = (cloudMoisture * 0.15f * shadowMultiplier) +
-                                          (rainDropped * 3.0f * noiseMap[idx] * poleFactor);
+                        var finalRain = (cloudMoisture * 0.15f * shadowMultiplier) +
+                                        (rainDropped * 3.0f * noiseMap[idx] * poleFactor);
 
                         // Add local humidity from rivers
                         if (riverMap[idx]) finalRain += (_riverCfg.RainfallOceanBase * 0.25f);
@@ -1144,7 +1139,7 @@ public class CylinderWorld
                         // BLEED: Break horizontal lines
                         if (y > 0 && y < _worldHeight - 1)
                         {
-                            var bleed = finalRain * 0.08f;
+                            var bleed = finalRain * 0.18f;
                             rainfall[(y - 1) * _worldWidth + windX] += bleed;
                             rainfall[(y + 1) * _worldWidth + windX] += bleed;
                         }
@@ -1860,7 +1855,7 @@ public class CylinderWorld
         // Visual and Physical Thresholds
         const int minOrderToVisualise = 2;
         const int minOrderToCarve = 2;
-        const float MinVolumeToCarve = 0.1f;
+        const float MinVolumeToCarve = 10.5f;
 
         // A single pass is all we need. Flow accumulation already guarantees continuity.
         for (var y = 0; y < _worldHeight; y++)
