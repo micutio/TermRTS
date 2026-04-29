@@ -254,7 +254,7 @@ public class BiomeTheme
         },
         {
             Biome.MajorRiver,
-            new CellVisual(Cp437.TripleBar, ConsoleColor.White, ConsoleColor.Blue)
+            new CellVisual(Cp437.TripleBar, ConsoleColor.DarkBlue, ConsoleColor.Blue)
         }
     };
 }
