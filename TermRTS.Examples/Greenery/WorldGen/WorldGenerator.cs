@@ -1,4 +1,4 @@
-using System.Buffers;
+using System.Diagnostics;
 using System.Numerics;
 using TermRTS.Examples.Greenery.Ecs.Component;
 
@@ -96,7 +96,8 @@ public sealed class WorldBuffer<T> : IDisposable
 }
 
 public record struct Point(int X, int Y)
-{ }
+{
+}
 
 public class CylinderWorld
 {
@@ -229,9 +230,14 @@ public class CylinderWorld
 
     public WorldPackedChunk[] Generate()
     {
+        var timer = new Stopwatch();
         // Stage 0: Preparation ~> Noise Map ///////////////////////////////////////////////////////
+        timer.Start();
         var noiseMap = GenerateNoiseMap();
+        timer.Stop();
+        Console.WriteLine($"Generate Noise Map: {timer.ElapsedMilliseconds} ms");
 
+        timer.Restart();
         // STAGE 1: Voronoi Cells and Land/Water distribution //////////////////////////////////////
 
         // Associate each grid cell to one of the voronoi cells.
@@ -239,46 +245,85 @@ public class CylinderWorld
         var voronoiCells = new Point[VoronoiCellCount];
         var landWaterMap = new int[VoronoiCellCount];
         var voronoiCellTypes = InitializeVoronoiCells(voronoiCells, landWaterMap);
-        var (voronoiCellIndex, elevations) =
+        timer.Stop();
+        Console.WriteLine($"Generate Voronoi Cells: {timer.ElapsedMilliseconds} ms");
+
+        timer.Restart();
+        var (
+                voronoiCellIndex,
+                secondVoronoiIndex,
+                voronoiDistToWinner,
+                voronoiDistToSecond,
+                elevations) =
             GenerateLandWaterDistribution(noiseMap, voronoiCells, landWaterMap);
+        timer.Stop();
+        Console.WriteLine($"Generate LandWater Distribution: {timer.ElapsedMilliseconds} ms");
 
         // Generate coastal slopes for each voronoi cell.
         // GenerateSlopedCoasts();
 
         // Stage 2: Plate Tectonics ////////////////////////////////////////////////////////////////
 
+        timer.Restart();
         var (plateCells, plateTypes, plateIndex, plateMotions) =
-            InitializePlateTectonics(voronoiCells, voronoiCellTypes);
+            InitializePlateTectonics(noiseMap, voronoiCells, voronoiCellTypes);
+        timer.Stop();
+        Console.WriteLine($"Generate Plate Tectonics: {timer.ElapsedMilliseconds} ms");
+
         // Compute plate tectonics influence (mountains/trenches along plate boundaries).
+        timer.Restart();
         var tectonicDelta = ComputePlateTectonicHeight(
             voronoiCellIndex,
+            secondVoronoiIndex,
+            voronoiCellTypes,
+            voronoiDistToWinner,
+            voronoiDistToSecond,
             plateCells,
-            plateTypes,
             plateIndex,
             plateMotions);
+        timer.Stop();
+        Console.WriteLine($"Compute Plate Tectonic Height: {timer.ElapsedMilliseconds} ms");
+
         // Generate hotspots (mantle plumes creating volcanic islands/seamounts).
+        timer.Restart();
         var hotspots = GenerateHotspots(noiseMap, voronoiCells, voronoiCellTypes, plateMotions);
+        timer.Stop();
+        Console.WriteLine($"Generate Hotspot Distribution: {timer.ElapsedMilliseconds} ms");
+
         // Apply all elevation changes from tectonics, hotspots etc.
+        timer.Restart();
         ApplyTectonics(noiseMap, elevations, tectonicDelta, hotspots);
+        timer.Stop();
+        Console.WriteLine($"Apply Tectonic Delta: {timer.ElapsedMilliseconds} ms");
 
         // Stage 3: Climate ////////////////////////////////////////////////////////////////////////
 
         // Generate wind field now that elevation and noise are available. Wind
         // is used by the rainfall/shadow simulation and must be generated
         // before biome assignment.
+        timer.Restart();
         var (windDirections, windSpeeds) = CalculateWindField(noiseMap, elevations);
+        timer.Stop();
+        Console.WriteLine($"Generate Wind Field: {timer.ElapsedMilliseconds} ms");
 
         // CalculateDistanceToWaterMap(); // TODO: This does not seem to be used.
         // Generate climate (temperature, humidity, biomes, seasonal effects)
+        timer.Restart();
         var riverMap = new bool[_worldWidth * _worldHeight];
         var strahlerRiverMap = new byte[_worldWidth * _worldHeight];
         var (temperature, humidity, biomes) =
             GenerateClimate(noiseMap, elevations, windDirections, riverMap, strahlerRiverMap);
+        timer.Stop();
+        Console.WriteLine($"Generate Climate: {timer.ElapsedMilliseconds} ms");
 
         // Apply erosion to smooth terrain and create realistic features
+        timer.Restart();
         ApplyErosion(elevations, humidity, hotspots);
+        timer.Stop();
+        Console.WriteLine($"Apply Erosion: {timer.ElapsedMilliseconds} ms");
 
         // Generate rivers based on rainfall and elevation (tunable via public properties)
+        timer.Restart();
         var flowDirections = GenerateRivers(
             noiseMap,
             elevations,
@@ -286,15 +331,20 @@ public class CylinderWorld
             riverMap,
             strahlerRiverMap,
             windDirections);
+        timer.Stop();
+        Console.WriteLine($"Generate Rivers: {timer.ElapsedMilliseconds} ms");
 
-        // TODO: Re-generate distance to water?
         // Re-generate climate, now that we have rivers:
+        timer.Restart();
         (temperature, humidity, biomes) =
             GenerateClimate(noiseMap, elevations, windDirections, riverMap, strahlerRiverMap);
+        timer.Stop();
+        Console.WriteLine($"Generate Climate: {timer.ElapsedMilliseconds} ms");
 
         // Stage 4: Surface features ///////////////////////////////////////////////////////////////
 
         // Apply mountain details (ridges, snow, glacier, lava)
+        timer.Restart();
         var surfaceFeatures = ApplyMountainDetails(
             voronoiCellIndex,
             plateTypes,
@@ -304,10 +354,18 @@ public class CylinderWorld
             hotspots,
             riverMap
         );
+        timer.Stop();
+        Console.WriteLine($"Generate Mountain Surface Features: {timer.ElapsedMilliseconds} ms");
+
         // Apply coastal features (beach, cliff, fjord)
+        timer.Restart();
         ApplyCoastalFeatures(elevations, surfaceFeatures);
+        timer.Stop();
+        Console.WriteLine($"Generate Coastal Surface Features: {timer.ElapsedMilliseconds} ms");
 
         // Wind field was calculated earlier (before biome generation).
+
+        Console.ReadKey();
 
         return ToPackedChunks(
             elevations,
@@ -423,18 +481,24 @@ public class CylinderWorld
     /// <summary>
     ///     Assigns an elevation and voronoi cell to each single cell on the map.
     /// </summary>
-    private (int[], float[]) GenerateLandWaterDistribution(
-        ReadOnlyMemory<float> noiseMap,
-        ReadOnlyMemory<Point> voronoiCells,
-        ReadOnlyMemory<int> landWaterMap
-    )
+    private (
+        int[] voronoiCellIndex,
+        int[] secondVoronoiIndex,
+        float[] voronoiDistToWinner,
+        float[] voronoiDistToSecond,
+        float[] elevations)
+        GenerateLandWaterDistribution(
+            ReadOnlyMemory<float> noiseMap,
+            ReadOnlyMemory<Point> voronoiCells,
+            ReadOnlyMemory<int> landWaterMap
+        )
     {
         const int jiggle = 20;
         var voronoiCellIndex = new int[_worldWidth * _worldHeight];
+        var secondVoronoiIndex = new int[_worldWidth * _worldHeight];
+        var voronoiDistToWinner = new float[_worldWidth * _worldHeight];
+        var voronoiDistToSecond = new float[_worldWidth * _worldHeight];
         var elevations = new float[_worldWidth * _worldHeight];
-
-        var land = 0;
-        var water = 0;
 
         Parallel.For(0, _worldHeight, y =>
         {
@@ -453,25 +517,40 @@ public class CylinderWorld
                 var jiggledY = y + (0.5f - jiggleNoise) * jiggle;
 
                 var minDistSq = float.MaxValue;
+                var secondMinDistSq = float.MaxValue;
                 var winnerCell = 0;
+                var secondWinnerCell = 0;
                 for (var i = 0; i < VoronoiCellCount; i += 1)
                 {
                     var vX = voronoiSpan[i].X;
                     var vY = voronoiSpan[i].Y;
-                    var distSq = WorldMath.GetCylindricalDistanceSq(
-                        jiggledX,
-                        jiggledY,
-                        vX,
-                        vY);
+                    var distSq = WorldMath.GetCylindricalDistanceSq(jiggledX, jiggledY, vX, vY);
 
-                    if (distSq >= minDistSq) continue;
-                    minDistSq = distSq;
-                    winnerCell = i;
+                    if (distSq < minDistSq)
+                    {
+                        // The old closest becomes the new second-closest
+                        secondMinDistSq = minDistSq;
+                        secondWinnerCell = winnerCell;
+
+                        // The new dist becomes the closest
+                        minDistSq = distSq;
+                        winnerCell = i;
+                    }
+                    else if (distSq < secondMinDistSq)
+                    {
+                        // If it's not closer than the first, it might be closer than the second
+                        secondMinDistSq = distSq;
+                        secondWinnerCell = i;
+                    }
                 }
 
+                voronoiDistToWinner[idx] = MathF.Sqrt(minDistSq);
+                voronoiDistToSecond[idx] = MathF.Sqrt(secondMinDistSq);
                 voronoiCellIndex[idx] = winnerCell;
+                secondVoronoiIndex[idx] = secondWinnerCell;
+
                 elevations[idx] = landWaterSpan[winnerCell] >= _elevationCfg.LandElevationThreshold
-                    ? _elevationCfg.LandElevationThreshold + MathF.Pow(noiseSpan[idx], 1) *
+                    ? _elevationCfg.LandElevationThreshold + MathF.Pow(noiseSpan[idx], 2.2f) *
                     (_elevationCfg.MaxElevation - _elevationCfg.LandElevationThreshold - 1)
                     : noiseSpan[idx] * (_elevationCfg.LandElevationThreshold - 1);
 
@@ -483,15 +562,11 @@ public class CylinderWorld
                 {
                     localWater++;
                 }
-                // Safely add local counts to global counts
-                Interlocked.Add(ref land, localLand);
-                Interlocked.Add(ref water, localWater);
             }
         });
 
-        var ratio = land / (land + water);
-        Console.WriteLine($"Generate Land Water Distribution: {ratio * 100} % land");
-        return (voronoiCellIndex, elevations);
+        return (voronoiCellIndex, secondVoronoiIndex, voronoiDistToWinner, voronoiDistToSecond,
+            elevations);
     }
 
     #endregion
@@ -502,6 +577,7 @@ public class CylinderWorld
     ///     Initializes plates and tectonic parameters.
     /// </summary>
     private (Point[], bool[], int[], Vector2[]) InitializePlateTectonics(
+        Span<float> noiseMap, // Pass in your world noise map
         Span<Point> voronoiCells,
         Span<bool> voronoiCellTypes
     )
@@ -509,35 +585,66 @@ public class CylinderWorld
         var plateCells = new Point[_plateCount];
         var plateTypes = new bool[_plateCount];
         var plateIndex = new int[_voronoiCellCount];
-        for (var i = 0; i < _plateCount; i += 1)
+
+        // 1. SAFE SEED SELECTION (Preventing twin plates)
+        var chosenSeeds = new HashSet<int>();
+        for (var i = 0; i < _plateCount; i++)
         {
-            var voronoiIndex = _rng.Next(VoronoiCellCount);
+            int voronoiIndex;
+            do
+            {
+                voronoiIndex = _rng.Next(_voronoiCellCount);
+            } while (!chosenSeeds.Add(voronoiIndex)); // Ensure unique centers
+
             var voronoiCell = voronoiCells[voronoiIndex];
             plateCells[i] = new Point(voronoiCell.X, voronoiCell.Y);
             plateTypes[i] = voronoiCellTypes[voronoiIndex];
         }
 
-        // step 2: assign voronoi cells to each plate
-        for (var j = 0; j < VoronoiCellCount; j += 1)
+        // TWEAKABLE: How violently the boundaries snake and interlock.
+        // A value of 10-20% of your world width usually looks great.
+        var warpStrength = _worldWidth * 0.15f;
+
+        // 2. ASSIGN CELLS TO PLATES (With Domain Warping)
+        for (var j = 0; j < _voronoiCellCount; j++)
         {
-            var minDistSq = double.MaxValue;
+            var minDistSq = float.MaxValue;
             var winnerCell = 0;
             var (vX, vY) = voronoiCells[j];
 
-            for (var i = 0; i < _plateCount; i += 1)
+            // Sample noise at the cell's center to get a warp vector.
+            // We use the 1D noise map but offset the lookup to get an X and Y warp.
+            var cellIdx = vY * _worldWidth + vX;
+
+            // Pseudo-random offset for the Y noise so X and Y warp independently
+            var offsetIdx = (cellIdx + (_worldWidth / 2)) % noiseMap.Length;
+
+            // Normalize noise from [0, 1] to [-1, 1] and scale by warp strength
+            var warpX = (noiseMap[cellIdx] - 0.5f) * 2.0f * warpStrength;
+            var warpY = (noiseMap[offsetIdx] - 0.5f) * 2.0f * warpStrength;
+
+            // Apply the warp to the cell's position
+            var warpedVx = vX + warpX;
+            var warpedVy = vY + warpY;
+
+            for (var i = 0; i < _plateCount; i++)
             {
                 var (pX, pY) = plateCells[i];
-                var distSq = WorldMath.GetCylindricalDistanceSq(vX, vY, pX, pY);
 
-                if (distSq >= minDistSq) continue;
-                minDistSq = distSq;
-                winnerCell = i;
+                // Calculate distance using the WARPED coordinates
+                var distSq = WorldMath.GetCylindricalDistanceSq(warpedVx, warpedVy, pX, pY);
+
+                if (distSq < minDistSq)
+                {
+                    minDistSq = distSq;
+                    winnerCell = i;
+                }
             }
 
             plateIndex[j] = winnerCell;
         }
 
-        // step 2: assign plate motions and infer plate types from seed cells
+        // 3. Assign plate motions
         var plateMotions = GeneratePlateMotions();
         return (plateCells, plateTypes, plateIndex, plateMotions);
     }
@@ -567,125 +674,93 @@ public class CylinderWorld
     /// </summary>
     private float[] ComputePlateTectonicHeight(
         Span<int> voronoiIndex,
+        Span<int> secondVoronoiIndex,
+        Span<bool> voronoiCellTypes,
+        Span<float> dist1,
+        Span<float> dist2,
         Span<Point> plateCells,
-        Span<bool> plateTypes,
         Span<int> plateIndex,
         Span<Vector2> plateMotions
     )
     {
         var tectonicDelta = new float[_worldWidth * _worldHeight];
+        var plateCount = plateMotions.Length;
 
-        var minContinentalConvergence = float.MaxValue;
-        var maxContinentalConvergence = float.MinValue;
-        var minMixedConvergence = float.MaxValue;
-        var maxMixedConvergence = float.MinValue;
-        var minOceanicConvergence = float.MaxValue;
-        var maxOceanicConvergence = float.MinValue;
-        var minOceanicDivergence = float.MaxValue;
-        var maxOceanicDivergence = float.MinValue;
-        var minOtherDivergence = float.MaxValue;
-        var maxOtherDivergence = float.MinValue;
+        // TWEAKABLE: How many pixels wide are your mountain ranges?
+        var rangeWidth = 15.0f;
 
-        Point[] offsets = [new(0, -1), new(1, 0), new(0, 1), new(-1, 0)];
-
-        for (var y = 0; y < _worldHeight; y += 1)
+        // Pre-calculate stress between every possible plate pair (O(P^2))
+        // This avoids recalculating Dot products millions of times.
+        var stressLookup = new float[plateCount * plateCount];
+        for (var i = 0; i < plateCount; i++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x += 1)
+            for (var j = 0; j < plateCount; j++)
             {
-                // TODO: Index plates directly on cells.
-                var vIndex = voronoiIndex[rowOffset + x];
-                var currentPlate = plateIndex[vIndex];
-                var totalDelta = 0f;
+                if (i == j) continue;
+                var relMotion = WorldMath.GetWrappedVector(plateMotions[j], plateMotions[i]);
+                var dir = WorldMath.GetWrappedVector(plateCells[i], plateCells[j]);
+                if (dir.LengthSquared() < 0.001f) continue;
 
-                foreach (var (dx, dy) in offsets)
+                var normal = Vector2.Normalize(dir);
+                var stress = Vector2.Dot(relMotion, normal);
+
+                // Apply your existing continental/oceanic multipliers here
+                var multiplier = 1.0f;
+                var isRecipientCont = voronoiCellTypes[i];
+                var isAggressorCont = voronoiCellTypes[j];
+
+                if (stress < 0) // Convergence (Crashing)
                 {
-                    var nx = WorldMath.WrapX(x + dx);
-                    var ny = y + dy;
-                    if (ny < 0 || ny >= _worldHeight) continue;
-
-                    var nvIndex = voronoiIndex[ny * _worldWidth + nx];
-                    var neighbourPlate = plateIndex[nvIndex];
-                    if (neighbourPlate == currentPlate) continue;
-
-                    var pA = plateCells[currentPlate];
-                    var pB = plateCells[neighbourPlate];
-                    var direction = WorldMath.GetWrappedVector(pA, pB);
-                    if (direction.LengthSquared() < 0.0001f) continue;
-
-                    var normal = Vector2.Normalize(direction);
-                    var relativeMotion = WorldMath.GetWrappedVector(plateMotions[neighbourPlate],
-                        plateMotions[currentPlate]);
-                    var stress = Vector2.Dot(relativeMotion, normal);
-                    // Negative stress means they are crashing.
-                    var convergence = MathF.Max(0f, -stress);
-                    // Positive stress means they are pulling apart.
-                    var divergence = MathF.Max(0f, stress);
-                    // Only true if both are continents.
-                    var continentalInteraction =
-                        plateTypes[currentPlate] && plateTypes[neighbourPlate];
-                    // Only true if one plate is continental and the other is oceanic.
-                    var mixedInteraction = plateTypes[currentPlate] ^ plateTypes[neighbourPlate];
-
-                    if (convergence > 0)
+                    if (isRecipientCont && !isAggressorCont)
                     {
-                        if (continentalInteraction)
-                        {
-                            minContinentalConvergence =
-                                MathF.Min(minContinentalConvergence, convergence * 250f);
-                            maxContinentalConvergence =
-                                MathF.Max(maxContinentalConvergence, convergence * 250f);
-                            // Higher mountains for continental convergence.
-                            // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 250f;
-                        }
-                        else if (mixedInteraction)
-                        {
-                            minMixedConvergence =
-                                MathF.Min(minMixedConvergence, convergence * 4.5f);
-                            maxMixedConvergence =
-                                MathF.Max(maxMixedConvergence, convergence * 4.5f);
-                            // Lesser mountains for mixed convergence.
-                            // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 4.5f;
-                        }
-                        else
-                        {
-                            minOceanicConvergence =
-                                MathF.Min(minOceanicConvergence, convergence * 1.2f);
-                            maxOceanicConvergence =
-                                MathF.Max(maxOceanicConvergence, convergence * 1.2f);
-                            // Small bumps for oceanic convergence.
-                            // TODO: Does this influence hotspots and hotspot island chains?
-                            // TODO: turn into adjustable parameter
-                            totalDelta += convergence * 1.2f;
-                        }
+                        // I am a continent being hit by an ocean. 
+                        // I crumple UP.
+                        multiplier = 18f;
                     }
-                    else if (divergence > 0)
+                    else if (!isRecipientCont && isAggressorCont)
                     {
-                        if (!plateTypes[currentPlate] && !plateTypes[neighbourPlate])
-                        {
-                            minOceanicDivergence = MathF.Min(minOceanicDivergence, divergence * 2f);
-                            maxOceanicDivergence = MathF.Max(maxOceanicDivergence, divergence * 2f);
-                            // Very deep trenches for oceanic-oceanic divergence.
-                            // TODO: turn into adjustable parameter
-                            totalDelta -= divergence * 2.0f;
-                        }
-                        else
-                        {
-                            minOtherDivergence = MathF.Min(minOtherDivergence, divergence * 2.1f);
-                            maxOtherDivergence = MathF.Max(maxOtherDivergence, divergence * 2.1f);
-                            // Shallower trenches for all other divergences
-                            // TODO: turn into adjustable parameter
-                            totalDelta -= divergence * 2.1f;
-                        }
+                        // I am an ocean hitting a continent. 
+                        // I get dragged DOWN.
+                        multiplier = -12f; // Negative creates the trench!
+                    }
+                    else if (!isRecipientCont && !isAggressorCont)
+                    {
+                        // I am an ocean hitting an ocean. 
+                        // Prevent hugh mountains in the middle of sea.
+                        multiplier = 2f;
+                    }
+                    else if (isRecipientCont && isAggressorCont)
+                    {
+                        // Two continents hitting each other (Himalayas).
+                        // Both go UP.
+                        multiplier = 25f;
                     }
                 }
 
-                _minTectonicDelta = MathF.Min(totalDelta, _minTectonicDelta);
-                _maxTectonicDelta = MathF.Max(totalDelta, _maxTectonicDelta);
-                tectonicDelta[rowOffset + x] = totalDelta;
+                stressLookup[i * plateCount + j] = -stress * multiplier;
             }
+        }
+
+        // The Pixel Loop
+        for (var i = 0; i < _worldWidth * _worldHeight; i++)
+        {
+            var p1 = plateIndex[voronoiIndex[i]];
+            var p2 = plateIndex[secondVoronoiIndex[i]];
+
+            if (p1 == p2) continue; // Inside a plate, no tectonic stress
+
+            // Calculate distance from the boundary line
+            var deltaDist = dist2[i] - dist1[i];
+
+            if (!(deltaDist < rangeWidth)) continue;
+            // Normalize influence: 1.0 at the crack, 0.0 at the range edge
+            var influence = 1.0f - (deltaDist / rangeWidth);
+
+            // Smoothstep (Cubic) falloff for more natural mountain shapes
+            // This prevents "sharp pyramid" mountains.
+            influence = influence * influence * (3 - 2 * influence);
+
+            tectonicDelta[i] = stressLookup[p1 * plateCount + p2] * influence;
         }
 
         return tectonicDelta;
@@ -698,17 +773,19 @@ public class CylinderWorld
         Span<float> noiseMap,
         Span<Point> voronoiCells,
         Span<bool> voronoiCellTypes,
-        Span<Vector2> plateMotions
-    )
+        Span<Vector2> plateMotions)
     {
         var hotspots = new float[_worldWidth * _worldHeight];
-        // +1 because Next upper bound is exclusive
         var chainCount = _rng.Next(_volcanicCfg.MinIslandChains, _volcanicCfg.MaxIslandChains + 1);
 
         var oceanPlateIds = new List<int>();
         for (var i = 0; i < voronoiCellTypes.Length; i++)
             if (!voronoiCellTypes[i])
                 oceanPlateIds.Add(i);
+
+        // Track local min/max to avoid global state contention during the loops
+        float localMinHeight = float.MaxValue;
+        float localMaxHeight = float.MinValue;
 
         for (var chain = 0; chain < chainCount; chain++)
         {
@@ -718,88 +795,95 @@ public class CylinderWorld
             oceanPlateIds.Remove(oceanPlateId);
             var (startX, startY) = voronoiCells[oceanPlateId];
 
-            // Create a chain of hotspots along a plate motion direction.
             var chainLength =
                 _rng.Next(_volcanicCfg.MinChainLength, _volcanicCfg.MaxChainLength + 1);
 
-            // Use a random plate motion direction for the chain, or create a random direction
             var chainDirection = plateMotions.Length > 0
                 ? plateMotions[_rng.Next(plateMotions.Length)]
-                : new Vector2(
-                    (float)(_rng.NextDouble() - 0.5) * 2,
+                : new Vector2((float)(_rng.NextDouble() - 0.5) * 2,
                     (float)(_rng.NextDouble() - 0.5) * 2);
 
-            // Normalize and scale the direction
-            var length = MathF.Sqrt(
-                chainDirection.X * chainDirection.X +
-                chainDirection.Y * chainDirection.Y);
+            var length = chainDirection.Length();
             if (length > 0)
-                chainDirection = chainDirection / length * (float)(_rng.NextDouble() * 2 + 1);
+                chainDirection = (chainDirection / length) * (float)(_rng.NextDouble() * 2 + 1);
 
             for (var i = 0; i < chainLength; i++)
             {
-                // Calculate position along the chain with configurable spacing
                 var offsetX = (int)(chainDirection.X * i * _volcanicCfg.ChainSpacing);
                 var offsetY = (int)(chainDirection.Y * i * _volcanicCfg.ChainSpacing);
                 var centerX = WorldMath.WrapX(startX + offsetX);
                 var centerY = startY + offsetY;
 
-                // Keep within bounds with some wrapping
-                // centerX = (centerX % worldWidth + worldWidth) % worldWidth;
-                // centerY = (centerY % worldHeight + worldHeight) % worldHeight;
                 if (centerY < 0 || centerY >= _worldHeight) continue;
 
                 var radius = _rng.Next(_volcanicCfg.MinHotspotRadius,
                     _volcanicCfg.MaxHotspotRadius + 1);
-                var strength =
-                    (float)(_rng.NextDouble() * (_volcanicCfg.MaxHotspotStrength -
-                                                 _volcanicCfg.MinHotspotStrength) +
-                            _volcanicCfg.MinHotspotStrength);
+                var radiusSq = radius * radius; // Pre-calculate for fast distance check
 
-                // Create a volcanic cone shape with exponential falloff (more realistic)
-                // TODO: This looks very inefficient.
+                var strength = (float)(_rng.NextDouble() *
+                                       (_volcanicCfg.MaxHotspotStrength -
+                                        _volcanicCfg.MinHotspotStrength) +
+                                       _volcanicCfg.MinHotspotStrength);
+
+                // Bounding box: Y clamps, but X does NOT clamp so we can wrap it
                 var minY = Math.Max(0, centerY - radius);
                 var maxY = Math.Min(_worldHeight, centerY + radius);
-                var minX = Math.Max(0, centerX - radius);
-                var maxX = Math.Min(_worldWidth, centerX + radius);
-                // In equatorial latitudes 50% chance to generate an atoll instead. 
-                var isAtoll = MathF.Abs(_worldHeight / 2F - centerY) < _worldHeight / 3F &&
-                              _rng.NextDouble() < 0.5F;
+                var minX = centerX - radius;
+                var maxX = centerX + radius;
+
+                var isAtoll = MathF.Abs(_worldHeight / 2f - centerY) < _worldHeight / 3f &&
+                              _rng.NextDouble() < 0.5f;
+
                 for (var y = minY; y < maxY; y++)
                 {
                     var rowOffset = y * _worldWidth;
-                    for (var x = minX; x < maxX; x++)
+                    var dy = y - centerY;
+                    var dySq = dy * dy;
+
+                    for (var x = minX; x <= maxX; x++)
                     {
-                        var idx = rowOffset + x;
                         var dx = x - centerX;
-                        var dy = y - centerY;
-                        var distance = MathF.Sqrt(dx * dx + dy * dy);
+                        var distSq = (dx * dx) + dySq;
 
-                        if (distance > radius) continue;
+                        // FAST REJECTION: Skip the expensive math if outside the circle
+                        if (distSq > radiusSq) continue;
 
-                        // Exponential falloff for more realistic volcanic shape
-                        // TODO: make falloff a tweakable parameter
+                        // Properly wrap the X coordinate for array lookup
+                        var wrappedX = WorldMath.WrapX(x);
+                        var idx = rowOffset + wrappedX;
+
+                        var distance = MathF.Sqrt(distSq);
                         var normalizedDist = distance / radius;
-                        var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
 
-                        // Add some noise to make it look more volcanic
-                        // TODO: make noise a tweakable parameter
+                        var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
                         var noise = noiseMap[idx];
-                        //Noise.CalcPixel2D(x * 20, y * 20, 0.05f) * 0.5f + 0.5f;
                         coneHeight *= 0.7f + noise * 0.6f;
 
-                        if (isAtoll && hotspots[idx] + coneHeight >=
-                            _volcanicCfg.MaxHotspotStrength - 2)
-                            hotspots[idx] = 0;
-                        else
-                            hotspots[idx] += coneHeight;
+                        hotspots[idx] += coneHeight;
 
-                        _minHotspotHeight = Math.Min(_minHotspotHeight, coneHeight);
-                        _maxHotspotHeight = Math.Max(_maxHotspotHeight, coneHeight);
+                        // ATOLL LOGIC: Carve the center AFTER adding height to prevent chain overlaps 
+                        // filling the lagoon back in. We simulate a caldera collapse to "Sea Level - 1"
+                        if (isAtoll)
+                        {
+                            var atollThreshold = _volcanicCfg.MaxHotspotStrength * 0.6f;
+                            if (hotspots[idx] > atollThreshold)
+                            {
+                                // Flatten the peak to create a lagoon rim, then sink the center
+                                var collapseDepth = hotspots[idx] - atollThreshold;
+                                hotspots[idx] = atollThreshold - (collapseDepth * 0.5f);
+                            }
+                        }
+
+                        localMinHeight = Math.Min(localMinHeight, hotspots[idx]);
+                        localMaxHeight = Math.Max(localMaxHeight, hotspots[idx]);
                     }
                 }
             }
         }
+
+        // Apply local state to global state once at the end
+        _minHotspotHeight = Math.Min(_minHotspotHeight, localMinHeight);
+        _maxHotspotHeight = Math.Max(_maxHotspotHeight, localMaxHeight);
 
         return hotspots;
     }
@@ -811,67 +895,43 @@ public class CylinderWorld
         Span<float> hotspots
     )
     {
-        // NOTE: GenerateSlopedCoasts() is never called, so coastalSlopes contains uninitialized data.
-        // In the backup version, this uses uninitialized memory from ArrayPool. To match the backup
-        // behavior exactly, we initialize to 0 (making slopeFactor = 0), which effectively removes
-        // the noise contribution to elevation (equivalent to backup since it was garbage anyway).
-        var coastalSlopes = new float[_worldWidth * _worldHeight];
+        // If you aren't using slopes, we should define a default 'base' noise intensity 
+        // so the world isn't perfectly smooth.
+        const float baseNoiseIntensity = 0.05f;
 
-        var max = float.MinValue;
-        var min = float.MaxValue;
+        var landCount = 0;
+        var totalCells = _worldWidth * _worldHeight;
 
-        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
+        for (var i = 0; i < totalCells; i++)
         {
-            max = Math.Max(max, hotspots[i]);
-            min = Math.Min(min, hotspots[i]);
-        }
+            var currentElev = elevations[i];
+            var isAboveThreshold = currentElev >= _elevationCfg.LandElevationThreshold;
 
+            // 1. Calculate Detail Noise
+            // Since coastalSlopes is uninitialized, I'm using a fallback value.
+            // If you ever implement GenerateSlopedCoasts(), replace 'baseNoiseIntensity' 
+            // with (coastalSlopes[i] / _coastalCfg.MaxCoastalSlope).
+            var upOrDownwards = isAboveThreshold ? 1.0f : -1.0f;
+            var detailNoise = baseNoiseIntensity * noiseField[i] * upOrDownwards * currentElev;
 
-        var land = 0f;
-        var water = 0f;
-        // Apply noise and slopes to elevation map.
-        for (var i = 0; i < _worldWidth * _worldHeight; i += 1)
-        {
-            // Continental plates (>=4) get higher base, oceanic (<4) get lower for deep trenches.
-            var slopeFactor = coastalSlopes[i] / _coastalCfg.MaxCoastalSlope;
-            var normalizedNoise = noiseField[i];
-            var tectonicD = tectonicDelta[i];
-            var hotspot = hotspots[i];
+            // 2. Combine Layers
+            // Base + Detail + Tectonic Uplift + Volcanic Hotspot
+            var finalElevation = currentElev + detailNoise + tectonicDelta[i] + hotspots[i];
 
-            // For oceanic plates, reduce noise impact to allow deeper trenches
-            // var cellElevationContribution = elevations[i] >= LandElevationThreshold
-            //     ? elevations[i]
-            //     : 0;
-            var noiseMultiplier = elevations[i] >= _elevationCfg.LandElevationThreshold
-                ? 1.0f
-                : -1.0f;
+            // 3. Clamp and Store
+            // Ensure we don't exceed the atmosphere's ceiling.
+            var clampedElev = Math.Min(_elevationCfg.MaxElevation, finalElevation);
+            elevations[i] = clampedElev;
 
-            var elevation = // cellElevationContribution +
-                elevations[i] +
-                slopeFactor *
-                normalizedNoise * noiseMultiplier * elevations[i]; // *
-            // var tectonic = (MaxElevation - elevation) * (tectonicD / _maxTectonicDelta);
-            elevation = Math.Min(_elevationCfg.MaxElevation, elevation + tectonicD + hotspot);
-            // Only apply hotspots if max elevation is not exceeded.
-            // This should not happen in most cases as hotspots are supposed to be generated
-            // in oceanic tiles.
-            // if (hotspot > 0 && elevation + hotspot < MaxElevation) elevation += hotspot;
-
-            // Store as float, don't clamp yet
-            elevations[i] = Math.Min(_elevationCfg.MaxElevation, elevation);
-
-            if (elevations[i] >= _elevationCfg.LandElevationThreshold)
+            // 4. Statistics
+            if (clampedElev >= _elevationCfg.LandElevationThreshold)
             {
-                land++;
-            }
-            else
-            {
-                water++;
+                landCount++;
             }
         }
 
-        var ratio = land / (water + land);
-        Console.WriteLine($"Tectonics: {ratio * 100} % land");
+        var ratio = (float)landCount / totalCells;
+        Console.WriteLine($"Tectonics Applied: {ratio * 100:F2}% land");
     }
 
     #endregion
@@ -2061,8 +2121,6 @@ public class CylinderWorld
         Span<SurfaceFeature> surfaceFeatures)
     {
         var radius = Math.Max(3, (int)(strength * 10)); // Scale radius with strength, minimum 3
-
-        var craterElevationThreshold = _volcanicCfg.CraterElevationThreshold;
 
         // Determine volcano type based on strength and characteristics
         var volcanoType = strength switch

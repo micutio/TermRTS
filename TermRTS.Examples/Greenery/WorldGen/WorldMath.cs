@@ -5,7 +5,7 @@ namespace TermRTS.Examples.Greenery.WorldGen;
 
 public static class WorldMath
 {
-    // These would be set during engine initialization
+    // If this is NOT set to 32, then DO NOT use GetChunkIndexFast()!
     public const int ChunkSize = 32;
     public const int WorldWidth = 4096; // 320 // Must be multiple of ChunkSize
     public const int WorldHeight = 2048; // 96;
