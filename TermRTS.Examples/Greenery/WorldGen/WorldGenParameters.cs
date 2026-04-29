@@ -22,20 +22,23 @@ public class CoastalParameters
 
 public class VolcanicParameters
 {
-    public float VolcanicResistance { get; set; } = 0.1f;
+    /// <summary>
+    /// The amount of volcanic soil eroded. Smaller value -> more resistance.
+    /// </summary>
+    public float VolcanicResistance { get; set; } = 0.05f;
     public float HotspotMinStrength { get; set; } = 0.3f;
-    public float LavaHotspotThreshold { get; set; } = 0.7f;
+    public float LavaHotspotThreshold { get; set; } = 0.6f;
     public float CraterElevationThreshold { get; set; } = 6;
     public float CinderElevationThreshold { get; set; } = 5;
     public float CalderaElevationThreshold { get; set; } = 7;
     public float ShieldVolcanoThreshold { get; set; } = 5;
-    public int MinIslandChains { get; set; } = 8;
-    public int MaxIslandChains { get; set; } = 15;
+    public int MinIslandChains { get; set; } = 12;
+    public int MaxIslandChains { get; set; } = 25;
     public int MinChainLength { get; set; } = 3;
     public int MaxChainLength { get; set; } = 8;
-    public int ChainSpacing { get; set; } = 5;
-    public int MinHotspotRadius { get; set; } = 3;
-    public int MaxHotspotRadius { get; set; } = 8;
+    public int ChainSpacing { get; set; } = 9;
+    public int MinHotspotRadius { get; set; } = 5;
+    public int MaxHotspotRadius { get; set; } = 15;
     public float MinHotspotStrength { get; set; } = 3.4f;
     public float MaxHotspotStrength { get; set; } = 6.1f;
 }
