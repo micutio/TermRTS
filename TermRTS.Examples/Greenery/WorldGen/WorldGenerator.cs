@@ -12,8 +12,6 @@ namespace TermRTS.Examples.Greenery.WorldGen;
 public enum SurfaceFeature : byte
 {
     None,
-    River,
-    Glacier,
     Lava,
     Mountain,
     Snow,
@@ -280,6 +278,7 @@ public class CylinderWorld
             voronoiDistToSecond,
             plateCells,
             plateIndex,
+            plateTypes,
             plateMotions);
         timer.Stop();
         Console.WriteLine($"Compute Plate Tectonic Height: {timer.ElapsedMilliseconds} ms");
@@ -346,10 +345,12 @@ public class CylinderWorld
         // Apply mountain details (ridges, snow, glacier, lava)
         timer.Restart();
         var surfaceFeatures = ApplyMountainDetails(
+            noiseMap,
             voronoiCellIndex,
             plateTypes,
             plateIndex,
             elevations,
+            flowDirections,
             temperature,
             hotspots,
             riverMap
@@ -359,7 +360,7 @@ public class CylinderWorld
 
         // Apply coastal features (beach, cliff, fjord)
         timer.Restart();
-        ApplyCoastalFeatures(elevations, surfaceFeatures);
+        ApplyCoastalFeatures(elevations, riverMap, surfaceFeatures);
         timer.Stop();
         Console.WriteLine($"Generate Coastal Surface Features: {timer.ElapsedMilliseconds} ms");
 
@@ -493,7 +494,7 @@ public class CylinderWorld
             ReadOnlyMemory<int> landWaterMap
         )
     {
-        const int jiggle = 20;
+        const int jiggle = 40;
         var voronoiCellIndex = new int[_worldWidth * _worldHeight];
         var secondVoronoiIndex = new int[_worldWidth * _worldHeight];
         var voronoiDistToWinner = new float[_worldWidth * _worldHeight];
@@ -634,11 +635,9 @@ public class CylinderWorld
                 // Calculate distance using the WARPED coordinates
                 var distSq = WorldMath.GetCylindricalDistanceSq(warpedVx, warpedVy, pX, pY);
 
-                if (distSq < minDistSq)
-                {
-                    minDistSq = distSq;
-                    winnerCell = i;
-                }
+                if (distSq >= minDistSq) continue; // || voronoiCellTypes[j] != plateTypes[i]) continue;
+                minDistSq = distSq;
+                winnerCell = i;
             }
 
             plateIndex[j] = winnerCell;
@@ -680,6 +679,7 @@ public class CylinderWorld
         Span<float> dist2,
         Span<Point> plateCells,
         Span<int> plateIndex,
+        Span<bool> plateTypes,
         Span<Vector2> plateMotions
     )
     {
@@ -687,7 +687,7 @@ public class CylinderWorld
         var plateCount = plateMotions.Length;
 
         // TWEAKABLE: How many pixels wide are your mountain ranges?
-        var rangeWidth = 15.0f;
+        var rangeWidth = 11.0f;
 
         // Pre-calculate stress between every possible plate pair (O(P^2))
         // This avoids recalculating Dot products millions of times.
@@ -704,40 +704,7 @@ public class CylinderWorld
                 var normal = Vector2.Normalize(dir);
                 var stress = Vector2.Dot(relMotion, normal);
 
-                // Apply your existing continental/oceanic multipliers here
-                var multiplier = 1.0f;
-                var isRecipientCont = voronoiCellTypes[i];
-                var isAggressorCont = voronoiCellTypes[j];
-
-                if (stress < 0) // Convergence (Crashing)
-                {
-                    if (isRecipientCont && !isAggressorCont)
-                    {
-                        // I am a continent being hit by an ocean. 
-                        // I crumple UP.
-                        multiplier = 18f;
-                    }
-                    else if (!isRecipientCont && isAggressorCont)
-                    {
-                        // I am an ocean hitting a continent. 
-                        // I get dragged DOWN.
-                        multiplier = -12f; // Negative creates the trench!
-                    }
-                    else if (!isRecipientCont && !isAggressorCont)
-                    {
-                        // I am an ocean hitting an ocean. 
-                        // Prevent hugh mountains in the middle of sea.
-                        multiplier = 2f;
-                    }
-                    else if (isRecipientCont && isAggressorCont)
-                    {
-                        // Two continents hitting each other (Himalayas).
-                        // Both go UP.
-                        multiplier = 25f;
-                    }
-                }
-
-                stressLookup[i * plateCount + j] = -stress * multiplier;
+                stressLookup[i * plateCount + j] = -stress;
             }
         }
 
@@ -760,7 +727,42 @@ public class CylinderWorld
             // This prevents "sharp pyramid" mountains.
             influence = influence * influence * (3 - 2 * influence);
 
-            tectonicDelta[i] = stressLookup[p1 * plateCount + p2] * influence;
+            var stress = stressLookup[p1 * plateCount + p2];
+
+            // Apply your existing continental/oceanic multipliers here
+            var multiplier = 1.0f;
+            var isRecipientCont = voronoiCellTypes[voronoiIndex[i]];
+            var isAggressorCont = voronoiCellTypes[secondVoronoiIndex[i]];
+
+            if (stress < 0) // Convergence (Crashing)
+            {
+                if (isRecipientCont && !isAggressorCont)
+                {
+                    // I am a continent being hit by an ocean. 
+                    // I crumple UP.
+                    multiplier = 18f;
+                }
+                else if (!isRecipientCont && isAggressorCont)
+                {
+                    // I am an ocean hitting a continent. 
+                    // I get dragged DOWN.
+                    multiplier = -12f; // Negative creates the trench!
+                }
+                else if (!isRecipientCont && !isAggressorCont)
+                {
+                    // I am an ocean hitting an ocean. 
+                    // Prevent hugh mountains in the middle of sea.
+                    multiplier = 2f;
+                }
+                else if (isRecipientCont && isAggressorCont)
+                {
+                    // Two continents hitting each other (Himalayas).
+                    // Both go UP.
+                    multiplier = 25f;
+                }
+            }
+
+            tectonicDelta[i] = stressLookup[p1 * plateCount + p2] * multiplier * influence;
         }
 
         return tectonicDelta;
@@ -1959,16 +1961,18 @@ public class CylinderWorld
 
     #endregion
 
-    #region Mountains
+    #region Mountain Features
 
     /// <summary>
     ///     Applies surface features to mountains, snow, glaciers, rivers and lava.
     /// </summary>
     private SurfaceFeature[] ApplyMountainDetails(
+        Span<float> noiseField,
         Span<int> voronoiIndex,
         Span<bool> plateTypes,
         Span<int> plateIndex,
         Span<float> elevations,
+        Span<Point> flowDirections,
         Span<float> temperatures,
         Span<float> hotspotMap,
         Span<bool> riverMap
@@ -1984,12 +1988,7 @@ public class CylinderWorld
             surfaceFeatures[i] = SurfaceFeature.None;
             switch (temperature)
             {
-                // 1. Check for Glaciers (Requires freezing temps and moisture, no rivers)
-                // Assuming temperature < 0.1f is deep freeze
-                case < 0.1f when !riverMap[i] && elevation >= _elevationCfg.LandElevationThreshold:
-                    surfaceFeatures[i] = SurfaceFeature.Glacier;
-                    continue;
-                // 2. Check for Snow (Slightly warmer than glaciers, or high mountains)
+                // 1. Check for Snow (Slightly warmer than glaciers, or high mountains)
                 case < 0.25f when elevation >= _elevationCfg.LandElevationThreshold:
                     surfaceFeatures[i] = SurfaceFeature.Snow;
                     continue;
@@ -2002,12 +2001,6 @@ public class CylinderWorld
                 continue;
             }
 
-            if (riverMap[i])
-            {
-                surfaceFeatures[i] = SurfaceFeature.River;
-                continue;
-            }
-
             if (hotspotMap[i] > _volcanicCfg.LavaHotspotThreshold &&
                 elevation >= _elevationCfg.LandElevationThreshold)
                 surfaceFeatures[i] = SurfaceFeature.Lava;
@@ -2016,7 +2009,15 @@ public class CylinderWorld
         // Add volcanic details around hotspots
         var hotspotCenters = FindHotspotCenters(hotspotMap);
         foreach (var (centerX, centerY, strength) in hotspotCenters)
-            AddVolcanicDetails(centerX, centerY, strength, elevations, surfaceFeatures);
+            AddVolcanicDetails(
+                centerX,
+                centerY,
+                strength,
+                noiseField,
+                elevations,
+                flowDirections,
+                riverMap,
+                surfaceFeatures);
 
 
         // Plate boundary mountain ridges: continental collisions
@@ -2114,15 +2115,18 @@ public class CylinderWorld
     }
 
     private void AddVolcanicDetails(
-        int centerX,
-        int centerY,
-        float strength,
-        Span<float> elevations,
-        Span<SurfaceFeature> surfaceFeatures)
+     int centerX,
+     int centerY,
+     float strength,
+     Span<float> noiseField,// Added to break up perfect circles
+     Span<float> elevations,
+     Span<Point> flowDirections,
+     Span<bool> riverMap,
+     Span<SurfaceFeature> surfaceFeatures
+ )
     {
-        var radius = Math.Max(3, (int)(strength * 10)); // Scale radius with strength, minimum 3
+        var radius = Math.Max(3, (int)(strength * 10));
 
-        // Determine volcano type based on strength and characteristics
         var volcanoType = strength switch
         {
             > 0.9f => SurfaceFeature.Stratovolcano,
@@ -2130,28 +2134,9 @@ public class CylinderWorld
             _ => SurfaceFeature.Cinder
         };
 
-        // Add crater at the peak for stratovolcanoes and large shields
-        if (centerX >= 0 && centerX < _worldWidth && centerY >= 0 && centerY < _worldHeight)
-        {
-            var elevation = elevations[centerY * _worldWidth + centerX];
-            if (elevation >= _volcanicCfg.CraterElevationThreshold &&
-                volcanoType is SurfaceFeature.Stratovolcano or SurfaceFeature.Shield &&
-                strength >= 0.8f
-               )
-            {
-                surfaceFeatures[centerY * _worldWidth + centerX] = SurfaceFeature.Crater;
-            }
-            else if (elevation >= _volcanicCfg.CinderElevationThreshold &&
-                     volcanoType == SurfaceFeature.Cinder)
-            {
-                surfaceFeatures[centerY * _worldWidth + centerX] = SurfaceFeature.Cinder;
-            }
-        }
-
-        // Add volcanic features based on volcano type
-        for (var y = Math.Max(0, centerY - radius);
-             y < Math.Min(_worldHeight, centerY + radius);
-             y++)
+        // 1. GENERATE THE MACRO STRUCTURE (With Noise Warp)
+        // We add a little noise to the distance calculation so the rings are jagged
+        for (var y = Math.Max(0, centerY - radius); y < Math.Min(_worldHeight, centerY + radius); y++)
         {
             var rowOffset = y * _worldWidth;
             for (var x = centerX - radius; x < centerX + radius; x++)
@@ -2162,49 +2147,102 @@ public class CylinderWorld
 
                 if (distance > radius) continue;
 
-                var normalizedDist = distance / radius;
+                // Inject noise to make the feature rings irregular. 
+                // Normalize noise to roughly [-0.2, 0.2] so it wobbles the boundary.
+                var noiseWobble = (noiseField[idx] - 0.5f) * 0.3f;
+                var organicDist = Math.Clamp((distance / radius) + noiseWobble, 0f, 1f);
+
                 var elevation = elevations[idx];
 
-                // Skip if already has strong features
-                var existing = surfaceFeatures[idx];
-                if (existing is SurfaceFeature.River or SurfaceFeature.Glacier or
-                    SurfaceFeature.Lava)
+                if (riverMap[idx])
                     continue;
 
+                // Base Structural Application based on 'organic' distance
                 surfaceFeatures[idx] = volcanoType switch
                 {
-                    SurfaceFeature.Stratovolcano => normalizedDist switch
+                    SurfaceFeature.Stratovolcano => organicDist switch
                     {
-                        // Stratovolcanoes: steep, explosive, with ash and lava
-                        < 0.4f when elevation >= _volcanicCfg.CalderaElevationThreshold =>
-                            SurfaceFeature
-                                .Stratovolcano,
-                        > 0.3f and < 0.8f when elevation >= 5 => SurfaceFeature.Ash,
+                        < 0.4f when elevation >= _volcanicCfg.CalderaElevationThreshold => SurfaceFeature.Stratovolcano,
+                        > 0.3f and < 0.8f when elevation >= _volcanicCfg.CinderElevationThreshold => SurfaceFeature.Ash,
                         _ => surfaceFeatures[idx]
                     },
-                    SurfaceFeature.Shield => normalizedDist switch
+                    SurfaceFeature.Shield => organicDist switch
                     {
-                        // Shield volcanoes: broad, gentle slopes, mostly lava
-                        < 0.6f when elevation >= _volcanicCfg.ShieldVolcanoThreshold =>
-                            SurfaceFeature.Shield,
-                        > 0.5f when elevation >= 4 => SurfaceFeature.Lava,
+                        < 0.7f when elevation >= _volcanicCfg.ShieldVolcanoThreshold => SurfaceFeature.Shield,
                         _ => surfaceFeatures[idx]
                     },
-                    _ => normalizedDist switch
+                    _ => organicDist switch
                     {
-                        // Cinder cones: small, steep, cinder and ash
-                        < 0.5f when elevation >= 4 => SurfaceFeature.Cinder,
-                        > 0.4f when elevation >= 3 => SurfaceFeature.Ash,
+                        < 0.5f when elevation >= _volcanicCfg.CinderElevationThreshold => SurfaceFeature.Cinder,
+                        > 0.4f when elevation >= (_volcanicCfg.CinderElevationThreshold - 1) => SurfaceFeature.Ash,
                         _ => surfaceFeatures[idx]
                     }
                 };
 
-                // Add caldera for large stratovolcanoes at the center
-                if (normalizedDist < 0.2f && volcanoType == SurfaceFeature.Stratovolcano &&
-                    strength > 0.9f &&
+                // Central Caldera overrides
+                if (organicDist < 0.15f && volcanoType == SurfaceFeature.Stratovolcano &&
                     elevation >= _volcanicCfg.CalderaElevationThreshold)
+                {
                     surfaceFeatures[idx] = SurfaceFeature.Caldera;
+                }
             }
+        }
+
+        // 2. TRACE LAVA RIVERS
+        // Instead of spawning lava everywhere, we spawn 2 to 5 distinct lava rivers 
+        // that start near the peak and flow down the flowmap.
+        if (volcanoType is SurfaceFeature.Shield or SurfaceFeature.Stratovolcano)
+        {
+            var numLavaFlows = _rng.Next(2, 6); // Or derive from strength
+            for (var i = 0; i < numLavaFlows; i++)
+            {
+                // Pick a random starting point slightly offset from the exact center
+                var startX = WorldMath.WrapX(centerX + _rng.Next(-2, 3));
+                var startY = Math.Clamp(centerY + _rng.Next(-2, 3), 0, _worldHeight - 1);
+
+                var currentX = startX;
+                var currentY = startY;
+                var lavaVolume = strength * 15f;
+
+                while (lavaVolume > 0)
+                {
+                    var currentIdx = currentY * _worldWidth + currentX;
+                    var dir = flowDirections[currentIdx];
+
+                    // If we hit a pit or flat ground, pool up and stop
+                    if (dir.X == 0 && dir.Y == 0) break;
+
+                    var nextX = WorldMath.WrapX(currentX + dir.X);
+                    var nextY = currentY + dir.Y;
+
+                    if (nextY < 0 || nextY >= _worldHeight) break; // Off map edge
+
+                    var nextIdx = nextY * _worldWidth + nextX;
+
+                    // Stop if we hit the ocean
+                    if (elevations[nextIdx] < _elevationCfg.LandElevationThreshold) break;
+
+                    // Stop if we hit a river (Bonus: turn it to obsidian or rock later?)
+                    if (riverMap[nextIdx]) break;
+
+                    // Paint the lava and advance the cursor! (This fixes your infinite loop)
+                    surfaceFeatures[nextIdx] = SurfaceFeature.Lava;
+                    currentX = nextX;
+                    currentY = nextY;
+                    lavaVolume -= 1f;
+                }
+            }
+        }
+
+        // 3. APPLY FINAL PEAK CRATER
+        // Done last to ensure lava didn't overwrite the very center hole
+        var centerIdx = centerY * _worldWidth + centerX;
+        if (centerY >= 0 && centerY < _worldHeight && elevations[centerIdx] >= _volcanicCfg.CraterElevationThreshold)
+        {
+            if (volcanoType is SurfaceFeature.Stratovolcano or SurfaceFeature.Shield)
+                surfaceFeatures[centerIdx] = SurfaceFeature.Crater;
+            else if (volcanoType == SurfaceFeature.Cinder)
+                surfaceFeatures[centerIdx] = SurfaceFeature.Cinder;
         }
     }
 
@@ -2215,7 +2253,10 @@ public class CylinderWorld
     /// <summary>
     ///     Detect coastal features depending on their surrounding: beaches, cliffs and fjords.
     /// </summary>
-    private void ApplyCoastalFeatures(Span<float> elevations, Span<SurfaceFeature> surfaceFeatures)
+    private void ApplyCoastalFeatures(
+        Span<float> elevations,
+        Span<bool> riverMap,
+        Span<SurfaceFeature> surfaceFeatures)
     {
         for (var y = 0; y < _worldHeight; y++)
         {
@@ -2225,8 +2266,7 @@ public class CylinderWorld
                 var idx = rowOffset + x;
                 // Skip existing assigned strong surface features: river, lava, glacier
                 var existing = surfaceFeatures[idx];
-                if (existing is SurfaceFeature.River or SurfaceFeature.Lava or
-                    SurfaceFeature.Glacier)
+                if (existing is SurfaceFeature.Lava || riverMap[idx])
                     continue;
 
                 var elevation = elevations[idx];

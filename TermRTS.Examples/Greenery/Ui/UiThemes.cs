@@ -118,12 +118,8 @@ public class SurfaceFeatureTheme
             new CellVisual(Cp437.HookedF, ConsoleColor.Green, ConsoleColor.Blue)
         },
         {
-            SurfaceFeature.Glacier,
-            new CellVisual(Cp437.Dollar, ConsoleColor.Cyan, ConsoleColor.White)
-        },
-        {
             SurfaceFeature.Lava,
-            new CellVisual(Cp437.ArrowLeftRight, ConsoleColor.Red, ConsoleColor.DarkYellow)
+            new CellVisual(Cp437.Section, ConsoleColor.Red, ConsoleColor.DarkYellow)
         },
         {
             SurfaceFeature.Mountain,
@@ -134,12 +130,8 @@ public class SurfaceFeatureTheme
             new CellVisual(Cp437.WhiteSpace, ConsoleColor.Black, ConsoleColor.Black)
         },
         {
-            SurfaceFeature.River,
-            new CellVisual(Cp437.UnderScore, ConsoleColor.Cyan, ConsoleColor.Blue)
-        },
-        {
             SurfaceFeature.Shield,
-            new CellVisual(Cp437.LowerZ, ConsoleColor.DarkYellow, ConsoleColor.Gray)
+            new CellVisual(Cp437.UpperCedillaC, ConsoleColor.DarkYellow, ConsoleColor.Gray)
         },
         {
             SurfaceFeature.Snow,
@@ -208,7 +200,7 @@ public class BiomeTheme
         // Temperate
         {
             Biome.ColdDesert,
-            new CellVisual(Cp437.Asterisk, ConsoleColor.Yellow, ConsoleColor.DarkYellow)
+            new CellVisual(Cp437.Asterisk, ConsoleColor.DarkYellow, ConsoleColor.Yellow)
         },
         {
             Biome.HighlandMoor,

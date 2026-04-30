@@ -149,7 +149,7 @@ public class MapView : UiElementBase, IEventSink
         _humidityVisualizer = new HumidityVisualizer(
             theme.Scalar.MarkersScalar,
             theme.Heatmap.ColorsHeatmapHumidity);
-        _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap);
+        _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap, theme.SurfaceFeature.SurfaceFeatureMap);
         // TODO: Use theme to get WindDirectionTheme.
         _windVisualizer = new WindVisualizer(new WindDirectionTheme());
         _waterFlowVisualizer = new WaterFlowVisualizer(new DirectionMarkerTheme(), theme.Elevation.ColorsElevation);
