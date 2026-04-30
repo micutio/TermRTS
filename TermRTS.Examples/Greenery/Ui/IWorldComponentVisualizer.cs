@@ -333,7 +333,9 @@ internal class HumidityVisualizer(char[] markers, (ConsoleColor, ConsoleColor)[]
     }
 }
 
-internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
+internal class BiomeVisualizer(
+    Dictionary<Biome, CellVisual> biomeMap,
+    Dictionary<SurfaceFeature, CellVisual> surfaceFeatureMap)
     : IWorldComponentVisualizer
 {
     public void SetVisuals(
@@ -380,14 +382,23 @@ internal class BiomeVisualizer(Dictionary<Biome, CellVisual> biomeMap)
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
+                var surfaceFeature = currentChunk.PackedTiles[(ly << 5) + lx].SurfaceFeature;
                 var biome = currentChunk.PackedTiles[(ly << 5) + lx].Biome;
 
-                // 5. Map to your TUI visuals
-                if (biomeMap.TryGetValue(biome, out var marker))
+                // 5. Map to TUI visuals
+                if (!biomeMap.TryGetValue(biome, out var biomeVisual)) continue;
+
+                // 6. Write to the VIEWPORT-relative buffer
+                // Replace foreground with surface feature visual if there is one.
+                if (surfaceFeature != SurfaceFeature.None &&
+                    surfaceFeatureMap.TryGetValue(surfaceFeature, out var surfaceVisual))
                 {
-                    // 6. Write to the VIEWPORT-relative buffer
-                    viewportBuffer[vY * viewportWidth + vX] = marker;
+                    biomeVisual = new CellVisual(
+                        surfaceVisual.GetMarker(),
+                        surfaceVisual.GetForeground(),
+                        biomeVisual.GetBackground());
                 }
+                viewportBuffer[vY * viewportWidth + vX] = biomeVisual;
             }
         }
     }
