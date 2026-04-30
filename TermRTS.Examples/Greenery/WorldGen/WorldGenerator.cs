@@ -740,7 +740,7 @@ public class CylinderWorld
                 {
                     // I am a continent being hit by an ocean. 
                     // I crumple UP.
-                    multiplier = 18f;
+                    multiplier = 9f;
                 }
                 else if (!isRecipientCont && isAggressorCont)
                 {
