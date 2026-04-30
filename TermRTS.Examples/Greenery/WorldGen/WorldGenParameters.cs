@@ -33,14 +33,14 @@ public class VolcanicParameters
     public float CalderaElevationThreshold { get; set; } = 7;
     public float ShieldVolcanoThreshold { get; set; } = 5;
     public int MinIslandChains { get; set; } = 12;
-    public int MaxIslandChains { get; set; } = 25;
+    public int MaxIslandChains { get; set; } = 85;
     public int MinChainLength { get; set; } = 3;
     public int MaxChainLength { get; set; } = 8;
     public int ChainSpacing { get; set; } = 9;
-    public int MinHotspotRadius { get; set; } = 5;
-    public int MaxHotspotRadius { get; set; } = 15;
+    public int MinHotspotRadius { get; set; } = 8;
+    public int MaxHotspotRadius { get; set; } = 24;
     public float MinHotspotStrength { get; set; } = 3.4f;
-    public float MaxHotspotStrength { get; set; } = 6.1f;
+    public float MaxHotspotStrength { get; set; } = 9.9f;
 }
 
 public class ErosionParameters
