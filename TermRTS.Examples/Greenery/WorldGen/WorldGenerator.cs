@@ -734,7 +734,7 @@ public class CylinderWorld
             var isRecipientCont = voronoiCellTypes[voronoiIndex[i]];
             var isAggressorCont = voronoiCellTypes[secondVoronoiIndex[i]];
 
-            if (stress < 0) // Convergence (Crashing)
+            if (stress > 0) // Convergence (Crashing)
             {
                 if (isRecipientCont && !isAggressorCont)
                 {
@@ -2044,7 +2044,7 @@ public class CylinderWorld
                     if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
 
                     // Skip undersea tiles.
-                    if (elevations[idx] < _elevationCfg.LandElevationThreshold)
+                    if (elevations[idx] < _elevationCfg.HighMountainThreshold)
                         continue;
                     // Skip tiles with features already defined on them.
                     if (surfaceFeatures[idx] != SurfaceFeature.None) continue;
@@ -2202,7 +2202,7 @@ public class CylinderWorld
 
                 var currentX = startX;
                 var currentY = startY;
-                var lavaVolume = strength * 15f;
+                var lavaVolume = strength * 2f;
 
                 while (lavaVolume > 0)
                 {
