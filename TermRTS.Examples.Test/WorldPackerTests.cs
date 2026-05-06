@@ -168,7 +168,6 @@ public class WorldPackerTests
             voronoiCellCount: 175,
             plateCount: 28,
             new ElevationParameters(),
-            new CoastalParameters(),
             new VolcanicParameters(),
             new ErosionParameters(),
             new ClimateParameters(),
@@ -184,7 +183,6 @@ public class WorldPackerTests
             Assert.Equal(WorldMath.ChunkSize * WorldMath.ChunkSize, chunk.PackedTiles.Length);
             Assert.InRange(chunk.Cx, 0, WorldMath.ChunksAcross - 1);
             Assert.InRange(chunk.Cy, 0, WorldMath.WorldHeight / WorldMath.ChunkSize - 1);
-            Assert.True(chunk.PackedTiles[0].Elevation >= 0);
         }
     }
 

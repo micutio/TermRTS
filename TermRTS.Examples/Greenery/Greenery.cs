@@ -21,7 +21,7 @@ public class Greenery : IRunnableExample
     private const int PlateCount = 20;
 
     // private readonly ILog _log;
-    private CommandRunner _commandRunner;
+    private CommandRunner? _commandRunner;
 
     #region IRunnableExample Members
 
@@ -48,7 +48,6 @@ public class Greenery : IRunnableExample
                     VoronoiCellCount,
                     PlateCount,
                     new ElevationParameters(),
-                    new CoastalParameters(),
                     new VolcanicParameters(),
                     new ErosionParameters(),
                     new ClimateParameters(),
