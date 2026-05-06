@@ -4,10 +4,10 @@ using TermRTS.Examples.Greenery.Ecs.Component;
 
 namespace TermRTS.Examples.Greenery.WorldGen;
 
+// TODO: Replace all `Console.WriteLine`s with logging statements!
+
 // Refer to link below for a nice layered noise map implementation:
 // https://github.com/SebLague/Procedural-Landmass-Generation/blob/master/Proc%20Gen%20E03/Assets/Scripts/Noise.cs
-
-// TODO: Combine surface feature and biome into one enum?
 
 public enum SurfaceFeature : byte
 {
@@ -66,161 +66,38 @@ public enum Biome : byte
     MajorRiver,
 }
 
-public sealed class WorldGenerationResult(WorldPackedChunk[] packedData)
-{
-    public WorldPackedChunk[] PackedData { get; } = packedData;
-}
-
-public sealed class WorldBuffer<T> : IDisposable
-{
-    private readonly T[] _rawArray;
-    public Memory<T> Memory { get; }
-
-    public WorldBuffer(int size)
-    {
-        // Rent from the global shared pool
-        // _rawArray = ArrayPool<T>.Shared.Rent(size);
-        _rawArray = new T[size];
-
-        // Wrap ONLY the size we need into Memory
-        Memory = _rawArray.AsMemory(0, size);
-    }
-
-    public void Dispose()
-    {
-        // Return to the pool so it can be reused
-        // ArrayPool<T>.Shared.Return(_rawArray);
-    }
-}
-
 public record struct Point(int X, int Y)
 {
 }
 
-public class CylinderWorld
+public class CylinderWorld(
+    int worldWidth,
+    int worldHeight,
+    float landRatio,
+    int seed,
+    int voronoiCellCount,
+    int plateCount,
+    ElevationParameters elevationCfg,
+    VolcanicParameters volcanicCfg,
+    ErosionParameters erosionCfg,
+    ClimateParameters climateCfg,
+    RiverParameters riverCfg)
 {
     #region Fields
 
-    private readonly Random _rng;
-    private readonly int _seed;
-    private readonly int _worldWidth;
-    private readonly int _worldHeight;
-    private readonly int _voronoiCellCount;
-    private readonly int _plateCount;
+    private readonly Random _rng = new(seed);
+    private readonly int _voronoiCellCount = voronoiCellCount;
 
-    private readonly ElevationParameters _elevationCfg;
-    private readonly CoastalParameters _coastalCfg;
-    private readonly VolcanicParameters _volcanicCfg;
-    private readonly ErosionParameters _erosionCfg;
-    private readonly ClimateParameters _climateCfg;
-    private readonly RiverParameters _riverCfg;
-
-    private float _maxElevation = float.MinValue;
-    private float _minTectonicDelta = float.MaxValue;
-    private float _maxTectonicDelta = float.MinValue;
     private float _minHotspotHeight = float.MaxValue;
     private float _maxHotspotHeight = float.MinValue;
-
-    // TODO: Clean up this mess of buffers.
-    // private readonly WorldBuffer<float> _elevation;
-    // private readonly WorldBuffer<int> _landWaterMap;
-    // private readonly WorldBuffer<Point> _voronoiCells;
-    // private readonly WorldBuffer<bool> _voronoiCellTypes;
-    // private readonly WorldBuffer<int> _voronoiCellIndex;
-    // private readonly WorldBuffer<Point> _plateCells;
-    // private readonly WorldBuffer<bool> _plateTypes;
-    // private readonly WorldBuffer<int> _plateIndex;
-    // private readonly WorldBuffer<Vector2> _plateMotions;
-    // private readonly WorldBuffer<Point> _flowDirections;
-    // private readonly WorldBuffer<Point> _windDirections;
-    // private readonly WorldBuffer<byte> _windSpeeds;
-    // private readonly WorldBuffer<float> _coastalSlopes;
-    // private readonly WorldBuffer<float> _tectonicDelta;
-    // private readonly WorldBuffer<float> _hotspotMap;
-    // private readonly WorldBuffer<float> _noiseMap;
-    // private readonly WorldBuffer<float> _temperature;
-    // private readonly WorldBuffer<float> _temperatureAmplitude;
-    // private readonly WorldBuffer<float> _humidity;
-    // private readonly WorldBuffer<float> _distToWaterMap;
-    // private readonly WorldBuffer<Biome> _biomes;
-
-    // private readonly WorldBuffer<SurfaceFeature> _surfaceFeatures;
-
-    // TODO: Merge surface features and rivers
-    // private readonly WorldBuffer<bool> _riverMap;
-    // private readonly WorldBuffer<int> _strahlerRiver;
 
     #endregion
 
     #region Properties
 
-    public int VoronoiCellCount { get; set; }
+    private int VoronoiCellCount { get; } = voronoiCellCount;
 
-    public float LandRatio { get; set; }
-
-    #endregion
-
-    #region Constructor
-
-    public CylinderWorld(
-        int worldWidth,
-        int worldHeight,
-        float landRatio,
-        int seed,
-        int voronoiCellCount,
-        int plateCount,
-        ElevationParameters elevationCfg,
-        CoastalParameters coastalCfg,
-        VolcanicParameters volcanicCfg,
-        ErosionParameters erosionCfg,
-        ClimateParameters climateCfg,
-        RiverParameters riverCfg)
-    {
-        // init readonly fields
-        _rng = new Random(seed);
-        _seed = seed;
-        _worldWidth = worldWidth;
-        _worldHeight = worldHeight;
-        LandRatio = landRatio;
-        _voronoiCellCount = voronoiCellCount;
-        _plateCount = plateCount;
-
-        _elevationCfg = elevationCfg;
-        _coastalCfg = coastalCfg;
-        _volcanicCfg = volcanicCfg;
-        _erosionCfg = erosionCfg;
-        _climateCfg = climateCfg;
-        _riverCfg = riverCfg;
-
-        // init private fields
-        // _elevation = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _landWaterMap = new WorldBuffer<int>(voronoiCellCount);
-        // _voronoiCells = new WorldBuffer<Point>(voronoiCellCount);
-        // _voronoiCellTypes = new WorldBuffer<bool>(voronoiCellCount);
-        // _voronoiCellIndex = new WorldBuffer<int>(worldWidth * worldHeight);
-        // _plateCells = new WorldBuffer<Point>(plateCount);
-        // _plateTypes = new WorldBuffer<bool>(plateCount);
-        // _plateIndex = new WorldBuffer<int>(voronoiCellCount);
-        // _plateMotions = new WorldBuffer<Vector2>(voronoiCellCount);
-        // _flowDirections = new WorldBuffer<Point>(worldWidth * worldHeight);
-        // _windDirections = new WorldBuffer<Point>(worldWidth * worldHeight);
-        // _windSpeeds = new WorldBuffer<byte>(worldWidth * worldHeight);
-        // _coastalSlopes = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _tectonicDelta = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _hotspotMap = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _noiseMap = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _temperature = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _temperatureAmplitude = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _humidity = new WorldBuffer<float>(worldWidth * worldHeight);
-        // _distToWaterMap = new WorldBuffer<float>(_worldWidth * _worldHeight);
-        // _biomes = new WorldBuffer<Biome>(worldWidth * worldHeight);
-        // _surfaceFeatures = new WorldBuffer<SurfaceFeature>(worldWidth * worldHeight);
-        // _riverMap = new WorldBuffer<bool>(worldWidth * worldHeight);
-        // _strahlerRiver = new WorldBuffer<int>(worldWidth * worldHeight);
-
-        // init properties
-        VoronoiCellCount = voronoiCellCount;
-    }
+    private float LandRatio { get; } = landRatio;
 
     #endregion
 
@@ -257,9 +134,6 @@ public class CylinderWorld
         timer.Stop();
         Console.WriteLine($"Generate LandWater Distribution: {timer.ElapsedMilliseconds} ms");
 
-        // Generate coastal slopes for each voronoi cell.
-        // GenerateSlopedCoasts();
-
         // Stage 2: Plate Tectonics ////////////////////////////////////////////////////////////////
 
         timer.Restart();
@@ -278,7 +152,6 @@ public class CylinderWorld
             voronoiDistToSecond,
             plateCells,
             plateIndex,
-            plateTypes,
             plateMotions);
         timer.Stop();
         Console.WriteLine($"Compute Plate Tectonic Height: {timer.ElapsedMilliseconds} ms");
@@ -305,12 +178,11 @@ public class CylinderWorld
         timer.Stop();
         Console.WriteLine($"Generate Wind Field: {timer.ElapsedMilliseconds} ms");
 
-        // CalculateDistanceToWaterMap(); // TODO: This does not seem to be used.
         // Generate climate (temperature, humidity, biomes, seasonal effects)
         timer.Restart();
-        var riverMap = new bool[_worldWidth * _worldHeight];
-        var strahlerRiverMap = new byte[_worldWidth * _worldHeight];
-        var (temperature, humidity, biomes) =
+        var riverMap = new bool[worldWidth * worldHeight];
+        var strahlerRiverMap = new byte[worldWidth * worldHeight];
+        var (temperature, humidity, _) =
             GenerateClimate(noiseMap, elevations, windDirections, riverMap, strahlerRiverMap);
         timer.Stop();
         Console.WriteLine($"Generate Climate: {timer.ElapsedMilliseconds} ms");
@@ -335,7 +207,7 @@ public class CylinderWorld
 
         // Re-generate climate, now that we have rivers:
         timer.Restart();
-        (temperature, humidity, biomes) =
+        (temperature, humidity, var biomes) =
             GenerateClimate(noiseMap, elevations, windDirections, riverMap, strahlerRiverMap);
         timer.Stop();
         Console.WriteLine($"Generate Climate: {timer.ElapsedMilliseconds} ms");
@@ -366,8 +238,6 @@ public class CylinderWorld
 
         // Wind field was calculated earlier (before biome generation).
 
-        Console.ReadKey();
-
         return ToPackedChunks(
             elevations,
             humidity,
@@ -389,7 +259,7 @@ public class CylinderWorld
     /// </summary>
     private float[] GenerateNoiseMap()
     {
-        var noise = new FastNoiseLite(_seed);
+        var noise = new FastNoiseLite(seed);
         noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
         noise.SetFractalType(FastNoiseLite.FractalType.FBm);
         noise.SetFractalOctaves(4);
@@ -397,26 +267,24 @@ public class CylinderWorld
         noise.SetFractalGain(0.5f);
         noise.SetFrequency(0.04f);
 
-        var noiseMap = new float[_worldWidth * _worldHeight];
+        var noiseMap = new float[worldWidth * worldHeight];
         // We calculate a radius that keeps the scale consistent.
         // A larger radius results in more "zoomed in" noise.
-        var radius = _worldWidth / (2.0f * (float)Math.PI);
+        var radius = worldWidth / (2.0f * (float)Math.PI);
 
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 // Map X to a circle in 3D space
-                var angle = x / (float)_worldWidth * 2.0f * (float)Math.PI;
+                var angle = x / (float)worldWidth * 2.0f * (float)Math.PI;
                 var nx = (float)Math.Cos(angle) * radius;
                 var ny = (float)Math.Sin(angle) * radius;
 
                 // Map Y to the vertical axis (Z)
-                var nz = y;
-
                 // Get noise [1, 1] and normalise to [0, 1]
-                var noiseVal = noise.GetNoise(nx, ny, nz);
+                var noiseVal = noise.GetNoise(nx, ny, y);
                 noiseMap[rowOffset + x] = (noiseVal + 1.0f) / 2.0f;
             }
         }
@@ -439,15 +307,15 @@ public class CylinderWorld
     {
         // step 1: randomly sample <cellCount> coordinates of the grid as voronoi cell seeds
         for (var i = 0; i < VoronoiCellCount; i += 1)
-            voronoiCells[i] = new Point(_rng.Next(_worldWidth), _rng.Next(_worldHeight));
+            voronoiCells[i] = new Point(_rng.Next(worldWidth), _rng.Next(worldHeight));
 
         var voronoiCellTypes = GenerateVoronoiCellTypes();
 
         for (var i = 0; i < VoronoiCellCount; i += 1)
             // Lower oceanic plates to create deeper oceans
             landWaterMap[i] = voronoiCellTypes[i]
-                ? _elevationCfg.LandElevationThreshold
-                : _elevationCfg.LandElevationThreshold - 1;
+                ? elevationCfg.LandElevationThreshold
+                : elevationCfg.LandElevationThreshold - 1;
 
         return voronoiCellTypes;
     }
@@ -495,22 +363,20 @@ public class CylinderWorld
         )
     {
         const int jiggle = 40;
-        var voronoiCellIndex = new int[_worldWidth * _worldHeight];
-        var secondVoronoiIndex = new int[_worldWidth * _worldHeight];
-        var voronoiDistToWinner = new float[_worldWidth * _worldHeight];
-        var voronoiDistToSecond = new float[_worldWidth * _worldHeight];
-        var elevations = new float[_worldWidth * _worldHeight];
+        var voronoiCellIndex = new int[worldWidth * worldHeight];
+        var secondVoronoiIndex = new int[worldWidth * worldHeight];
+        var voronoiDistToWinner = new float[worldWidth * worldHeight];
+        var voronoiDistToSecond = new float[worldWidth * worldHeight];
+        var elevations = new float[worldWidth * worldHeight];
 
-        Parallel.For(0, _worldHeight, y =>
+        Parallel.For(0, worldHeight, y =>
         {
             // Thread-local Spans created from the captured Memory
             var noiseSpan = noiseMap.Span;
             var voronoiSpan = voronoiCells.Span;
             var landWaterSpan = landWaterMap.Span;
-            var localLand = 0;
-            var localWater = 0;
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x += 1)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x += 1)
             {
                 var idx = rowOffset + x;
                 var jiggleNoise = noiseSpan[idx];
@@ -550,19 +416,10 @@ public class CylinderWorld
                 voronoiCellIndex[idx] = winnerCell;
                 secondVoronoiIndex[idx] = secondWinnerCell;
 
-                elevations[idx] = landWaterSpan[winnerCell] >= _elevationCfg.LandElevationThreshold
-                    ? _elevationCfg.LandElevationThreshold + MathF.Pow(noiseSpan[idx], 2.2f) *
-                    (_elevationCfg.MaxElevation - _elevationCfg.LandElevationThreshold - 1)
-                    : noiseSpan[idx] * (_elevationCfg.LandElevationThreshold - 1);
-
-                if (elevations[idx] >= _elevationCfg.LandElevationThreshold)
-                {
-                    localLand++;
-                }
-                else
-                {
-                    localWater++;
-                }
+                elevations[idx] = landWaterSpan[winnerCell] >= elevationCfg.LandElevationThreshold
+                    ? elevationCfg.LandElevationThreshold + MathF.Pow(noiseSpan[idx], 2.2f) *
+                    (elevationCfg.MaxElevation - elevationCfg.LandElevationThreshold - 1)
+                    : noiseSpan[idx] * (elevationCfg.LandElevationThreshold - 1);
             }
         });
 
@@ -583,13 +440,13 @@ public class CylinderWorld
         Span<bool> voronoiCellTypes
     )
     {
-        var plateCells = new Point[_plateCount];
-        var plateTypes = new bool[_plateCount];
+        var plateCells = new Point[plateCount];
+        var plateTypes = new bool[plateCount];
         var plateIndex = new int[_voronoiCellCount];
 
         // 1. SAFE SEED SELECTION (Preventing twin plates)
         var chosenSeeds = new HashSet<int>();
-        for (var i = 0; i < _plateCount; i++)
+        for (var i = 0; i < plateCount; i++)
         {
             int voronoiIndex;
             do
@@ -604,7 +461,7 @@ public class CylinderWorld
 
         // TWEAKABLE: How violently the boundaries snake and interlock.
         // A value of 10-20% of your world width usually looks great.
-        var warpStrength = _worldWidth * 0.15f;
+        var warpStrength = worldWidth * 0.15f;
 
         // 2. ASSIGN CELLS TO PLATES (With Domain Warping)
         for (var j = 0; j < _voronoiCellCount; j++)
@@ -615,10 +472,10 @@ public class CylinderWorld
 
             // Sample noise at the cell's center to get a warp vector.
             // We use the 1D noise map but offset the lookup to get an X and Y warp.
-            var cellIdx = vY * _worldWidth + vX;
+            var cellIdx = vY * worldWidth + vX;
 
             // Pseudo-random offset for the Y noise so X and Y warp independently
-            var offsetIdx = (cellIdx + (_worldWidth / 2)) % noiseMap.Length;
+            var offsetIdx = (cellIdx + (worldWidth / 2)) % noiseMap.Length;
 
             // Normalize noise from [0, 1] to [-1, 1] and scale by warp strength
             var warpX = (noiseMap[cellIdx] - 0.5f) * 2.0f * warpStrength;
@@ -628,7 +485,7 @@ public class CylinderWorld
             var warpedVx = vX + warpX;
             var warpedVy = vY + warpY;
 
-            for (var i = 0; i < _plateCount; i++)
+            for (var i = 0; i < plateCount; i++)
             {
                 var (pX, pY) = plateCells[i];
 
@@ -653,11 +510,11 @@ public class CylinderWorld
     /// </summary>
     private Vector2[] GeneratePlateMotions()
     {
-        var motions = new Vector2[_plateCount];
-        for (var i = 0; i < _plateCount; i += 1)
+        var motions = new Vector2[plateCount];
+        for (var i = 0; i < plateCount; i += 1)
         {
             var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
-            // TODO: Play around with the speed formula.
+            // TODO: Move speed coefficients to config!
             var speed = (float)_rng.NextDouble() * 1.5f; // * 0.5 + 0.1);
             motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
         }
@@ -679,15 +536,14 @@ public class CylinderWorld
         Span<float> dist2,
         Span<Point> plateCells,
         Span<int> plateIndex,
-        Span<bool> plateTypes,
         Span<Vector2> plateMotions
     )
     {
-        var tectonicDelta = new float[_worldWidth * _worldHeight];
-        var plateCount = plateMotions.Length;
-
+        var tectonicDelta = new float[worldWidth * worldHeight];
+        
         // TWEAKABLE: How many pixels wide are your mountain ranges?
-        var rangeWidth = 11.0f;
+        // TODO: Move to config!
+        const float rangeWidth = 11.0f;
 
         // Pre-calculate stress between every possible plate pair (O(P^2))
         // This avoids recalculating Dot products millions of times.
@@ -709,7 +565,7 @@ public class CylinderWorld
         }
 
         // The Pixel Loop
-        for (var i = 0; i < _worldWidth * _worldHeight; i++)
+        for (var i = 0; i < worldWidth * worldHeight; i++)
         {
             var p1 = plateIndex[voronoiIndex[i]];
             var p2 = plateIndex[secondVoronoiIndex[i]];
@@ -736,30 +592,14 @@ public class CylinderWorld
 
             if (stress > 0) // Convergence (Crashing)
             {
-                if (isRecipientCont && !isAggressorCont)
+                multiplier = isRecipientCont switch
                 {
-                    // I am a continent being hit by an ocean. 
-                    // I crumple UP.
-                    multiplier = 9f;
-                }
-                else if (!isRecipientCont && isAggressorCont)
-                {
-                    // I am an ocean hitting a continent. 
-                    // I get dragged DOWN.
-                    multiplier = -12f; // Negative creates the trench!
-                }
-                else if (!isRecipientCont && !isAggressorCont)
-                {
-                    // I am an ocean hitting an ocean. 
-                    // Prevent hugh mountains in the middle of sea.
-                    multiplier = 2f;
-                }
-                else if (isRecipientCont && isAggressorCont)
-                {
-                    // Two continents hitting each other (Himalayas).
-                    // Both go UP.
-                    multiplier = 25f;
-                }
+                    true when !isAggressorCont => 9f,
+                    false when isAggressorCont => -12f,
+                    false when !isAggressorCont => 2f,
+                    true when isAggressorCont => 25f,
+                    _ => multiplier
+                };
             }
 
             tectonicDelta[i] = stressLookup[p1 * plateCount + p2] * multiplier * influence;
@@ -777,8 +617,8 @@ public class CylinderWorld
         Span<bool> voronoiCellTypes,
         Span<Vector2> plateMotions)
     {
-        var hotspots = new float[_worldWidth * _worldHeight];
-        var chainCount = _rng.Next(_volcanicCfg.MinIslandChains, _volcanicCfg.MaxIslandChains + 1);
+        var hotspots = new float[worldWidth * worldHeight];
+        var chainCount = _rng.Next(volcanicCfg.MinIslandChains, volcanicCfg.MaxIslandChains + 1);
 
         var oceanPlateIds = new List<int>();
         for (var i = 0; i < voronoiCellTypes.Length; i++)
@@ -786,8 +626,8 @@ public class CylinderWorld
                 oceanPlateIds.Add(i);
 
         // Track local min/max to avoid global state contention during the loops
-        float localMinHeight = float.MaxValue;
-        float localMaxHeight = float.MinValue;
+        var localMinHeight = float.MaxValue;
+        var localMaxHeight = float.MinValue;
 
         for (var chain = 0; chain < chainCount; chain++)
         {
@@ -798,7 +638,7 @@ public class CylinderWorld
             var (startX, startY) = voronoiCells[oceanPlateId];
 
             var chainLength =
-                _rng.Next(_volcanicCfg.MinChainLength, _volcanicCfg.MaxChainLength + 1);
+                _rng.Next(volcanicCfg.MinChainLength, volcanicCfg.MaxChainLength + 1);
 
             var chainDirection = plateMotions.Length > 0
                 ? plateMotions[_rng.Next(plateMotions.Length)]
@@ -811,34 +651,34 @@ public class CylinderWorld
 
             for (var i = 0; i < chainLength; i++)
             {
-                var offsetX = (int)(chainDirection.X * i * _volcanicCfg.ChainSpacing);
-                var offsetY = (int)(chainDirection.Y * i * _volcanicCfg.ChainSpacing);
+                var offsetX = (int)(chainDirection.X * i * volcanicCfg.ChainSpacing);
+                var offsetY = (int)(chainDirection.Y * i * volcanicCfg.ChainSpacing);
                 var centerX = WorldMath.WrapX(startX + offsetX);
                 var centerY = startY + offsetY;
 
-                if (centerY < 0 || centerY >= _worldHeight) continue;
+                if (centerY < 0 || centerY >= worldHeight) continue;
 
-                var radius = _rng.Next(_volcanicCfg.MinHotspotRadius,
-                    _volcanicCfg.MaxHotspotRadius + 1);
+                var radius = _rng.Next(volcanicCfg.MinHotspotRadius,
+                    volcanicCfg.MaxHotspotRadius + 1);
                 var radiusSq = radius * radius; // Pre-calculate for fast distance check
 
                 var strength = (float)(_rng.NextDouble() *
-                                       (_volcanicCfg.MaxHotspotStrength -
-                                        _volcanicCfg.MinHotspotStrength) +
-                                       _volcanicCfg.MinHotspotStrength);
+                                       (volcanicCfg.MaxHotspotStrength -
+                                        volcanicCfg.MinHotspotStrength) +
+                                       volcanicCfg.MinHotspotStrength);
 
                 // Bounding box: Y clamps, but X does NOT clamp so we can wrap it
                 var minY = Math.Max(0, centerY - radius);
-                var maxY = Math.Min(_worldHeight, centerY + radius);
+                var maxY = Math.Min(worldHeight, centerY + radius);
                 var minX = centerX - radius;
                 var maxX = centerX + radius;
 
-                var isAtoll = MathF.Abs(_worldHeight / 2f - centerY) < _worldHeight / 3f &&
+                var isAtoll = MathF.Abs(worldHeight / 2f - centerY) < worldHeight / 3f &&
                               _rng.NextDouble() < 0.5f;
 
                 for (var y = minY; y < maxY; y++)
                 {
-                    var rowOffset = y * _worldWidth;
+                    var rowOffset = y * worldWidth;
                     var dy = y - centerY;
                     var dySq = dy * dy;
 
@@ -867,7 +707,7 @@ public class CylinderWorld
                         // filling the lagoon back in. We simulate a caldera collapse to "Sea Level - 1"
                         if (isAtoll)
                         {
-                            var atollThreshold = _volcanicCfg.MaxHotspotStrength * 0.6f;
+                            var atollThreshold = volcanicCfg.MaxHotspotStrength * 0.6f;
                             if (hotspots[idx] > atollThreshold)
                             {
                                 // Flatten the peak to create a lagoon rim, then sink the center
@@ -902,12 +742,12 @@ public class CylinderWorld
         const float baseNoiseIntensity = 0.05f;
 
         var landCount = 0;
-        var totalCells = _worldWidth * _worldHeight;
+        var totalCells = worldWidth * worldHeight;
 
         for (var i = 0; i < totalCells; i++)
         {
             var currentElev = elevations[i];
-            var isAboveThreshold = currentElev >= _elevationCfg.LandElevationThreshold;
+            var isAboveThreshold = currentElev >= elevationCfg.LandElevationThreshold;
 
             // 1. Calculate Detail Noise
             // Since coastalSlopes is uninitialized, I'm using a fallback value.
@@ -922,11 +762,11 @@ public class CylinderWorld
 
             // 3. Clamp and Store
             // Ensure we don't exceed the atmosphere's ceiling.
-            var clampedElev = Math.Min(_elevationCfg.MaxElevation, finalElevation);
+            var clampedElev = Math.Min(elevationCfg.MaxElevation, finalElevation);
             elevations[i] = clampedElev;
 
             // 4. Statistics
-            if (clampedElev >= _elevationCfg.LandElevationThreshold)
+            if (clampedElev >= elevationCfg.LandElevationThreshold)
             {
                 landCount++;
             }
@@ -947,20 +787,20 @@ public class CylinderWorld
     /// </summary>
     private (Point[], byte[]) CalculateWindField(Span<float> noiseMap, Span<float> elevations)
     {
-        var windDirections = new Point[_worldWidth * _worldHeight];
-        var windSpeeds = new byte[_worldWidth * _worldHeight];
+        var windDirections = new Point[worldWidth * worldHeight];
+        var windSpeeds = new byte[worldWidth * worldHeight];
 
         // Compute max elevation for normalization (avoid using _maxElevation which is set later)
         var maxElev = float.MinValue;
-        var total = _worldWidth * _worldHeight;
+        var total = worldWidth * worldHeight;
         for (var i = 0; i < total; i++) maxElev = MathF.Max(maxElev, elevations[i]);
         if (maxElev <= 0) maxElev = 1f;
 
-        var mid = _worldHeight / 2f;
+        var mid = worldHeight / 2f;
 
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
+            var rowOffset = y * worldWidth;
             // Absolute latitude 0 at equator -> 1 at poles
             var latitudeAbs = MathF.Abs(y - mid) / mid;
 
@@ -974,15 +814,15 @@ public class CylinderWorld
             // Meridional component: trades blow toward the equator, westerlies toward poles
             var bandDy = bandDx < 0 ? -hemisphere : hemisphere;
 
-            for (var x = 0; x < _worldWidth; x++)
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
 
                 // Local noise to add small-scale variation
                 var noiseX = (noiseMap[idx] * 2f - 1f) * 0.25f; // approx -0.25..0.25
                 // Read from an arbitrary large offset (e.g., halfway across the map) for Y noise
-                var offsetIdx = (idx + (_worldWidth * _worldHeight / 2)) %
-                                (_worldWidth * _worldHeight);
+                var offsetIdx = (idx + (worldWidth * worldHeight / 2)) %
+                                (worldWidth * worldHeight);
                 var noiseY = (noiseMap[offsetIdx] * 2f - 1f) * 0.25f;
 
                 // Base floating vector
@@ -1008,8 +848,8 @@ public class CylinderWorld
                 {
                     var targetX = WorldMath.WrapX(x + finalDx);
                     // Clamp Y to prevent trying to read outside the array at the poles
-                    var targetY = Math.Clamp(y + finalDy, 0, _worldHeight - 1);
-                    var targetIdx = targetY * _worldWidth + targetX;
+                    var targetY = Math.Clamp(y + finalDy, 0, worldHeight - 1);
+                    var targetIdx = targetY * worldWidth + targetX;
 
                     // Positive slope means uphill. We don't care about downhill (negative).
                     var directionalSlope = elevations[targetIdx] - elevations[idx];
@@ -1052,26 +892,26 @@ public class CylinderWorld
         Span<bool> riverMap,
         Span<byte> strahlerRiver)
     {
-        var temperature = new float[_worldWidth * _worldHeight];
-        var humidity = new float[_worldWidth * _worldHeight];
-        var biomes = new Biome[_worldWidth * _worldHeight];
+        var temperature = new float[worldWidth * worldHeight];
+        var humidity = new float[worldWidth * worldHeight];
+        var biomes = new Biome[worldWidth * worldHeight];
 
         // STEP 1: CALCULATE TEMPERATURE FIRST
         // Everything else (Rainfall and Humidity) depends on temperature.
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
+            var rowOffset = y * worldWidth;
             // Smoother latitude warping using the noise map
             var latWarp = (noiseMap[rowOffset] * 2 - 1) * 4.0f;
-            var latitude = MathF.Abs(y + latWarp - _worldHeight / 2f) / (_worldHeight / 2f);
-            var baseTemp = _climateCfg.BaseTempMax -
-                           (_climateCfg.BaseTempMax - _climateCfg.BaseTempMin) *
+            var latitude = MathF.Abs(y + latWarp - worldHeight / 2f) / (worldHeight / 2f);
+            var baseTemp = climateCfg.BaseTempMax -
+                           (climateCfg.BaseTempMax - climateCfg.BaseTempMin) *
                            MathF.Pow(latitude, 1.2f);
 
-            for (var x = 0; x < _worldWidth; x++)
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
-                var elevationFactor = elevations[idx] / _elevationCfg.MaxElevation;
+                var elevationFactor = elevations[idx] / elevationCfg.MaxElevation;
 
                 // CORRECTED LAPSE RATE: Temperature drops as elevation rises
                 // We subtract the elevation factor here.
@@ -1099,7 +939,7 @@ public class CylinderWorld
                 temperature[idx],
                 humidity[idx],
                 elevations[idx],
-                elevations[idx] < _elevationCfg.LandElevationThreshold,
+                elevations[idx] < elevationCfg.LandElevationThreshold,
                 riverMap[idx],
                 strahlerRiver[idx]);
         }
@@ -1114,33 +954,33 @@ public class CylinderWorld
         Span<bool> riverMap,
         Span<Point> windDirections)
     {
-        var rainfall = new float[_worldWidth * _worldHeight];
+        var rainfall = new float[worldWidth * worldHeight];
 
         // Tuning Constants
         const float moistureRechargeRate = 0.09f;
         const float rainDropFactor = 0.06f;
         const float landDecayRate = 0.995f; // Slightly higher to prevent mid-continent "dead zones"
 
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
+            var rowOffset = y * worldWidth;
 
             // 1. Determine Global Wind Row Direction
             var sumX = 0;
-            for (var sx = 0; sx < _worldWidth; sx++)
+            for (var sx = 0; sx < worldWidth; sx++)
                 sumX += windDirections[rowOffset + sx].X;
             var windDir = sumX >= 0 ? 1 : -1;
 
             // 2. Initial Cloud State
-            var cloudMoisture = _riverCfg.RainfallLandBase;
+            var cloudMoisture = riverCfg.RainfallLandBase;
 
             // 3. Two-Pass Sweep (for world wrapping)
-            for (var step = 0; step < _worldWidth * 2; step++)
+            for (var step = 0; step < worldWidth * 2; step++)
             {
                 var windX = WorldMath.WrapX(windDir == 1 ? step : -step);
                 var idx = rowOffset + windX;
                 var elev = elevations[idx];
-                var isSecondPass = step >= _worldWidth;
+                var isSecondPass = step >= worldWidth;
 
                 // Temperature factors
                 var tempAtTile = temperatures[idx];
@@ -1156,14 +996,14 @@ public class CylinderWorld
                     };
                 var evapPower = Math.Clamp((tempAtTile + 50) / 80f, 0.2f, 1.5f);
 
-                if (elev < _elevationCfg.LandElevationThreshold || riverMap[idx])
+                if (elev < elevationCfg.LandElevationThreshold || riverMap[idx])
                 {
                     // OCEAN: Recharge
-                    cloudMoisture = (MathF.Min(_riverCfg.RainfallOceanBase,
+                    cloudMoisture = (MathF.Min(riverCfg.RainfallOceanBase,
                         cloudMoisture + (moistureRechargeRate * evapPower))) * poleFactor;
 
                     if (isSecondPass)
-                        rainfall[idx] = _riverCfg.RainfallOceanBase * poleFactor;
+                        rainfall[idx] = riverCfg.RainfallOceanBase * poleFactor;
                 }
                 else
                 {
@@ -1171,9 +1011,9 @@ public class CylinderWorld
                     var windVec = windDirections[idx];
                     var dx = windVec.X != 0 ? windVec.X : windDir;
                     var prevX = WorldMath.WrapX(windX - dx);
-                    var prevY = Math.Clamp(y - windVec.Y, 0, _worldHeight - 1);
+                    var prevY = Math.Clamp(y - windVec.Y, 0, worldHeight - 1);
 
-                    var lift = elev - elevations[prevY * _worldWidth + prevX];
+                    var lift = elev - elevations[prevY * worldWidth + prevX];
                     float rainDropped = 0;
 
                     if (lift > 0)
@@ -1193,17 +1033,17 @@ public class CylinderWorld
                                         (rainDropped * 3.0f * noiseMap[idx] * poleFactor);
 
                         // Add local humidity from rivers
-                        if (riverMap[idx]) finalRain += (_riverCfg.RainfallOceanBase * 0.25f);
+                        if (riverMap[idx]) finalRain += (riverCfg.RainfallOceanBase * 0.25f);
 
                         // RECORD: Use += to allow for the 'Bleed' from neighbors
                         rainfall[idx] += finalRain;
 
                         // BLEED: Break horizontal lines
-                        if (y > 0 && y < _worldHeight - 1)
+                        if (y > 0 && y < worldHeight - 1)
                         {
                             var bleed = finalRain * 0.18f;
-                            rainfall[(y - 1) * _worldWidth + windX] += bleed;
-                            rainfall[(y + 1) * _worldWidth + windX] += bleed;
+                            rainfall[(y - 1) * worldWidth + windX] += bleed;
+                            rainfall[(y + 1) * worldWidth + windX] += bleed;
                         }
                     }
 
@@ -1244,19 +1084,19 @@ public class CylinderWorld
             {
                 return Biome.PackIce;
             }
-            else if (elevation < _elevationCfg.HighSeaThreshold)
+            else if (elevation < elevationCfg.HighSeaThreshold)
             {
                 return Biome.HighSeas;
             }
-            else if (elevation < _elevationCfg.OceanThreshold)
+            else if (elevation < elevationCfg.OceanThreshold)
             {
                 return Biome.Ocean;
             }
-            else if (elevation < _elevationCfg.ShelfThreshold)
+            else if (elevation < elevationCfg.ShelfThreshold)
             {
                 return Biome.Shelf;
             }
-            else if (elevation < _elevationCfg.ShallowsThreshold)
+            else if (elevation < elevationCfg.ShallowsThreshold)
             {
                 return temp < 25f ? Biome.Shallows : Biome.Reef;
             }
@@ -1274,7 +1114,7 @@ public class CylinderWorld
 
 
         // High Altitude "Dead Zone" (Above the Tree Line)
-        if (elevation >= _elevationCfg.HighMountainThreshold)
+        if (elevation >= elevationCfg.HighMountainThreshold)
             return temp < 0f ? Biome.Glacier : Biome.RockPeak;
 
         switch (temp)
@@ -1292,7 +1132,7 @@ public class CylinderWorld
             case < 5f when relHumidity < 0.25f:
                 return Biome.Tundra;
             // Use elevation for Alpine variations
-            case < 5f when elevation > _volcanicCfg.CraterElevationThreshold:
+            case < 5f when elevation > volcanicCfg.CraterElevationThreshold:
                 return Biome.AlpineTundra;
             // Differentiate between standard Boreal forest and heavy precipitation zones
             case < 5f:
@@ -1300,7 +1140,7 @@ public class CylinderWorld
             // 5. Temperate
             case < 22f when relHumidity < 0.15f:
                 return Biome.ColdDesert;
-            case < 22f when elevation > _volcanicCfg.CraterElevationThreshold && relHumidity > 0.6f:
+            case < 22f when elevation > volcanicCfg.CraterElevationThreshold && relHumidity > 0.6f:
                 return Biome.HighlandMoor;
             case < 22f when relHumidity < 0.4f:
                 return Biome.Steppe;
@@ -1312,7 +1152,7 @@ public class CylinderWorld
 
         // 6. Tropical / Hot
         // High altitude tropics create unique "Cloud Forests" (very high humidity + altitude)
-        if (elevation > _volcanicCfg.CraterElevationThreshold && relHumidity > 0.75f)
+        if (elevation > volcanicCfg.CraterElevationThreshold && relHumidity > 0.75f)
             return Biome.CloudForest;
 
         return relHumidity switch
@@ -1341,28 +1181,28 @@ public class CylinderWorld
             [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)];
 
         // 1. Allocate arrays ONCE outside the loop (Double Buffering)
-        var terrain = new float[_worldWidth * _worldHeight];
-        var nextTerrain = new float[_worldWidth * _worldHeight];
+        var terrain = new float[worldWidth * worldHeight];
+        var nextTerrain = new float[worldWidth * worldHeight];
 
-        var water = new float[_worldWidth * _worldHeight];
-        var nextWater = new float[_worldWidth * _worldHeight];
+        var water = new float[worldWidth * worldHeight];
+        var nextWater = new float[worldWidth * worldHeight];
 
-        var sediment = new float[_worldWidth * _worldHeight];
-        var nextSediment = new float[_worldWidth * _worldHeight];
+        var sediment = new float[worldWidth * worldHeight];
+        var nextSediment = new float[worldWidth * worldHeight];
 
         // Initialize terrain
         elevations.CopyTo(terrain);
 
         // Pre-calculate wrapped coordinates for performance
-        var leftX = new int[_worldWidth];
-        var rightX = new int[_worldWidth];
-        for (var x = 0; x < _worldWidth; x++)
+        var leftX = new int[worldWidth];
+        var rightX = new int[worldWidth];
+        for (var x = 0; x < worldWidth; x++)
         {
             leftX[x] = WorldMath.WrapX(x - 1);
             rightX[x] = WorldMath.WrapX(x + 1);
         }
 
-        for (var iter = 0; iter < _erosionCfg.ErosionIterations; iter++)
+        for (var iter = 0; iter < erosionCfg.ErosionIterations; iter++)
         {
             // Copy current state to 'next' state for delta accumulation
             Array.Copy(terrain, nextTerrain, terrain.Length);
@@ -1370,21 +1210,21 @@ public class CylinderWorld
             Array.Copy(sediment, nextSediment, sediment.Length);
 
             // --- STEP 1: Pipeline-Integrated Rainfall ---
-            for (var i = 0; i < _worldWidth * _worldHeight; i++)
+            for (var i = 0; i < worldWidth * worldHeight; i++)
             {
                 // Reuse the humidity map generated by GenerateClimate(). 
                 // 0 humidity = 10% base rain, 1.0 humidity = 110% rain.
-                var localRainRate = _erosionCfg.RainRate * (0.1f + humidity[i]);
+                var localRainRate = erosionCfg.RainRate * (0.1f + humidity[i]);
                 water[i] += localRainRate;
                 nextWater[i] += localRainRate; // Ensure next state has the rain too
             }
 
             // --- STEP 2 & 3: Hydraulic Flow & Sediment Transport ---
             // Y goes from 1 to Height-1 (assuming poles don't wrap), X wraps completely.
-            for (var y = 1; y < _worldHeight - 1; y++)
+            for (var y = 1; y < worldHeight - 1; y++)
             {
-                var rowOffset = y * _worldWidth;
-                for (var x = 0; x < _worldWidth; x++)
+                var rowOffset = y * worldWidth;
+                for (var x = 0; x < worldWidth; x++)
                 {
                     var idx = rowOffset + x;
                     var currentWater = water[idx];
@@ -1394,7 +1234,7 @@ public class CylinderWorld
                     // // The Ocean Sink
                     // // If this cell is underwater, the ocean absorbs the water and dissolves the sediment.
                     // // (Assuming you use LandElevationThreshold to define sea level like in your FillDepressions method)
-                    if (terrain[idx] < _elevationCfg.LandElevationThreshold)
+                    if (terrain[idx] < elevationCfg.LandElevationThreshold)
                     {
                         nextWater[idx] = 0f;
                         nextSediment[idx] = 0f;
@@ -1406,24 +1246,24 @@ public class CylinderWorld
                     var rX = rightX[x];
 
                     // Central difference: (Right - Left) / 2
-                    var slopeX = (terrain[y * _worldWidth + rX] - terrain[y * _worldWidth + lX]) *
+                    var slopeX = (terrain[y * worldWidth + rX] - terrain[y * worldWidth + lX]) *
                                  0.5f;
-                    var slopeY = (terrain[(y + 1) * _worldWidth + x] -
-                                  terrain[(y - 1) * _worldWidth + x]) * 0.5f;
+                    var slopeY = (terrain[(y + 1) * worldWidth + x] -
+                                  terrain[(y - 1) * worldWidth + x]) * 0.5f;
 
                     var slope = MathF.Sqrt(slopeX * slopeX + slopeY * slopeY);
 
-                    var velocity = slope < _erosionCfg.MinSlope
+                    var velocity = slope < erosionCfg.MinSlope
                         ? 0f
-                        : MathF.Sqrt(_erosionCfg.Gravity * slope) * currentWater;
-                    var capacity = _erosionCfg.SedimentCapacity * velocity * currentWater;
+                        : MathF.Sqrt(erosionCfg.Gravity * slope) * currentWater;
+                    var capacity = erosionCfg.SedimentCapacity * velocity * currentWater;
                     var currentSediment = sediment[idx];
 
                     if (currentSediment > capacity)
                     {
                         // Deposit
                         var depositAmount =
-                            (currentSediment - capacity) * _erosionCfg.DepositionRate;
+                            (currentSediment - capacity) * erosionCfg.DepositionRate;
                         nextTerrain[idx] += depositAmount;
                         nextSediment[idx] -= depositAmount;
                     }
@@ -1431,10 +1271,10 @@ public class CylinderWorld
                     {
                         // Erode
                         var erodeAmount = (capacity - currentSediment) *
-                                          _erosionCfg.HydraulicErosionRate;
+                                          erosionCfg.HydraulicErosionRate;
 
                         // Pipeline reuse: Hotspots resist erosion
-                        if (hotspots[idx] > 0.1f) erodeAmount *= _volcanicCfg.VolcanicResistance;
+                        if (hotspots[idx] > 0.1f) erodeAmount *= volcanicCfg.VolcanicResistance;
 
                         erodeAmount = MathF.Min(erodeAmount, terrain[idx] * 0.1f);
                         nextTerrain[idx] -= erodeAmount;
@@ -1449,20 +1289,20 @@ public class CylinderWorld
                         var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
 
-                        if (ny < 0 || ny >= _worldHeight) continue;
+                        if (ny < 0 || ny >= worldHeight) continue;
 
-                        var neighborIndex = ny * _worldWidth + nx;
+                        var neighborIndex = ny * worldWidth + nx;
                         var neighborSlope = terrain[idx] - terrain[neighborIndex];
 
                         if (neighborSlope <= 0) continue;
 
                         var outflow = currentWater * neighborSlope *
-                                      _erosionCfg.HydraulicErosionRate;
+                                      erosionCfg.HydraulicErosionRate;
 
                         // Distribute to next state
                         nextWater[neighborIndex] += outflow * 0.25f;
                         nextSediment[neighborIndex] += currentSediment * outflow /
-                            MathF.Max(currentWater, _erosionCfg.WaterViscosity) * 0.25f;
+                            MathF.Max(currentWater, erosionCfg.WaterViscosity) * 0.25f;
                         totalOutflow += outflow;
                     }
 
@@ -1483,16 +1323,16 @@ public class CylinderWorld
             Array.Copy(terrain, nextTerrain, terrain.Length);
 
             // --- STEP 4: Thermal Erosion (Avalanche) ---
-            for (var y = 1; y < _worldHeight - 1; y++)
+            for (var y = 1; y < worldHeight - 1; y++)
             {
-                var rowOffset = y * _worldWidth;
-                for (var x = 0; x < _worldWidth; x++)
+                var rowOffset = y * worldWidth;
+                for (var x = 0; x < worldWidth; x++)
                 {
                     var idx = rowOffset + x;
                     var currentHeight = terrain[idx]; // READ from static state
 
                     // Ignore water terrain.
-                    if (currentHeight < _elevationCfg.LandElevationThreshold) continue;
+                    if (currentHeight < elevationCfg.LandElevationThreshold) continue;
 
                     var lowestNeighborHeight = currentHeight;
                     var lowestIndex = idx;
@@ -1502,9 +1342,9 @@ public class CylinderWorld
                     {
                         var nx = WorldMath.WrapX(x + dx);
                         var ny = y + dy;
-                        if (ny < 0 || ny >= _worldHeight) continue;
+                        if (ny < 0 || ny >= worldHeight) continue;
 
-                        var nIndex = ny * _worldWidth + nx;
+                        var nIndex = ny * worldWidth + nx;
                         var neighborHeight = terrain[nIndex];
 
                         if (neighborHeight >= lowestNeighborHeight) continue;
@@ -1513,10 +1353,10 @@ public class CylinderWorld
                     }
 
                     var slope = currentHeight - lowestNeighborHeight;
-                    if (slope <= _erosionCfg.TalusAngle) continue;
+                    if (slope <= erosionCfg.TalusAngle) continue;
 
                     var slideAmount =
-                        MathF.Min(_erosionCfg.ThermalErosionRate * slope, slope * 0.5f);
+                        MathF.Min(erosionCfg.ThermalErosionRate * slope, slope * 0.5f);
                     // WRITE to dynamic state
                     nextTerrain[idx] -= slideAmount;
                     nextTerrain[lowestIndex] += slideAmount;
@@ -1529,17 +1369,17 @@ public class CylinderWorld
             nextTerrain = tempT;
 
             // --- STEP 5: Pipeline-Integrated Evaporation ---
-            for (var i = 0; i < _worldWidth * _worldHeight; i++)
+            for (var i = 0; i < worldWidth * worldHeight; i++)
             {
                 // Lower humidity = higher evaporation
                 var climateModifier = 2.0f - humidity[i];
-                var adjustedEvaporation = _erosionCfg.EvaporationRate * climateModifier;
+                var adjustedEvaporation = erosionCfg.EvaporationRate * climateModifier;
                 water[i] = MathF.Max(0, water[i] - adjustedEvaporation);
             }
         }
 
         // Apply the final terrain back to the global elevation span
-        for (var i = 0; i < _worldWidth * _worldHeight; i++)
+        for (var i = 0; i < worldWidth * worldHeight; i++)
             elevations[i] = terrain[i];
     }
 
@@ -1586,7 +1426,7 @@ public class CylinderWorld
     /// </summary>
     private void FillDepressions(Span<float> elevations)
     {
-        var totalCells = _worldWidth * _worldHeight;
+        var totalCells = worldWidth * worldHeight;
 
         // We only need to know if we've processed a cell to prevent infinite loops
         var visited = new bool[totalCells];
@@ -1602,16 +1442,16 @@ public class CylinderWorld
         ];
 
         // Step 1: Enqueue all outlets (oceans and map edges)
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
                 var elev = elevations[idx];
 
-                if ((elev >= _elevationCfg.LandElevationThreshold) && y != 0 &&
-                    y != _worldHeight - 1) continue;
+                if ((elev >= elevationCfg.LandElevationThreshold) && y != 0 &&
+                    y != worldHeight - 1) continue;
                 pq.Enqueue(idx, elev);
                 visited[idx] = true;
             }
@@ -1623,8 +1463,8 @@ public class CylinderWorld
             // Get the lowest current tile
             pq.TryDequeue(out var currIdx, out var currElev);
 
-            var cx = currIdx % _worldWidth;
-            var cy = currIdx / _worldWidth;
+            var cx = currIdx % worldWidth;
+            var cy = currIdx / worldWidth;
 
             foreach (var (dx, dy) in directions)
             {
@@ -1632,9 +1472,9 @@ public class CylinderWorld
                 var ny = cy + dy;
 
                 // Bounds check Y
-                if (ny < 0 || ny >= _worldHeight) continue;
+                if (ny < 0 || ny >= worldHeight) continue;
 
-                var nIdx = ny * _worldWidth + nx;
+                var nIdx = ny * worldWidth + nx;
 
                 // If we've already flooded this cell, skip it
                 if (visited[nIdx]) continue;
@@ -1661,13 +1501,13 @@ public class CylinderWorld
     /// <returns>A grid of flow vectors per cell.</returns>
     private Point[] CalculateFlowDirections(Span<float> elevations)
     {
-        var flowDirections = new Point[_worldWidth * _worldHeight];
+        var flowDirections = new Point[worldWidth * worldHeight];
         Point[] directions = [new(0, -1), new(1, 0), new(0, 1), new(-1, 0)];
 
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var currentElevation = elevations[rowOffset + x];
                 var steepestDrop = 0f;
@@ -1681,9 +1521,9 @@ public class CylinderWorld
                     var nx = WorldMath.WrapX(x + dx);
                     var ny = y + dy;
 
-                    if (ny < 0 || ny >= _worldHeight) continue;
+                    if (ny < 0 || ny >= worldHeight) continue;
 
-                    var idx = ny * _worldWidth + nx;
+                    var idx = ny * worldWidth + nx;
                     var neighborElevation = elevations[idx];
                     var drop = currentElevation - neighborElevation;
                     // if (dx != 0 && dy != 0) 
@@ -1706,22 +1546,23 @@ public class CylinderWorld
     /// <summary>
     ///     Simulate the flow of water down the elevations and keep track of where it ends up.
     /// </summary>
-    /// <param name="flowDirections">Direction of flow for each cell.</param>
+    /// <param name="elevations"></param>
     /// <param name="rainfall">Mapping of rainfall amount per cell.</param>
+    /// <param name="flowDirections">Direction of flow for each cell.</param>
     /// <returns>Map of accumulated flow for each cell.</returns>
     private float[] AccumulateFlow(
         Span<float> elevations,
         Span<float> rainfall,
         Span<Point> flowDirections)
     {
-        var flowAccumulation = new float[_worldWidth * _worldHeight];
-        var inDegree = new int[_worldWidth * _worldHeight];
+        var flowAccumulation = new float[worldWidth * worldHeight];
+        var inDegree = new int[worldWidth * worldHeight];
 
         // Step 1: Initialize rainfall and calculate In-Degrees
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
                 flowAccumulation[idx] = rainfall[idx];
@@ -1732,18 +1573,18 @@ public class CylinderWorld
                 var nx = WorldMath.WrapX(x + dx);
                 var ny = y + dy;
 
-                if (ny >= 0 && ny < _worldHeight)
+                if (ny >= 0 && ny < worldHeight)
                     // This neighbor is receiving flow from (x, y)
-                    inDegree[ny * _worldWidth + nx]++;
+                    inDegree[ny * worldWidth + nx]++;
             }
         }
 
         // Step 2: Queue all cells that have NO incoming water (Sources / Ridge lines)
         var queue = new Queue<Point>();
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
                 if (inDegree[rowOffset + x] == 0)
                     queue.Enqueue(new Point(x, y));
         }
@@ -1752,7 +1593,7 @@ public class CylinderWorld
         while (queue.Count > 0)
         {
             var (x, y) = queue.Dequeue();
-            var idx = y * _worldWidth + x;
+            var idx = y * worldWidth + x;
             var (dx, dy) = flowDirections[idx];
 
             if (dx == 0 && dy == 0) continue;
@@ -1760,15 +1601,15 @@ public class CylinderWorld
             var nx = WorldMath.WrapX(x + dx);
             var ny = y + dy;
 
-            if (ny < 0 || ny >= _worldHeight) continue;
+            if (ny < 0 || ny >= worldHeight) continue;
 
-            var currentVolume = flowAccumulation[y * _worldWidth + x];
+            var currentVolume = flowAccumulation[y * worldWidth + x];
             var waterToPass = 0f;
 
             // --- The Ocean Sink ---
             // If the current cell is in the ocean, it absorbs the water. 
             // We do NOT pass water to the next ocean cell.
-            var isOcean = elevations[idx] < _elevationCfg.LandElevationThreshold;
+            var isOcean = elevations[idx] < elevationCfg.LandElevationThreshold;
             if (!isOcean)
             {
                 // Ground Seepage (Absolute loss per tile)
@@ -1788,7 +1629,7 @@ public class CylinderWorld
             }
 
 
-            var nIdx = ny * _worldWidth + nx;
+            var nIdx = ny * worldWidth + nx;
             // Ensure we don't pass negative water (ocean cells pass 0).
             if (waterToPass > 0) flowAccumulation[nIdx] += waterToPass;
 
@@ -1818,18 +1659,18 @@ public class CylinderWorld
         Span<Point> flowDirections,
         Span<float> flowAccumulation)
     {
-        var inDegree = new byte[_worldWidth * _worldHeight];
-        var maxIncomingOrder = new byte[_worldWidth * _worldHeight];
-        var countOfMaxOrder = new byte[_worldWidth * _worldHeight];
+        var inDegree = new byte[worldWidth * worldHeight];
+        var maxIncomingOrder = new byte[worldWidth * worldHeight];
+        var countOfMaxOrder = new byte[worldWidth * worldHeight];
 
         // 1. Minimum volume required to even be considered a "stream"
         const float minVolumeThreshold = 0.51f;
 
         // Calculate in-degrees
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 // Only count in-degree if the upstream cell actually has water!
                 if (flowAccumulation[rowOffset + x] < minVolumeThreshold) continue;
@@ -1838,16 +1679,16 @@ public class CylinderWorld
                 if (dx == 0 && dy == 0) continue;
                 var nx = WorldMath.WrapX(x + dx);
                 var ny = y + dy;
-                if (ny >= 0 && ny < _worldHeight) inDegree[ny * _worldWidth + nx]++;
+                if (ny >= 0 && ny < worldHeight) inDegree[ny * worldWidth + nx]++;
             }
         }
 
         // 2. Queue the sources
         var queue = new Queue<Point>();
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
                 // A source is a cell with water but no water flowing into it
@@ -1863,7 +1704,7 @@ public class CylinderWorld
         while (queue.Count > 0)
         {
             var (x, y) = queue.Dequeue();
-            var idx = y * _worldWidth + x;
+            var idx = y * worldWidth + x;
             var currentOrder = strahlerRiverMap[idx];
 
             var (dx, dy) = flowDirections[idx];
@@ -1874,8 +1715,8 @@ public class CylinderWorld
 
             var nx = WorldMath.WrapX(x + dx);
             var ny = y + dy;
-            if (ny < 0 || ny >= _worldHeight) continue;
-            var nIdx = ny * _worldWidth + nx;
+            if (ny < 0 || ny >= worldHeight) continue;
+            var nIdx = ny * worldWidth + nx;
 
             // Update the neighbor's knowledge of its incoming tributaries
             if (currentOrder > maxIncomingOrder[nIdx])
@@ -1892,11 +1733,11 @@ public class CylinderWorld
             if (inDegree[nIdx] != 0) continue;
             // RESOLVE ORDER: If two or more tributaries of the same MAX order meet, level up.
             // Otherwise, inherit the max incoming order.
-            strahlerRiverMap[ny * _worldWidth + nx] = (byte)(countOfMaxOrder[nIdx] >= 2
+            strahlerRiverMap[ny * worldWidth + nx] = (byte)(countOfMaxOrder[nIdx] >= 2
                 ? maxIncomingOrder[nIdx] + 1
                 : maxIncomingOrder[nIdx]);
 
-            maxOrder = MathF.Max(strahlerRiverMap[ny * _worldWidth + nx], maxOrder);
+            maxOrder = MathF.Max(strahlerRiverMap[ny * worldWidth + nx], maxOrder);
 
             queue.Enqueue(new Point(nx, ny));
         }
@@ -1905,7 +1746,10 @@ public class CylinderWorld
     /// <summary>
     ///     Create a boolean river map of the world where true -> belongs to a river, false otherwise.
     /// </summary>
+    /// <param name="elevations"></param>
     /// <param name="flowAccumulation">Accumulated flow for each cell.</param>
+    /// <param name="riverMap"></param>
+    /// <param name="strahlerRiver"></param>
     private void CarveRivers(
         Span<float> elevations,
         Span<float> flowAccumulation,
@@ -1915,43 +1759,42 @@ public class CylinderWorld
         riverMap.Clear();
 
         // Visual and Physical Thresholds
-        const int minOrderToVisualise = 2;
         const int minOrderToCarve = 2;
-        const float MinVolumeToCarve = 10.5f;
+        const float minVolumeToCarve = 10.5f;
 
         // A single pass is all we need. Flow accumulation already guarantees continuity.
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var index = rowOffset + x;
                 var cellElevation = elevations[index];
 
                 // 1. Skip immediately if we are already in the ocean
-                if (cellElevation < _elevationCfg.LandElevationThreshold)
+                if (cellElevation < elevationCfg.LandElevationThreshold)
                     continue;
 
                 var order = strahlerRiver[index];
                 var volume = flowAccumulation[index];
 
                 // 2. Skip if this cell doesn't meet the requirements for a river
-                if (volume < MinVolumeToCarve || order < minOrderToCarve)
+                if (volume < minVolumeToCarve || order < minOrderToCarve)
                     continue;
 
                 // --- THE STRAHLER UPGRADE ---
                 // A. Visual Overlay: Only show the big boys
-                if (order >= minOrderToVisualise) riverMap[index] = true;
+                riverMap[index] = true;
 
                 // B. Physical Carving: Depth scales with ACTUAL WATER VOLUME
                 var erosionPower = MathF.Pow(volume, 0.1f) * 0.01f; // Tweak exponents to taste
-                var targetDepth = MathF.Min(_riverCfg.RiverMaxCarveDepth,
-                    erosionPower * _riverCfg.RiverCarveScale);
+                var targetDepth = MathF.Min(riverCfg.RiverMaxCarveDepth,
+                    erosionPower * riverCfg.RiverCarveScale);
 
                 // C. Apply the carve safely
                 // We ensure we never carve below your designated min elevation AND never accidentally carve below sea level
-                var minAllowedElevation = MathF.Max(_riverCfg.RiverCarveMinElevation,
-                    _elevationCfg.LandElevationThreshold);
+                var minAllowedElevation = MathF.Max(riverCfg.RiverCarveMinElevation,
+                    elevationCfg.LandElevationThreshold);
                 var carvedElevation = cellElevation - targetDepth;
 
                 elevations[index] = MathF.Max(minAllowedElevation, carvedElevation);
@@ -1978,9 +1821,9 @@ public class CylinderWorld
         Span<bool> riverMap
     )
     {
-        var surfaceFeatures = new SurfaceFeature[_worldWidth * _worldHeight];
+        var surfaceFeatures = new SurfaceFeature[worldWidth * worldHeight];
 
-        for (var i = 0; i < _worldWidth * _worldHeight; i++)
+        for (var i = 0; i < worldWidth * worldHeight; i++)
         {
             var elevation = elevations[i];
             var temperature = temperatures[i];
@@ -1989,20 +1832,20 @@ public class CylinderWorld
             switch (temperature)
             {
                 // 1. Check for Snow (Slightly warmer than glaciers, or high mountains)
-                case < 0.25f when elevation >= _elevationCfg.LandElevationThreshold:
+                case < 0.25f when elevation >= elevationCfg.LandElevationThreshold:
                     surfaceFeatures[i] = SurfaceFeature.Snow;
                     continue;
             }
 
             // 3. Check for Mountains (Purely geographical)
-            if (elevation >= _elevationCfg.HighMountainThreshold)
+            if (elevation >= elevationCfg.HighMountainThreshold)
             {
                 surfaceFeatures[i] = SurfaceFeature.Mountain;
                 continue;
             }
 
-            if (hotspotMap[i] > _volcanicCfg.LavaHotspotThreshold &&
-                elevation >= _elevationCfg.LandElevationThreshold)
+            if (hotspotMap[i] > volcanicCfg.LavaHotspotThreshold &&
+                elevation >= elevationCfg.LandElevationThreshold)
                 surfaceFeatures[i] = SurfaceFeature.Lava;
         }
 
@@ -2022,10 +1865,10 @@ public class CylinderWorld
 
         // Plate boundary mountain ridges: continental collisions
         var neighbors = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
                 var currentPlate = plateIndex[voronoiIndex[idx]];
@@ -2036,15 +1879,15 @@ public class CylinderWorld
                     var nx = WorldMath.WrapX(x + dx);
                     var ny = y + dy;
 
-                    if (ny < 0 || ny >= _worldHeight) continue;
+                    if (ny < 0 || ny >= worldHeight) continue;
 
-                    var neighborPlate = plateIndex[voronoiIndex[ny * _worldWidth + nx]];
+                    var neighborPlate = plateIndex[voronoiIndex[ny * worldWidth + nx]];
                     if (neighborPlate == currentPlate) continue;
 
                     if (neighborPlate < 0 || neighborPlate >= plateTypes.Length) continue;
 
                     // Skip undersea tiles.
-                    if (elevations[idx] < _elevationCfg.HighMountainThreshold)
+                    if (elevations[idx] < elevationCfg.HighMountainThreshold)
                         continue;
                     // Skip tiles with features already defined on them.
                     if (surfaceFeatures[idx] != SurfaceFeature.None) continue;
@@ -2064,16 +1907,16 @@ public class CylinderWorld
     private List<(int x, int y, float strength)> FindHotspotCenters(Span<float> hotspotMap)
     {
         var centers = new List<(int, int, float)>();
-        var visited = new bool[_worldWidth * _worldHeight];
+        var visited = new bool[worldWidth * worldHeight];
 
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
                 if (visited[idx] ||
-                    hotspotMap[idx] < _volcanicCfg.HotspotMinStrength) continue;
+                    hotspotMap[idx] < volcanicCfg.HotspotMinStrength) continue;
 
                 // Find local maximum
                 var maxStrength = hotspotMap[idx];
@@ -2084,14 +1927,14 @@ public class CylinderWorld
                 for (var dy = -3; dy <= 3; dy++)
                 {
                     var ny = y + dy;
-                    var dRowOffset = ny * _worldWidth;
+                    var dRowOffset = ny * worldWidth;
                     for (var dx = -3; dx <= 3; dx++)
                     {
                         var nx = WorldMath.WrapX(x + dx);
-                        if (ny < 0 || ny >= _worldHeight) continue;
+                        if (ny < 0 || ny >= worldHeight) continue;
                         if (hotspotMap[dRowOffset + nx] <= maxStrength) continue;
 
-                        maxStrength = hotspotMap[ny * _worldWidth + nx];
+                        maxStrength = hotspotMap[ny * worldWidth + nx];
                         maxX = nx;
                         maxY = ny;
                     }
@@ -2103,8 +1946,8 @@ public class CylinderWorld
                     {
                         var nx = WorldMath.WrapX(maxX + dx);
                         var ny = maxY + dy;
-                        if (ny >= 0 && ny < _worldHeight)
-                            visited[ny * _worldWidth + nx] = true;
+                        if (ny >= 0 && ny < worldHeight)
+                            visited[ny * worldWidth + nx] = true;
                     }
 
                 centers.Add((maxX, maxY, maxStrength));
@@ -2136,9 +1979,9 @@ public class CylinderWorld
 
         // 1. GENERATE THE MACRO STRUCTURE (With Noise Warp)
         // We add a little noise to the distance calculation so the rings are jagged
-        for (var y = Math.Max(0, centerY - radius); y < Math.Min(_worldHeight, centerY + radius); y++)
+        for (var y = Math.Max(0, centerY - radius); y < Math.Min(worldHeight, centerY + radius); y++)
         {
-            var rowOffset = y * _worldWidth;
+            var rowOffset = y * worldWidth;
             for (var x = centerX - radius; x < centerX + radius; x++)
             {
                 var wrappedX = WorldMath.WrapX(x);
@@ -2162,26 +2005,26 @@ public class CylinderWorld
                 {
                     SurfaceFeature.Stratovolcano => organicDist switch
                     {
-                        < 0.4f when elevation >= _volcanicCfg.CalderaElevationThreshold => SurfaceFeature.Stratovolcano,
-                        > 0.3f and < 0.8f when elevation >= _volcanicCfg.CinderElevationThreshold => SurfaceFeature.Ash,
+                        < 0.4f when elevation >= volcanicCfg.CalderaElevationThreshold => SurfaceFeature.Stratovolcano,
+                        > 0.3f and < 0.8f when elevation >= volcanicCfg.CinderElevationThreshold => SurfaceFeature.Ash,
                         _ => surfaceFeatures[idx]
                     },
                     SurfaceFeature.Shield => organicDist switch
                     {
-                        < 0.7f when elevation >= _volcanicCfg.ShieldVolcanoThreshold => SurfaceFeature.Shield,
+                        < 0.7f when elevation >= volcanicCfg.ShieldVolcanoThreshold => SurfaceFeature.Shield,
                         _ => surfaceFeatures[idx]
                     },
                     _ => organicDist switch
                     {
-                        < 0.5f when elevation >= _volcanicCfg.CinderElevationThreshold => SurfaceFeature.Cinder,
-                        > 0.4f when elevation >= (_volcanicCfg.CinderElevationThreshold - 1) => SurfaceFeature.Ash,
+                        < 0.5f when elevation >= volcanicCfg.CinderElevationThreshold => SurfaceFeature.Cinder,
+                        > 0.4f when elevation >= (volcanicCfg.CinderElevationThreshold - 1) => SurfaceFeature.Ash,
                         _ => surfaceFeatures[idx]
                     }
                 };
 
                 // Central Caldera overrides
                 if (organicDist < 0.15f && volcanoType == SurfaceFeature.Stratovolcano &&
-                    elevation >= _volcanicCfg.CalderaElevationThreshold)
+                    elevation >= volcanicCfg.CalderaElevationThreshold)
                 {
                     surfaceFeatures[idx] = SurfaceFeature.Caldera;
                 }
@@ -2198,7 +2041,7 @@ public class CylinderWorld
             {
                 // Pick a random starting point slightly offset from the exact center
                 var startX = WorldMath.WrapX(centerX + _rng.Next(-2, 3));
-                var startY = Math.Clamp(centerY + _rng.Next(-2, 3), 0, _worldHeight - 1);
+                var startY = Math.Clamp(centerY + _rng.Next(-2, 3), 0, worldHeight - 1);
 
                 var currentX = startX;
                 var currentY = startY;
@@ -2206,21 +2049,21 @@ public class CylinderWorld
 
                 while (lavaVolume > 0)
                 {
-                    var currentIdx = currentY * _worldWidth + currentX;
+                    var currentIdx = currentY * worldWidth + currentX;
                     var dir = flowDirections[currentIdx];
 
                     // If we hit a pit or flat ground, pool up and stop
-                    if (dir.X == 0 && dir.Y == 0) break;
+                    if (dir is { X: 0, Y: 0 }) break;
 
                     var nextX = WorldMath.WrapX(currentX + dir.X);
                     var nextY = currentY + dir.Y;
 
-                    if (nextY < 0 || nextY >= _worldHeight) break; // Off map edge
+                    if (nextY < 0 || nextY >= worldHeight) break; // Off map edge
 
-                    var nextIdx = nextY * _worldWidth + nextX;
+                    var nextIdx = nextY * worldWidth + nextX;
 
                     // Stop if we hit the ocean
-                    if (elevations[nextIdx] < _elevationCfg.LandElevationThreshold) break;
+                    if (elevations[nextIdx] < elevationCfg.LandElevationThreshold) break;
 
                     // Stop if we hit a river (Bonus: turn it to obsidian or rock later?)
                     if (riverMap[nextIdx]) break;
@@ -2236,14 +2079,16 @@ public class CylinderWorld
 
         // 3. APPLY FINAL PEAK CRATER
         // Done last to ensure lava didn't overwrite the very center hole
-        var centerIdx = centerY * _worldWidth + centerX;
-        if (centerY >= 0 && centerY < _worldHeight && elevations[centerIdx] >= _volcanicCfg.CraterElevationThreshold)
+        var centerIdx = centerY * worldWidth + centerX;
+        if (centerY < 0 || centerY >= worldHeight ||
+            !(elevations[centerIdx] >= volcanicCfg.CraterElevationThreshold)) return;
+        surfaceFeatures[centerIdx] = volcanoType switch
         {
-            if (volcanoType is SurfaceFeature.Stratovolcano or SurfaceFeature.Shield)
-                surfaceFeatures[centerIdx] = SurfaceFeature.Crater;
-            else if (volcanoType == SurfaceFeature.Cinder)
-                surfaceFeatures[centerIdx] = SurfaceFeature.Cinder;
-        }
+            SurfaceFeature.Stratovolcano or SurfaceFeature.Shield => SurfaceFeature.Crater,
+            SurfaceFeature.Cinder => SurfaceFeature.Cinder,
+            // ReSharper disable once UnreachableSwitchArmDueToIntegerAnalysis
+            _ => surfaceFeatures[centerIdx]
+        };
     }
 
     #endregion
@@ -2258,10 +2103,10 @@ public class CylinderWorld
         Span<bool> riverMap,
         Span<SurfaceFeature> surfaceFeatures)
     {
-        for (var y = 0; y < _worldHeight; y++)
+        for (var y = 0; y < worldHeight; y++)
         {
-            var rowOffset = y * _worldWidth;
-            for (var x = 0; x < _worldWidth; x++)
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
             {
                 var idx = rowOffset + x;
                 // Skip existing assigned strong surface features: river, lava, glacier
@@ -2270,7 +2115,7 @@ public class CylinderWorld
                     continue;
 
                 var elevation = elevations[idx];
-                var isWater = elevation < _elevationCfg.LandElevationThreshold;
+                var isWater = elevation < elevationCfg.LandElevationThreshold;
 
                 // Beach/cliff only for land cells near water
                 if (!isWater)
@@ -2280,15 +2125,15 @@ public class CylinderWorld
                     for (var dy = -1; dy <= 1; dy++)
                     {
                         var ny = y + dy;
-                        var nRowOffset = ny * _worldWidth;
+                        var nRowOffset = ny * worldWidth;
                         for (var dx = -1; dx <= 1; dx++)
                         {
                             if (dx == 0 && dy == 0) continue;
                             var nx = WorldMath.WrapX(x + dx);
-                            if (ny < 0 || ny >= _worldHeight) continue;
+                            if (ny < 0 || ny >= worldHeight) continue;
 
                             var neighborElevation = elevations[nRowOffset + nx];
-                            if (neighborElevation < _elevationCfg.LandElevationThreshold)
+                            if (neighborElevation < elevationCfg.LandElevationThreshold)
                                 adjacentWater++;
                             else
                                 maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
@@ -2298,7 +2143,7 @@ public class CylinderWorld
                     if (adjacentWater > 0)
                     {
                         // How high is this coast above the water?
-                        var slope = elevation - _elevationCfg.LandElevationThreshold - 1;
+                        var slope = elevation - elevationCfg.LandElevationThreshold - 1;
 
                         switch (slope)
                         {
@@ -2327,16 +2172,16 @@ public class CylinderWorld
                     for (var dy = -1; dy <= 1; dy++)
                     {
                         var ny = y + dy;
-                        var nRowOffset = ny * _worldWidth;
+                        var nRowOffset = ny * worldWidth;
                         for (var dx = -1; dx <= 1; dx++)
                         {
                             if (dx == 0 && dy == 0) continue;
                             var nx = WorldMath.WrapX(x + dx);
-                            if (ny < 0 || ny >= _worldHeight) continue;
+                            if (ny < 0 || ny >= worldHeight) continue;
                             var neighborElevation = elevations[nRowOffset + nx];
-                            if (neighborElevation < _elevationCfg.LandElevationThreshold) continue;
+                            if (neighborElevation < elevationCfg.LandElevationThreshold) continue;
                             adjacentLand++;
-                            if (neighborElevation >= _elevationCfg.SnowThreshold - 1)
+                            if (neighborElevation >= elevationCfg.SnowThreshold - 1)
                                 adjacentHighMountain++;
                         }
                     }
@@ -2365,8 +2210,6 @@ public class CylinderWorld
     {
         const int chunkSize = WorldMath.ChunkSize;
         const int chunksAcross = WorldMath.ChunksAcross;
-        const int worldWidth = WorldMath.WorldWidth;
-        const int worldHeight = WorldMath.WorldHeight;
 
         var chunks = new WorldPackedChunk[chunksAcross * (worldHeight / chunkSize)];
         // Temporary buffer to copy humidity as byte values.
@@ -2400,7 +2243,7 @@ public class CylinderWorld
                         // Ensure that humidity floats are always in range (0,1)!
                         humidityBuffer[i] = Convert.ToByte(srcHumidityFloat[i] * 100);
                         var elevationClamped =
-                            Math.Clamp(srcElevation[i], 0f, _elevationCfg.MaxElevation);
+                            Math.Clamp(srcElevation[i], 0f, elevationCfg.MaxElevation);
                         elevationBuffer[i] = Convert.ToByte(MathF.Floor(elevationClamped));
                     }
 
