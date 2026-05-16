@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -46,6 +47,8 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         return typeof(TBaseType) == typeToConvert;
     }
 
+    [RequiresUnreferencedCode()]
+    [RequiresDynamicCode()]
     public override TBaseType Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -79,6 +82,8 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         return result;
     }
 
+    [RequiresUnreferencedCode()]
+    [RequiresDynamicCode()]
     public override void Write(
         Utf8JsonWriter writer,
         TBaseType value,

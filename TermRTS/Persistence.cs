@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security;
 using System.Text.Json;
 using log4net;
@@ -24,6 +25,8 @@ public class Persistence
     /// <returns>
     ///     <c>true</c> if serialization successful, <c>false</c> otherwise.
     /// </returns>
+    [RequiresUnreferencedCode()]
+    [RequiresDynamicCode()]
     public bool PutSimStateToJson(
         ref Scheduler scheduler,
         out string? jsonStr,
@@ -59,6 +62,8 @@ public class Persistence
     /// <returns>
     ///     <c>true</c> if deserialization successful, <c>false</c> otherwise.
     /// </returns>
+    [RequiresUnreferencedCode()]
+    [RequiresDynamicCode()]
     public bool GetSimStateFromJson(
         ref Scheduler scheduler,
         string? jsonStr,
@@ -288,8 +293,8 @@ public class Persistence
         IncludeFields = true,
         Converters =
         {
-            // handle all subclasses of various interfaces and abstract classes
-            BaseClassConverter.GetForType<ComponentBase>(),
+            // handle components via manual registry (AOT-friendly)
+            new ComponentJsonConverter(),
             BaseClassConverter.GetForType<IDoubleBufferedProperty>(),
             BaseClassConverter.GetForType<IEventSink>(),
             BaseClassConverter.GetForType<IEvent>(),

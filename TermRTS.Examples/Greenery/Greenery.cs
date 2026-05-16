@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Ecs.Component;
+using TermRTS.Examples.Greenery.Serialization;
 using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
@@ -99,6 +100,50 @@ public class Greenery : IRunnableExample
         var simulation = new Simulation(scheduler);
         simulation.EnableSerialization();
         simulation.IsSystemLogEnabled = true;
+
+        // Register component serializers/deserializers for Greenery example
+        // This uses source-generated JsonTypeInfo from GreeneryJsonContext
+        var reg = TermRTS.ComponentRegistry.Instance;
+
+        reg.Register<DroneComponent, DroneData>(GreeneryJsonContext.Default.DroneData,
+            comp => new DroneData { X = comp.Position.X, Y = comp.Position.Y },
+            (eid, d) => new DroneComponent(eid, new Vector2(d.X, d.Y)));
+
+        reg.Register<FovChunk, FovChunkData>(GreeneryJsonContext.Default.FovChunkData,
+            comp => new FovChunkData { Cx = comp.Cx, Cy = comp.Cy, FovField = comp.FovField.ToArray() },
+            (eid, d) => new FovChunk(eid, d.Cx, d.Cy, d.FovField.AsMemory()));
+
+        reg.Register<WorldElevationChunk, WorldElevationChunkData>(GreeneryJsonContext.Default.WorldElevationChunkData,
+            comp => new WorldElevationChunkData { Cx = comp.Cx, Cy = comp.Cy, Elevation = comp.Elevation },
+            (eid, d) => new WorldElevationChunk(eid, d.Cx, d.Cy, d.Elevation));
+
+        reg.Register<WorldSurfaceFeatureChunk, WorldSurfaceFeatureChunkData>(GreeneryJsonContext.Default.WorldSurfaceFeatureChunkData,
+            comp => new WorldSurfaceFeatureChunkData { Cx = comp.Cx, Cy = comp.Cy, SurfaceFeature = comp.SurfaceFeature },
+            (eid, d) => new WorldSurfaceFeatureChunk(eid, d.Cx, d.Cy, d.SurfaceFeature));
+
+        reg.Register<WorldTemperatureChunk, WorldTemperatureChunkData>(GreeneryJsonContext.Default.WorldTemperatureChunkData,
+            comp => new WorldTemperatureChunkData { Cx = comp.Cx, Cy = comp.Cy, Temperature = comp.Temperature },
+            (eid, d) => new WorldTemperatureChunk(eid, d.Cx, d.Cy, d.Temperature));
+
+        reg.Register<WorldTemperatureAmplitudeChunk, WorldTemperatureAmplitudeChunkData>(GreeneryJsonContext.Default.WorldTemperatureAmplitudeChunkData,
+            comp => new WorldTemperatureAmplitudeChunkData { Cx = comp.Cx, Cy = comp.Cy, TemperatureAmplitude = comp.TemperatureAmplitude },
+            (eid, d) => new WorldTemperatureAmplitudeChunk(eid, d.Cx, d.Cy, d.TemperatureAmplitude));
+
+        reg.Register<WorldHumidityChunk, WorldHumidityChunkData>(GreeneryJsonContext.Default.WorldHumidityChunkData,
+            comp => new WorldHumidityChunkData { Cx = comp.Cx, Cy = comp.Cy, Humidity = comp.Humidity },
+            (eid, d) => new WorldHumidityChunk(eid, d.Cx, d.Cy, d.Humidity));
+
+        reg.Register<WorldBiomeChunk, WorldBiomeChunkData>(GreeneryJsonContext.Default.WorldBiomeChunkData,
+            comp => new WorldBiomeChunkData { Cx = comp.Cx, Cy = comp.Cy, Biome = comp.Biome },
+            (eid, d) => new WorldBiomeChunk(eid, d.Cx, d.Cy, d.Biome));
+
+        reg.Register<WorldRiverChunk, WorldRiverChunkData>(GreeneryJsonContext.Default.WorldRiverChunkData,
+            comp => new WorldRiverChunkData { Cx = comp.Cx, Cy = comp.Cy, River = comp.River },
+            (eid, d) => new WorldRiverChunk(eid, d.Cx, d.Cy, d.River));
+
+        reg.Register<WorldPackedChunk, WorldPackedChunkData>(GreeneryJsonContext.Default.WorldPackedChunkData,
+            comp => new WorldPackedChunkData { Cx = comp.Cx, Cy = comp.Cy, PackedTiles = comp.PackedTiles },
+            (eid, d) => new WorldPackedChunk(eid, d.Cx, d.Cy, d.PackedTiles));
 
         // Graceful shutdown on canceling via CTRL+C.
         Console.CancelKeyPress += delegate (object? _, ConsoleCancelEventArgs e)
