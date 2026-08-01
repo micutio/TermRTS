@@ -6,5 +6,4 @@
     <Project Path="TermRTS.Examples.Test\TermRTS.Examples.Test.csproj"/>
     <Project Path="TermRTS.Benchmark\TermRTS.Benchmark.csproj"/>
     <Project Path="TermRTS\TermRTS.csproj"/>
-    <Project Path="ConsoleRenderer\ConsoleRenderer\ConsoleRenderer.csproj"/>
 </Solution>
