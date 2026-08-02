@@ -44,13 +44,23 @@ public class Cat(string name, string color) : IAnimal
     #endregion
 }
 
+public class UnregisteredAnimal : IAnimal
+{
+    public string Name { get; set; } = "Unregistered";
+
+    public string MakeSound()
+    {
+        return "Bork!";
+    }
+}
+
 public class BaseClassConverterTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
     public void TestConvertJson()
     {
         var options = new JsonSerializerOptions { WriteIndented = true };
-        options.Converters.Add(new BaseClassConverter<IAnimal>(typeof(Cat), typeof(Dog)));
+        options.Converters.Add(BaseClassConverter.GetForType<IAnimal>(typeof(Cat), typeof(Dog)));
 
         var animals = new List<IAnimal>
         {
@@ -78,5 +88,18 @@ public class BaseClassConverterTest(ITestOutputHelper testOutputHelper)
         Assert.Equal(2, deserializedAnimals.Count);
         Assert.Equal(typeof(Dog), deserializedAnimals[0].GetType());
         Assert.Equal(typeof(Cat), deserializedAnimals[1].GetType());
+    }
+
+    [Fact]
+    public void TestRejectsUnregisteredTypeNames()
+    {
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        options.Converters.Add(BaseClassConverter.GetForType<IAnimal>(typeof(Cat), typeof(Dog)));
+
+        var json = $"{{\"$type\":\"{typeof(UnregisteredAnimal).AssemblyQualifiedName}\"}}";
+
+        var exception = Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IAnimal>(json, options));
+
+        Assert.Contains("invalid type", exception.Message);
     }
 }

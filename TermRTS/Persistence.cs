@@ -31,15 +31,17 @@ public class Persistence
     {
         try
         {
-            jsonStr = JsonSerializer.Serialize(scheduler.GetSchedulerState(), _serializerOptions);
+            jsonStr = JsonSerializer.Serialize(
+                scheduler.GetSchedulerState(),
+                TermRTSJsonContext.Default.SchedulerState);
             response = "sim state serialized to json";
             return true;
         }
-        catch (NotSupportedException e)
+        catch (Exception e) when (e is NotSupportedException or JsonException)
         {
             Log.ErrorFormat("Error serializing simulation state to json: {0}", e);
             jsonStr = null;
-            response = "Error serializing simulation state to json";
+            response = $"Error serializing simulation state to json: {e.Message}";
             return false;
         }
     }
@@ -75,11 +77,12 @@ public class Persistence
         try
         {
             newSchedulerState =
-                JsonSerializer.Deserialize<SchedulerState>(jsonStr, _serializerOptions);
+                JsonSerializer.Deserialize(jsonStr, TermRTSJsonContext.Default.SchedulerState);
             if (newSchedulerState != null)
             {
                 scheduler.ReplaceSchedulerState(newSchedulerState);
                 response = "sim state deserialized from json";
+                Console.WriteLine($"GetSimStateFromJson response: {response}");
                 return true;
             }
 
@@ -281,26 +284,6 @@ public class Persistence
     #region Fields
 
     private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
-
-    private readonly JsonSerializerOptions _serializerOptions = new()
-    {
-        WriteIndented = true,
-        IncludeFields = true,
-        Converters =
-        {
-            // handle all subclasses of various interfaces and abstract classes
-            BaseClassConverter.GetForType<ComponentBase>(),
-            BaseClassConverter.GetForType<IDoubleBufferedProperty>(),
-            BaseClassConverter.GetForType<IEventSink>(),
-            BaseClassConverter.GetForType<IEvent>(),
-            BaseClassConverter.GetForType<ISimSystem>(),
-            BaseClassConverter.GetForType<IRenderer>(),
-            // handle all byte[,] matrices
-            new ByteArray2DConverter(),
-            // handle all bool[,] matrices
-            new BooleanArray2DConverter()
-        }
-    };
 
     #endregion
 }

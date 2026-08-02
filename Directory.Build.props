@@ -5,4 +5,18 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
+
+    <PropertyGroup>
+        <!-- Set AotWarningsToIgnore for project-specific suppressions, or enable EnableAotWarningsAsErrors=true to fail the build on AOT warnings. -->
+        <AotWarningsToIgnore Condition="'$(AotWarningsToIgnore)' == ''"></AotWarningsToIgnore>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(AotWarningsToIgnore)' != ''">
+        <NoWarn>$(NoWarn);$(AotWarningsToIgnore)</NoWarn>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(EnableAotWarningsAsErrors)' == 'true'">
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2057;IL2067;IL2070;IL2087;IL2104;IL3000;IL3050;IL3053;IL3056</WarningsAsErrors>
+    </PropertyGroup>
 </Project>

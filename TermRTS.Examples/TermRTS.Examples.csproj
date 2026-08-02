@@ -2,6 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
+        <AotWarningsToIgnore>IL2104;IL3000</AotWarningsToIgnore>
     </PropertyGroup>
 
     <ItemGroup>
