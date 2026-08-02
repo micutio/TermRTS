@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
-        
+
     steps:
     - uses: actions/checkout@v4
     - name: Setup .NET
@@ -29,3 +29,18 @@ jobs:
       run: dotnet build TermRTS.slnx --no-restore
     - name: Test
       run: dotnet test TermRTS.slnx --no-build --verbosity normal
+
+  aot-publish:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: "10.0.x"
+    - name: Restore dependencies
+      run: dotnet restore TermRTS.slnx
+    - name: Publish AOT example app
+      run: dotnet publish TermRTS.Examples/TermRTS.Examples.csproj -c Release -p:PublishAot=true -p:EnableAotWarningsAsErrors=true --no-restore -o ./artifacts/aot-publish

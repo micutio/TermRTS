@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace TermRTS.Serialization;
 
@@ -11,27 +12,16 @@ namespace TermRTS.Serialization;
 public static class BaseClassConverter
 {
     /// <summary>
-    ///     Shorthand to create a new converter for a given baseclass
+    ///     Shorthand to create a new converter for a given baseclass using a fixed set of concrete types.
     /// </summary>
     /// <typeparam name="T">Type of interface or abstract class</typeparam>
+    /// <param name="types">Concrete types that can be deserialized for <see cref="T" /></param>
     /// <returns>New BaseClassConverter instance for <see cref="T" /></returns>
-    public static BaseClassConverter<T> GetForType<T>() where T : class
+    public static BaseClassConverter<T> GetForType<T>(params Type[] types) where T : class
     {
-        return new BaseClassConverter<T>(GetAllSubTypes<T>());
+        return new BaseClassConverter<T>(types);
     }
 
-    private static Type[] GetAllSubTypes<TSuperType>()
-    {
-        var types = AppDomain
-            .CurrentDomain
-            .GetAssemblies()
-            .SelectMany(x => x.GetTypes())
-            .Where(x =>
-                typeof(TSuperType).IsAssignableFrom(x) &&
-                x is { IsInterface: false, IsAbstract: false })
-            .ToArray();
-        return types;
-    }
 }
 
 public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<TBaseType>
@@ -39,6 +29,18 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
 {
     private const string TypeProperty = "$type";
 
+    private static Type? ResolveType(string? typeName, IReadOnlyList<Type> registeredTypes)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+        {
+            return null;
+        }
+
+        return registeredTypes.FirstOrDefault(t =>
+            string.Equals(t.FullName, typeName, StringComparison.Ordinal) ||
+            string.Equals(t.Name, typeName, StringComparison.Ordinal) ||
+            string.Equals(t.AssemblyQualifiedName, typeName, StringComparison.Ordinal));
+    }
 
     public override bool CanConvert(Type typeToConvert)
     {
@@ -58,12 +60,14 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
             if (doc.RootElement.TryGetProperty(TypeProperty, out var typeProperty))
             {
                 var typeName = typeProperty.GetString();
-                var type = Array.Find(types, t => t.FullName == typeName) ??
-                           Array.Find(types, t => t.Name == typeName) ??
-                           throw new JsonException($"{TypeProperty} specifies an invalid type");
+                var type = ResolveType(typeName, types);
+
+                if (type is null)
+                    throw new JsonException($"{TypeProperty} specifies an invalid type");
 
                 var rootElement = doc.RootElement.GetRawText();
-                result = JsonSerializer.Deserialize(rootElement, type, options) as TBaseType ??
+                var typeInfo = options.GetTypeInfo(type);
+                result = JsonSerializer.Deserialize(rootElement, typeInfo) as TBaseType ??
                          throw new JsonException("target type could not be serialized");
             }
             else
@@ -85,20 +89,13 @@ public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<
         JsonSerializerOptions options)
     {
         var type = value.GetType();
-        var discriminator = type.FullName ?? type.Name;
-        if (Array.Exists(types, t => (t.FullName ?? t.Name) == discriminator))
-        {
-            var jsonElement = JsonSerializer.SerializeToElement(value, type, options);
+        var discriminator = type.AssemblyQualifiedName ?? type.FullName ?? type.Name;
+        var typeInfo = options.GetTypeInfo(type);
+        var jsonElement = JsonSerializer.SerializeToElement(value, typeInfo);
 
-            var jsonObject = JsonObject.Create(jsonElement) ?? throw new JsonException();
-            jsonObject[TypeProperty] = discriminator;
+        var jsonObject = JsonObject.Create(jsonElement) ?? throw new JsonException();
+        jsonObject[TypeProperty] = discriminator;
 
-            jsonObject.WriteTo(writer, options);
-        }
-        else
-        {
-            throw new JsonException(
-                $"{type.Name} with matching base type {typeof(TBaseType).Name} is not registered.");
-        }
+        jsonObject.WriteTo(writer, options);
     }
 }

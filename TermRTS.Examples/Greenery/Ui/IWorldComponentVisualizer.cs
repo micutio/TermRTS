@@ -108,7 +108,7 @@ internal class ElevationHeatmapVisualizer(char[] markers, (ConsoleColor, Console
             // If the camera goes off the top/bottom, we draw nothing or "Void"
             if (worldY is < 0 or >= WorldMath.WorldHeight) continue;
 
-            WorldPackedChunk currentChunk = null;
+            WorldPackedChunk? currentChunk = null;
             var lastCx = -1;
             var lastCy = -1;
 
