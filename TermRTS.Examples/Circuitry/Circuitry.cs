@@ -1,19 +1,16 @@
 using System.Numerics;
-using log4net;
+using Microsoft.Extensions.Logging;
+using TermRTS.Ecs;
 using TermRTS.Event;
 using TermRTS.Io;
+using TermRTS.Log;
 using TermRTS.Storage;
 
 namespace TermRTS.Examples.Circuitry;
 
 internal class Circuitry : IRunnableExample
 {
-    private readonly ILog _log;
-
-    public Circuitry()
-    {
-        _log = LogManager.GetLogger(GetType());
-    }
+    private static ILogger<Circuitry> Log => TermRtsLog.For<Circuitry>();
 
     #region IRunnableExample Members
 
@@ -32,7 +29,7 @@ internal class Circuitry : IRunnableExample
         // TODO: Generate chips atomically and wires bit by bit
         // TODO: How to deal with unfinished wires? Currently generated in full
 
-        _log.Info("Launching Circuitry example!");
+        Log.LogInformation("Launching Circuitry example!");
 
         var renderer = new Renderer();
         var core = new Core
@@ -75,7 +72,7 @@ internal class Circuitry : IRunnableExample
         // After the app is terminated, clear the console.
         Console.Clear();
 
-        _log.Info("Shutting down Circuitry example!");
+        Log.LogInformation("Shutting down Circuitry example!");
     }
 
     #endregion

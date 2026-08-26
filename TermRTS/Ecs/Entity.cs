@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace TermRTS;
+namespace TermRTS.Ecs;
 
 /// <summary>
 ///     Base class for simulation entities, providing facilities for registering components.

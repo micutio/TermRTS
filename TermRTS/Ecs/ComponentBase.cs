@@ -1,4 +1,4 @@
-namespace TermRTS;
+namespace TermRTS.Ecs;
 
 public abstract class ComponentBase(int entityId)
 {

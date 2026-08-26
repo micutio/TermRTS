@@ -1,7 +1,8 @@
-using System.Text;
 using System.Text.Json.Serialization;
-using log4net;
+using Microsoft.Extensions.Logging;
 using TermRTS.Data;
+using TermRTS.Ecs;
+using TermRTS.Log;
 
 namespace TermRTS.Storage;
 
@@ -15,7 +16,8 @@ public class MappedCollectionStorage : IStorage
 {
     #region Fields
 
-    private static readonly ILog Log = LogManager.GetLogger(typeof(MappedCollectionStorage));
+    private static ILogger<MappedCollectionStorage> Log =>
+        TermRtsLog.For<MappedCollectionStorage>();
 
     private readonly Dictionary<Type, IEnumerable<ComponentBase>> _cachedGetForTypeQueries = new();
     private readonly Dictionary<Type, object> _listCache = new();
@@ -89,9 +91,7 @@ public class MappedCollectionStorage : IStorage
     {
         if (!_componentStores.TryGetValue(typeof(T), out var entityComponents))
         {
-            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
-                .Append(typeof(T))
-                .ToString());
+            StorageLog.ComponentTypeNotFound(Log, typeof(T));
             return default;
         }
 
@@ -99,9 +99,7 @@ public class MappedCollectionStorage : IStorage
             if (list.Count > 0)
                 return (T?)(object)list[0];
 
-        Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
-            .Append(typeof(T))
-            .ToString());
+        StorageLog.ComponentTypeNotFound(Log, typeof(T));
         return default;
     }
 
@@ -137,11 +135,7 @@ public class MappedCollectionStorage : IStorage
             || !entityComponents.TryGetValue(entityId, out var list)
             || list.Count == 0)
         {
-            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
-                .Append(typeof(T))
-                .Append(" for entity ")
-                .Append(entityId)
-                .ToString());
+            StorageLog.ComponentTypeNotFoundForEntity(Log, typeof(T), entityId);
             return default;
         }
 

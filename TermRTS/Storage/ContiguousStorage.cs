@@ -1,5 +1,6 @@
-using System.Text;
-using log4net;
+using Microsoft.Extensions.Logging;
+using TermRTS.Ecs;
+using TermRTS.Log;
 
 namespace TermRTS.Storage;
 
@@ -9,7 +10,7 @@ namespace TermRTS.Storage;
 /// </summary>
 public class ContiguousStorage : IStorage
 {
-    private static readonly ILog Log = LogManager.GetLogger(typeof(ContiguousStorage));
+    private static ILogger<ContiguousStorage> Log => TermRtsLog.For<ContiguousStorage>();
     private readonly Dictionary<Type, List<ComponentBase>> _componentStores = new();
     private readonly Dictionary<Type, Dictionary<int, List<int>>> _entityIndices = new();
 
@@ -56,9 +57,7 @@ public class ContiguousStorage : IStorage
     {
         if (!_componentStores.TryGetValue(typeof(T), out var list) || list.Count == 0)
         {
-            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
-                .Append(typeof(T))
-                .ToString());
+            StorageLog.ComponentTypeNotFound(Log, typeof(T));
             return default;
         }
 
@@ -91,21 +90,13 @@ public class ContiguousStorage : IStorage
         if (!_entityIndices.TryGetValue(type, out var indicesByEntity) ||
             !indicesByEntity.TryGetValue(entityId, out var indices) || indices.Count == 0)
         {
-            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
-                .Append(typeof(T))
-                .Append(" for entity ")
-                .Append(entityId)
-                .ToString());
+            StorageLog.ComponentTypeNotFoundForEntity(Log, typeof(T), entityId);
             return default;
         }
 
         if (!_componentStores.TryGetValue(type, out var list))
         {
-            Log.Debug(new StringBuilder().Append("Cannot find component of Type ")
-                .Append(typeof(T))
-                .Append(" for entity ")
-                .Append(entityId)
-                .ToString());
+            StorageLog.ComponentTypeNotFoundForEntity(Log, typeof(T), entityId);
             return default;
         }
 

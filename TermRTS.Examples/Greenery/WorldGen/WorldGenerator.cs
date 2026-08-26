@@ -540,7 +540,7 @@ public class CylinderWorld(
     )
     {
         var tectonicDelta = new float[worldWidth * worldHeight];
-        
+
         // TWEAKABLE: How many pixels wide are your mountain ranges?
         // TODO: Move to config!
         const float rangeWidth = 11.0f;

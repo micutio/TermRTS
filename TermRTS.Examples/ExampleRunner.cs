@@ -1,7 +1,9 @@
 using System.Text;
-using log4net.Config;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TermRTS.Examples.BouncyBall;
 using TermRTS.Examples.Minimal;
+using TermRTS.Log;
 
 namespace TermRTS.Examples;
 
@@ -22,30 +24,48 @@ internal static class ExampleRunner
         }
 
         Console.OutputEncoding = Encoding.UTF8;
-        XmlConfigurator.Configure();
-        switch (args[0])
-        {
-            case "1":
-                Console.WriteLine("Running minimal app...");
-                new MinimalApp().Run();
-                break;
-            case "2":
-                Console.WriteLine("Running bounce app...");
-                new BounceApp().Run();
-                break;
-            case "3":
-                Console.WriteLine("Running Circuitry App...");
-                new Circuitry.Circuitry().Run();
-                break;
-            case "4":
-                Console.WriteLine("Running Greenery App...");
-                new Greenery.Greenery().Run();
-                break;
-            default:
-                Console.WriteLine("Nothing to run...");
-                return 1;
-        }
 
-        return 0;
+        // TODO: Maybe move that into TermRTS.Log .
+        using var factory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Debug);
+            builder.AddProvider(new RollingFileLoggerProvider(
+                $"TermRTS.{Environment.ProcessId}.log",
+                25L * 1024 * 1024,
+                5));
+        });
+        TermRtsLog.Factory = factory;
+
+        try
+        {
+            switch (args[0])
+            {
+                case "1":
+                    Console.WriteLine("Running minimal app...");
+                    new MinimalApp().Run();
+                    break;
+                case "2":
+                    Console.WriteLine("Running bounce app...");
+                    new BounceApp().Run();
+                    break;
+                case "3":
+                    Console.WriteLine("Running Circuitry App...");
+                    new Circuitry.Circuitry().Run();
+                    break;
+                case "4":
+                    Console.WriteLine("Running Greenery App...");
+                    new Greenery.Greenery().Run();
+                    break;
+                default:
+                    Console.WriteLine("Nothing to run...");
+                    return 1;
+            }
+
+            return 0;
+        }
+        finally
+        {
+            TermRtsLog.Factory = NullLoggerFactory.Instance;
+        }
     }
 }

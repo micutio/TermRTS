@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using TermRTS.Ecs;
 
 namespace TermRTS.Examples.Greenery.Ecs.Component;
 

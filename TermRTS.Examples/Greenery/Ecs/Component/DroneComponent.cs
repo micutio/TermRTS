@@ -1,4 +1,5 @@
 using System.Numerics;
+using TermRTS.Ecs;
 using TermRTS.Io;
 
 namespace TermRTS.Examples.Greenery.Ecs.Component;

@@ -1,5 +1,6 @@
-using log4net;
+using Microsoft.Extensions.Logging;
 using TermRTS.Event;
+using TermRTS.Log;
 
 namespace TermRTS;
 
@@ -67,7 +68,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     #region Fields
 
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
+    private static ILogger<Simulation> Log => TermRtsLog.For<Simulation>();
     private readonly Persistence _persistence = new();
     private Scheduler _scheduler = scheduler;
 
@@ -77,7 +78,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
 
     public void Run()
     {
-        Log.Info("Starting Simulation");
+        Log.LogInformation("Starting Simulation");
         _scheduler.Prepare();
         while (_scheduler.IsActive) _scheduler.SimulationStep();
     }

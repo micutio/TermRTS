@@ -1,3 +1,4 @@
+using TermRTS.Ecs;
 using TermRTS.Examples.Greenery.WorldGen;
 
 namespace TermRTS.Examples.Greenery.Ecs.Component;

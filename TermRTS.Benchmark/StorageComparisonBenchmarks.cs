@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using TermRTS.Ecs;
 using TermRTS.Storage;
 
 namespace TermRTS.Benchmark;
@@ -123,7 +124,8 @@ public class StorageComparisonBenchmarks
     public int Contiguous_GetAllForTypeAndEntity_Enumerate()
     {
         var n = 0;
-        foreach (var _ in _contiguous.GetAllForTypeAndEntity<BenchmarkComponent>(EntityIdForByEntity))
+        foreach (var _ in _contiguous.GetAllForTypeAndEntity<BenchmarkComponent>(
+                     EntityIdForByEntity))
             n++;
         return n;
     }
@@ -151,7 +153,8 @@ public class StorageComparisonBenchmarks
     [Benchmark]
     public bool Contiguous_TryGetSingleForTypeAndEntity()
     {
-        return _contiguous.TryGetSingleForTypeAndEntity<BenchmarkComponent>(EntityIdForByEntity, out _);
+        return _contiguous.TryGetSingleForTypeAndEntity<BenchmarkComponent>(EntityIdForByEntity,
+            out _);
     }
 
     // ---- Read: SwapBuffers ----
@@ -266,6 +269,7 @@ public class StorageComparisonBenchmarks
     [Benchmark]
     public void Contiguous_RemoveComponentsByEntityAndType()
     {
-        _contiguous.RemoveComponentsByEntityAndType(EntityIdForByEntity, typeof(BenchmarkComponent));
+        _contiguous.RemoveComponentsByEntityAndType(EntityIdForByEntity,
+            typeof(BenchmarkComponent));
     }
 }

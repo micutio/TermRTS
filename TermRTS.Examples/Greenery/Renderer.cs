@@ -1,7 +1,8 @@
 using ConsoleRenderer;
-using log4net;
+using Microsoft.Extensions.Logging;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Ui;
+using TermRTS.Log;
 using TermRTS.Storage;
 using TermRTS.Ui;
 
@@ -11,7 +12,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 {
     #region Fields
 
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Renderer));
+    private static ILogger<Renderer> Log => TermRtsLog.For<Renderer>();
     private static readonly ConsoleColor DefaultBg = ConsoleColor.Black;
     private static readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
 
@@ -105,7 +106,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
     {
         Console.ResetColor();
         Console.Clear();
-        Log.Info("Shutting down renderer.");
+        Log.LogInformation("Shutting down renderer.");
     }
 
     public void RenderComponents(

@@ -1,3 +1,5 @@
+using TermRTS.Ecs;
+
 namespace TermRTS.Storage;
 
 #region IStorage Interfaces

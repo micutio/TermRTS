@@ -1,7 +1,8 @@
 using System.Security;
 using System.Text.Json;
-using log4net;
+using Microsoft.Extensions.Logging;
 using TermRTS.Event;
+using TermRTS.Log;
 using TermRTS.Serialization;
 
 namespace TermRTS;
@@ -39,7 +40,7 @@ public class Persistence
         }
         catch (Exception e) when (e is NotSupportedException or JsonException)
         {
-            Log.ErrorFormat("Error serializing simulation state to json: {0}", e);
+            Log.LogError(e, "Error serializing simulation state to json");
             jsonStr = null;
             response = $"Error serializing simulation state to json: {e.Message}";
             return false;
@@ -86,31 +87,22 @@ public class Persistence
                 return true;
             }
 
-            Log.ErrorFormat("Error parsing simulation state from NULL json: {0}", jsonStr);
+            Log.LogError("Error parsing simulation state from NULL json: {Json}", jsonStr);
             response = "Error: simulation state parsed from json is invalid.";
         }
         catch (ArgumentNullException e)
         {
-            Log.ErrorFormat(
-                "Error parsing simulation state from null json: {0}\ncaused by jsonStr={1}",
-                e,
-                jsonStr);
+            Log.LogError(e, "Error parsing simulation state from null json: {Json}", jsonStr);
             response = "Error parsing simulation state from null json";
         }
         catch (JsonException e)
         {
-            Log.ErrorFormat(
-                "Error parsing simulation state from invalid json: {0}\ncaused by jsonStr={1}",
-                e,
-                jsonStr);
+            Log.LogError(e, "Error parsing simulation state from invalid json: {Json}", jsonStr);
             response = "Error parsing simulation state from invalid json";
         }
         catch (NotSupportedException e)
         {
-            Log.ErrorFormat(
-                "Error parsing simulation state from json: {0}\ncaused by jsonStr={1}",
-                e,
-                jsonStr);
+            Log.LogError(e, "Error parsing simulation state from json: {Json}", jsonStr);
             response =
                 $"Error parsing simulation state from incompatible json: {e.Message} {jsonStr}";
         }
@@ -147,56 +139,50 @@ public class Persistence
         }
         catch (ArgumentNullException e)
         {
-            Log.ErrorFormat(
-                "Error writing json to file, invalid path: {0},\ncaused by {1}",
-                e,
-                filePath);
+            Log.LogError(e, "Error writing json to file, invalid path: {FilePath}", filePath);
             response = $"File path is null: {filePath}";
         }
         catch (ArgumentException e)
         {
-            Log.ErrorFormat(
-                "File path is either too short or contains invalid characters: {0}\n" +
-                "caused by {1}\n" +
-                "invalid characters are: {2}",
-                e,
+            Log.LogError(e,
+                "File path is either too short or contains invalid characters: {FilePath}. Invalid characters are: {InvalidChars}",
                 filePath,
                 Path.GetInvalidFileNameChars());
             response = "Invalid file path for storing simulation state.";
         }
         catch (PathTooLongException e)
         {
-            Log.ErrorFormat("File path is too long: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "File path is too long: {FilePath}", filePath);
             response = "File path is too long";
         }
         catch (DirectoryNotFoundException e)
         {
-            Log.ErrorFormat("Directory not found: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "Directory not found: {FilePath}", filePath);
             response = "File path is not a valid directory";
         }
         catch (FileNotFoundException e)
         {
-            Log.ErrorFormat("File not found: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "File not found: {FilePath}", filePath);
             response = "File does not exist";
         }
         catch (IOException e)
         {
-            Log.ErrorFormat("IOException: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "IOException writing simulation state: {FilePath}", filePath);
             response = "Error writing simulation state to file";
         }
         catch (UnauthorizedAccessException e)
         {
-            Log.ErrorFormat("Invalid access to file: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "Invalid access to file: {FilePath}", filePath);
             response = $"Invalid user rights to access file path: {filePath}";
         }
         catch (SecurityException e)
         {
-            Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "Security error accessing file path: {FilePath}", filePath);
             response = $"Security error accessing file path: {filePath}";
         }
         catch (NotSupportedException e)
         {
-            Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "File is not supported: {FilePath}", filePath);
             response = $"File is not supported: {filePath}";
         }
 
@@ -227,54 +213,50 @@ public class Persistence
         }
         catch (ArgumentNullException e)
         {
-            Log.ErrorFormat("Error reading json from file, invalid path: {0},\ncaused by {1}", e,
-                filePath);
+            Log.LogError(e, "Error reading json from file, invalid path: {FilePath}", filePath);
             response = $"File path is null: {filePath}";
         }
         catch (ArgumentException e)
         {
-            Log.ErrorFormat(
-                "File path is either too short or contains invalid characters: {0}\n" +
-                "caused by {1}\n" +
-                "invalid characters are: {2}",
-                e,
+            Log.LogError(e,
+                "File path is either too short or contains invalid characters: {FilePath}. Invalid characters are: {InvalidChars}",
                 filePath,
                 Path.GetInvalidFileNameChars());
             response = "Invalid file path for storing simulation state.";
         }
         catch (PathTooLongException e)
         {
-            Log.ErrorFormat("File path is too long: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "File path is too long: {FilePath}", filePath);
             response = "File path is too long";
         }
         catch (DirectoryNotFoundException e)
         {
-            Log.ErrorFormat("Directory not found: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "Directory not found: {FilePath}", filePath);
             response = "File path is not a valid directory";
         }
         catch (FileNotFoundException e)
         {
-            Log.ErrorFormat("File not found: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "File not found: {FilePath}", filePath);
             response = "File does not exist";
         }
         catch (IOException e)
         {
-            Log.ErrorFormat("IOException: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "IOException reading simulation state: {FilePath}", filePath);
             response = "Error writing simulation state to file";
         }
         catch (UnauthorizedAccessException e)
         {
-            Log.ErrorFormat("Invalid access to file: {0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "Invalid access to file: {FilePath}", filePath);
             response = $"Invalid user rights to access file path: {filePath}";
         }
         catch (SecurityException e)
         {
-            Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "Security error accessing file path: {FilePath}", filePath);
             response = $"Security error accessing file path: {filePath}";
         }
         catch (NotSupportedException e)
         {
-            Log.ErrorFormat("{0}\ncaused by {1}", e, filePath);
+            Log.LogError(e, "File is not supported: {FilePath}", filePath);
             response = $"File is not supported: {filePath}";
         }
 
@@ -283,7 +265,7 @@ public class Persistence
 
     #region Fields
 
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Simulation));
+    private static ILogger<Persistence> Log => TermRtsLog.For<Persistence>();
 
     #endregion
 }

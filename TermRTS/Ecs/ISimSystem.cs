@@ -1,7 +1,7 @@
 using TermRTS.Event;
 using TermRTS.Storage;
 
-namespace TermRTS;
+namespace TermRTS.Ecs;
 
 /// <summary>
 ///     A System defines one or multiple required components and processes <c>Entity</c>s which
