@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TermRTS.Ecs;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Ecs.Component;
@@ -20,7 +21,6 @@ public class Greenery : IRunnableExample
     private const int VoronoiCellCount = 500;
     private const int PlateCount = 20;
 
-    // private readonly ILog _log;
     private CommandRunner? _commandRunner;
 
     #region IRunnableExample Members

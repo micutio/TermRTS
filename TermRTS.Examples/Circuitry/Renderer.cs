@@ -1,6 +1,5 @@
 using System.Numerics;
 using ConsoleRenderer;
-using log4net;
 using TermRTS.Event;
 using TermRTS.Storage;
 
@@ -13,7 +12,6 @@ internal class Renderer : IRenderer, IEventSink
     private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
     private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
     private readonly ConsoleCanvas _canvas;
-    private readonly ILog _log;
     private string _profileOutput;
     private double _timePassedMs;
 
@@ -29,7 +27,6 @@ internal class Renderer : IRenderer, IEventSink
     {
         Console.CursorVisible = false;
         _canvas = new ConsoleCanvas().Render();
-        _log = LogManager.GetLogger(GetType());
         _profileOutput = string.Empty;
     }
 

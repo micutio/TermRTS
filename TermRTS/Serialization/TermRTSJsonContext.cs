@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using TermRTS.Ecs;
 using TermRTS.Event;
 
 namespace TermRTS.Serialization;

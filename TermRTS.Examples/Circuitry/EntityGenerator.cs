@@ -1,5 +1,6 @@
 using System.Numerics;
 using TermRTS.Algorithms;
+using TermRTS.Ecs;
 
 namespace TermRTS.Examples.Circuitry;
 
