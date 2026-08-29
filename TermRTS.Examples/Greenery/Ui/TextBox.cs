@@ -39,12 +39,12 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
             {
                 case InputState.Idle:
                     _state = InputState.OngoingInput;
-                    IsRequireReRender = true;
+                    IsRequireRender = true;
                     Array.Clear(_msg, 0, 80);
                     return;
                 case InputState.OngoingInput:
                     FinalizeMessage();
-                    IsRequireReRender = true;
+                    IsRequireRender = true;
                     return;
                 default:
                     return;
@@ -52,7 +52,7 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
 
         if (!IsOngoingInput) return;
 
-        IsRequireReRender = true;
+        IsRequireRender = true;
 
         if (_idx == _msg.Length) return;
         switch (keyInfo.Key)
@@ -75,7 +75,7 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
 
     #region UiElementBase Members
 
-    public override void UpdateFromComponents(
+    public override void UpdateSelfFromComponents(
         in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
@@ -83,7 +83,7 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
         // Does not require components to work.
     }
 
-    public override void Render()
+    public override void RenderSelf()
     {
         var fg = DefaultFg;
         var bg = DefaultBg;
@@ -110,22 +110,22 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
 
     protected override void OnXChanged()
     {
-        IsRequireReRender = true;
+        IsRequireRender = true;
     }
 
     protected override void OnYChanged()
     {
-        IsRequireReRender = true;
+        IsRequireRender = true;
     }
 
     protected override void OnWidthChanged()
     {
-        IsRequireReRender = true;
+        IsRequireRender = true;
     }
 
     protected override void OnHeightChanged()
     {
-        IsRequireReRender = true;
+        IsRequireRender = true;
     }
 
     #endregion

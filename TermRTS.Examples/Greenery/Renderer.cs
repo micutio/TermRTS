@@ -8,7 +8,7 @@ using TermRTS.Ui;
 
 namespace TermRTS.Examples.Greenery;
 
-public class Renderer : UiRootBase, IRenderer, IEventSink
+public class Renderer : UiElementBase, IRenderer, IEventSink
 {
     #region Fields
 
@@ -57,9 +57,9 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
             Y = _mapview.Height - 1,
             Width = _canvas.Width
         };
-        AddUiElement(_mapview);
-        AddUiElement(_logArea);
-        AddUiElement(_textbox);
+        AddChildUiElement(_mapview);
+        AddChildUiElement(_logArea);
+        AddChildUiElement(_textbox);
         _profileOutput = string.Empty;
 
         Console.CursorVisible = false;
@@ -117,9 +117,9 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         CheckForCanvasSizeChanged();
         // This calls UiElementBase.UpdateFromComponents,
         // which calls UiRootBase.UpdateThisFromComponents
-        UpdateFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
+        UpdateUiTreeFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
-        Render();
+        RenderUiTree();
 #if DEBUG
         if (!_textbox.IsOngoingInput)
             RenderDebugInfo(_timeStepSizeMs, _howFarIntoNextFramePercent);
@@ -128,9 +128,9 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
 
     #endregion
 
-    #region UiRootBase Members
+    #region UiElementBase Members
 
-    protected override void UpdateThisFromComponents(
+    public override void UpdateSelfFromComponents(
         in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
@@ -140,7 +140,7 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         _howFarIntoNextFramePercent = howFarIntoNextFramePercent;
     }
 
-    protected override void RenderUiBase()
+    public override void RenderSelf()
     {
         if (_textbox.IsOngoingInput) return;
         for (var i = 0; i < _canvas.Width; i += 1)
@@ -198,8 +198,8 @@ public class Renderer : UiRootBase, IRenderer, IEventSink
         _textbox.Y = _mapview.Height - 1;
         _textbox.Width = _mapview.Width;
 
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     private void RenderDebugInfo(double timeStepSizeMs, double howFarIntoNextFramePercent)

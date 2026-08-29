@@ -20,7 +20,7 @@ public enum MapRenderMode
     Humidity,
     Biomes,
     Wind,
-    WaterFlow,
+    WaterFlow
 }
 
 public readonly struct CellVisual
@@ -149,10 +149,12 @@ public class MapView : UiElementBase, IEventSink
         _humidityVisualizer = new HumidityVisualizer(
             theme.Scalar.MarkersScalar,
             theme.Heatmap.ColorsHeatmapHumidity);
-        _biomeVisualizer = new BiomeVisualizer(theme.Biome.BiomeMap, theme.SurfaceFeature.SurfaceFeatureMap);
+        _biomeVisualizer =
+            new BiomeVisualizer(theme.Biome.BiomeMap, theme.SurfaceFeature.SurfaceFeatureMap);
         // TODO: Use theme to get WindDirectionTheme.
         _windVisualizer = new WindVisualizer(new WindDirectionTheme());
-        _waterFlowVisualizer = new WaterFlowVisualizer(new DirectionMarkerTheme(), theme.Elevation.ColorsElevation);
+        _waterFlowVisualizer =
+            new WaterFlowVisualizer(new DirectionMarkerTheme(), theme.Elevation.ColorsElevation);
 
         _fovVisualizer = new FovVisualizer();
 
@@ -163,6 +165,8 @@ public class MapView : UiElementBase, IEventSink
         ViewportPositionInWorldY = 0;
 
         Console.CursorVisible = false;
+
+        IsRequireRender = true;
     }
 
     #endregion
@@ -175,7 +179,7 @@ public class MapView : UiElementBase, IEventSink
         set
         {
             _mapRenderMode = value;
-            IsRequireReRender = true;
+            IsRequireRender = true;
         }
     }
 
@@ -191,7 +195,7 @@ public class MapView : UiElementBase, IEventSink
             if (field == value) return;
 
             field = value;
-            IsRequireReRender = true;
+            IsRequireRender = true;
         }
     }
 
@@ -204,7 +208,7 @@ public class MapView : UiElementBase, IEventSink
 
             field = value;
             UpdateSpaceForScaleLeft();
-            IsRequireReRender = true;
+            IsRequireRender = true;
         }
     }
 
@@ -212,7 +216,7 @@ public class MapView : UiElementBase, IEventSink
 
     #region IUiElement Members
 
-    public override void UpdateFromComponents(
+    public override void UpdateSelfFromComponents(
         in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
@@ -255,7 +259,7 @@ public class MapView : UiElementBase, IEventSink
             {
                 if (_cachedDronePaths.TryGetValue(drone.EntityId, out var path))
                 {
-                    if (path.Count != drone.CachedPathVisual.Count) IsRequireReRender = true;
+                    if (path.Count != drone.CachedPathVisual.Count) IsRequireRender = true;
 
                     path.Clear();
                     path.AddRange(drone.CachedPathVisual);
@@ -263,7 +267,7 @@ public class MapView : UiElementBase, IEventSink
                 else
                 {
                     _cachedDronePaths.Add(drone.EntityId, [.. drone.CachedPathVisual]);
-                    IsRequireReRender = true;
+                    IsRequireRender = true;
                 }
             }
 
@@ -271,9 +275,9 @@ public class MapView : UiElementBase, IEventSink
         }
     }
 
-    public override void Render()
+    public override void RenderSelf()
     {
-        if (!IsRequireReRender) return;
+        if (!IsRequireRender) return;
 
         // Step 1: Render World
         for (var y = 0; y < ViewportHeight; y++)
@@ -322,14 +326,14 @@ public class MapView : UiElementBase, IEventSink
 
     protected override void OnXChanged()
     {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     protected override void OnYChanged()
     {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     protected override void OnWidthChanged()
@@ -342,8 +346,8 @@ public class MapView : UiElementBase, IEventSink
         }
 
         _cachedFov = new bool[newSize];
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     protected override void OnHeightChanged()
@@ -357,8 +361,8 @@ public class MapView : UiElementBase, IEventSink
         }
 
         _cachedFov = new bool[newSize];
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     #endregion
