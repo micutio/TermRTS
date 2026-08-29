@@ -98,14 +98,14 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
         if (evt is not Event<SystemLog>(var logContent)) return;
         var paddedLineWidth = Width + PaddingLeft + PaddingRight;
         AddLogEntry(paddedLineWidth, logContent.Content);
-        IsRequireReRender = true;
+        IsRequireRender = true;
     }
 
     #endregion
 
     #region UiElementBase Members
 
-    public override void UpdateFromComponents(
+    public override void UpdateSelfFromComponents(
         in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
@@ -113,7 +113,7 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
         // Does not require components to work.
     }
 
-    public override void Render()
+    public override void RenderSelf()
     {
         var idx = 0;
         // alternate background color with every new log entry
@@ -133,28 +133,28 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
 
     protected override void OnXChanged()
     {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     protected override void OnYChanged()
     {
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     protected override void OnWidthChanged()
     {
         UpdateLayout(Width, Height);
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     protected override void OnHeightChanged()
     {
         UpdateLayout(Width, Height);
-        IsRequireReRender = true;
-        IsRequireRootReRender = true;
+        IsRequireRender = true;
+        IsRequireRootRender = true;
     }
 
     #endregion
