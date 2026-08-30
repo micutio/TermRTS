@@ -1,4 +1,3 @@
-using ConsoleRenderer;
 using TermRTS.Data;
 using TermRTS.Event;
 using TermRTS.Io;
@@ -21,8 +20,8 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
     private const int PaddingRight = 1;
     private const int PaddingBottom = 1;
 
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    private static readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
+    private static readonly ConsoleColor DefaultBg = ConsoleColor.Black;
 
     private RingBuffer<string> _buffer = new(capacity);
 
@@ -37,7 +36,7 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
     public void AddLogEntry(int lineWidth, string message)
     {
         // TODO: Create algorithm to distribute the string into the current layout.
-        var logEntryLine = "" + Cp437.Greater + Cp437.WhiteSpace;
+        var logEntryLine = ""; // + Cp437.Greater + Cp437.WhiteSpace;
         const int promptSpace = 2;
         var currentLineWidth = promptSpace; // prompt size
         var wordArray = message.Split([' '], StringSplitOptions.RemoveEmptyEntries);
@@ -81,11 +80,10 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
         _buffer.PushBack(logEntryLine);
     }
 
-
     public void UpdateLayout(int newWidth, int newHeight)
     {
         var messages = _buffer.ToArray();
-        _buffer = new RingBuffer<string>(newHeight);
+        _buffer = new RingBuffer<string>(Math.Max(newHeight, 1));
         var paddedLineWidth = newWidth + PaddingLeft + PaddingRight;
         foreach (var msg in messages) AddLogEntry(paddedLineWidth, msg);
     }
@@ -122,12 +120,14 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
         foreach (var msg in _buffer)
         {
             if (msg.Length > 0 && msg[0].Equals(Cp437.Greater)) altBackground = !altBackground;
-            var bgColor = altBackground ? ConsoleColor.Black : ConsoleColor.DarkGray;
+
+            var bgColor = altBackground ? DefaultBg : ConsoleColor.DarkGray;
             ctx.Text(0, idx, msg, false, DefaultFg, bgColor);
 
             // fill the rest of the line with the same background color
             for (var i = msg.Length; i < Width; i++)
                 ctx.Draw(i, idx, Cp437.WhiteSpace, DefaultFg, bgColor);
+
             idx++;
         }
     }

@@ -48,8 +48,8 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         {
             X = _mapview.Width + 1,
             Y = 1,
-            Height = _canvas.Height - 1,
-            Width = _canvas.Width - _mapview.Width
+            Width = _canvas.Width - _mapview.Width,
+            Height = _canvas.Height - 1
         };
         _textbox = new TextBox(evtQueue)
         {
@@ -122,8 +122,7 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         UpdateUiTreeFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         RenderUiTree(ctx);
 #if DEBUG
-        if (!_textbox.IsOngoingInput)
-            RenderDebugInfo(_timeStepSizeMs, _howFarIntoNextFramePercent);
+        RenderDebugInfo(_timeStepSizeMs, _howFarIntoNextFramePercent);
 #endif
     }
 
@@ -136,16 +135,12 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        // TODO: Implement layouting of child elements
         _timeStepSizeMs = timeStepSizeMs;
         _howFarIntoNextFramePercent = howFarIntoNextFramePercent;
     }
 
     protected override void RenderSelf(RenderContext ctx)
     {
-        if (_textbox.IsOngoingInput) return;
-        for (var i = 0; i < _canvas.Width; i += 1)
-            ctx.Draw(i, ctx.Bounds.Height - 1, ' ', DefaultFg, DefaultBg);
     }
 
     #endregion
