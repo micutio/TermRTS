@@ -12,7 +12,7 @@ namespace TermRTS.Examples.Greenery.Ui;
 //       - Method for adding new text into buffer
 //       - make it scrollable?
 // TODO: Move log area to the bottom of the screen?
-public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEventSink
+public class LogArea(int capacity) : UiElementBase, IEventSink
 {
     #region Fields
 
@@ -72,6 +72,7 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
             }
             else
             {
+                // TODO: Performance - use a string builder
                 logEntryLine += word + Cp437.WhiteSpace;
                 currentLineWidth += word.Length + 1;
             }
@@ -113,7 +114,7 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
         // Does not require components to work.
     }
 
-    public override void RenderSelf()
+    protected override void RenderSelf(RenderContext ctx)
     {
         var idx = 0;
         // alternate background color with every new log entry
@@ -122,11 +123,11 @@ public class LogArea(ConsoleCanvas canvas, int capacity) : UiElementBase, IEvent
         {
             if (msg.Length > 0 && msg[0].Equals(Cp437.Greater)) altBackground = !altBackground;
             var bgColor = altBackground ? ConsoleColor.Black : ConsoleColor.DarkGray;
-            canvas.Text(X, Y + idx, msg, false, DefaultFg, bgColor);
+            ctx.Text(X, Y + idx, msg, false, DefaultFg, bgColor);
 
             // fill the rest of the line with the same background color
             for (var i = msg.Length; i < Width; i++)
-                canvas.Set(X + i, Y + idx, Cp437.WhiteSpace, DefaultFg, bgColor);
+                ctx.Draw(X + i, Y + idx, Cp437.WhiteSpace, DefaultFg, bgColor);
             idx++;
         }
     }

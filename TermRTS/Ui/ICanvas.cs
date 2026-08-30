@@ -5,5 +5,8 @@ namespace TermRTS.Ui;
 /// </summary>
 public interface ICanvas
 {
-    void setCell(int x, int y, char character, ConsoleColor fgColor, ConsoleColor bgColor);
+    void SetCell(int x, int y, char character, ConsoleColor fgColor, ConsoleColor bgColor);
+
+    void SetText(int x, int y, string text, bool isCentered, ConsoleColor fgColor,
+        ConsoleColor bgColor);
 }

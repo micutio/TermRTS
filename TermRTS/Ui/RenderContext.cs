@@ -1,6 +1,6 @@
 namespace TermRTS.Ui;
 
-public readonly struct Rect(int x, int y, int width, int height)
+public readonly ref struct Rect(int x, int y, int width, int height)
 {
     public int X { get; } = x;
     public int Y { get; } = y;
@@ -8,9 +8,9 @@ public readonly struct Rect(int x, int y, int width, int height)
     public int Height { get; } = height;
 }
 
-public readonly struct RenderContext(ICanvas canvas, Rect bounds)
+public readonly ref struct RenderContext(ICanvas canvas, Rect bounds)
 {
-    private Rect Bounds { get; } = bounds;
+    public Rect Bounds { get; } = bounds;
 
     public void Draw(
         int localX,
@@ -26,7 +26,25 @@ public readonly struct RenderContext(ICanvas canvas, Rect bounds)
         var globalX = Bounds.X + localX;
         var globalY = Bounds.Y + localY;
 
-        canvas.setCell(globalX, globalY, character, fgColor, bgColor);
+        canvas.SetCell(globalX, globalY, character, fgColor, bgColor);
+    }
+
+    public void Text(
+        int localX,
+        int localY,
+        string text,
+        bool isCentered,
+        ConsoleColor fgColor,
+        ConsoleColor bgColor)
+    {
+        // Bounds check for clipping
+        if (localX < 0 || localX >= Bounds.Width || localY < 0 || localY >= Bounds.Height)
+            return;
+
+        var globalX = Bounds.X + localX;
+        var globalY = Bounds.Y + localY;
+
+        canvas.SetText(globalX, globalY, text, isCentered, fgColor, bgColor);
     }
 
     public RenderContext CreateSubContext(int localX, int localY, int width, int height)

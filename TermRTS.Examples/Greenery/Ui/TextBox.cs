@@ -11,7 +11,7 @@ internal enum InputState
     OngoingInput
 }
 
-public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiElementBase
+public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
 {
     #region Fields
 
@@ -83,20 +83,20 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
         // Does not require components to work.
     }
 
-    public override void RenderSelf()
+    protected override void RenderSelf(RenderContext ctx)
     {
         var fg = DefaultFg;
         var bg = DefaultBg;
 
         // render blank line
         for (var i = X; i < Width; i += 1)
-            canvas.Set(i, Y, ' ', bg, fg);
+            ctx.Draw(i, Y, ' ', bg, fg);
 
         if (!IsOngoingInput) return;
 
         // render prompt
-        canvas.Set(X, Y, '>', bg, fg);
-        canvas.Set(X + 1, Y, ' ', bg, fg);
+        ctx.Draw(X, Y, '>', bg, fg);
+        ctx.Draw(X + 1, Y, ' ', bg, fg);
 
         // render text
         var input = GetCurrentInput();
@@ -104,7 +104,7 @@ public class TextBox(SchedulerEventQueue evtQueue, ConsoleCanvas canvas) : UiEle
         for (var i = 0; i < input.Length; i += 1)
         {
             var c = input[i];
-            canvas.Set(startX + i, Y, c, bg, fg);
+            ctx.Draw(startX + i, Y, c, bg, fg);
         }
     }
 

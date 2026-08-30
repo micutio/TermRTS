@@ -57,12 +57,12 @@ public abstract class UiElementBase
     /// If the UI element changes it's layout, which would affect other elements of this
     /// element tree then use <see cref="IsRequireRootRender"/> instead.
     /// </summary>
-    public bool IsRequireRender { get; set; } = true;
+    protected bool IsRequireRender { get; set; } = true;
 
     /// <summary>
     /// Flag indicating that this UI element or any of its child elements has changed their layout.
     /// </summary>
-    public bool IsRequireRootRender { get; set; } = true;
+    protected bool IsRequireRootRender { get; set; } = true;
 
     #endregion
 
@@ -83,7 +83,7 @@ public abstract class UiElementBase
         double timeStepSizeMs,
         double howFarIntoNextFramePercent);
 
-    public abstract void RenderSelf();
+    protected abstract void RenderSelf(RenderContext ctx);
 
     protected abstract void OnXChanged();
 
@@ -97,14 +97,11 @@ public abstract class UiElementBase
 
     #region Public Members
 
-    public void UpdateUiTreeFromComponents(
+    protected void UpdateUiTreeFromComponents(
         in IReadonlyStorage componentStorage,
         double timeStepSizeMs,
         double howFarIntoNextFramePercent)
     {
-        // IsRequireRender = false;
-        // IsRequireRootRender = false;
-
         UpdateSelfFromComponents(componentStorage, timeStepSizeMs, howFarIntoNextFramePercent);
 
         foreach (var uiElement in _uiElements)
@@ -122,7 +119,7 @@ public abstract class UiElementBase
     ///     Render the root and all of its elements.
     ///     Only triggered if either the root or one of its child UI-elements requires a re-render.
     /// </summary>
-    public void RenderUiTree()
+    protected void RenderUiTree(RenderContext ctx)
     {
         // TODO: Remove this after verifying that UpdateThisFromComponents already does this check.
         // var isRequireReRender = IsRequireReRender
@@ -130,15 +127,16 @@ public abstract class UiElementBase
 
         if (IsRequireRender)
         {
-            RenderSelf();
+            RenderSelf(ctx);
             IsRequireRender = false;
             IsRequireRootRender = false;
         }
 
+        // TODO: Create subcontexts for each child element instead of just pass ctx down the line.
         foreach (var uiElement in _uiElements)
             if (uiElement.IsRequireRender)
             {
-                uiElement.RenderUiTree();
+                uiElement.RenderUiTree(ctx);
             }
     }
 
