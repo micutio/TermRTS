@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.JavaScript;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
@@ -32,6 +33,9 @@ public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
     public void ProcessEvent(IEvent evt)
     {
         if (evt is not Event<Event.Command>(var command)) return;
+
+        var cmdStr = new string(command.Cmd);
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog(cmdStr)));
 
         var response = Run(new Scanner(command.Cmd).ScanTokens());
         if (response.IsWhiteSpace() || response.Length == 0) return;
