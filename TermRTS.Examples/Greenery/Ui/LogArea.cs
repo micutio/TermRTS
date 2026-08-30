@@ -123,11 +123,11 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
         {
             if (msg.Length > 0 && msg[0].Equals(Cp437.Greater)) altBackground = !altBackground;
             var bgColor = altBackground ? ConsoleColor.Black : ConsoleColor.DarkGray;
-            ctx.Text(X, Y + idx, msg, false, DefaultFg, bgColor);
+            ctx.Text(0, idx, msg, false, DefaultFg, bgColor);
 
             // fill the rest of the line with the same background color
             for (var i = msg.Length; i < Width; i++)
-                ctx.Draw(X + i, Y + idx, Cp437.WhiteSpace, DefaultFg, bgColor);
+                ctx.Draw(i, idx, Cp437.WhiteSpace, DefaultFg, bgColor);
             idx++;
         }
     }

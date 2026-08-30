@@ -136,7 +136,12 @@ public abstract class UiElementBase
         foreach (var uiElement in _uiElements)
             if (uiElement.IsRequireRender)
             {
-                uiElement.RenderUiTree(ctx);
+                var subCtx = ctx.CreateSubContext(
+                    uiElement.X,
+                    uiElement.Y,
+                    uiElement.Width,
+                    uiElement.Height);
+                uiElement.RenderUiTree(subCtx);
             }
     }
 
