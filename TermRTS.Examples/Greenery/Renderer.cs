@@ -13,8 +13,8 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
     #region Fields
 
     private static ILogger<Renderer> Log => TermRtsLog.For<Renderer>();
-    private static readonly ConsoleColor DefaultBg = ConsoleColor.Black;
-    private static readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
+    private const ConsoleColor DefaultBg = ConsoleColor.Black;
+    private const ConsoleColor DefaultFg = ConsoleColor.Gray;
 
     private readonly ConsoleCanvas _canvas;
     private readonly MapView _mapview;
@@ -41,21 +41,22 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
 
         _mapview = new MapView(worldWidth, worldHeight, theme)
         {
-            Height = _canvas.Height - 1,
-            // For debugging, mapview takes up the entire width.
-            // TODO: Reset to 0.7f
-            Width = (int)(_canvas.Width * 1.0f)
+            Height = _canvas.Height,
+            Width = (int)(_canvas.Width * 0.7f)
         };
         _logArea = new LogArea(_canvas.Height - 1)
         {
             X = _mapview.Width + 1,
+            Y = 1,
             Height = _canvas.Height - 1,
             Width = _canvas.Width - _mapview.Width
         };
         _textbox = new TextBox(evtQueue)
         {
-            Y = _mapview.Height - 1,
-            Width = _canvas.Width
+            X = _mapview.Width + 1,
+            Y = 0,
+            Width = _canvas.Width - _mapview.Width,
+            Height = 1
         };
         AddChildUiElement(_mapview);
         AddChildUiElement(_logArea);
@@ -118,10 +119,7 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         var ctx = new RenderContext(
             new CanvasAdapter(_canvas),
             new Rect(0, 0, _canvas.Width, _canvas.Height));
-        // This calls UiElementBase.UpdateFromComponents,
-        // which calls UiRootBase.UpdateThisFromComponents
         UpdateUiTreeFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
-        // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
         RenderUiTree(ctx);
 #if DEBUG
         if (!_textbox.IsOngoingInput)

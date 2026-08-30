@@ -90,21 +90,21 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
 
         // render blank line
         for (var i = X; i < Width; i += 1)
-            ctx.Draw(i, Y, ' ', bg, fg);
+            ctx.Draw(i, 0, ' ', bg, fg);
 
         if (!IsOngoingInput) return;
 
         // render prompt
-        ctx.Draw(X, Y, '>', bg, fg);
-        ctx.Draw(X + 1, Y, ' ', bg, fg);
+        ctx.Draw(0, 0, '>', bg, fg);
+        ctx.Draw(1, 0, ' ', bg, fg);
 
         // render text
         var input = GetCurrentInput();
-        var startX = X + 2;
+        var startX = 2;
         for (var i = 0; i < input.Length; i += 1)
         {
             var c = input[i];
-            ctx.Draw(startX + i, Y, c, bg, fg);
+            ctx.Draw(startX + i, 0, c, bg, fg);
         }
     }
 

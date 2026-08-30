@@ -281,8 +281,8 @@ public class MapView : UiElementBase, IEventSink
                 // TODO: Reactivate.
                 var isFov = true; //_cachedFov[y * ViewportWidth + x];
                 ctx.Draw(
-                    X + x + _spaceForScaleLeft,
-                    Y + y + SpaceForScaleTop,
+                    x + _spaceForScaleLeft,
+                    y + SpaceForScaleTop,
                     cellVisual.GetMarker(),
                     isFov ? cellVisual.GetForeground() : _theme.Default.DefaultFg,
                     isFov ? cellVisual.GetBackground() : _theme.Default.DefaultBg);
@@ -293,8 +293,8 @@ public class MapView : UiElementBase, IEventSink
             foreach (var (pathX, pathY, pathCol) in path)
                 if (IsInCamera(pathX, pathY))
                     ctx.Draw(
-                        X + WorldToViewportX(pathX) + _spaceForScaleLeft,
-                        Y + WorldToViewportY(pathY) + SpaceForScaleTop,
+                        WorldToViewportX(pathX) + _spaceForScaleLeft,
+                        WorldToViewportY(pathY) + SpaceForScaleTop,
                         pathCol,
                         ConsoleColor.Red,
                         _theme.Default.DefaultBg);
@@ -305,8 +305,8 @@ public class MapView : UiElementBase, IEventSink
             var droneY = Convert.ToInt32(pos.Y);
             if (IsInCamera(droneX, droneY))
                 ctx.Draw(
-                    X + WorldToViewportX(droneX) + _spaceForScaleLeft,
-                    Y + WorldToViewportY(droneY) + SpaceForScaleTop,
+                    WorldToViewportX(droneX) + _spaceForScaleLeft,
+                    WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
                     _theme.Default.DefaultBg,
                     ConsoleColor.Red);
@@ -515,7 +515,12 @@ public class MapView : UiElementBase, IEventSink
     private void RenderCoordinates(RenderContext ctx)
     {
         for (var x = 0; x < _spaceForScaleLeft; x++)
-            ctx.Draw(X + x, Y, Cp437.BlockFull, _theme.Default.DefaultFg, _theme.Default.DefaultBg);
+            ctx.Draw(
+                x,
+                0,
+                Cp437.BlockFull,
+                _theme.Default.DefaultFg,
+                _theme.Default.DefaultBg);
 
         // Horizontal
         // tick marks
@@ -524,7 +529,11 @@ public class MapView : UiElementBase, IEventSink
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
             var fg = isTick ? _theme.Default.DefaultFg : _theme.Default.DefaultBg;
-            ctx.Draw(X + _spaceForScaleLeft + x, Y, Cp437.BlockFull, fg, _theme.Default.DefaultBg);
+            ctx.Draw(_spaceForScaleLeft + x,
+                0,
+                Cp437.BlockFull,
+                fg,
+                _theme.Default.DefaultBg);
         }
 
         // tick labels
@@ -539,8 +548,8 @@ public class MapView : UiElementBase, IEventSink
             var tickLabel = Convert.ToString(worldX);
             if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
             ctx.Text(
-                X + _spaceForScaleLeft + x,
-                Y,
+                _spaceForScaleLeft + x,
+                0,
                 tickLabel,
                 false,
                 _theme.Default.DefaultBg,
@@ -555,7 +564,9 @@ public class MapView : UiElementBase, IEventSink
                 var worldY = ViewportToWorldY(y);
                 var isTick = worldY > 0 && worldY % 5 == 0;
                 var fg = isTick ? _theme.Default.DefaultFg : _theme.Default.DefaultBg;
-                ctx.Draw(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg,
+                ctx.Draw(x,
+                    y + SpaceForScaleTop,
+                    Cp437.BlockFull, fg,
                     _theme.Default.DefaultBg);
             }
 
@@ -566,7 +577,7 @@ public class MapView : UiElementBase, IEventSink
             var isTick = worldY > 0 && worldY % 5 == 0;
             if (isTick)
                 ctx.Text(
-                    X,
+                    0,
                     y + SpaceForScaleTop,
                     Convert.ToString(worldY),
                     false,
@@ -584,14 +595,14 @@ public class MapView : UiElementBase, IEventSink
 
         for (var x = 0; x < Width; x++)
         {
-            ctx.Draw(x, Y + Height - 1, ' ', ConsoleColor.Gray, ConsoleColor.Black);
+            ctx.Draw(x, Height - 1, ' ', ConsoleColor.Gray, ConsoleColor.Black);
         }
 
         // Don't show keymap for the time being.
         // _canvas.Text(X + _spaceForScaleLeft, Y + Height - 2, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
         ctx.Text(
-            X + _spaceForScaleLeft,
-            Y + Height - 1,
+            _spaceForScaleLeft,
+            Height - 1,
             ClipToWidth(legend, maxWidth),
             false,
             _theme.Default.DefaultBg,
