@@ -77,9 +77,6 @@ public class MapView : UiElementBase, IEventSink
 
     #endregion
 
-    // reference to canvas to render on
-    private readonly ConsoleCanvas _canvas;
-
     // theme
     private readonly UiThemes _theme;
 
@@ -110,12 +107,8 @@ public class MapView : UiElementBase, IEventSink
 
     #region Constructor
 
-    public MapView(ConsoleCanvas canvas, int worldWidth, int worldHeight, UiThemes theme)
+    public MapView(int worldWidth, int worldHeight, UiThemes theme)
     {
-        _canvas = canvas;
-        _canvas.AutoResize = true;
-        // _canvas.Interlaced = true;
-
         _theme = theme;
 
         _cachedWorld = new CellVisual[ViewportWidth * ViewportHeight];
@@ -275,7 +268,7 @@ public class MapView : UiElementBase, IEventSink
         }
     }
 
-    public override void RenderSelf()
+    protected override void RenderSelf(RenderContext ctx)
     {
         if (!IsRequireRender) return;
 
@@ -287,7 +280,7 @@ public class MapView : UiElementBase, IEventSink
                 // Deactivate fov for debugging.
                 // TODO: Reactivate.
                 var isFov = true; //_cachedFov[y * ViewportWidth + x];
-                _canvas.Set(
+                ctx.Draw(
                     X + x + _spaceForScaleLeft,
                     Y + y + SpaceForScaleTop,
                     cellVisual.GetMarker(),
@@ -299,7 +292,7 @@ public class MapView : UiElementBase, IEventSink
         foreach (var path in _cachedDronePaths.Values)
             foreach (var (pathX, pathY, pathCol) in path)
                 if (IsInCamera(pathX, pathY))
-                    _canvas.Set(
+                    ctx.Draw(
                         X + WorldToViewportX(pathX) + _spaceForScaleLeft,
                         Y + WorldToViewportY(pathY) + SpaceForScaleTop,
                         pathCol,
@@ -311,7 +304,7 @@ public class MapView : UiElementBase, IEventSink
             var droneX = Convert.ToInt32(pos.X);
             var droneY = Convert.ToInt32(pos.Y);
             if (IsInCamera(droneX, droneY))
-                _canvas.Set(
+                ctx.Draw(
                     X + WorldToViewportX(droneX) + _spaceForScaleLeft,
                     Y + WorldToViewportY(droneY) + SpaceForScaleTop,
                     '@',
@@ -320,8 +313,8 @@ public class MapView : UiElementBase, IEventSink
         }
 
         // Step 3: Render Coordinate Scales at the top and left sides.
-        RenderCoordinates();
-        RenderOverlay();
+        RenderCoordinates(ctx);
+        RenderOverlay(ctx);
     }
 
     protected override void OnXChanged()
@@ -519,10 +512,10 @@ public class MapView : UiElementBase, IEventSink
         return ViewportPositionInWorldY + y;
     }
 
-    private void RenderCoordinates()
+    private void RenderCoordinates(RenderContext ctx)
     {
         for (var x = 0; x < _spaceForScaleLeft; x++)
-            _canvas.Set(X + x, Y, Cp437.BlockFull, _theme.Default.DefaultBg);
+            ctx.Draw(X + x, Y, Cp437.BlockFull, _theme.Default.DefaultFg, _theme.Default.DefaultBg);
 
         // Horizontal
         // tick marks
@@ -531,7 +524,7 @@ public class MapView : UiElementBase, IEventSink
             var worldX = ViewportToWorldX(x);
             var isTick = worldX > 0 && worldX % 10 == 0;
             var fg = isTick ? _theme.Default.DefaultFg : _theme.Default.DefaultBg;
-            _canvas.Set(X + _spaceForScaleLeft + x, Y, Cp437.BlockFull, fg);
+            ctx.Draw(X + _spaceForScaleLeft + x, Y, Cp437.BlockFull, fg, _theme.Default.DefaultBg);
         }
 
         // tick labels
@@ -545,7 +538,7 @@ public class MapView : UiElementBase, IEventSink
             var spaceForLabel = Width - x - _spaceForScaleLeft;
             var tickLabel = Convert.ToString(worldX);
             if (tickLabel.Length > spaceForLabel) tickLabel = tickLabel[..spaceForLabel];
-            _canvas.Text(
+            ctx.Text(
                 X + _spaceForScaleLeft + x,
                 Y,
                 tickLabel,
@@ -562,7 +555,8 @@ public class MapView : UiElementBase, IEventSink
                 var worldY = ViewportToWorldY(y);
                 var isTick = worldY > 0 && worldY % 5 == 0;
                 var fg = isTick ? _theme.Default.DefaultFg : _theme.Default.DefaultBg;
-                _canvas.Set(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg);
+                ctx.Draw(X + x, y + SpaceForScaleTop, Cp437.BlockFull, fg,
+                    _theme.Default.DefaultBg);
             }
 
         // tick labels
@@ -571,7 +565,7 @@ public class MapView : UiElementBase, IEventSink
             var worldY = ViewportToWorldY(y);
             var isTick = worldY > 0 && worldY % 5 == 0;
             if (isTick)
-                _canvas.Text(
+                ctx.Text(
                     X,
                     y + SpaceForScaleTop,
                     Convert.ToString(worldY),
@@ -581,7 +575,7 @@ public class MapView : UiElementBase, IEventSink
         }
     }
 
-    private void RenderOverlay()
+    private void RenderOverlay(RenderContext ctx)
     {
         var maxWidth = Math.Max(0, Width - _spaceForScaleLeft);
         // var keyMap =
@@ -590,12 +584,12 @@ public class MapView : UiElementBase, IEventSink
 
         for (var x = 0; x < Width; x++)
         {
-            _canvas.Set(x, Y + Height - 1, ' ', ConsoleColor.Gray, ConsoleColor.Black);
+            ctx.Draw(x, Y + Height - 1, ' ', ConsoleColor.Gray, ConsoleColor.Black);
         }
 
         // Don't show keymap for the time being.
         // _canvas.Text(X + _spaceForScaleLeft, Y + Height - 2, ClipToWidth(keyMap, maxWidth), false, DefaultBg, DefaultFg);
-        _canvas.Text(
+        ctx.Text(
             X + _spaceForScaleLeft,
             Y + Height - 1,
             ClipToWidth(legend, maxWidth),

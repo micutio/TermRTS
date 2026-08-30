@@ -38,21 +38,21 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         _canvas.AutoResize = true;
         _lastCanvasWidth = _canvas.Width;
         _lastCanvasHeight = _canvas.Height;
-        // _canvas.Interlaced = true;
-        _mapview = new MapView(_canvas, worldWidth, worldHeight, theme)
+
+        _mapview = new MapView(worldWidth, worldHeight, theme)
         {
             Height = _canvas.Height - 1,
             // For debugging, mapview takes up the entire width.
             // TODO: Reset to 0.7f
             Width = (int)(_canvas.Width * 1.0f)
         };
-        _logArea = new LogArea(_canvas, _canvas.Height - 1)
+        _logArea = new LogArea(_canvas.Height - 1)
         {
             X = _mapview.Width + 1,
             Height = _canvas.Height - 1,
             Width = _canvas.Width - _mapview.Width
         };
-        _textbox = new TextBox(evtQueue, _canvas)
+        _textbox = new TextBox(evtQueue)
         {
             Y = _mapview.Height - 1,
             Width = _canvas.Width
@@ -115,11 +115,14 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         double howFarIntoNextFramePercent)
     {
         CheckForCanvasSizeChanged();
+        var ctx = new RenderContext(
+            new CanvasAdapter(_canvas),
+            new Rect(0, 0, _canvas.Width, _canvas.Height));
         // This calls UiElementBase.UpdateFromComponents,
         // which calls UiRootBase.UpdateThisFromComponents
         UpdateUiTreeFromComponents(storage, timeStepSizeMs, howFarIntoNextFramePercent);
         // This calls UiElementBase.Render(), which calls UiRootBase.RenderUiBase().
-        RenderUiTree();
+        RenderUiTree(ctx);
 #if DEBUG
         if (!_textbox.IsOngoingInput)
             RenderDebugInfo(_timeStepSizeMs, _howFarIntoNextFramePercent);
@@ -140,11 +143,11 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         _howFarIntoNextFramePercent = howFarIntoNextFramePercent;
     }
 
-    public override void RenderSelf()
+    protected override void RenderSelf(RenderContext ctx)
     {
         if (_textbox.IsOngoingInput) return;
         for (var i = 0; i < _canvas.Width; i += 1)
-            _canvas.Set(i, _canvas.Height - 1, ' ', DefaultFg, DefaultBg);
+            ctx.Draw(i, ctx.Bounds.Height - 1, ' ', DefaultFg, DefaultBg);
     }
 
     #endregion
