@@ -9,8 +9,9 @@ internal class Renderer : IRenderer, IEventSink
 {
     #region Fields
 
-    private static readonly ConsoleColor DefaultBg = Console.BackgroundColor;
-    private static readonly ConsoleColor DefaultFg = Console.ForegroundColor;
+    // TODO: NEVER EVER use Console.BackgroundColor and Console.ForegroundColor!
+    //       Because they are undefined in Linux and will crash ConsoleRenderer.
+    private static readonly ConsoleColor DefaultBg = ConsoleColor.Black;
     private readonly ConsoleCanvas _canvas;
     private string _profileOutput;
     private double _timePassedMs;

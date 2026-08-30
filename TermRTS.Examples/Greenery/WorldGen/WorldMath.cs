@@ -7,8 +7,8 @@ public static class WorldMath
 {
     // If this is NOT set to 32, then DO NOT use GetChunkIndexFast()!
     public const int ChunkSize = 32;
-    public const int WorldWidth = 4096; // 320 // Must be multiple of ChunkSize
-    public const int WorldHeight = 2048; // 96;
+    public const int WorldWidth = 320; //4096; // 320 // Must be multiple of ChunkSize
+    public const int WorldHeight = 96; //2048; // 96;
     public const int ChunksAcross = WorldWidth / ChunkSize;
 
     public readonly struct WorldCoord(int x, int y)

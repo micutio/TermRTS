@@ -1,5 +1,4 @@
 using System.Numerics;
-using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Ecs.Component;
 using TermRTS.Examples.Greenery.WorldGen;

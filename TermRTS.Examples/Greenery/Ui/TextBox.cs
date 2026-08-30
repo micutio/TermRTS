@@ -1,4 +1,3 @@
-using ConsoleRenderer;
 using TermRTS.Event;
 using TermRTS.Storage;
 using TermRTS.Ui;
@@ -15,8 +14,9 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
 {
     #region Fields
 
-    private readonly ConsoleColor DefaultBg = ConsoleColor.Black;
-    private readonly ConsoleColor DefaultFg = ConsoleColor.Gray;
+    private const ConsoleColor DefaultBg = ConsoleColor.Black;
+    private const ConsoleColor DefaultFg = ConsoleColor.Gray;
+    private const ConsoleColor ActiveBg = ConsoleColor.DarkGray;
 
     private readonly char[] _msg = new char[80];
     private int _idx;
@@ -64,6 +64,11 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
             case ConsoleKey.Backspace:
                 _idx = Math.Max(_idx - 1, 0);
                 break;
+            case ConsoleKey.LeftArrow:
+            case ConsoleKey.RightArrow:
+            case ConsoleKey.UpArrow:
+            case ConsoleKey.DownArrow:
+                break;
             default:
                 _msg[_idx] = keyInfo.KeyChar;
                 _idx += 1;
@@ -86,11 +91,11 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
     protected override void RenderSelf(RenderContext ctx)
     {
         var fg = DefaultFg;
-        var bg = DefaultBg;
+        var bg = IsOngoingInput ? ActiveBg : DefaultBg;
 
         // render blank line
-        for (var i = X; i < Width; i += 1)
-            ctx.Draw(i, 0, ' ', bg, fg);
+        for (var i = 0; i < Width; i += 1)
+            ctx.Draw(i, 0, ' ', fg, bg);
 
         if (!IsOngoingInput) return;
 
@@ -101,10 +106,9 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
         // render text
         var input = GetCurrentInput();
         var startX = 2;
-        for (var i = 0; i < input.Length; i += 1)
+        for (var i = 0; i < _idx; i += 1)
         {
-            var c = input[i];
-            ctx.Draw(startX + i, 0, c, bg, fg);
+            ctx.Draw(startX + i, 0, input[i], bg, fg);
         }
     }
 
@@ -134,13 +138,12 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
 
     private void FinalizeMessage()
     {
-        var len = _idx;
-        _idx = 0;
         _state = InputState.Idle;
-        var cmd = new char[len];
-        if (len > 0)
-            Array.Copy(_msg, 0, cmd, 0, len);
+        var cmd = new char[_idx];
+        if (_idx > 0)
+            Array.Copy(_msg, 0, cmd, 0, _idx);
         evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.Command(cmd)));
+        _idx = 0;
     }
 
     private ReadOnlySpan<char> GetCurrentInput()

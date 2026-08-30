@@ -33,12 +33,14 @@ public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
     {
         if (evt is not Event<Event.Command>(var command)) return;
 
-        Run(new Scanner(command.Cmd).ScanTokens());
+        var response = Run(new Scanner(command.Cmd).ScanTokens());
+        if (response.IsWhiteSpace() || response.Length == 0) return;
+
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog(response)));
     }
 
     #endregion
 
-    // TODO: Create a notification system that can display the responses
     private string Run(IReadOnlyList<Token> cmdTokens)
     {
         if (cmdTokens.Count == 0) return ErrorEmptyCmd;
