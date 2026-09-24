@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.JavaScript;
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Event;
@@ -8,6 +7,11 @@ using TermRTS.Examples.Greenery.Ui;
 
 namespace TermRTS.Examples.Greenery.Command;
 
+/// <summary>
+///     CommandRunner receives a string via event, parses it into a list of tokens
+///     and finally executes the respective command.
+/// </summary>
+/// <param name="evtQueue"></param>
 public class CommandRunner(SchedulerEventQueue evtQueue) : IEventSink
 {
     // Replies
