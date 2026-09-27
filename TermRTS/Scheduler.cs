@@ -4,11 +4,15 @@ using TermRTS.Event;
 namespace TermRTS;
 
 internal record SchedulerState(
+    int FormatVersion,
     ulong TimeMs,
     List<(IEvent, ulong)> EventQueueItems,
     List<ScheduledEvent> EmittedEvents,
     List<ScheduledEvent> NextTickEvents,
-    CoreState CoreState);
+    CoreState CoreState)
+{
+    internal const int CurrentFormatVersion = 1;
+}
 
 public class SchedulerEventQueue
 {
@@ -211,6 +215,7 @@ public class Scheduler
         // is started already with the wiring in place and only needs to restore the
         // component data.
         return new SchedulerState(
+            SchedulerState.CurrentFormatVersion,
             TimeMs,
             FutureEvents.Instance.GetSerializableElements(),
             [.. _emittedEvents],

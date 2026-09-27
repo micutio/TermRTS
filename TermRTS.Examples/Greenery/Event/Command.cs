@@ -1,5 +1,3 @@
 namespace TermRTS.Examples.Greenery.Event;
 
-public readonly record struct Command(char[] Cmd)
-{
-}
+public readonly record struct CommandInput(char[] Cmd);

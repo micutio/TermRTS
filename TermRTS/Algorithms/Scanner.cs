@@ -24,6 +24,17 @@ public enum TokenType
     Unknown
 }
 
+/// <summary>
+///     A token representing a logical unit within a given input.
+/// </summary>
+/// <param name="TokenType"> The type of the token. </param>
+/// <param name="Lexeme">
+///     The token as string, i.e.: as it was read from the intput.
+/// </param>
+/// <param name=Literal>
+///     The token in form of the actual type, if it is an
+///     Identifier, String or Number.
+/// </param>
 public readonly record struct Token(TokenType TokenType, string Lexeme, object? Literal)
 {
     public override string ToString()

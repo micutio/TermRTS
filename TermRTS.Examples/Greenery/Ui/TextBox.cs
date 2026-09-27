@@ -142,7 +142,7 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
         var cmd = new char[_idx];
         if (_idx > 0)
             Array.Copy(_msg, 0, cmd, 0, _idx);
-        evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.Command(cmd)));
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.CommandInput(cmd)));
         _idx = 0;
     }
 

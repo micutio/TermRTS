@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TermRTS.Event;
 using TermRTS.Log;
+using TermRTS.Serialization;
 
 namespace TermRTS;
 
@@ -10,7 +11,7 @@ namespace TermRTS;
 ///     See link below:
 ///     https://madhawapolkotuwa.medium.com/mastering-json-serialization-in-c-with-system-text-json-01f4cec0440d
 /// </summary>
-public class Simulation(Scheduler scheduler) : IEventSink
+public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegistry = null) : IEventSink
 {
     #region Properties
 
@@ -69,7 +70,7 @@ public class Simulation(Scheduler scheduler) : IEventSink
     #region Fields
 
     private static ILogger<Simulation> Log => TermRtsLog.For<Simulation>();
-    private readonly Persistence _persistence = new();
+    private readonly Persistence _persistence = new(typeRegistry);
     private Scheduler _scheduler = scheduler;
 
     #endregion

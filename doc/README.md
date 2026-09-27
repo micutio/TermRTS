@@ -137,7 +137,29 @@ Important points:
 
 - simulation state can be serialized to JSON,
 - the scheduler and core state are restored through the persistence layer,
-- custom component types must remain serializable for persistence features to work as expected.
+- custom components and queued event types must be registered with generated JSON metadata,
+- snapshots include a format version and reject unknown versions or unregistered types,
+- event sinks, systems, and renderers are wired by application startup and are not restored from JSON.
+
+Register every concrete component and event wrapper that can appear in a snapshot, then pass the registry to the simulation:
+
+```csharp
+[JsonSourceGenerationOptions(IncludeFields = true)]
+[JsonSerializable(typeof(PlayerComponent))]
+[JsonSerializable(typeof(PlayerMoved))]
+internal partial class GameJsonContext : JsonSerializerContext
+{
+}
+
+var persistenceTypes = new PersistenceTypeRegistry()
+	.RegisterComponent<PlayerComponent>("game.player.v1", GameJsonContext.Default)
+	.RegisterEvent<PlayerMoved>("game.player-moved.v1", GameJsonContext.Default);
+
+var simulation = new Simulation(scheduler, persistenceTypes);
+simulation.EnableSerialization();
+```
+
+Use stable, game-specific discriminator strings and source-generated payload metadata; queued events use TermRTS's `Event<TPayload>` wrapper. Unregistered runtime types are deliberately rejected. TermRTS's built-in persistence, shutdown, log, and profile event payloads are registered automatically.
 
 ## 11. Benchmarking and profiling
 

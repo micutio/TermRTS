@@ -4,11 +4,13 @@ using TermRTS.Ecs;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery.Command;
 using TermRTS.Examples.Greenery.Ecs.Component;
+using TermRTS.Examples.Greenery.Ecs.System;
 using TermRTS.Examples.Greenery.Event;
 using TermRTS.Examples.Greenery.System;
 using TermRTS.Examples.Greenery.Ui;
 using TermRTS.Examples.Greenery.WorldGen;
 using TermRTS.Io;
+using TermRTS.Serialization;
 
 namespace TermRTS.Examples.Greenery;
 
@@ -20,8 +22,6 @@ public class Greenery : IRunnableExample
     private const int Seed = 3;
     private const int VoronoiCellCount = 500;
     private const int PlateCount = 20;
-
-    private CommandRunner? _commandRunner;
 
     #region IRunnableExample Members
 
@@ -71,9 +71,11 @@ public class Greenery : IRunnableExample
         core.AddEntity(droneEntity);
         core.AddComponent(droneComponent);
 
+        var cmdSystem = new CommandSystem();
         var pathFindingSystem =
             new PathFindingSystem(WorldMath.WorldWidth, WorldMath.WorldHeight);
         core.AddSimSystem(pathFindingSystem);
+        core.AddSimSystem(cmdSystem);
         core.AddSimSystem(fovSystem);
 
         var scheduler = new Scheduler(core);
@@ -84,9 +86,18 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSink(renderer, typeof(Profile));
 
         // Listen to commands
-        _commandRunner = new CommandRunner(scheduler.FutureEvents);
+        var loadCmd = new LoadCommand();
+        var saveCmd = new SaveCommand();
+        var goCmd = new GoCommand();
+        var commandDict = new Dictionary<string, ICommand>
+        {
+            [loadCmd.GetName()] = loadCmd,
+            [saveCmd.GetName()] = saveCmd,
+            [goCmd.GetName()] = saveCmd
+        };
         scheduler.AddEventSink(renderer, typeof(MapRenderMode)); // render option events
-        scheduler.AddEventSink(_commandRunner, typeof(Event.Command));
+        scheduler.AddEventSink(new CommandDispatcher(scheduler.FutureEvents, commandDict), typeof(CommandInput));
+        scheduler.AddEventSink(cmdSystem, typeof(ICommand));
         scheduler.AddEventSink(pathFindingSystem, typeof(Move));
 
         // Init input
@@ -96,7 +107,7 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSink(renderer.LogArea, typeof(SystemLog));
         input.Run();
 
-        var simulation = new Simulation(scheduler);
+        var simulation = new Simulation(scheduler, GreeneryJsonContext.CreatePersistenceTypeRegistry());
         simulation.EnableSerialization();
         simulation.IsSystemLogEnabled = true;
 

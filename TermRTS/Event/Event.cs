@@ -1,9 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace TermRTS.Event;
 
 public readonly record struct Event<TPayload>(TPayload Payload, ulong ThisTriggerTime) : IEvent
 {
     #region IEvent Members
 
+    [JsonIgnore]
     public Type EvtType => typeof(TPayload);
 
     public ulong TriggerTime => ThisTriggerTime;

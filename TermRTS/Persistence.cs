@@ -1,6 +1,7 @@
 using System.Security;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using TermRTS.Ecs;
 using TermRTS.Event;
 using TermRTS.Log;
 using TermRTS.Serialization;
@@ -9,6 +10,22 @@ namespace TermRTS;
 
 public class Persistence
 {
+    private readonly TermRTSJsonContext _jsonContext;
+
+    public Persistence(PersistenceTypeRegistry? typeRegistry = null)
+    {
+        typeRegistry ??= new PersistenceTypeRegistry();
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IncludeFields = true
+        };
+        options.Converters.Add(new RegisteredTypeJsonConverter<ComponentBase>(typeRegistry.Components));
+        options.Converters.Add(new RegisteredEventJsonConverter(typeRegistry.Events));
+        _jsonContext = new TermRTSJsonContext(options);
+    }
+
     /// <summary>
     ///     Serialize the current simulation state into a json string.
     /// </summary>
@@ -34,7 +51,7 @@ public class Persistence
         {
             jsonStr = JsonSerializer.Serialize(
                 scheduler.GetSchedulerState(),
-                TermRTSJsonContext.Default.SchedulerState);
+                _jsonContext.SchedulerState);
             response = "sim state serialized to json";
             return true;
         }
@@ -77,8 +94,31 @@ public class Persistence
         SchedulerState? newSchedulerState;
         try
         {
+            using (var document = JsonDocument.Parse(jsonStr))
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    response = "Error parsing simulation state from invalid json: expected an object.";
+                    return false;
+                }
+
+                var versionElement = default(JsonElement);
+                var hasVersion = document.RootElement.TryGetProperty("FormatVersion", out versionElement);
+                if (!hasVersion ||
+                    !versionElement.TryGetInt32(out var formatVersion) ||
+                    formatVersion != SchedulerState.CurrentFormatVersion)
+                {
+                    var actualVersion = hasVersion && versionElement.ValueKind == JsonValueKind.Number
+                        ? versionElement.GetRawText()
+                        : "missing";
+                    response =
+                        $"Unsupported simulation state format version {actualVersion}; expected {SchedulerState.CurrentFormatVersion}.";
+                    return false;
+                }
+            }
+
             newSchedulerState =
-                JsonSerializer.Deserialize(jsonStr, TermRTSJsonContext.Default.SchedulerState);
+                JsonSerializer.Deserialize(jsonStr, _jsonContext.SchedulerState);
             if (newSchedulerState != null)
             {
                 scheduler.ReplaceSchedulerState(newSchedulerState);
@@ -98,7 +138,7 @@ public class Persistence
         catch (JsonException e)
         {
             Log.LogError(e, "Error parsing simulation state from invalid json: {Json}", jsonStr);
-            response = "Error parsing simulation state from invalid json";
+            response = $"Error parsing simulation state from invalid json: {e.Message}";
         }
         catch (NotSupportedException e)
         {
