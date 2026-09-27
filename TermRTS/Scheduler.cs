@@ -162,6 +162,7 @@ public class Scheduler
                     _nextTickEvents.Add(evt);
                 else
                     FutureEvents.EnqueueEvent(evt);
+            _emittedEvents.Clear();
 
             TimeMs += _timeStepSizeMs;
             _lag -= _msPerUpdate;
@@ -304,6 +305,8 @@ public class Scheduler
 
             foreach (var sink in sinks) sink.ProcessEvent(evt.Event);
         }
+
+        _nextTickEvents.Clear();
 
         // Drain due events from the future.
         while (FutureEvents.Instance.TryTakeIf(priority => priority <= TimeMs,
