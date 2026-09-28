@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using TermRTS.Ecs;
 using TermRTS.Event;
 using TermRTS.Serialization;
@@ -19,15 +18,15 @@ public class SerializationTest
         var persistence = new Persistence();
 
         var putSuccess1 =
-            persistence.PutSimStateToJson(ref scheduler, out var expectedJsonStr, out _);
+            persistence.PutSimStateToJson(scheduler, out var expectedJsonStr, out _);
 
         Assert.True(putSuccess1);
         Assert.NotNull(expectedJsonStr);
 
-        persistence.GetSimStateFromJson(ref scheduler, expectedJsonStr, out _);
+        persistence.GetSimStateFromJson(scheduler, expectedJsonStr, out _);
 
         var putSuccess2 =
-            persistence.PutSimStateToJson(ref scheduler, out var actualJsonStr, out _);
+            persistence.PutSimStateToJson(scheduler, out var actualJsonStr, out _);
 
         Assert.True(putSuccess2);
         Assert.NotNull(actualJsonStr);
@@ -45,13 +44,13 @@ public class SerializationTest
             ScheduledEvent.From(new Persist(PersistenceOption.Save, "state.json"), 42UL));
         var persistence = new Persistence();
 
-        var success = persistence.PutSimStateToJson(ref scheduler, out var json, out var response);
+        var success = persistence.PutSimStateToJson(scheduler, out var json, out var response);
 
         Assert.True(success, response);
         Assert.NotNull(json);
-        Assert.Contains("JsonFilePath", json);
-        Assert.Contains("termrts.persist", json);
-        Assert.DoesNotContain("EvtType", json);
+        Assert.Contains("JsonFilePath", json, StringComparison.Ordinal);
+        Assert.Contains("termrts.persist", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("EvtType", json, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -70,13 +69,13 @@ public class SerializationTest
         var persistence = new Persistence(registry);
 
         Assert.True(
-            persistence.PutSimStateToJson(ref scheduler, out var json, out var saveResponse),
+            persistence.PutSimStateToJson(scheduler, out var json, out var saveResponse),
             saveResponse);
         Assert.NotNull(json);
 
         var restoredScheduler = new Scheduler(new Core());
         Assert.True(
-            persistence.GetSimStateFromJson(ref restoredScheduler, json, out var loadResponse),
+            persistence.GetSimStateFromJson(restoredScheduler, json, out var loadResponse),
             loadResponse);
 
         var restoredState = restoredScheduler.GetSchedulerState();
@@ -94,28 +93,29 @@ public class SerializationTest
     {
         var scheduler = new Scheduler(new Core());
         var persistence = new Persistence();
-        Assert.True(persistence.PutSimStateToJson(ref scheduler, out var json, out _));
+        Assert.True(persistence.PutSimStateToJson(scheduler, out var json, out _));
         var snapshot = JsonNode.Parse(json!)!;
         snapshot["FormatVersion"] = 999;
 
-        var success = persistence.GetSimStateFromJson(
-            ref scheduler, snapshot.ToJsonString(), out var response);
+        var success =
+            persistence.GetSimStateFromJson(scheduler, snapshot.ToJsonString(), out var response);
 
         Assert.False(success);
-        Assert.Contains("version 999", response);
+        Assert.Contains("version 999", response, StringComparison.Ordinal);
     }
 
     [Fact]
     public void TestUnregisteredEventTypeCannotBeSaved()
     {
         var scheduler = new Scheduler(new Core());
-        scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new PersistenceTestEvent("unregistered")));
+        scheduler.FutureEvents.EnqueueEvent(
+            ScheduledEvent.From(new PersistenceTestEvent("unregistered")));
         var persistence = new Persistence();
 
-        var success = persistence.PutSimStateToJson(ref scheduler, out _, out var response);
+        var success = persistence.PutSimStateToJson(scheduler, out _, out var response);
 
         Assert.False(success);
-        Assert.Contains("not registered for persistence", response);
+        Assert.Contains("not registered for persistence", response, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -128,16 +128,19 @@ public class SerializationTest
         var sourceScheduler = new Scheduler(new Core());
         sourceScheduler.FutureEvents.EnqueueEvent(
             ScheduledEvent.From(new PersistenceTestEvent("saved event"), 42UL));
-        Assert.True(persistence.PutSimStateToJson(ref sourceScheduler, out var json, out _));
+        Assert.True(persistence.PutSimStateToJson(sourceScheduler, out var json, out _));
         var unregisteredJson = json!.Replace(
             "test.event.v1", "test.unknown.v1", StringComparison.Ordinal);
 
         var restoredScheduler = new Scheduler(new Core());
-        var success = persistence.GetSimStateFromJson(
-            ref restoredScheduler, unregisteredJson, out var response);
+        var success =
+            persistence.GetSimStateFromJson(restoredScheduler, unregisteredJson, out var response);
 
         Assert.False(success);
-        Assert.Contains("Unregistered persistence discriminator", response);
+        Assert.Contains(
+            "Unregistered persistence discriminator",
+            response,
+            StringComparison.Ordinal);
     }
 }
 

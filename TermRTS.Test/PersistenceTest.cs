@@ -13,7 +13,7 @@ public class PersistenceTest
         var scheduler = NewScheduler();
         var persistence = new Persistence();
 
-        var success = persistence.GetSimStateFromJson(ref scheduler, null, out var response);
+        var success = persistence.GetSimStateFromJson(scheduler, null, out var response);
 
         Assert.False(success);
         Assert.Contains("empty json", response, StringComparison.OrdinalIgnoreCase);
@@ -25,7 +25,7 @@ public class PersistenceTest
         var scheduler = NewScheduler();
         var persistence = new Persistence();
 
-        var success = persistence.GetSimStateFromJson(ref scheduler, "", out var response);
+        var success = persistence.GetSimStateFromJson(scheduler, "", out var response);
 
         Assert.False(success);
         Assert.Contains("empty json", response, StringComparison.OrdinalIgnoreCase);
@@ -37,7 +37,7 @@ public class PersistenceTest
         var scheduler = NewScheduler();
         var persistence = new Persistence();
 
-        var success = persistence.GetSimStateFromJson(ref scheduler, "   \t\n  ", out var response);
+        var success = persistence.GetSimStateFromJson(scheduler, "   \t\n  ", out var response);
 
         Assert.False(success);
         Assert.Contains("empty json", response, StringComparison.OrdinalIgnoreCase);
@@ -50,7 +50,7 @@ public class PersistenceTest
         var persistence = new Persistence();
         const string invalidJson = "{ not valid json }";
 
-        var success = persistence.GetSimStateFromJson(ref scheduler, invalidJson, out var response);
+        var success = persistence.GetSimStateFromJson(scheduler, invalidJson, out var response);
 
         Assert.False(success);
         Assert.Contains("invalid json", response, StringComparison.OrdinalIgnoreCase);
@@ -63,7 +63,7 @@ public class PersistenceTest
         var persistence = new Persistence();
         const string jsonNull = "null";
 
-        var success = persistence.GetSimStateFromJson(ref scheduler, jsonNull, out var response);
+        var success = persistence.GetSimStateFromJson(scheduler, jsonNull, out var response);
 
         Assert.False(success);
         Assert.Contains("invalid", response, StringComparison.OrdinalIgnoreCase);
@@ -74,11 +74,11 @@ public class PersistenceTest
     {
         var scheduler = NewScheduler();
         var persistence = new Persistence();
-        var putSuccess = persistence.PutSimStateToJson(ref scheduler, out var jsonStr, out _);
+        var putSuccess = persistence.PutSimStateToJson(scheduler, out var jsonStr, out _);
         Assert.True(putSuccess);
         Assert.NotNull(jsonStr);
 
-        var getSuccess = persistence.GetSimStateFromJson(ref scheduler, jsonStr, out var response);
+        var getSuccess = persistence.GetSimStateFromJson(scheduler, jsonStr, out var response);
 
         Assert.True(getSuccess);
         Assert.Contains("deserialized", response, StringComparison.OrdinalIgnoreCase);
@@ -91,7 +91,7 @@ public class PersistenceTest
         var persistence = new Persistence();
 
         var success =
-            persistence.PutSimStateToJson(ref scheduler, out var jsonStr, out var response);
+            persistence.PutSimStateToJson(scheduler, out var jsonStr, out var response);
 
         Assert.True(success);
         Assert.NotNull(jsonStr);

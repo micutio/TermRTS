@@ -11,11 +11,13 @@ namespace TermRTS;
 ///     See link below:
 ///     https://madhawapolkotuwa.medium.com/mastering-json-serialization-in-c-with-system-text-json-01f4cec0440d
 /// </summary>
-public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegistry = null) : IEventSink
+public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegistry = null)
+    : IEventSink
 {
     #region Properties
 
     public bool IsSystemLogEnabled { get; set; }
+    private Persist? RequiredPersistAction { get; set; }
 
     #endregion
 
@@ -23,46 +25,10 @@ public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegist
 
     public void ProcessEvent(IEvent evt)
     {
-        if (evt is not Event<Persist>(var (persistOption, filePath)))
+        if (evt is not Event<Persist>(var persistEvent))
             return;
 
-        switch (persistOption)
-        {
-            case PersistenceOption.Load:
-                var isLoadSuccess =
-                    Persistence
-                        .LoadJsonFromFile(out var loadedJsonStr, filePath, out var loadResponse);
-                if (IsSystemLogEnabled)
-                    _scheduler.FutureEvents.EnqueueEvent(
-                        ScheduledEvent.From(new SystemLog(loadResponse)));
-                if (!isLoadSuccess) break;
-
-                _persistence.GetSimStateFromJson(ref _scheduler, loadedJsonStr,
-                    out var getResponse);
-                if (IsSystemLogEnabled)
-                    _scheduler.FutureEvents.EnqueueEvent(
-                        ScheduledEvent.From(new SystemLog(getResponse)));
-                break;
-
-            case PersistenceOption.Save:
-                var isSerializeSuccess =
-                    _persistence.PutSimStateToJson(
-                        ref _scheduler,
-                        out var savedJsonStr,
-                        out var putResponse);
-                if (IsSystemLogEnabled)
-                    _scheduler.FutureEvents.EnqueueEvent(
-                        ScheduledEvent.From(new SystemLog(putResponse)));
-                if (!isSerializeSuccess) break;
-
-                Persistence.SaveJsonToFile(savedJsonStr, filePath, out var saveResponse);
-                if (!string.IsNullOrEmpty(saveResponse) && IsSystemLogEnabled)
-                    _scheduler.FutureEvents.EnqueueEvent(
-                        ScheduledEvent.From(new SystemLog(saveResponse)));
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
+        RequiredPersistAction = persistEvent;
     }
 
     #endregion
@@ -81,12 +47,81 @@ public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegist
     {
         Log.LogInformation("Starting Simulation");
         _scheduler.Prepare();
-        while (_scheduler.IsActive) _scheduler.SimulationStep();
+        while (_scheduler.IsActive)
+        {
+            _scheduler.SimulationStep();
+            CheckPendingPersistAction();
+        }
     }
 
     public void EnableSerialization()
     {
         _scheduler.AddEventSink(this, typeof(Persist));
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private void CheckPendingPersistAction()
+    {
+        if (RequiredPersistAction is not var (option, filePath)) return;
+
+        switch (option)
+        {
+            case PersistenceOption.Load:
+                LoadState(filePath);
+                break;
+
+            case PersistenceOption.Save:
+                SaveState(filePath);
+                break;
+            default:
+                // TODO: Log to system and user instead.
+                throw new ArgumentOutOfRangeException();
+        }
+
+        RequiredPersistAction = null;
+    }
+
+    private void LoadState(string filePath)
+    {
+        var isLoadSuccess =
+            Persistence
+                .LoadJsonFromFile(
+                    out var loadedJsonStr,
+                    filePath,
+                    out var loadResponse);
+
+        if (IsSystemLogEnabled)
+            _scheduler.FutureEvents.EnqueueEvent(
+                ScheduledEvent.From(new SystemLog(loadResponse)));
+
+        if (!isLoadSuccess) return;
+
+        _persistence.GetSimStateFromJson(_scheduler, loadedJsonStr, out var getResponse);
+
+        if (IsSystemLogEnabled)
+            _scheduler.FutureEvents.EnqueueEvent(
+                ScheduledEvent.From(new SystemLog(getResponse)));
+    }
+
+    private void SaveState(string filePath)
+    {
+        var isSerializeSuccess =
+            _persistence.PutSimStateToJson(
+                _scheduler,
+                out var savedJsonStr,
+                out var putResponse);
+        if (IsSystemLogEnabled)
+            _scheduler.FutureEvents.EnqueueEvent(
+                ScheduledEvent.From(new SystemLog(putResponse)));
+        if (!isSerializeSuccess) return;
+
+        Persistence.SaveJsonToFile(savedJsonStr, filePath, out var saveResponse);
+
+        if (!string.IsNullOrEmpty(saveResponse) && IsSystemLogEnabled)
+            _scheduler.FutureEvents.EnqueueEvent(ScheduledEvent.From(new SystemLog(saveResponse)));
     }
 
     #endregion
