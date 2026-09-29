@@ -12,9 +12,9 @@ public class Profiler
     private ulong _lastFps;
 
     private ulong _lastLoopTime;
+    private ulong _lastPauseTime;
     private ulong _lastRenderTime;
     private ulong _lastTickTime;
-    private ulong _lastPauseTime;
     private ulong _maxFps;
 
     private ulong _maxLoopTime;

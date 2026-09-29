@@ -14,13 +14,6 @@ namespace TermRTS;
 public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegistry = null)
     : IEventSink
 {
-    #region Properties
-
-    public bool IsSystemLogEnabled { get; set; }
-    private Persist? RequiredPersistAction { get; set; }
-
-    #endregion
-
     #region IEventSink Members
 
     public void ProcessEvent(IEvent evt)
@@ -33,11 +26,18 @@ public class Simulation(Scheduler scheduler, PersistenceTypeRegistry? typeRegist
 
     #endregion
 
+    #region Properties
+
+    public bool IsSystemLogEnabled { get; set; }
+    private Persist? RequiredPersistAction { get; set; }
+
+    #endregion
+
     #region Fields
 
     private static ILogger<Simulation> Log => TermRtsLog.For<Simulation>();
     private readonly Persistence _persistence = new(typeRegistry);
-    private Scheduler _scheduler = scheduler;
+    private readonly Scheduler _scheduler = scheduler;
 
     #endregion
 

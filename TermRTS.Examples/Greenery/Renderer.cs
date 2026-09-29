@@ -10,26 +10,6 @@ namespace TermRTS.Examples.Greenery;
 
 public class Renderer : UiElementBase, IRenderer, IEventSink
 {
-    #region Fields
-
-    private static ILogger<Renderer> Log => TermRtsLog.For<Renderer>();
-    private const ConsoleColor DefaultBg = ConsoleColor.Black;
-    private const ConsoleColor DefaultFg = ConsoleColor.Gray;
-
-    private readonly ConsoleCanvas _canvas;
-    private readonly MapView _mapview;
-    private readonly LogArea _logArea;
-    private readonly TextBox _textbox;
-
-    private int _lastCanvasWidth;
-    private int _lastCanvasHeight;
-    private string _profileOutput;
-    private double _timePassedMs;
-    private double _timeStepSizeMs;
-    private double _howFarIntoNextFramePercent;
-
-    #endregion
-
     #region Constructor
 
     public Renderer(SchedulerEventQueue evtQueue, int worldWidth, int worldHeight, UiThemes theme)
@@ -44,14 +24,14 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
             Height = _canvas.Height,
             Width = (int)(_canvas.Width * 0.7f)
         };
-        _logArea = new LogArea(_canvas.Height - 1)
+        LogArea = new LogArea(_canvas.Height - 1)
         {
             X = _mapview.Width + 1,
             Y = 1,
             Width = _canvas.Width - _mapview.Width,
             Height = _canvas.Height - 1
         };
-        _textbox = new TextBox(evtQueue)
+        Textbox = new TextBox(evtQueue)
         {
             X = _mapview.Width + 1,
             Y = 0,
@@ -59,19 +39,12 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
             Height = 1
         };
         AddChildUiElement(_mapview);
-        AddChildUiElement(_logArea);
-        AddChildUiElement(_textbox);
+        AddChildUiElement(LogArea);
+        AddChildUiElement(Textbox);
         _profileOutput = string.Empty;
 
         Console.CursorVisible = false;
     }
-
-    #endregion
-
-    #region Properties
-
-    public LogArea LogArea => _logArea;
-    public TextBox Textbox => _textbox;
 
     #endregion
 
@@ -86,13 +59,39 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         // TODO: Implement handling of focus requests
         if (evt is Event<ConsoleKeyInfo>(var keyInfo))
         {
-            _textbox.HandleKeyInput(in keyInfo);
-            if (!_textbox.IsOngoingInput) _mapview.HandleKeyInput(in keyInfo);
+            Textbox.HandleKeyInput(in keyInfo);
+            if (!Textbox.IsOngoingInput) _mapview.HandleKeyInput(in keyInfo);
         }
 
         // TODO: Remove this if-query and create separate event input for mapview.
         if (evt is Event<MapRenderMode>) _mapview.ProcessEvent(evt);
     }
+
+    #endregion
+
+    #region Fields
+
+    private static ILogger<Renderer> Log => TermRtsLog.For<Renderer>();
+    private const ConsoleColor DefaultBg = ConsoleColor.Black;
+    private const ConsoleColor DefaultFg = ConsoleColor.Gray;
+
+    private readonly ConsoleCanvas _canvas;
+    private readonly MapView _mapview;
+
+    private int _lastCanvasWidth;
+    private int _lastCanvasHeight;
+    private string _profileOutput;
+    private double _timePassedMs;
+    private double _timeStepSizeMs;
+    private double _howFarIntoNextFramePercent;
+
+    #endregion
+
+    #region Properties
+
+    public LogArea LogArea { get; }
+
+    public TextBox Textbox { get; }
 
     #endregion
 
@@ -150,28 +149,28 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
     protected override void OnXChanged()
     {
         _mapview.X = X;
-        _logArea.X = X + _mapview.Width;
-        _textbox.X = X;
+        LogArea.X = X + _mapview.Width;
+        Textbox.X = X;
     }
 
     protected override void OnYChanged()
     {
         _mapview.Y = Y;
-        _logArea.Y = Y;
-        _textbox.Y = Y + _mapview.Height - 1;
+        LogArea.Y = Y;
+        Textbox.Y = Y + _mapview.Height - 1;
     }
 
     protected override void OnWidthChanged()
     {
         _mapview.Width = (int)(Width * 0.7);
-        _logArea.Width = Width - _mapview.Width;
-        _textbox.Width = Width;
+        LogArea.Width = Width - _mapview.Width;
+        Textbox.Width = Width;
     }
 
     protected override void OnHeightChanged()
     {
         _mapview.Height = Height - 1;
-        _logArea.Height = Height - 1;
+        LogArea.Height = Height - 1;
         // _textbox.Height remains constant at 1
     }
 
@@ -188,11 +187,11 @@ public class Renderer : UiElementBase, IRenderer, IEventSink
         _lastCanvasHeight = _canvas.Height;
         _mapview.Width = (int)(_canvas.Width * 0.7);
         _mapview.Height = _canvas.Height - 1;
-        _logArea.X = _mapview.Width + 1;
-        _logArea.Width = _canvas.Width - _mapview.Width;
-        _logArea.Height = _canvas.Height - 1;
-        _textbox.Y = _mapview.Height - 1;
-        _textbox.Width = _mapview.Width;
+        LogArea.X = _mapview.Width + 1;
+        LogArea.Width = _canvas.Width - _mapview.Width;
+        LogArea.Height = _canvas.Height - 1;
+        Textbox.Y = _mapview.Height - 1;
+        Textbox.Width = _mapview.Width;
 
         IsRequireRender = true;
         IsRequireRootRender = true;

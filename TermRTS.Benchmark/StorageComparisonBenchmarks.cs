@@ -5,19 +5,21 @@ using TermRTS.Storage;
 namespace TermRTS.Benchmark;
 
 /// <summary>
-/// Compares MappedCollectionStorage vs ContiguousStorage for all public IStorage / IReadonlyStorage methods.
-/// Both storages are populated with the same data (ComponentCount components, entity ids 0..ComponentCount-1).
+///     Compares MappedCollectionStorage vs ContiguousStorage for all public IStorage /
+///     IReadonlyStorage methods.
+///     Both storages are populated with the same data (ComponentCount components, entity ids
+///     0..ComponentCount-1).
 /// </summary>
 [MemoryDiagnoser]
 public class StorageComparisonBenchmarks
 {
-    private MappedCollectionStorage _mapped = null!;
+    private const int EntityIdForByEntity = 0;
     private ContiguousStorage _contiguous = null!;
+    private MappedCollectionStorage _mapped = null!;
 
     [Params(100, 1_000, 10_000)]
     public int ComponentCount { get; set; }
 
-    private const int EntityIdForByEntity = 0;
     private int _addEntityId => ComponentCount;
 
     [GlobalSetup]

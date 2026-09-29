@@ -95,7 +95,7 @@ public class CoreTest
     }
 
     /// <summary>
-    /// Component added for an existing entity (already in the sim) appears on next tick.
+    ///     Component added for an existing entity (already in the sim) appears on next tick.
     /// </summary>
     [Theory]
     [ClassData(typeof(TestCoreParallelAndStorageConfigs))]

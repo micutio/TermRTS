@@ -11,5 +11,8 @@ public static class TermRtsLog
 {
     public static ILoggerFactory Factory { get; set; } = NullLoggerFactory.Instance;
 
-    public static ILogger<T> For<T>() => Factory.CreateLogger<T>();
+    public static ILogger<T> For<T>()
+    {
+        return Factory.CreateLogger<T>();
+    }
 }

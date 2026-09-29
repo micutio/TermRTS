@@ -14,25 +14,25 @@ public sealed class SaveCommand : ICommand
 
     private const string ErrorTooManyArgs = "< Too many arguments!";
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string GetName()
     {
         return Name;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string GetDescription()
     {
         return Description;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string GetUsage()
     {
         return Usage;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public CommandInitResult CreateNew(IReadOnlyList<Token> tokens)
     {
         if (tokens.Count > 1) return new CommandInitResult(null, ErrorTooManyArgs);
@@ -40,7 +40,7 @@ public sealed class SaveCommand : ICommand
         return new CommandInitResult(this, string.Empty);
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public void Execute(
         ulong timeStepSizeMs,
         in IReadonlyStorage storage,

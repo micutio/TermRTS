@@ -4,7 +4,7 @@ using TermRTS.Ecs;
 namespace TermRTS.Examples.Greenery.Ecs.Component;
 
 /// <summary>
-/// FovChunk contains field of view and fog of war information for an entire chunk.
+///     FovChunk contains field of view and fog of war information for an entire chunk.
 /// </summary>
 /// <param name="entityId">Id of the ECS entity.</param>
 /// <param name="cx">X-coordinate in the chunk grid.</param>
@@ -16,12 +16,12 @@ public class FovChunk(int entityId, int cx, int cy)
     // TODO: Fix all chunk sizes everywhere to 32.
     private const int ChunkSize = 32;
 
+    private readonly uint[] _explored = new uint[ChunkSize];
+    private readonly uint[] _visible = new uint[ChunkSize];
+
     // Chunk coordinate
     public int Cx { get; } = cx;
     public int Cy { get; } = cy;
-
-    private readonly uint[] _explored = new uint[ChunkSize];
-    private readonly uint[] _visible = new uint[ChunkSize];
 
     /// <summary>
     ///     Returns whether the cell under the chunk-local coordinate is explored.
@@ -30,7 +30,7 @@ public class FovChunk(int entityId, int cx, int cy)
     /// <param name="localX">X-coordinate in the chunk-grid.</param>
     /// <param name="localY">Y-coordinate in the chunk-grid.</param>
     /// <returns>
-    ///     <see Langword="true"/> if it is explored, <see Langword="false"/> otherwise.
+    ///     <see Langword="true" /> if it is explored, <see Langword="false" /> otherwise.
     /// </returns>
     public bool IsExplored(int localX, int localY)
     {

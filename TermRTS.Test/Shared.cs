@@ -5,13 +5,14 @@ using TermRTS.Storage;
 namespace TermRTS.Test;
 
 /// <summary>
-/// Shared test helpers and reusable types (renderers, systems, entities, sinks).
+///     Shared test helpers and reusable types (renderers, systems, entities, sinks).
 /// </summary>
 public static class Shared
 {
     /// <summary>
-    /// Runs <paramref name="simulation"/>.Run() in a background task and waits up to <paramref name="timeout"/>.
-    /// Throws <see cref="TimeoutException"/> if the run does not complete in time (e.g. loop stuck).
+    ///     Runs <paramref name="simulation" />.Run() in a background task and waits up to
+    ///     <paramref name="timeout" />.
+    ///     Throws <see cref="TimeoutException" /> if the run does not complete in time (e.g. loop stuck).
     /// </summary>
     public static void RunWithTimeout(Simulation simulation, TimeSpan timeout)
     {
@@ -43,8 +44,8 @@ public class NullRenderer : IRenderer
 }
 
 /// <summary>
-/// Renderer that sleeps in both render methods to simulate heavy render load.
-/// Used to verify that a slow render does not block tick progression (ticks run before render).
+///     Renderer that sleeps in both render methods to simulate heavy render load.
+///     Used to verify that a slow render does not block tick progression (ticks run before render).
 /// </summary>
 public class SlowRenderer(TimeSpan renderDuration) : IRenderer
 {
@@ -126,7 +127,7 @@ public class TerminatorSystem(int remainingTicks) : ISimSystem
 }
 
 /// <summary>
-/// A system that wastes a certain amount of time to simulate work.
+///     A system that wastes a certain amount of time to simulate work.
 /// </summary>
 public class BusySystem(double workTimeMs) : ISimSystem
 {
@@ -143,7 +144,7 @@ public class BusySystem(double workTimeMs) : ISimSystem
 }
 
 /// <summary>
-/// Sink that records all events it receives for assertion in tests.
+///     Sink that records all events it receives for assertion in tests.
 /// </summary>
 internal sealed class RecordingSink : IEventSink
 {

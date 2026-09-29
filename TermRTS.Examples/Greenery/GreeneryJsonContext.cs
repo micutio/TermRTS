@@ -37,7 +37,8 @@ public partial class GreeneryJsonContext : JsonSerializerContext
             .RegisterComponent<WorldElevationChunk>("greenery.world-elevation", context)
             .RegisterComponent<WorldSurfaceFeatureChunk>("greenery.world-surface-feature", context)
             .RegisterComponent<WorldTemperatureChunk>("greenery.world-temperature", context)
-            .RegisterComponent<WorldTemperatureAmplitudeChunk>("greenery.world-temperature-amplitude", context)
+            .RegisterComponent<WorldTemperatureAmplitudeChunk>(
+                "greenery.world-temperature-amplitude", context)
             .RegisterComponent<WorldHumidityChunk>("greenery.world-humidity", context)
             .RegisterComponent<WorldBiomeChunk>("greenery.world-biome", context)
             .RegisterComponent<WorldRiverChunk>("greenery.world-river", context)

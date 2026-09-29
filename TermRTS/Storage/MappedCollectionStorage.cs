@@ -14,6 +14,17 @@ using EntityComponents = Dictionary<int, List<ComponentBase>>;
 /// </summary>
 public class MappedCollectionStorage : IStorage
 {
+    #region Private Methods
+
+    private IEnumerable<ComponentBase> All()
+    {
+        return _componentStores
+            .SelectMany(store => store.Value.Values.SelectMany(l => l).AsEnumerable())
+            .AsEnumerable();
+    }
+
+    #endregion
+
     #region Fields
 
     private static ILogger<MappedCollectionStorage> Log =>
@@ -251,17 +262,6 @@ public class MappedCollectionStorage : IStorage
         _componentStores.Clear();
         _cachedGetForTypeQueries.Clear();
         _listCache.Clear();
-    }
-
-    #endregion
-
-    #region Private Methods
-
-    private IEnumerable<ComponentBase> All()
-    {
-        return _componentStores
-            .SelectMany(store => store.Value.Values.SelectMany(l => l).AsEnumerable())
-            .AsEnumerable();
     }
 
     #endregion

@@ -63,7 +63,7 @@ public enum Biome : byte
     // Rivers
     Creek,
     MinorRiver,
-    MajorRiver,
+    MajorRiver
 }
 
 public record struct Point(int X, int Y)
@@ -83,24 +83,6 @@ public class CylinderWorld(
     ClimateParameters climateCfg,
     RiverParameters riverCfg)
 {
-    #region Fields
-
-    private readonly Random _rng = new(seed);
-    private readonly int _voronoiCellCount = voronoiCellCount;
-
-    private float _minHotspotHeight = float.MaxValue;
-    private float _maxHotspotHeight = float.MinValue;
-
-    #endregion
-
-    #region Properties
-
-    private int VoronoiCellCount { get; } = voronoiCellCount;
-
-    private float LandRatio { get; } = landRatio;
-
-    #endregion
-
     #region Public Members
 
     public WorldPackedChunk[] Generate()
@@ -290,878 +272,6 @@ public class CylinderWorld(
         }
 
         return noiseMap;
-    }
-
-    #endregion
-
-    #region World Base Structure
-
-    /// <summary>
-    ///     Initializes Voronoi cells of the world.
-    /// </summary>
-    /// <returns>Voronoi cells and their types, plate motions and land/water distribution.</returns>
-    private bool[] InitializeVoronoiCells(
-        Span<Point> voronoiCells,
-        Span<int> landWaterMap
-    )
-    {
-        // step 1: randomly sample <cellCount> coordinates of the grid as voronoi cell seeds
-        for (var i = 0; i < VoronoiCellCount; i += 1)
-            voronoiCells[i] = new Point(_rng.Next(worldWidth), _rng.Next(worldHeight));
-
-        var voronoiCellTypes = GenerateVoronoiCellTypes();
-
-        for (var i = 0; i < VoronoiCellCount; i += 1)
-            // Lower oceanic plates to create deeper oceans
-            landWaterMap[i] = voronoiCellTypes[i]
-                ? elevationCfg.LandElevationThreshold
-                : elevationCfg.LandElevationThreshold - 1;
-
-        return voronoiCellTypes;
-    }
-
-    /// <summary>
-    ///     Generates the type for each plate:
-    ///     true == continental, false == oceanic.
-    /// </summary>
-    private bool[] GenerateVoronoiCellTypes()
-    {
-        var voronoiCellTypes = new bool[VoronoiCellCount];
-        var land = 0f;
-        var water = 0f;
-        for (var i = 0; i < VoronoiCellCount; i += 1)
-        {
-            voronoiCellTypes[i] = _rng.NextDouble() < LandRatio;
-            if (voronoiCellTypes[i])
-            {
-                land++;
-            }
-            else
-            {
-                water++;
-            }
-        }
-
-        var ratio = land / (land + water);
-        Console.WriteLine($"Generate Voronoi Cell Types: {ratio * 100} % land");
-        return voronoiCellTypes;
-    }
-
-    /// <summary>
-    ///     Assigns an elevation and voronoi cell to each single cell on the map.
-    /// </summary>
-    private (
-        int[] voronoiCellIndex,
-        int[] secondVoronoiIndex,
-        float[] voronoiDistToWinner,
-        float[] voronoiDistToSecond,
-        float[] elevations)
-        GenerateLandWaterDistribution(
-            ReadOnlyMemory<float> noiseMap,
-            ReadOnlyMemory<Point> voronoiCells,
-            ReadOnlyMemory<int> landWaterMap
-        )
-    {
-        const int jiggle = 40;
-        var voronoiCellIndex = new int[worldWidth * worldHeight];
-        var secondVoronoiIndex = new int[worldWidth * worldHeight];
-        var voronoiDistToWinner = new float[worldWidth * worldHeight];
-        var voronoiDistToSecond = new float[worldWidth * worldHeight];
-        var elevations = new float[worldWidth * worldHeight];
-
-        Parallel.For(0, worldHeight, y =>
-        {
-            // Thread-local Spans created from the captured Memory
-            var noiseSpan = noiseMap.Span;
-            var voronoiSpan = voronoiCells.Span;
-            var landWaterSpan = landWaterMap.Span;
-            var rowOffset = y * worldWidth;
-            for (var x = 0; x < worldWidth; x += 1)
-            {
-                var idx = rowOffset + x;
-                var jiggleNoise = noiseSpan[idx];
-                var jiggledX = x + (0.5f - jiggleNoise) * jiggle;
-                var jiggledY = y + (0.5f - jiggleNoise) * jiggle;
-
-                var minDistSq = float.MaxValue;
-                var secondMinDistSq = float.MaxValue;
-                var winnerCell = 0;
-                var secondWinnerCell = 0;
-                for (var i = 0; i < VoronoiCellCount; i += 1)
-                {
-                    var vX = voronoiSpan[i].X;
-                    var vY = voronoiSpan[i].Y;
-                    var distSq = WorldMath.GetCylindricalDistanceSq(jiggledX, jiggledY, vX, vY);
-
-                    if (distSq < minDistSq)
-                    {
-                        // The old closest becomes the new second-closest
-                        secondMinDistSq = minDistSq;
-                        secondWinnerCell = winnerCell;
-
-                        // The new dist becomes the closest
-                        minDistSq = distSq;
-                        winnerCell = i;
-                    }
-                    else if (distSq < secondMinDistSq)
-                    {
-                        // If it's not closer than the first, it might be closer than the second
-                        secondMinDistSq = distSq;
-                        secondWinnerCell = i;
-                    }
-                }
-
-                voronoiDistToWinner[idx] = MathF.Sqrt(minDistSq);
-                voronoiDistToSecond[idx] = MathF.Sqrt(secondMinDistSq);
-                voronoiCellIndex[idx] = winnerCell;
-                secondVoronoiIndex[idx] = secondWinnerCell;
-
-                elevations[idx] = landWaterSpan[winnerCell] >= elevationCfg.LandElevationThreshold
-                    ? elevationCfg.LandElevationThreshold + MathF.Pow(noiseSpan[idx], 2.2f) *
-                    (elevationCfg.MaxElevation - elevationCfg.LandElevationThreshold - 1)
-                    : noiseSpan[idx] * (elevationCfg.LandElevationThreshold - 1);
-            }
-        });
-
-        return (voronoiCellIndex, secondVoronoiIndex, voronoiDistToWinner, voronoiDistToSecond,
-            elevations);
-    }
-
-    #endregion
-
-    #region Tectonics
-
-    /// <summary>
-    ///     Initializes plates and tectonic parameters.
-    /// </summary>
-    private (Point[], bool[], int[], Vector2[]) InitializePlateTectonics(
-        Span<float> noiseMap, // Pass in your world noise map
-        Span<Point> voronoiCells,
-        Span<bool> voronoiCellTypes
-    )
-    {
-        var plateCells = new Point[plateCount];
-        var plateTypes = new bool[plateCount];
-        var plateIndex = new int[_voronoiCellCount];
-
-        // 1. SAFE SEED SELECTION (Preventing twin plates)
-        var chosenSeeds = new HashSet<int>();
-        for (var i = 0; i < plateCount; i++)
-        {
-            int voronoiIndex;
-            do
-            {
-                voronoiIndex = _rng.Next(_voronoiCellCount);
-            } while (!chosenSeeds.Add(voronoiIndex)); // Ensure unique centers
-
-            var voronoiCell = voronoiCells[voronoiIndex];
-            plateCells[i] = new Point(voronoiCell.X, voronoiCell.Y);
-            plateTypes[i] = voronoiCellTypes[voronoiIndex];
-        }
-
-        // TWEAKABLE: How violently the boundaries snake and interlock.
-        // A value of 10-20% of your world width usually looks great.
-        var warpStrength = worldWidth * 0.15f;
-
-        // 2. ASSIGN CELLS TO PLATES (With Domain Warping)
-        for (var j = 0; j < _voronoiCellCount; j++)
-        {
-            var minDistSq = float.MaxValue;
-            var winnerCell = 0;
-            var (vX, vY) = voronoiCells[j];
-
-            // Sample noise at the cell's center to get a warp vector.
-            // We use the 1D noise map but offset the lookup to get an X and Y warp.
-            var cellIdx = vY * worldWidth + vX;
-
-            // Pseudo-random offset for the Y noise so X and Y warp independently
-            var offsetIdx = (cellIdx + (worldWidth / 2)) % noiseMap.Length;
-
-            // Normalize noise from [0, 1] to [-1, 1] and scale by warp strength
-            var warpX = (noiseMap[cellIdx] - 0.5f) * 2.0f * warpStrength;
-            var warpY = (noiseMap[offsetIdx] - 0.5f) * 2.0f * warpStrength;
-
-            // Apply the warp to the cell's position
-            var warpedVx = vX + warpX;
-            var warpedVy = vY + warpY;
-
-            for (var i = 0; i < plateCount; i++)
-            {
-                var (pX, pY) = plateCells[i];
-
-                // Calculate distance using the WARPED coordinates
-                var distSq = WorldMath.GetCylindricalDistanceSq(warpedVx, warpedVy, pX, pY);
-
-                if (distSq >= minDistSq) continue; // || voronoiCellTypes[j] != plateTypes[i]) continue;
-                minDistSq = distSq;
-                winnerCell = i;
-            }
-
-            plateIndex[j] = winnerCell;
-        }
-
-        // 3. Assign plate motions
-        var plateMotions = GeneratePlateMotions();
-        return (plateCells, plateTypes, plateIndex, plateMotions);
-    }
-
-    /// <summary>
-    ///     Generates a motion vector for each plate.
-    /// </summary>
-    private Vector2[] GeneratePlateMotions()
-    {
-        var motions = new Vector2[plateCount];
-        for (var i = 0; i < plateCount; i += 1)
-        {
-            var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
-            // TODO: Move speed coefficients to config!
-            var speed = (float)_rng.NextDouble() * 1.5f; // * 0.5 + 0.1);
-            motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
-        }
-
-        return motions;
-    }
-
-    /// <summary>
-    ///     Generate elevation differences at tectonic plate boundaries,
-    ///     e.g.: Mountains and seamounts at plate convergences and
-    ///     trenches at plate divergences.
-    ///     These changes will only affect world cells located at tectonic plate boundaries.
-    /// </summary>
-    private float[] ComputePlateTectonicHeight(
-        Span<int> voronoiIndex,
-        Span<int> secondVoronoiIndex,
-        Span<bool> voronoiCellTypes,
-        Span<float> dist1,
-        Span<float> dist2,
-        Span<Point> plateCells,
-        Span<int> plateIndex,
-        Span<Vector2> plateMotions
-    )
-    {
-        var tectonicDelta = new float[worldWidth * worldHeight];
-
-        // TWEAKABLE: How many pixels wide are your mountain ranges?
-        // TODO: Move to config!
-        const float rangeWidth = 11.0f;
-
-        // Pre-calculate stress between every possible plate pair (O(P^2))
-        // This avoids recalculating Dot products millions of times.
-        var stressLookup = new float[plateCount * plateCount];
-        for (var i = 0; i < plateCount; i++)
-        {
-            for (var j = 0; j < plateCount; j++)
-            {
-                if (i == j) continue;
-                var relMotion = WorldMath.GetWrappedVector(plateMotions[j], plateMotions[i]);
-                var dir = WorldMath.GetWrappedVector(plateCells[i], plateCells[j]);
-                if (dir.LengthSquared() < 0.001f) continue;
-
-                var normal = Vector2.Normalize(dir);
-                var stress = Vector2.Dot(relMotion, normal);
-
-                stressLookup[i * plateCount + j] = -stress;
-            }
-        }
-
-        // The Pixel Loop
-        for (var i = 0; i < worldWidth * worldHeight; i++)
-        {
-            var p1 = plateIndex[voronoiIndex[i]];
-            var p2 = plateIndex[secondVoronoiIndex[i]];
-
-            if (p1 == p2) continue; // Inside a plate, no tectonic stress
-
-            // Calculate distance from the boundary line
-            var deltaDist = dist2[i] - dist1[i];
-
-            if (!(deltaDist < rangeWidth)) continue;
-            // Normalize influence: 1.0 at the crack, 0.0 at the range edge
-            var influence = 1.0f - (deltaDist / rangeWidth);
-
-            // Smoothstep (Cubic) falloff for more natural mountain shapes
-            // This prevents "sharp pyramid" mountains.
-            influence = influence * influence * (3 - 2 * influence);
-
-            var stress = stressLookup[p1 * plateCount + p2];
-
-            // Apply your existing continental/oceanic multipliers here
-            var multiplier = 1.0f;
-            var isRecipientCont = voronoiCellTypes[voronoiIndex[i]];
-            var isAggressorCont = voronoiCellTypes[secondVoronoiIndex[i]];
-
-            if (stress > 0) // Convergence (Crashing)
-            {
-                multiplier = isRecipientCont switch
-                {
-                    true when !isAggressorCont => 9f,
-                    false when isAggressorCont => -12f,
-                    false when !isAggressorCont => 2f,
-                    true when isAggressorCont => 25f,
-                    _ => multiplier
-                };
-            }
-
-            tectonicDelta[i] = stressLookup[p1 * plateCount + p2] * multiplier * influence;
-        }
-
-        return tectonicDelta;
-    }
-
-    /// <summary>
-    ///     Assign hotspots to certain cells in the world.
-    /// </summary>
-    private float[] GenerateHotspots(
-        Span<float> noiseMap,
-        Span<Point> voronoiCells,
-        Span<bool> voronoiCellTypes,
-        Span<Vector2> plateMotions)
-    {
-        var hotspots = new float[worldWidth * worldHeight];
-        var chainCount = _rng.Next(volcanicCfg.MinIslandChains, volcanicCfg.MaxIslandChains + 1);
-
-        var oceanPlateIds = new List<int>();
-        for (var i = 0; i < voronoiCellTypes.Length; i++)
-            if (!voronoiCellTypes[i])
-                oceanPlateIds.Add(i);
-
-        // Track local min/max to avoid global state contention during the loops
-        var localMinHeight = float.MaxValue;
-        var localMaxHeight = float.MinValue;
-
-        for (var chain = 0; chain < chainCount; chain++)
-        {
-            if (oceanPlateIds.Count == 0) continue;
-
-            var oceanPlateId = oceanPlateIds[_rng.Next(oceanPlateIds.Count)];
-            oceanPlateIds.Remove(oceanPlateId);
-            var (startX, startY) = voronoiCells[oceanPlateId];
-
-            var chainLength =
-                _rng.Next(volcanicCfg.MinChainLength, volcanicCfg.MaxChainLength + 1);
-
-            var chainDirection = plateMotions.Length > 0
-                ? plateMotions[_rng.Next(plateMotions.Length)]
-                : new Vector2((float)(_rng.NextDouble() - 0.5) * 2,
-                    (float)(_rng.NextDouble() - 0.5) * 2);
-
-            var length = chainDirection.Length();
-            if (length > 0)
-                chainDirection = (chainDirection / length) * (float)(_rng.NextDouble() * 2 + 1);
-
-            for (var i = 0; i < chainLength; i++)
-            {
-                var offsetX = (int)(chainDirection.X * i * volcanicCfg.ChainSpacing);
-                var offsetY = (int)(chainDirection.Y * i * volcanicCfg.ChainSpacing);
-                var centerX = WorldMath.WrapX(startX + offsetX);
-                var centerY = startY + offsetY;
-
-                if (centerY < 0 || centerY >= worldHeight) continue;
-
-                var radius = _rng.Next(volcanicCfg.MinHotspotRadius,
-                    volcanicCfg.MaxHotspotRadius + 1);
-                var radiusSq = radius * radius; // Pre-calculate for fast distance check
-
-                var strength = (float)(_rng.NextDouble() *
-                                       (volcanicCfg.MaxHotspotStrength -
-                                        volcanicCfg.MinHotspotStrength) +
-                                       volcanicCfg.MinHotspotStrength);
-
-                // Bounding box: Y clamps, but X does NOT clamp so we can wrap it
-                var minY = Math.Max(0, centerY - radius);
-                var maxY = Math.Min(worldHeight, centerY + radius);
-                var minX = centerX - radius;
-                var maxX = centerX + radius;
-
-                var isAtoll = MathF.Abs(worldHeight / 2f - centerY) < worldHeight / 3f &&
-                              _rng.NextDouble() < 0.5f;
-
-                for (var y = minY; y < maxY; y++)
-                {
-                    var rowOffset = y * worldWidth;
-                    var dy = y - centerY;
-                    var dySq = dy * dy;
-
-                    for (var x = minX; x <= maxX; x++)
-                    {
-                        var dx = x - centerX;
-                        var distSq = (dx * dx) + dySq;
-
-                        // FAST REJECTION: Skip the expensive math if outside the circle
-                        if (distSq > radiusSq) continue;
-
-                        // Properly wrap the X coordinate for array lookup
-                        var wrappedX = WorldMath.WrapX(x);
-                        var idx = rowOffset + wrappedX;
-
-                        var distance = MathF.Sqrt(distSq);
-                        var normalizedDist = distance / radius;
-
-                        var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
-                        var noise = noiseMap[idx];
-                        coneHeight *= 0.7f + noise * 0.6f;
-
-                        hotspots[idx] += coneHeight;
-
-                        // ATOLL LOGIC: Carve the center AFTER adding height to prevent chain overlaps 
-                        // filling the lagoon back in. We simulate a caldera collapse to "Sea Level - 1"
-                        if (isAtoll)
-                        {
-                            var atollThreshold = volcanicCfg.MaxHotspotStrength * 0.6f;
-                            if (hotspots[idx] > atollThreshold)
-                            {
-                                // Flatten the peak to create a lagoon rim, then sink the center
-                                var collapseDepth = hotspots[idx] - atollThreshold;
-                                hotspots[idx] = atollThreshold - (collapseDepth * 0.5f);
-                            }
-                        }
-
-                        localMinHeight = Math.Min(localMinHeight, hotspots[idx]);
-                        localMaxHeight = Math.Max(localMaxHeight, hotspots[idx]);
-                    }
-                }
-            }
-        }
-
-        // Apply local state to global state once at the end
-        _minHotspotHeight = Math.Min(_minHotspotHeight, localMinHeight);
-        _maxHotspotHeight = Math.Max(_maxHotspotHeight, localMaxHeight);
-
-        return hotspots;
-    }
-
-    private void ApplyTectonics(
-        Span<float> noiseField,
-        Span<float> elevations,
-        Span<float> tectonicDelta,
-        Span<float> hotspots
-    )
-    {
-        // If you aren't using slopes, we should define a default 'base' noise intensity 
-        // so the world isn't perfectly smooth.
-        const float baseNoiseIntensity = 0.05f;
-
-        var landCount = 0;
-        var totalCells = worldWidth * worldHeight;
-
-        for (var i = 0; i < totalCells; i++)
-        {
-            var currentElev = elevations[i];
-            var isAboveThreshold = currentElev >= elevationCfg.LandElevationThreshold;
-
-            // 1. Calculate Detail Noise
-            // Since coastalSlopes is uninitialized, I'm using a fallback value.
-            // If you ever implement GenerateSlopedCoasts(), replace 'baseNoiseIntensity' 
-            // with (coastalSlopes[i] / _coastalCfg.MaxCoastalSlope).
-            var upOrDownwards = isAboveThreshold ? 1.0f : -1.0f;
-            var detailNoise = baseNoiseIntensity * noiseField[i] * upOrDownwards * currentElev;
-
-            // 2. Combine Layers
-            // Base + Detail + Tectonic Uplift + Volcanic Hotspot
-            var finalElevation = currentElev + detailNoise + tectonicDelta[i] + hotspots[i];
-
-            // 3. Clamp and Store
-            // Ensure we don't exceed the atmosphere's ceiling.
-            var clampedElev = Math.Min(elevationCfg.MaxElevation, finalElevation);
-            elevations[i] = clampedElev;
-
-            // 4. Statistics
-            if (clampedElev >= elevationCfg.LandElevationThreshold)
-            {
-                landCount++;
-            }
-        }
-
-        var ratio = (float)landCount / totalCells;
-        Console.WriteLine($"Tectonics Applied: {ratio * 100:F2}% land");
-    }
-
-    #endregion
-
-    #region Climate and Biomes
-
-    /// <summary>
-    /// Generates a wind direction field influenced by global bands (Hadley cells,
-    /// trade winds, westerlies, polar easterlies), small-scale noise and elevation.
-    /// Results are stored in `_windDirections` as discrete (-1,0,1) integer vectors.
-    /// </summary>
-    private (Point[], byte[]) CalculateWindField(Span<float> noiseMap, Span<float> elevations)
-    {
-        var windDirections = new Point[worldWidth * worldHeight];
-        var windSpeeds = new byte[worldWidth * worldHeight];
-
-        // Compute max elevation for normalization (avoid using _maxElevation which is set later)
-        var maxElev = float.MinValue;
-        var total = worldWidth * worldHeight;
-        for (var i = 0; i < total; i++) maxElev = MathF.Max(maxElev, elevations[i]);
-        if (maxElev <= 0) maxElev = 1f;
-
-        var mid = worldHeight / 2f;
-
-        for (var y = 0; y < worldHeight; y++)
-        {
-            var rowOffset = y * worldWidth;
-            // Absolute latitude 0 at equator -> 1 at poles
-            var latitudeAbs = MathF.Abs(y - mid) / mid;
-
-            // Band selection: trade winds (near equator) and westerlies (mid-latitudes)
-            // and polar easterlies (near poles). This mirrors common atmospheric cells.
-            var bandDx = latitudeAbs is < 0.33f or >= 0.66f ? -1f : 1f;
-
-            // Hemispheric sign: north (y < mid) => -1, south (y > mid) => +1, equator => 0
-            var hemisphere = MathF.Sign(y - mid);
-
-            // Meridional component: trades blow toward the equator, westerlies toward poles
-            var bandDy = bandDx < 0 ? -hemisphere : hemisphere;
-
-            for (var x = 0; x < worldWidth; x++)
-            {
-                var idx = rowOffset + x;
-
-                // Local noise to add small-scale variation
-                var noiseX = (noiseMap[idx] * 2f - 1f) * 0.25f; // approx -0.25..0.25
-                // Read from an arbitrary large offset (e.g., halfway across the map) for Y noise
-                var offsetIdx = (idx + (worldWidth * worldHeight / 2)) %
-                                (worldWidth * worldHeight);
-                var noiseY = (noiseMap[offsetIdx] * 2f - 1f) * 0.25f;
-
-                // Base floating vector
-                var fx = bandDx + noiseX;
-                var fy = bandDy + noiseY * 0.5f;
-
-                // Slow down wind with elevation: higher elevation -> reduced magnitude
-                var elev = elevations[idx];
-                var elevNorm = Math.Clamp(elev / maxElev, 0f, 1f);
-                var slowdown = elevNorm * 0.8f; // up to 80% slowdown on highest peaks
-                fx *= (1f - slowdown);
-                fy *= (1f - slowdown);
-
-                // Threshold to consider the flow effectively calm
-                const float calmThreshold = 0.33f;
-
-                var finalDx = MathF.Abs(fx) < calmThreshold ? 0 : Math.Sign(fx);
-                var finalDy = MathF.Abs(fy) < calmThreshold ? 0 : Math.Sign(fy);
-
-                // Occasional local blocking: very steep local slopes reduce wind to calm
-                // Check simple slope with immediate west/east neighbor
-                if (finalDx != 0 || finalDy != 0)
-                {
-                    var targetX = WorldMath.WrapX(x + finalDx);
-                    // Clamp Y to prevent trying to read outside the array at the poles
-                    var targetY = Math.Clamp(y + finalDy, 0, worldHeight - 1);
-                    var targetIdx = targetY * worldWidth + targetX;
-
-                    // Positive slope means uphill. We don't care about downhill (negative).
-                    var directionalSlope = elevations[targetIdx] - elevations[idx];
-
-                    // If the cell the wind is moving into is drastically higher, block it entirely.
-                    if (directionalSlope >
-                        (maxElev * 0.2f)) // 20% of highest peak in one step is a cliff
-                    {
-                        finalDx = 0;
-                        finalDy = 0;
-                    }
-                }
-
-                // Store discrete wind direction
-                windDirections[idx] = new Point(finalDx, finalDy);
-
-                // Compute a simple magnitude (pre-discretization) and quantize to 0..255
-                var mag = MathF.Sqrt(fx * fx + fy * fy);
-                // normalize by a heuristic max (2.0f covers bandDx +- noise)
-                var normalized = Math.Clamp(mag / 2f, 0f, 1f);
-                var speedByte = (byte)(normalized * 255f);
-
-                // If blocked to calm, zero the speed
-                if (finalDx == 0 && finalDy == 0) speedByte = 0;
-
-                windSpeeds[idx] = speedByte;
-            }
-        }
-
-        return (windDirections, windSpeeds);
-    }
-
-    /// <summary>
-    ///     Generates world maps for various climate features.
-    /// </summary>
-    private (float[], float[], Biome[]) GenerateClimate(
-        Span<float> noiseMap,
-        Span<float> elevations,
-        Span<Point> windDirections,
-        Span<bool> riverMap,
-        Span<byte> strahlerRiver)
-    {
-        var temperature = new float[worldWidth * worldHeight];
-        var humidity = new float[worldWidth * worldHeight];
-        var biomes = new Biome[worldWidth * worldHeight];
-
-        // STEP 1: CALCULATE TEMPERATURE FIRST
-        // Everything else (Rainfall and Humidity) depends on temperature.
-        for (var y = 0; y < worldHeight; y++)
-        {
-            var rowOffset = y * worldWidth;
-            // Smoother latitude warping using the noise map
-            var latWarp = (noiseMap[rowOffset] * 2 - 1) * 4.0f;
-            var latitude = MathF.Abs(y + latWarp - worldHeight / 2f) / (worldHeight / 2f);
-            var baseTemp = climateCfg.BaseTempMax -
-                           (climateCfg.BaseTempMax - climateCfg.BaseTempMin) *
-                           MathF.Pow(latitude, 1.2f);
-
-            for (var x = 0; x < worldWidth; x++)
-            {
-                var idx = rowOffset + x;
-                var elevationFactor = elevations[idx] / elevationCfg.MaxElevation;
-
-                // CORRECTED LAPSE RATE: Temperature drops as elevation rises
-                // We subtract the elevation factor here.
-                temperature[idx] = baseTemp - (elevationFactor * 25.0f);
-            }
-        }
-
-        // STEP 2: GENERATE RAINFALL (Now with correct temperatures!)
-        var rainfallMap =
-            CalculateUnifiedRainfall(noiseMap, elevations, temperature, riverMap, windDirections);
-
-        // STEP 3: CALCULATE HUMIDITY AND BIOMES
-        for (var idx = 0; idx < temperature.Length; idx++)
-        {
-            var absoluteMoisture = rainfallMap[idx];
-
-            // STABILIZED HUMIDITY: 
-            // Instead of raw division, we use a softer saturation curve.
-            // As air gets colder, it needs less moisture to reach 100% humidity.
-            var tempFactor = Math.Clamp((temperature[idx] + 20) / 50f, 0.1f, 1.5f);
-            humidity[idx] = Math.Clamp(absoluteMoisture / tempFactor, 0.0f, 1.0f);
-
-            // STEP 4: DETERMINE BIOME
-            biomes[idx] = DetermineBiome(
-                temperature[idx],
-                humidity[idx],
-                elevations[idx],
-                elevations[idx] < elevationCfg.LandElevationThreshold,
-                riverMap[idx],
-                strahlerRiver[idx]);
-        }
-
-        return (temperature, humidity, biomes);
-    }
-
-    private float[] CalculateUnifiedRainfall(
-        Span<float> noiseMap,
-        Span<float> elevations,
-        Span<float> temperatures,
-        Span<bool> riverMap,
-        Span<Point> windDirections)
-    {
-        var rainfall = new float[worldWidth * worldHeight];
-
-        // Tuning Constants
-        const float moistureRechargeRate = 0.09f;
-        const float rainDropFactor = 0.06f;
-        const float landDecayRate = 0.995f; // Slightly higher to prevent mid-continent "dead zones"
-
-        for (var y = 0; y < worldHeight; y++)
-        {
-            var rowOffset = y * worldWidth;
-
-            // 1. Determine Global Wind Row Direction
-            var sumX = 0;
-            for (var sx = 0; sx < worldWidth; sx++)
-                sumX += windDirections[rowOffset + sx].X;
-            var windDir = sumX >= 0 ? 1 : -1;
-
-            // 2. Initial Cloud State
-            var cloudMoisture = riverCfg.RainfallLandBase;
-
-            // 3. Two-Pass Sweep (for world wrapping)
-            for (var step = 0; step < worldWidth * 2; step++)
-            {
-                var windX = WorldMath.WrapX(windDir == 1 ? step : -step);
-                var idx = rowOffset + windX;
-                var elev = elevations[idx];
-                var isSecondPass = step >= worldWidth;
-
-                // Temperature factors
-                var tempAtTile = temperatures[idx];
-                var poleFactor =
-                    tempAtTile switch
-                    {
-                        < -20 => 0.0f,
-                        < -15 => 0.6f,
-                        < -10 => 0.8f,
-                        < -5 => 0.9f,
-                        < 0 => 0.95f,
-                        _ => 1.0f
-                    };
-                var evapPower = Math.Clamp((tempAtTile + 50) / 80f, 0.2f, 1.5f);
-
-                if (elev < elevationCfg.LandElevationThreshold || riverMap[idx])
-                {
-                    // OCEAN: Recharge
-                    cloudMoisture = (MathF.Min(riverCfg.RainfallOceanBase,
-                        cloudMoisture + (moistureRechargeRate * evapPower))) * poleFactor;
-
-                    if (isSecondPass)
-                        rainfall[idx] = riverCfg.RainfallOceanBase * poleFactor;
-                }
-                else
-                {
-                    // LAND: Discharge
-                    var windVec = windDirections[idx];
-                    var dx = windVec.X != 0 ? windVec.X : windDir;
-                    var prevX = WorldMath.WrapX(windX - dx);
-                    var prevY = Math.Clamp(y - windVec.Y, 0, worldHeight - 1);
-
-                    var lift = elev - elevations[prevY * worldWidth + prevX];
-                    float rainDropped = 0;
-
-                    if (lift > 0)
-                    {
-                        rainDropped = MathF.Min(cloudMoisture,
-                            lift * cloudMoisture * rainDropFactor);
-                        cloudMoisture -= rainDropped;
-                    }
-
-                    if (isSecondPass)
-                    {
-                        // Apply Rain Shadow: Air with low moisture produces less ambient rain
-                        // We blend 20% base rain with 80% moisture-dependent rain
-                        var shadowMultiplier = 0.2f + (cloudMoisture * 0.8f);
-
-                        var finalRain = (cloudMoisture * 0.15f * shadowMultiplier) +
-                                        (rainDropped * 3.0f * noiseMap[idx] * poleFactor);
-
-                        // Add local humidity from rivers
-                        if (riverMap[idx]) finalRain += (riverCfg.RainfallOceanBase * 0.25f);
-
-                        // RECORD: Use += to allow for the 'Bleed' from neighbors
-                        rainfall[idx] += finalRain;
-
-                        // BLEED: Break horizontal lines
-                        if (y > 0 && y < worldHeight - 1)
-                        {
-                            var bleed = finalRain * 0.18f;
-                            rainfall[(y - 1) * worldWidth + windX] += bleed;
-                            rainfall[(y + 1) * worldWidth + windX] += bleed;
-                        }
-                    }
-
-                    // Air naturally dries out as it moves over land
-                    cloudMoisture *= landDecayRate;
-                }
-            }
-        }
-
-        return rainfall;
-    }
-
-    /// <summary>
-    ///     Determine the biome of a cell by its properties.
-    ///     Suggestion:
-    ///     Moisture	Low Temp (Tundra)	Mid Temp (Temperate)	High Temp (Tropical)
-    ///     Low	Ice / Polar Desert	Steppe / Cold Desert	Hot Desert
-    ///     Mid	Shrubland	Grassland / Woodland	Savanna
-    ///     High	Taiga (Boreal)	Seasonal Forest	Tropical Rainforest
-    /// </summary>
-    /// <param name="temp">Temperature of the cell.</param>
-    /// <param name="relHumidity">Humidity of the cell.</param>
-    /// <param name="elevation">Elevation of the cell.</param>
-    /// <param name="isWater">True if the cell is sea, false otherwise.</param>
-    /// <param name="isRiver">True if the cell is river, false otherwise.</param>
-    /// <param name="strahlerOrder">Strahler order for river cells.</param>
-    /// <returns>Biome of the cell.</returns>
-    private Biome DetermineBiome(
-        float temp,
-        float relHumidity,
-        float elevation,
-        bool isWater,
-        bool isRiver,
-        int strahlerOrder)
-    {
-        if (isWater)
-            if (temp < -15)
-            {
-                return Biome.PackIce;
-            }
-            else if (elevation < elevationCfg.HighSeaThreshold)
-            {
-                return Biome.HighSeas;
-            }
-            else if (elevation < elevationCfg.OceanThreshold)
-            {
-                return Biome.Ocean;
-            }
-            else if (elevation < elevationCfg.ShelfThreshold)
-            {
-                return Biome.Shelf;
-            }
-            else if (elevation < elevationCfg.ShallowsThreshold)
-            {
-                return temp < 25f ? Biome.Shallows : Biome.Reef;
-            }
-
-        if (isRiver)
-        {
-            if (temp < -8f) return Biome.IceCap;
-            return strahlerOrder switch
-            {
-                <= 2 => Biome.Creek,
-                <= 4 => Biome.MinorRiver,
-                _ => Biome.MajorRiver
-            };
-        }
-
-
-        // High Altitude "Dead Zone" (Above the Tree Line)
-        if (elevation >= elevationCfg.HighMountainThreshold)
-            return temp < 0f ? Biome.Glacier : Biome.RockPeak;
-
-        switch (temp)
-        {
-            // 3. Extreme Cold (Polar / Arctic)
-            // High humidity in extreme cold leads to permanent ice sheets/glaciers.
-            // Low humidity leads to barren, frozen gravel/dust plains.
-            case < -10f when relHumidity < 0.3f:
-                return Biome.PolarDesert;
-            case < -10f when relHumidity < 0.6f:
-                return Biome.IceCap;
-            case < -10f when relHumidity >= 0.6f:
-                return Biome.Glacier;
-            // 4. Cold / Sub-Arctic (Boreal)
-            case < 5f when relHumidity < 0.25f:
-                return Biome.Tundra;
-            // Use elevation for Alpine variations
-            case < 5f when elevation > volcanicCfg.CraterElevationThreshold:
-                return Biome.AlpineTundra;
-            // Differentiate between standard Boreal forest and heavy precipitation zones
-            case < 5f:
-                return relHumidity > 0.65f ? Biome.SnowyForest : Biome.Taiga;
-            // 5. Temperate
-            case < 22f when relHumidity < 0.15f:
-                return Biome.ColdDesert;
-            case < 22f when elevation > volcanicCfg.CraterElevationThreshold && relHumidity > 0.6f:
-                return Biome.HighlandMoor;
-            case < 22f when relHumidity < 0.4f:
-                return Biome.Steppe;
-            case < 22f when relHumidity < 0.6f:
-                return Biome.Grassland;
-            case < 22f:
-                return Biome.TemperateForest; // High humidity temperate zones
-        }
-
-        // 6. Tropical / Hot
-        // High altitude tropics create unique "Cloud Forests" (very high humidity + altitude)
-        if (elevation > volcanicCfg.CraterElevationThreshold && relHumidity > 0.75f)
-            return Biome.CloudForest;
-
-        return relHumidity switch
-        {
-            < 0.15f => Biome.HotDesert,
-            < 0.45f => Biome.Savanna,
-            < 0.5f => Biome.TropicalSeasonalForest,
-            _ => Biome.TropicalRainforest
-        };
     }
 
     #endregion
@@ -1385,6 +495,1076 @@ public class CylinderWorld(
 
     #endregion
 
+    #region Coastal Features
+
+    /// <summary>
+    ///     Detect coastal features depending on their surrounding: beaches, cliffs and fjords.
+    /// </summary>
+    private void ApplyCoastalFeatures(
+        Span<float> elevations,
+        Span<bool> riverMap,
+        Span<SurfaceFeature> surfaceFeatures)
+    {
+        for (var y = 0; y < worldHeight; y++)
+        {
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var idx = rowOffset + x;
+                // Skip existing assigned strong surface features: river, lava, glacier
+                var existing = surfaceFeatures[idx];
+                if (existing is SurfaceFeature.Lava || riverMap[idx])
+                    continue;
+
+                var elevation = elevations[idx];
+                var isWater = elevation < elevationCfg.LandElevationThreshold;
+
+                // Beach/cliff only for land cells near water
+                if (!isWater)
+                {
+                    var adjacentWater = 0;
+                    var maxAdjElevation = 0f;
+                    for (var dy = -1; dy <= 1; dy++)
+                    {
+                        var ny = y + dy;
+                        var nRowOffset = ny * worldWidth;
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            var nx = WorldMath.WrapX(x + dx);
+                            if (ny < 0 || ny >= worldHeight) continue;
+
+                            var neighborElevation = elevations[nRowOffset + nx];
+                            if (neighborElevation < elevationCfg.LandElevationThreshold)
+                                adjacentWater++;
+                            else
+                                maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
+                        }
+                    }
+
+                    if (adjacentWater > 0)
+                    {
+                        // How high is this coast above the water?
+                        var slope = elevation - elevationCfg.LandElevationThreshold - 1;
+
+                        switch (slope)
+                        {
+                            // Steep drop into the sea
+                            case >= 3.0f:
+                                surfaceFeatures[idx] = SurfaceFeature.Cliff;
+                                break;
+                            // Gentle transition into the sea
+                            case <= 1.0f:
+                                {
+                                    // Don't overwrite existing mountain features from previous steps
+                                    if (surfaceFeatures[idx] == SurfaceFeature.None)
+                                        surfaceFeatures[idx] = SurfaceFeature.Beach;
+
+                                    break;
+                                }
+                        }
+                        // If slope is intermediate, leave it as regular land (None/Grass/Forest)
+                    }
+                }
+                else
+                {
+                    // water cells: detect fjord (narrow water in high mountains)
+                    var adjacentLand = 0;
+                    var adjacentHighMountain = 0;
+                    for (var dy = -1; dy <= 1; dy++)
+                    {
+                        var ny = y + dy;
+                        var nRowOffset = ny * worldWidth;
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            var nx = WorldMath.WrapX(x + dx);
+                            if (ny < 0 || ny >= worldHeight) continue;
+                            var neighborElevation = elevations[nRowOffset + nx];
+                            if (neighborElevation < elevationCfg.LandElevationThreshold) continue;
+                            adjacentLand++;
+                            if (neighborElevation >= elevationCfg.SnowThreshold - 1)
+                                adjacentHighMountain++;
+                        }
+                    }
+
+                    if (adjacentLand >= 3 && adjacentHighMountain >= 1)
+                        surfaceFeatures[idx] = SurfaceFeature.Fjord;
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region To ECS Components
+
+    private WorldPackedChunk[] ToPackedChunks(
+        Span<float> elevation,
+        Span<float> humidity,
+        Span<float> temperature,
+        Span<Biome> biome,
+        Span<SurfaceFeature> surfaceFeatures,
+        Span<Point> flowDirections,
+        Span<Point> windDirections,
+        Span<byte> windSpeeds
+    )
+    {
+        const int chunkSize = WorldMath.ChunkSize;
+        const int chunksAcross = WorldMath.ChunksAcross;
+
+        var chunks = new WorldPackedChunk[chunksAcross * (worldHeight / chunkSize)];
+        // Temporary buffer to copy humidity as byte values.
+        var elevationBuffer = new byte[chunkSize];
+        var humidityBuffer = new byte[chunkSize];
+
+        for (var cy = 0; cy < worldHeight; cy += chunkSize)
+        {
+            for (var cx = 0; cx < worldWidth; cx += chunkSize)
+            {
+                var chunkXIndex = cx / chunkSize;
+                var chunkYIndex = cy / chunkSize;
+                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
+                var chunk = new PackedTile[chunkSize * chunkSize];
+
+                // Copy rows from world-layout to contiguous chunk-layout
+                for (var ly = 0; ly < chunkSize; ly++)
+                {
+                    var sourceStart = (cy + ly) * worldWidth + cx;
+                    var srcElevation = elevation.Slice(sourceStart, chunkSize);
+                    var srcHumidityFloat = humidity.Slice(sourceStart, chunkSize);
+                    var srcTemperature = temperature.Slice(sourceStart, chunkSize);
+                    var srcBiome = biome.Slice(sourceStart, chunkSize);
+                    var srcSurfaceFeatures = surfaceFeatures.Slice(sourceStart, chunkSize);
+                    var srcFlowDir = flowDirections.Slice(sourceStart, chunkSize);
+                    var srcWindDir = windDirections.Slice(sourceStart, chunkSize);
+                    var srcWindSpeeds = windSpeeds.Slice(sourceStart, chunkSize);
+
+                    for (var i = 0; i < srcHumidityFloat.Length; i++)
+                    {
+                        // Ensure that humidity floats are always in range (0,1)!
+                        humidityBuffer[i] = Convert.ToByte(srcHumidityFloat[i] * 100);
+                        var elevationClamped =
+                            Math.Clamp(srcElevation[i], 0f, elevationCfg.MaxElevation);
+                        elevationBuffer[i] = Convert.ToByte(MathF.Floor(elevationClamped));
+                    }
+
+                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
+
+                    WorldPacker.PackToSpan(
+                        destRow,
+                        srcBiome,
+                        elevationBuffer,
+                        srcTemperature,
+                        humidityBuffer,
+                        srcFlowDir,
+                        srcWindDir,
+                        srcWindSpeeds,
+                        srcSurfaceFeatures);
+                }
+
+                // The chunk now holds a 'view' of the master buffer, not a unique array
+                chunks[chunkIdx] =
+                    new WorldPackedChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
+            }
+        }
+
+        return chunks;
+    }
+
+    #endregion
+
+    #region Fields
+
+    private readonly Random _rng = new(seed);
+    private readonly int _voronoiCellCount = voronoiCellCount;
+
+    private float _minHotspotHeight = float.MaxValue;
+    private float _maxHotspotHeight = float.MinValue;
+
+    #endregion
+
+    #region Properties
+
+    private int VoronoiCellCount { get; } = voronoiCellCount;
+
+    private float LandRatio { get; } = landRatio;
+
+    #endregion
+
+    #region World Base Structure
+
+    /// <summary>
+    ///     Initializes Voronoi cells of the world.
+    /// </summary>
+    /// <returns>Voronoi cells and their types, plate motions and land/water distribution.</returns>
+    private bool[] InitializeVoronoiCells(
+        Span<Point> voronoiCells,
+        Span<int> landWaterMap
+    )
+    {
+        // step 1: randomly sample <cellCount> coordinates of the grid as voronoi cell seeds
+        for (var i = 0; i < VoronoiCellCount; i += 1)
+            voronoiCells[i] = new Point(_rng.Next(worldWidth), _rng.Next(worldHeight));
+
+        var voronoiCellTypes = GenerateVoronoiCellTypes();
+
+        for (var i = 0; i < VoronoiCellCount; i += 1)
+            // Lower oceanic plates to create deeper oceans
+            landWaterMap[i] = voronoiCellTypes[i]
+                ? elevationCfg.LandElevationThreshold
+                : elevationCfg.LandElevationThreshold - 1;
+
+        return voronoiCellTypes;
+    }
+
+    /// <summary>
+    ///     Generates the type for each plate:
+    ///     true == continental, false == oceanic.
+    /// </summary>
+    private bool[] GenerateVoronoiCellTypes()
+    {
+        var voronoiCellTypes = new bool[VoronoiCellCount];
+        var land = 0f;
+        var water = 0f;
+        for (var i = 0; i < VoronoiCellCount; i += 1)
+        {
+            voronoiCellTypes[i] = _rng.NextDouble() < LandRatio;
+            if (voronoiCellTypes[i])
+            {
+                land++;
+            }
+            else
+            {
+                water++;
+            }
+        }
+
+        var ratio = land / (land + water);
+        Console.WriteLine($"Generate Voronoi Cell Types: {ratio * 100} % land");
+        return voronoiCellTypes;
+    }
+
+    /// <summary>
+    ///     Assigns an elevation and voronoi cell to each single cell on the map.
+    /// </summary>
+    private (
+        int[] voronoiCellIndex,
+        int[] secondVoronoiIndex,
+        float[] voronoiDistToWinner,
+        float[] voronoiDistToSecond,
+        float[] elevations)
+        GenerateLandWaterDistribution(
+            ReadOnlyMemory<float> noiseMap,
+            ReadOnlyMemory<Point> voronoiCells,
+            ReadOnlyMemory<int> landWaterMap
+        )
+    {
+        const int jiggle = 40;
+        var voronoiCellIndex = new int[worldWidth * worldHeight];
+        var secondVoronoiIndex = new int[worldWidth * worldHeight];
+        var voronoiDistToWinner = new float[worldWidth * worldHeight];
+        var voronoiDistToSecond = new float[worldWidth * worldHeight];
+        var elevations = new float[worldWidth * worldHeight];
+
+        Parallel.For(0, worldHeight, y =>
+        {
+            // Thread-local Spans created from the captured Memory
+            var noiseSpan = noiseMap.Span;
+            var voronoiSpan = voronoiCells.Span;
+            var landWaterSpan = landWaterMap.Span;
+            var rowOffset = y * worldWidth;
+            for (var x = 0; x < worldWidth; x += 1)
+            {
+                var idx = rowOffset + x;
+                var jiggleNoise = noiseSpan[idx];
+                var jiggledX = x + (0.5f - jiggleNoise) * jiggle;
+                var jiggledY = y + (0.5f - jiggleNoise) * jiggle;
+
+                var minDistSq = float.MaxValue;
+                var secondMinDistSq = float.MaxValue;
+                var winnerCell = 0;
+                var secondWinnerCell = 0;
+                for (var i = 0; i < VoronoiCellCount; i += 1)
+                {
+                    var vX = voronoiSpan[i].X;
+                    var vY = voronoiSpan[i].Y;
+                    var distSq = WorldMath.GetCylindricalDistanceSq(jiggledX, jiggledY, vX, vY);
+
+                    if (distSq < minDistSq)
+                    {
+                        // The old closest becomes the new second-closest
+                        secondMinDistSq = minDistSq;
+                        secondWinnerCell = winnerCell;
+
+                        // The new dist becomes the closest
+                        minDistSq = distSq;
+                        winnerCell = i;
+                    }
+                    else if (distSq < secondMinDistSq)
+                    {
+                        // If it's not closer than the first, it might be closer than the second
+                        secondMinDistSq = distSq;
+                        secondWinnerCell = i;
+                    }
+                }
+
+                voronoiDistToWinner[idx] = MathF.Sqrt(minDistSq);
+                voronoiDistToSecond[idx] = MathF.Sqrt(secondMinDistSq);
+                voronoiCellIndex[idx] = winnerCell;
+                secondVoronoiIndex[idx] = secondWinnerCell;
+
+                elevations[idx] = landWaterSpan[winnerCell] >= elevationCfg.LandElevationThreshold
+                    ? elevationCfg.LandElevationThreshold + MathF.Pow(noiseSpan[idx], 2.2f) *
+                    (elevationCfg.MaxElevation - elevationCfg.LandElevationThreshold - 1)
+                    : noiseSpan[idx] * (elevationCfg.LandElevationThreshold - 1);
+            }
+        });
+
+        return (voronoiCellIndex, secondVoronoiIndex, voronoiDistToWinner, voronoiDistToSecond,
+            elevations);
+    }
+
+    #endregion
+
+    #region Tectonics
+
+    /// <summary>
+    ///     Initializes plates and tectonic parameters.
+    /// </summary>
+    private (Point[], bool[], int[], Vector2[]) InitializePlateTectonics(
+        Span<float> noiseMap, // Pass in your world noise map
+        Span<Point> voronoiCells,
+        Span<bool> voronoiCellTypes
+    )
+    {
+        var plateCells = new Point[plateCount];
+        var plateTypes = new bool[plateCount];
+        var plateIndex = new int[_voronoiCellCount];
+
+        // 1. SAFE SEED SELECTION (Preventing twin plates)
+        var chosenSeeds = new HashSet<int>();
+        for (var i = 0; i < plateCount; i++)
+        {
+            int voronoiIndex;
+            do
+            {
+                voronoiIndex = _rng.Next(_voronoiCellCount);
+            } while (!chosenSeeds.Add(voronoiIndex)); // Ensure unique centers
+
+            var voronoiCell = voronoiCells[voronoiIndex];
+            plateCells[i] = new Point(voronoiCell.X, voronoiCell.Y);
+            plateTypes[i] = voronoiCellTypes[voronoiIndex];
+        }
+
+        // TWEAKABLE: How violently the boundaries snake and interlock.
+        // A value of 10-20% of your world width usually looks great.
+        var warpStrength = worldWidth * 0.15f;
+
+        // 2. ASSIGN CELLS TO PLATES (With Domain Warping)
+        for (var j = 0; j < _voronoiCellCount; j++)
+        {
+            var minDistSq = float.MaxValue;
+            var winnerCell = 0;
+            var (vX, vY) = voronoiCells[j];
+
+            // Sample noise at the cell's center to get a warp vector.
+            // We use the 1D noise map but offset the lookup to get an X and Y warp.
+            var cellIdx = vY * worldWidth + vX;
+
+            // Pseudo-random offset for the Y noise so X and Y warp independently
+            var offsetIdx = (cellIdx + worldWidth / 2) % noiseMap.Length;
+
+            // Normalize noise from [0, 1] to [-1, 1] and scale by warp strength
+            var warpX = (noiseMap[cellIdx] - 0.5f) * 2.0f * warpStrength;
+            var warpY = (noiseMap[offsetIdx] - 0.5f) * 2.0f * warpStrength;
+
+            // Apply the warp to the cell's position
+            var warpedVx = vX + warpX;
+            var warpedVy = vY + warpY;
+
+            for (var i = 0; i < plateCount; i++)
+            {
+                var (pX, pY) = plateCells[i];
+
+                // Calculate distance using the WARPED coordinates
+                var distSq = WorldMath.GetCylindricalDistanceSq(warpedVx, warpedVy, pX, pY);
+
+                if (distSq >= minDistSq)
+                    continue; // || voronoiCellTypes[j] != plateTypes[i]) continue;
+                minDistSq = distSq;
+                winnerCell = i;
+            }
+
+            plateIndex[j] = winnerCell;
+        }
+
+        // 3. Assign plate motions
+        var plateMotions = GeneratePlateMotions();
+        return (plateCells, plateTypes, plateIndex, plateMotions);
+    }
+
+    /// <summary>
+    ///     Generates a motion vector for each plate.
+    /// </summary>
+    private Vector2[] GeneratePlateMotions()
+    {
+        var motions = new Vector2[plateCount];
+        for (var i = 0; i < plateCount; i += 1)
+        {
+            var angle = (float)(_rng.NextDouble() * Math.PI * 2.0);
+            // TODO: Move speed coefficients to config!
+            var speed = (float)_rng.NextDouble() * 1.5f; // * 0.5 + 0.1);
+            motions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
+        }
+
+        return motions;
+    }
+
+    /// <summary>
+    ///     Generate elevation differences at tectonic plate boundaries,
+    ///     e.g.: Mountains and seamounts at plate convergences and
+    ///     trenches at plate divergences.
+    ///     These changes will only affect world cells located at tectonic plate boundaries.
+    /// </summary>
+    private float[] ComputePlateTectonicHeight(
+        Span<int> voronoiIndex,
+        Span<int> secondVoronoiIndex,
+        Span<bool> voronoiCellTypes,
+        Span<float> dist1,
+        Span<float> dist2,
+        Span<Point> plateCells,
+        Span<int> plateIndex,
+        Span<Vector2> plateMotions
+    )
+    {
+        var tectonicDelta = new float[worldWidth * worldHeight];
+
+        // TWEAKABLE: How many pixels wide are your mountain ranges?
+        // TODO: Move to config!
+        const float rangeWidth = 11.0f;
+
+        // Pre-calculate stress between every possible plate pair (O(P^2))
+        // This avoids recalculating Dot products millions of times.
+        var stressLookup = new float[plateCount * plateCount];
+        for (var i = 0; i < plateCount; i++)
+        {
+            for (var j = 0; j < plateCount; j++)
+            {
+                if (i == j) continue;
+                var relMotion = WorldMath.GetWrappedVector(plateMotions[j], plateMotions[i]);
+                var dir = WorldMath.GetWrappedVector(plateCells[i], plateCells[j]);
+                if (dir.LengthSquared() < 0.001f) continue;
+
+                var normal = Vector2.Normalize(dir);
+                var stress = Vector2.Dot(relMotion, normal);
+
+                stressLookup[i * plateCount + j] = -stress;
+            }
+        }
+
+        // The Pixel Loop
+        for (var i = 0; i < worldWidth * worldHeight; i++)
+        {
+            var p1 = plateIndex[voronoiIndex[i]];
+            var p2 = plateIndex[secondVoronoiIndex[i]];
+
+            if (p1 == p2) continue; // Inside a plate, no tectonic stress
+
+            // Calculate distance from the boundary line
+            var deltaDist = dist2[i] - dist1[i];
+
+            if (!(deltaDist < rangeWidth)) continue;
+            // Normalize influence: 1.0 at the crack, 0.0 at the range edge
+            var influence = 1.0f - deltaDist / rangeWidth;
+
+            // Smoothstep (Cubic) falloff for more natural mountain shapes
+            // This prevents "sharp pyramid" mountains.
+            influence = influence * influence * (3 - 2 * influence);
+
+            var stress = stressLookup[p1 * plateCount + p2];
+
+            // Apply your existing continental/oceanic multipliers here
+            var multiplier = 1.0f;
+            var isRecipientCont = voronoiCellTypes[voronoiIndex[i]];
+            var isAggressorCont = voronoiCellTypes[secondVoronoiIndex[i]];
+
+            if (stress > 0) // Convergence (Crashing)
+            {
+                multiplier = isRecipientCont switch
+                {
+                    true when !isAggressorCont => 9f,
+                    false when isAggressorCont => -12f,
+                    false when !isAggressorCont => 2f,
+                    true when isAggressorCont => 25f,
+                    _ => multiplier
+                };
+            }
+
+            tectonicDelta[i] = stressLookup[p1 * plateCount + p2] * multiplier * influence;
+        }
+
+        return tectonicDelta;
+    }
+
+    /// <summary>
+    ///     Assign hotspots to certain cells in the world.
+    /// </summary>
+    private float[] GenerateHotspots(
+        Span<float> noiseMap,
+        Span<Point> voronoiCells,
+        Span<bool> voronoiCellTypes,
+        Span<Vector2> plateMotions)
+    {
+        var hotspots = new float[worldWidth * worldHeight];
+        var chainCount = _rng.Next(volcanicCfg.MinIslandChains, volcanicCfg.MaxIslandChains + 1);
+
+        var oceanPlateIds = new List<int>();
+        for (var i = 0; i < voronoiCellTypes.Length; i++)
+            if (!voronoiCellTypes[i])
+                oceanPlateIds.Add(i);
+
+        // Track local min/max to avoid global state contention during the loops
+        var localMinHeight = float.MaxValue;
+        var localMaxHeight = float.MinValue;
+
+        for (var chain = 0; chain < chainCount; chain++)
+        {
+            if (oceanPlateIds.Count == 0) continue;
+
+            var oceanPlateId = oceanPlateIds[_rng.Next(oceanPlateIds.Count)];
+            oceanPlateIds.Remove(oceanPlateId);
+            var (startX, startY) = voronoiCells[oceanPlateId];
+
+            var chainLength =
+                _rng.Next(volcanicCfg.MinChainLength, volcanicCfg.MaxChainLength + 1);
+
+            var chainDirection = plateMotions.Length > 0
+                ? plateMotions[_rng.Next(plateMotions.Length)]
+                : new Vector2((float)(_rng.NextDouble() - 0.5) * 2,
+                    (float)(_rng.NextDouble() - 0.5) * 2);
+
+            var length = chainDirection.Length();
+            if (length > 0)
+                chainDirection = chainDirection / length * (float)(_rng.NextDouble() * 2 + 1);
+
+            for (var i = 0; i < chainLength; i++)
+            {
+                var offsetX = (int)(chainDirection.X * i * volcanicCfg.ChainSpacing);
+                var offsetY = (int)(chainDirection.Y * i * volcanicCfg.ChainSpacing);
+                var centerX = WorldMath.WrapX(startX + offsetX);
+                var centerY = startY + offsetY;
+
+                if (centerY < 0 || centerY >= worldHeight) continue;
+
+                var radius = _rng.Next(volcanicCfg.MinHotspotRadius,
+                    volcanicCfg.MaxHotspotRadius + 1);
+                var radiusSq = radius * radius; // Pre-calculate for fast distance check
+
+                var strength = (float)(_rng.NextDouble() *
+                                       (volcanicCfg.MaxHotspotStrength -
+                                        volcanicCfg.MinHotspotStrength) +
+                                       volcanicCfg.MinHotspotStrength);
+
+                // Bounding box: Y clamps, but X does NOT clamp so we can wrap it
+                var minY = Math.Max(0, centerY - radius);
+                var maxY = Math.Min(worldHeight, centerY + radius);
+                var minX = centerX - radius;
+                var maxX = centerX + radius;
+
+                var isAtoll = MathF.Abs(worldHeight / 2f - centerY) < worldHeight / 3f &&
+                              _rng.NextDouble() < 0.5f;
+
+                for (var y = minY; y < maxY; y++)
+                {
+                    var rowOffset = y * worldWidth;
+                    var dy = y - centerY;
+                    var dySq = dy * dy;
+
+                    for (var x = minX; x <= maxX; x++)
+                    {
+                        var dx = x - centerX;
+                        var distSq = dx * dx + dySq;
+
+                        // FAST REJECTION: Skip the expensive math if outside the circle
+                        if (distSq > radiusSq) continue;
+
+                        // Properly wrap the X coordinate for array lookup
+                        var wrappedX = WorldMath.WrapX(x);
+                        var idx = rowOffset + wrappedX;
+
+                        var distance = MathF.Sqrt(distSq);
+                        var normalizedDist = distance / radius;
+
+                        var coneHeight = MathF.Exp(-normalizedDist * 3.0f) * strength;
+                        var noise = noiseMap[idx];
+                        coneHeight *= 0.7f + noise * 0.6f;
+
+                        hotspots[idx] += coneHeight;
+
+                        // ATOLL LOGIC: Carve the center AFTER adding height to prevent chain overlaps 
+                        // filling the lagoon back in. We simulate a caldera collapse to "Sea Level - 1"
+                        if (isAtoll)
+                        {
+                            var atollThreshold = volcanicCfg.MaxHotspotStrength * 0.6f;
+                            if (hotspots[idx] > atollThreshold)
+                            {
+                                // Flatten the peak to create a lagoon rim, then sink the center
+                                var collapseDepth = hotspots[idx] - atollThreshold;
+                                hotspots[idx] = atollThreshold - collapseDepth * 0.5f;
+                            }
+                        }
+
+                        localMinHeight = Math.Min(localMinHeight, hotspots[idx]);
+                        localMaxHeight = Math.Max(localMaxHeight, hotspots[idx]);
+                    }
+                }
+            }
+        }
+
+        // Apply local state to global state once at the end
+        _minHotspotHeight = Math.Min(_minHotspotHeight, localMinHeight);
+        _maxHotspotHeight = Math.Max(_maxHotspotHeight, localMaxHeight);
+
+        return hotspots;
+    }
+
+    private void ApplyTectonics(
+        Span<float> noiseField,
+        Span<float> elevations,
+        Span<float> tectonicDelta,
+        Span<float> hotspots
+    )
+    {
+        // If you aren't using slopes, we should define a default 'base' noise intensity 
+        // so the world isn't perfectly smooth.
+        const float baseNoiseIntensity = 0.05f;
+
+        var landCount = 0;
+        var totalCells = worldWidth * worldHeight;
+
+        for (var i = 0; i < totalCells; i++)
+        {
+            var currentElev = elevations[i];
+            var isAboveThreshold = currentElev >= elevationCfg.LandElevationThreshold;
+
+            // 1. Calculate Detail Noise
+            // Since coastalSlopes is uninitialized, I'm using a fallback value.
+            // If you ever implement GenerateSlopedCoasts(), replace 'baseNoiseIntensity' 
+            // with (coastalSlopes[i] / _coastalCfg.MaxCoastalSlope).
+            var upOrDownwards = isAboveThreshold ? 1.0f : -1.0f;
+            var detailNoise = baseNoiseIntensity * noiseField[i] * upOrDownwards * currentElev;
+
+            // 2. Combine Layers
+            // Base + Detail + Tectonic Uplift + Volcanic Hotspot
+            var finalElevation = currentElev + detailNoise + tectonicDelta[i] + hotspots[i];
+
+            // 3. Clamp and Store
+            // Ensure we don't exceed the atmosphere's ceiling.
+            var clampedElev = Math.Min(elevationCfg.MaxElevation, finalElevation);
+            elevations[i] = clampedElev;
+
+            // 4. Statistics
+            if (clampedElev >= elevationCfg.LandElevationThreshold)
+            {
+                landCount++;
+            }
+        }
+
+        var ratio = (float)landCount / totalCells;
+        Console.WriteLine($"Tectonics Applied: {ratio * 100:F2}% land");
+    }
+
+    #endregion
+
+    #region Climate and Biomes
+
+    /// <summary>
+    ///     Generates a wind direction field influenced by global bands (Hadley cells,
+    ///     trade winds, westerlies, polar easterlies), small-scale noise and elevation.
+    ///     Results are stored in `_windDirections` as discrete (-1,0,1) integer vectors.
+    /// </summary>
+    private (Point[], byte[]) CalculateWindField(Span<float> noiseMap, Span<float> elevations)
+    {
+        var windDirections = new Point[worldWidth * worldHeight];
+        var windSpeeds = new byte[worldWidth * worldHeight];
+
+        // Compute max elevation for normalization (avoid using _maxElevation which is set later)
+        var maxElev = float.MinValue;
+        var total = worldWidth * worldHeight;
+        for (var i = 0; i < total; i++) maxElev = MathF.Max(maxElev, elevations[i]);
+        if (maxElev <= 0) maxElev = 1f;
+
+        var mid = worldHeight / 2f;
+
+        for (var y = 0; y < worldHeight; y++)
+        {
+            var rowOffset = y * worldWidth;
+            // Absolute latitude 0 at equator -> 1 at poles
+            var latitudeAbs = MathF.Abs(y - mid) / mid;
+
+            // Band selection: trade winds (near equator) and westerlies (mid-latitudes)
+            // and polar easterlies (near poles). This mirrors common atmospheric cells.
+            var bandDx = latitudeAbs is < 0.33f or >= 0.66f ? -1f : 1f;
+
+            // Hemispheric sign: north (y < mid) => -1, south (y > mid) => +1, equator => 0
+            var hemisphere = MathF.Sign(y - mid);
+
+            // Meridional component: trades blow toward the equator, westerlies toward poles
+            var bandDy = bandDx < 0 ? -hemisphere : hemisphere;
+
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var idx = rowOffset + x;
+
+                // Local noise to add small-scale variation
+                var noiseX = (noiseMap[idx] * 2f - 1f) * 0.25f; // approx -0.25..0.25
+                // Read from an arbitrary large offset (e.g., halfway across the map) for Y noise
+                var offsetIdx = (idx + worldWidth * worldHeight / 2) %
+                                (worldWidth * worldHeight);
+                var noiseY = (noiseMap[offsetIdx] * 2f - 1f) * 0.25f;
+
+                // Base floating vector
+                var fx = bandDx + noiseX;
+                var fy = bandDy + noiseY * 0.5f;
+
+                // Slow down wind with elevation: higher elevation -> reduced magnitude
+                var elev = elevations[idx];
+                var elevNorm = Math.Clamp(elev / maxElev, 0f, 1f);
+                var slowdown = elevNorm * 0.8f; // up to 80% slowdown on highest peaks
+                fx *= 1f - slowdown;
+                fy *= 1f - slowdown;
+
+                // Threshold to consider the flow effectively calm
+                const float calmThreshold = 0.33f;
+
+                var finalDx = MathF.Abs(fx) < calmThreshold ? 0 : Math.Sign(fx);
+                var finalDy = MathF.Abs(fy) < calmThreshold ? 0 : Math.Sign(fy);
+
+                // Occasional local blocking: very steep local slopes reduce wind to calm
+                // Check simple slope with immediate west/east neighbor
+                if (finalDx != 0 || finalDy != 0)
+                {
+                    var targetX = WorldMath.WrapX(x + finalDx);
+                    // Clamp Y to prevent trying to read outside the array at the poles
+                    var targetY = Math.Clamp(y + finalDy, 0, worldHeight - 1);
+                    var targetIdx = targetY * worldWidth + targetX;
+
+                    // Positive slope means uphill. We don't care about downhill (negative).
+                    var directionalSlope = elevations[targetIdx] - elevations[idx];
+
+                    // If the cell the wind is moving into is drastically higher, block it entirely.
+                    if (directionalSlope >
+                        maxElev * 0.2f) // 20% of highest peak in one step is a cliff
+                    {
+                        finalDx = 0;
+                        finalDy = 0;
+                    }
+                }
+
+                // Store discrete wind direction
+                windDirections[idx] = new Point(finalDx, finalDy);
+
+                // Compute a simple magnitude (pre-discretization) and quantize to 0..255
+                var mag = MathF.Sqrt(fx * fx + fy * fy);
+                // normalize by a heuristic max (2.0f covers bandDx +- noise)
+                var normalized = Math.Clamp(mag / 2f, 0f, 1f);
+                var speedByte = (byte)(normalized * 255f);
+
+                // If blocked to calm, zero the speed
+                if (finalDx == 0 && finalDy == 0) speedByte = 0;
+
+                windSpeeds[idx] = speedByte;
+            }
+        }
+
+        return (windDirections, windSpeeds);
+    }
+
+    /// <summary>
+    ///     Generates world maps for various climate features.
+    /// </summary>
+    private (float[], float[], Biome[]) GenerateClimate(
+        Span<float> noiseMap,
+        Span<float> elevations,
+        Span<Point> windDirections,
+        Span<bool> riverMap,
+        Span<byte> strahlerRiver)
+    {
+        var temperature = new float[worldWidth * worldHeight];
+        var humidity = new float[worldWidth * worldHeight];
+        var biomes = new Biome[worldWidth * worldHeight];
+
+        // STEP 1: CALCULATE TEMPERATURE FIRST
+        // Everything else (Rainfall and Humidity) depends on temperature.
+        for (var y = 0; y < worldHeight; y++)
+        {
+            var rowOffset = y * worldWidth;
+            // Smoother latitude warping using the noise map
+            var latWarp = (noiseMap[rowOffset] * 2 - 1) * 4.0f;
+            var latitude = MathF.Abs(y + latWarp - worldHeight / 2f) / (worldHeight / 2f);
+            var baseTemp = climateCfg.BaseTempMax -
+                           (climateCfg.BaseTempMax - climateCfg.BaseTempMin) *
+                           MathF.Pow(latitude, 1.2f);
+
+            for (var x = 0; x < worldWidth; x++)
+            {
+                var idx = rowOffset + x;
+                var elevationFactor = elevations[idx] / elevationCfg.MaxElevation;
+
+                // CORRECTED LAPSE RATE: Temperature drops as elevation rises
+                // We subtract the elevation factor here.
+                temperature[idx] = baseTemp - elevationFactor * 25.0f;
+            }
+        }
+
+        // STEP 2: GENERATE RAINFALL (Now with correct temperatures!)
+        var rainfallMap =
+            CalculateUnifiedRainfall(noiseMap, elevations, temperature, riverMap, windDirections);
+
+        // STEP 3: CALCULATE HUMIDITY AND BIOMES
+        for (var idx = 0; idx < temperature.Length; idx++)
+        {
+            var absoluteMoisture = rainfallMap[idx];
+
+            // STABILIZED HUMIDITY: 
+            // Instead of raw division, we use a softer saturation curve.
+            // As air gets colder, it needs less moisture to reach 100% humidity.
+            var tempFactor = Math.Clamp((temperature[idx] + 20) / 50f, 0.1f, 1.5f);
+            humidity[idx] = Math.Clamp(absoluteMoisture / tempFactor, 0.0f, 1.0f);
+
+            // STEP 4: DETERMINE BIOME
+            biomes[idx] = DetermineBiome(
+                temperature[idx],
+                humidity[idx],
+                elevations[idx],
+                elevations[idx] < elevationCfg.LandElevationThreshold,
+                riverMap[idx],
+                strahlerRiver[idx]);
+        }
+
+        return (temperature, humidity, biomes);
+    }
+
+    private float[] CalculateUnifiedRainfall(
+        Span<float> noiseMap,
+        Span<float> elevations,
+        Span<float> temperatures,
+        Span<bool> riverMap,
+        Span<Point> windDirections)
+    {
+        var rainfall = new float[worldWidth * worldHeight];
+
+        // Tuning Constants
+        const float moistureRechargeRate = 0.09f;
+        const float rainDropFactor = 0.06f;
+        const float landDecayRate = 0.995f; // Slightly higher to prevent mid-continent "dead zones"
+
+        for (var y = 0; y < worldHeight; y++)
+        {
+            var rowOffset = y * worldWidth;
+
+            // 1. Determine Global Wind Row Direction
+            var sumX = 0;
+            for (var sx = 0; sx < worldWidth; sx++)
+                sumX += windDirections[rowOffset + sx].X;
+            var windDir = sumX >= 0 ? 1 : -1;
+
+            // 2. Initial Cloud State
+            var cloudMoisture = riverCfg.RainfallLandBase;
+
+            // 3. Two-Pass Sweep (for world wrapping)
+            for (var step = 0; step < worldWidth * 2; step++)
+            {
+                var windX = WorldMath.WrapX(windDir == 1 ? step : -step);
+                var idx = rowOffset + windX;
+                var elev = elevations[idx];
+                var isSecondPass = step >= worldWidth;
+
+                // Temperature factors
+                var tempAtTile = temperatures[idx];
+                var poleFactor =
+                    tempAtTile switch
+                    {
+                        < -20 => 0.0f,
+                        < -15 => 0.6f,
+                        < -10 => 0.8f,
+                        < -5 => 0.9f,
+                        < 0 => 0.95f,
+                        _ => 1.0f
+                    };
+                var evapPower = Math.Clamp((tempAtTile + 50) / 80f, 0.2f, 1.5f);
+
+                if (elev < elevationCfg.LandElevationThreshold || riverMap[idx])
+                {
+                    // OCEAN: Recharge
+                    cloudMoisture = MathF.Min(riverCfg.RainfallOceanBase,
+                        cloudMoisture + moistureRechargeRate * evapPower) * poleFactor;
+
+                    if (isSecondPass)
+                        rainfall[idx] = riverCfg.RainfallOceanBase * poleFactor;
+                }
+                else
+                {
+                    // LAND: Discharge
+                    var windVec = windDirections[idx];
+                    var dx = windVec.X != 0 ? windVec.X : windDir;
+                    var prevX = WorldMath.WrapX(windX - dx);
+                    var prevY = Math.Clamp(y - windVec.Y, 0, worldHeight - 1);
+
+                    var lift = elev - elevations[prevY * worldWidth + prevX];
+                    float rainDropped = 0;
+
+                    if (lift > 0)
+                    {
+                        rainDropped = MathF.Min(cloudMoisture,
+                            lift * cloudMoisture * rainDropFactor);
+                        cloudMoisture -= rainDropped;
+                    }
+
+                    if (isSecondPass)
+                    {
+                        // Apply Rain Shadow: Air with low moisture produces less ambient rain
+                        // We blend 20% base rain with 80% moisture-dependent rain
+                        var shadowMultiplier = 0.2f + cloudMoisture * 0.8f;
+
+                        var finalRain = cloudMoisture * 0.15f * shadowMultiplier +
+                                        rainDropped * 3.0f * noiseMap[idx] * poleFactor;
+
+                        // Add local humidity from rivers
+                        if (riverMap[idx]) finalRain += riverCfg.RainfallOceanBase * 0.25f;
+
+                        // RECORD: Use += to allow for the 'Bleed' from neighbors
+                        rainfall[idx] += finalRain;
+
+                        // BLEED: Break horizontal lines
+                        if (y > 0 && y < worldHeight - 1)
+                        {
+                            var bleed = finalRain * 0.18f;
+                            rainfall[(y - 1) * worldWidth + windX] += bleed;
+                            rainfall[(y + 1) * worldWidth + windX] += bleed;
+                        }
+                    }
+
+                    // Air naturally dries out as it moves over land
+                    cloudMoisture *= landDecayRate;
+                }
+            }
+        }
+
+        return rainfall;
+    }
+
+    /// <summary>
+    ///     Determine the biome of a cell by its properties.
+    ///     Suggestion:
+    ///     Moisture	Low Temp (Tundra)	Mid Temp (Temperate)	High Temp (Tropical)
+    ///     Low	Ice / Polar Desert	Steppe / Cold Desert	Hot Desert
+    ///     Mid	Shrubland	Grassland / Woodland	Savanna
+    ///     High	Taiga (Boreal)	Seasonal Forest	Tropical Rainforest
+    /// </summary>
+    /// <param name="temp">Temperature of the cell.</param>
+    /// <param name="relHumidity">Humidity of the cell.</param>
+    /// <param name="elevation">Elevation of the cell.</param>
+    /// <param name="isWater">True if the cell is sea, false otherwise.</param>
+    /// <param name="isRiver">True if the cell is river, false otherwise.</param>
+    /// <param name="strahlerOrder">Strahler order for river cells.</param>
+    /// <returns>Biome of the cell.</returns>
+    private Biome DetermineBiome(
+        float temp,
+        float relHumidity,
+        float elevation,
+        bool isWater,
+        bool isRiver,
+        int strahlerOrder)
+    {
+        if (isWater)
+            if (temp < -15)
+            {
+                return Biome.PackIce;
+            }
+            else if (elevation < elevationCfg.HighSeaThreshold)
+            {
+                return Biome.HighSeas;
+            }
+            else if (elevation < elevationCfg.OceanThreshold)
+            {
+                return Biome.Ocean;
+            }
+            else if (elevation < elevationCfg.ShelfThreshold)
+            {
+                return Biome.Shelf;
+            }
+            else if (elevation < elevationCfg.ShallowsThreshold)
+            {
+                return temp < 25f ? Biome.Shallows : Biome.Reef;
+            }
+
+        if (isRiver)
+        {
+            if (temp < -8f) return Biome.IceCap;
+            return strahlerOrder switch
+            {
+                <= 2 => Biome.Creek,
+                <= 4 => Biome.MinorRiver,
+                _ => Biome.MajorRiver
+            };
+        }
+
+
+        // High Altitude "Dead Zone" (Above the Tree Line)
+        if (elevation >= elevationCfg.HighMountainThreshold)
+            return temp < 0f ? Biome.Glacier : Biome.RockPeak;
+
+        switch (temp)
+        {
+            // 3. Extreme Cold (Polar / Arctic)
+            // High humidity in extreme cold leads to permanent ice sheets/glaciers.
+            // Low humidity leads to barren, frozen gravel/dust plains.
+            case < -10f when relHumidity < 0.3f:
+                return Biome.PolarDesert;
+            case < -10f when relHumidity < 0.6f:
+                return Biome.IceCap;
+            case < -10f when relHumidity >= 0.6f:
+                return Biome.Glacier;
+            // 4. Cold / Sub-Arctic (Boreal)
+            case < 5f when relHumidity < 0.25f:
+                return Biome.Tundra;
+            // Use elevation for Alpine variations
+            case < 5f when elevation > volcanicCfg.CraterElevationThreshold:
+                return Biome.AlpineTundra;
+            // Differentiate between standard Boreal forest and heavy precipitation zones
+            case < 5f:
+                return relHumidity > 0.65f ? Biome.SnowyForest : Biome.Taiga;
+            // 5. Temperate
+            case < 22f when relHumidity < 0.15f:
+                return Biome.ColdDesert;
+            case < 22f when elevation > volcanicCfg.CraterElevationThreshold && relHumidity > 0.6f:
+                return Biome.HighlandMoor;
+            case < 22f when relHumidity < 0.4f:
+                return Biome.Steppe;
+            case < 22f when relHumidity < 0.6f:
+                return Biome.Grassland;
+            case < 22f:
+                return Biome.TemperateForest; // High humidity temperate zones
+        }
+
+        // 6. Tropical / Hot
+        // High altitude tropics create unique "Cloud Forests" (very high humidity + altitude)
+        if (elevation > volcanicCfg.CraterElevationThreshold && relHumidity > 0.75f)
+            return Biome.CloudForest;
+
+        return relHumidity switch
+        {
+            < 0.15f => Biome.HotDesert,
+            < 0.45f => Biome.Savanna,
+            < 0.5f => Biome.TropicalSeasonalForest,
+            _ => Biome.TropicalRainforest
+        };
+    }
+
+    #endregion
+
     #region Rivers
 
     // TODO: Check whether to let this be influenced by biome, temperature or humidity as well.
@@ -1450,7 +1630,7 @@ public class CylinderWorld(
                 var idx = rowOffset + x;
                 var elev = elevations[idx];
 
-                if ((elev >= elevationCfg.LandElevationThreshold) && y != 0 &&
+                if (elev >= elevationCfg.LandElevationThreshold && y != 0 &&
                     y != worldHeight - 1) continue;
                 pq.Enqueue(idx, elev);
                 visited[idx] = true;
@@ -1958,15 +2138,15 @@ public class CylinderWorld(
     }
 
     private void AddVolcanicDetails(
-     int centerX,
-     int centerY,
-     float strength,
-     Span<float> noiseField,// Added to break up perfect circles
-     Span<float> elevations,
-     Span<Point> flowDirections,
-     Span<bool> riverMap,
-     Span<SurfaceFeature> surfaceFeatures
- )
+        int centerX,
+        int centerY,
+        float strength,
+        Span<float> noiseField, // Added to break up perfect circles
+        Span<float> elevations,
+        Span<Point> flowDirections,
+        Span<bool> riverMap,
+        Span<SurfaceFeature> surfaceFeatures
+    )
     {
         var radius = Math.Max(3, (int)(strength * 10));
 
@@ -1979,7 +2159,9 @@ public class CylinderWorld(
 
         // 1. GENERATE THE MACRO STRUCTURE (With Noise Warp)
         // We add a little noise to the distance calculation so the rings are jagged
-        for (var y = Math.Max(0, centerY - radius); y < Math.Min(worldHeight, centerY + radius); y++)
+        for (var y = Math.Max(0, centerY - radius);
+             y < Math.Min(worldHeight, centerY + radius);
+             y++)
         {
             var rowOffset = y * worldWidth;
             for (var x = centerX - radius; x < centerX + radius; x++)
@@ -1993,7 +2175,7 @@ public class CylinderWorld(
                 // Inject noise to make the feature rings irregular. 
                 // Normalize noise to roughly [-0.2, 0.2] so it wobbles the boundary.
                 var noiseWobble = (noiseField[idx] - 0.5f) * 0.3f;
-                var organicDist = Math.Clamp((distance / radius) + noiseWobble, 0f, 1f);
+                var organicDist = Math.Clamp(distance / radius + noiseWobble, 0f, 1f);
 
                 var elevation = elevations[idx];
 
@@ -2005,19 +2187,24 @@ public class CylinderWorld(
                 {
                     SurfaceFeature.Stratovolcano => organicDist switch
                     {
-                        < 0.4f when elevation >= volcanicCfg.CalderaElevationThreshold => SurfaceFeature.Stratovolcano,
-                        > 0.3f and < 0.8f when elevation >= volcanicCfg.CinderElevationThreshold => SurfaceFeature.Ash,
+                        < 0.4f when elevation >= volcanicCfg.CalderaElevationThreshold =>
+                            SurfaceFeature.Stratovolcano,
+                        > 0.3f and < 0.8f when elevation >= volcanicCfg.CinderElevationThreshold =>
+                            SurfaceFeature.Ash,
                         _ => surfaceFeatures[idx]
                     },
                     SurfaceFeature.Shield => organicDist switch
                     {
-                        < 0.7f when elevation >= volcanicCfg.ShieldVolcanoThreshold => SurfaceFeature.Shield,
+                        < 0.7f when elevation >= volcanicCfg.ShieldVolcanoThreshold =>
+                            SurfaceFeature.Shield,
                         _ => surfaceFeatures[idx]
                     },
                     _ => organicDist switch
                     {
-                        < 0.5f when elevation >= volcanicCfg.CinderElevationThreshold => SurfaceFeature.Cinder,
-                        > 0.4f when elevation >= (volcanicCfg.CinderElevationThreshold - 1) => SurfaceFeature.Ash,
+                        < 0.5f when elevation >= volcanicCfg.CinderElevationThreshold =>
+                            SurfaceFeature.Cinder,
+                        > 0.4f when elevation >= volcanicCfg.CinderElevationThreshold - 1 =>
+                            SurfaceFeature.Ash,
                         _ => surfaceFeatures[idx]
                     }
                 };
@@ -2089,185 +2276,6 @@ public class CylinderWorld(
             // ReSharper disable once UnreachableSwitchArmDueToIntegerAnalysis
             _ => surfaceFeatures[centerIdx]
         };
-    }
-
-    #endregion
-
-    #region Coastal Features
-
-    /// <summary>
-    ///     Detect coastal features depending on their surrounding: beaches, cliffs and fjords.
-    /// </summary>
-    private void ApplyCoastalFeatures(
-        Span<float> elevations,
-        Span<bool> riverMap,
-        Span<SurfaceFeature> surfaceFeatures)
-    {
-        for (var y = 0; y < worldHeight; y++)
-        {
-            var rowOffset = y * worldWidth;
-            for (var x = 0; x < worldWidth; x++)
-            {
-                var idx = rowOffset + x;
-                // Skip existing assigned strong surface features: river, lava, glacier
-                var existing = surfaceFeatures[idx];
-                if (existing is SurfaceFeature.Lava || riverMap[idx])
-                    continue;
-
-                var elevation = elevations[idx];
-                var isWater = elevation < elevationCfg.LandElevationThreshold;
-
-                // Beach/cliff only for land cells near water
-                if (!isWater)
-                {
-                    var adjacentWater = 0;
-                    var maxAdjElevation = 0f;
-                    for (var dy = -1; dy <= 1; dy++)
-                    {
-                        var ny = y + dy;
-                        var nRowOffset = ny * worldWidth;
-                        for (var dx = -1; dx <= 1; dx++)
-                        {
-                            if (dx == 0 && dy == 0) continue;
-                            var nx = WorldMath.WrapX(x + dx);
-                            if (ny < 0 || ny >= worldHeight) continue;
-
-                            var neighborElevation = elevations[nRowOffset + nx];
-                            if (neighborElevation < elevationCfg.LandElevationThreshold)
-                                adjacentWater++;
-                            else
-                                maxAdjElevation = Math.Max(maxAdjElevation, neighborElevation);
-                        }
-                    }
-
-                    if (adjacentWater > 0)
-                    {
-                        // How high is this coast above the water?
-                        var slope = elevation - elevationCfg.LandElevationThreshold - 1;
-
-                        switch (slope)
-                        {
-                            // Steep drop into the sea
-                            case >= 3.0f:
-                                surfaceFeatures[idx] = SurfaceFeature.Cliff;
-                                break;
-                            // Gentle transition into the sea
-                            case <= 1.0f:
-                                {
-                                    // Don't overwrite existing mountain features from previous steps
-                                    if (surfaceFeatures[idx] == SurfaceFeature.None)
-                                        surfaceFeatures[idx] = SurfaceFeature.Beach;
-
-                                    break;
-                                }
-                        }
-                        // If slope is intermediate, leave it as regular land (None/Grass/Forest)
-                    }
-                }
-                else
-                {
-                    // water cells: detect fjord (narrow water in high mountains)
-                    var adjacentLand = 0;
-                    var adjacentHighMountain = 0;
-                    for (var dy = -1; dy <= 1; dy++)
-                    {
-                        var ny = y + dy;
-                        var nRowOffset = ny * worldWidth;
-                        for (var dx = -1; dx <= 1; dx++)
-                        {
-                            if (dx == 0 && dy == 0) continue;
-                            var nx = WorldMath.WrapX(x + dx);
-                            if (ny < 0 || ny >= worldHeight) continue;
-                            var neighborElevation = elevations[nRowOffset + nx];
-                            if (neighborElevation < elevationCfg.LandElevationThreshold) continue;
-                            adjacentLand++;
-                            if (neighborElevation >= elevationCfg.SnowThreshold - 1)
-                                adjacentHighMountain++;
-                        }
-                    }
-
-                    if (adjacentLand >= 3 && adjacentHighMountain >= 1)
-                        surfaceFeatures[idx] = SurfaceFeature.Fjord;
-                }
-            }
-        }
-    }
-
-    #endregion
-
-    #region To ECS Components
-
-    private WorldPackedChunk[] ToPackedChunks(
-        Span<float> elevation,
-        Span<float> humidity,
-        Span<float> temperature,
-        Span<Biome> biome,
-        Span<SurfaceFeature> surfaceFeatures,
-        Span<Point> flowDirections,
-        Span<Point> windDirections,
-        Span<byte> windSpeeds
-    )
-    {
-        const int chunkSize = WorldMath.ChunkSize;
-        const int chunksAcross = WorldMath.ChunksAcross;
-
-        var chunks = new WorldPackedChunk[chunksAcross * (worldHeight / chunkSize)];
-        // Temporary buffer to copy humidity as byte values.
-        var elevationBuffer = new byte[chunkSize];
-        var humidityBuffer = new byte[chunkSize];
-
-        for (var cy = 0; cy < worldHeight; cy += chunkSize)
-        {
-            for (var cx = 0; cx < worldWidth; cx += chunkSize)
-            {
-                var chunkXIndex = cx / chunkSize;
-                var chunkYIndex = cy / chunkSize;
-                var chunkIdx = chunkYIndex * chunksAcross + chunkXIndex;
-                var chunk = new PackedTile[chunkSize * chunkSize];
-
-                // Copy rows from world-layout to contiguous chunk-layout
-                for (var ly = 0; ly < chunkSize; ly++)
-                {
-                    var sourceStart = (cy + ly) * worldWidth + cx;
-                    var srcElevation = elevation.Slice(sourceStart, chunkSize);
-                    var srcHumidityFloat = humidity.Slice(sourceStart, chunkSize);
-                    var srcTemperature = temperature.Slice(sourceStart, chunkSize);
-                    var srcBiome = biome.Slice(sourceStart, chunkSize);
-                    var srcSurfaceFeatures = surfaceFeatures.Slice(sourceStart, chunkSize);
-                    var srcFlowDir = flowDirections.Slice(sourceStart, chunkSize);
-                    var srcWindDir = windDirections.Slice(sourceStart, chunkSize);
-                    var srcWindSpeeds = windSpeeds.Slice(sourceStart, chunkSize);
-
-                    for (var i = 0; i < srcHumidityFloat.Length; i++)
-                    {
-                        // Ensure that humidity floats are always in range (0,1)!
-                        humidityBuffer[i] = Convert.ToByte(srcHumidityFloat[i] * 100);
-                        var elevationClamped =
-                            Math.Clamp(srcElevation[i], 0f, elevationCfg.MaxElevation);
-                        elevationBuffer[i] = Convert.ToByte(MathF.Floor(elevationClamped));
-                    }
-
-                    var destRow = chunk.AsSpan().Slice(ly * chunkSize, chunkSize);
-
-                    WorldPacker.PackToSpan(
-                        destRow,
-                        srcBiome,
-                        elevationBuffer,
-                        srcTemperature,
-                        humidityBuffer,
-                        srcFlowDir,
-                        srcWindDir,
-                        srcWindSpeeds,
-                        srcSurfaceFeatures);
-                }
-
-                // The chunk now holds a 'view' of the master buffer, not a unique array
-                chunks[chunkIdx] =
-                    new WorldPackedChunk(chunkIdx, chunkXIndex, chunkYIndex, chunk);
-            }
-        }
-
-        return chunks;
     }
 
     #endregion

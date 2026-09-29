@@ -58,7 +58,8 @@ public interface IDoubleBufferedProperty
 ///     Implementation of a property with decoupled read and write operations.
 ///     The property can be reassigned a new value while still exposing the old value publicly.
 ///     Only the <see cref="SwitchBuffer" /> method updates the readable value (commit write → read).
-///     Read side is updated only after SwitchBuffer is called (e.g. at end of tick by <see cref="ComponentBase.SwapBuffers" />).
+///     Read side is updated only after SwitchBuffer is called (e.g. at end of tick by
+///     <see cref="ComponentBase.SwapBuffers" />).
 /// </summary>
 /// <param name="value">Value of the property</param>
 /// <typeparam name="T">Type of the property</typeparam>

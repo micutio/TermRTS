@@ -2,5 +2,5 @@ namespace TermRTS.Event;
 
 public interface IEventSink
 {
-    public void ProcessEvent(IEvent evt);
+    void ProcessEvent(IEvent evt);
 }

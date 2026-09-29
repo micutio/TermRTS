@@ -257,40 +257,40 @@ public class DirectionMarkerTheme
     {
         {
             new Point(0, 0), // No Direction?
-            (Cp437.Question)
+            Cp437.Question
         },
         {
             new Point(0, 1), // Down
-            (Cp437.ArrowDown)
+            Cp437.ArrowDown
         },
         {
             new Point(1, 0), // Right
-            (Cp437.ArrowRight)
+            Cp437.ArrowRight
         },
         {
             new Point(-1, 0), // Left
-            (Cp437.ArrowLeft)
+            Cp437.ArrowLeft
         },
         {
             new Point(0, -1), // Up
-            (Cp437.ArrowUp)
+            Cp437.ArrowUp
         },
         {
             new Point(1, 1), // Down Right
-            (Cp437.BoxUpLeft)
+            Cp437.BoxUpLeft
         },
         {
             new Point(1, -1), // Up Right
-            (Cp437.BoxDownLeft)
+            Cp437.BoxDownLeft
         },
         {
             new Point(-1, -1), // Up Left
-            (Cp437.BoxDownRight)
+            Cp437.BoxDownRight
         },
         {
             new Point(-1, 1), // Down Left
-            (Cp437.BoxUpRight)
-        },
+            Cp437.BoxUpRight
+        }
     };
 }
 
@@ -311,7 +311,7 @@ public class WindDirectionTheme
             new CellVisual(Cp437.ArrowRight, ConsoleColor.Green, ConsoleColor.Black)
         },
         {
-            new Point (-1, 0), // Left
+            new Point(-1, 0), // Left
             new CellVisual(Cp437.ArrowLeft, ConsoleColor.Green, ConsoleColor.Black)
         },
         {
@@ -319,21 +319,21 @@ public class WindDirectionTheme
             new CellVisual(Cp437.ArrowUp, ConsoleColor.Blue, ConsoleColor.Black)
         },
         {
-            new Point  (1, 1), // Down Right
+            new Point(1, 1), // Down Right
             new CellVisual(Cp437.BoxUpLeft, ConsoleColor.Yellow, ConsoleColor.Black)
         },
         {
-            new Point (1, -1), // Up Right
+            new Point(1, -1), // Up Right
             new CellVisual(Cp437.BoxDownLeft, ConsoleColor.Yellow, ConsoleColor.Black)
         },
         {
-            new Point (-1, -1), // Up Left
+            new Point(-1, -1), // Up Left
             new CellVisual(Cp437.BoxDownRight, ConsoleColor.Yellow, ConsoleColor.Black)
         },
         {
             new Point(-1, 1), // Down Left
             new CellVisual(Cp437.BoxUpRight, ConsoleColor.Yellow, ConsoleColor.Black)
-        },
+        }
     };
 }
 

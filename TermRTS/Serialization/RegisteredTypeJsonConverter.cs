@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TermRTS.Event;
 
 namespace TermRTS.Serialization;
 
@@ -33,7 +34,8 @@ internal sealed class RegisteredTypeJsonConverter<TBaseType> : JsonConverter<TBa
         }
 
         var discriminator = typeProperty.GetString();
-        if (discriminator is null || !_byDiscriminator.TryGetValue(discriminator, out var registration))
+        if (discriminator is null ||
+            !_byDiscriminator.TryGetValue(discriminator, out var registration))
         {
             throw new JsonException($"Unregistered persistence discriminator '{discriminator}'.");
         }
@@ -70,12 +72,12 @@ internal sealed class RegisteredTypeJsonConverter<TBaseType> : JsonConverter<TBa
         writer.WriteStartObject();
         writer.WriteString(TypePropertyName, registration.Discriminator);
         writer.WritePropertyName(ValuePropertyName);
-        JsonSerializer.Serialize(writer, (object)value, registration.TypeInfo);
+        JsonSerializer.Serialize(writer, value, registration.TypeInfo);
         writer.WriteEndObject();
     }
 }
 
-internal sealed class RegisteredEventJsonConverter : JsonConverter<TermRTS.Event.IEvent>
+internal sealed class RegisteredEventJsonConverter : JsonConverter<IEvent>
 {
     private const string TypePropertyName = "$type";
     private const string ValuePropertyName = "$value";
@@ -92,7 +94,7 @@ internal sealed class RegisteredEventJsonConverter : JsonConverter<TermRTS.Event
         _byType = registrations.ToDictionary(registration => registration.EventType);
     }
 
-    public override TermRTS.Event.IEvent Read(
+    public override IEvent Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options)
@@ -106,7 +108,8 @@ internal sealed class RegisteredEventJsonConverter : JsonConverter<TermRTS.Event
         }
 
         var discriminator = typeProperty.GetString();
-        if (discriminator is null || !_byDiscriminator.TryGetValue(discriminator, out var registration))
+        if (discriminator is null ||
+            !_byDiscriminator.TryGetValue(discriminator, out var registration))
         {
             throw new JsonException($"Unregistered persistence discriminator '{discriminator}'.");
         }
@@ -123,7 +126,7 @@ internal sealed class RegisteredEventJsonConverter : JsonConverter<TermRTS.Event
 
     public override void Write(
         Utf8JsonWriter writer,
-        TermRTS.Event.IEvent value,
+        IEvent value,
         JsonSerializerOptions options)
     {
         if (!_byType.TryGetValue(value.GetType(), out var registration))

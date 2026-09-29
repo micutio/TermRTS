@@ -24,6 +24,18 @@ public class DroneComponent : ComponentBase
 
     #endregion
 
+    #region Nested type: Direction
+
+    private enum Direction
+    {
+        North,
+        East,
+        South,
+        West
+    }
+
+    #endregion
+
     #region Properties
 
     public Vector2 Position
@@ -154,18 +166,6 @@ public class DroneComponent : ComponentBase
                 (Direction.East, Direction.South) => Cp437.BoxDownRight,
             _ => '?'
         };
-    }
-
-    #endregion
-
-    #region Nested type: Direction
-
-    private enum Direction
-    {
-        North,
-        East,
-        South,
-        West
     }
 
     #endregion

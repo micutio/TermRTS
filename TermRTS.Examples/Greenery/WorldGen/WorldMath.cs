@@ -11,19 +11,6 @@ public static class WorldMath
     public const int WorldHeight = 96; //2048; // 96;
     public const int ChunksAcross = WorldWidth / ChunkSize;
 
-    public readonly struct WorldCoord(int x, int y)
-    {
-        public readonly int WorldX = x;
-        public readonly int WorldY = y;
-
-        public int ChunkX => WorldX >> 5;
-        public int ChunkY => WorldY >> 5;
-        public int LocalX => WorldX & 31;
-        public int LocalY => WorldY & 31;
-
-        public int LocalIndex => (LocalY << 5) + LocalX;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (int chunkX, int chunkY, int localX, int localY) ToRelative(int x, int y)
     {
@@ -51,7 +38,7 @@ public static class WorldMath
     }
 
     /// <summary>
-    /// Converts world-grid X to wrapped cylinder X.
+    ///     Converts world-grid X to wrapped cylinder X.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int WrapX(int x)
@@ -160,6 +147,19 @@ public static class WorldMath
         // If the distance is more than half the map, wrapping around is shorter
         if (MathF.Abs(dx) > WorldWidth / 2f) dx -= MathF.Sign(dx) * WorldWidth;
         return new Vector2(dx, dy);
+    }
+
+    public readonly struct WorldCoord(int x, int y)
+    {
+        public readonly int WorldX = x;
+        public readonly int WorldY = y;
+
+        public int ChunkX => WorldX >> 5;
+        public int ChunkY => WorldY >> 5;
+        public int LocalX => WorldX & 31;
+        public int LocalY => WorldY & 31;
+
+        public int LocalIndex => (LocalY << 5) + LocalX;
     }
 }
 

@@ -13,6 +13,18 @@ namespace TermRTS.Examples.Greenery.Ui;
 // TODO: Move log area to the bottom of the screen?
 public class LogArea(int capacity) : UiElementBase, IEventSink
 {
+    #region IEventSink Members
+
+    public void ProcessEvent(IEvent evt)
+    {
+        if (evt is not Event<SystemLog>(var logContent)) return;
+        var paddedLineWidth = Width + PaddingLeft + PaddingRight;
+        AddLogEntry(paddedLineWidth, logContent.Content);
+        IsRequireRender = true;
+    }
+
+    #endregion
+
     #region Fields
 
     private const int PaddingTop = 1;
@@ -30,7 +42,7 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
     #region Public Methods
 
     /// <summary>
-    /// Adds a log entry to the log. Depending on length, it may be distributed over several lines.
+    ///     Adds a log entry to the log. Depending on length, it may be distributed over several lines.
     /// </summary>
     /// <exception cref="NotImplementedException"></exception>
     public void AddLogEntry(int lineWidth, string message)
@@ -86,18 +98,6 @@ public class LogArea(int capacity) : UiElementBase, IEventSink
         _buffer = new RingBuffer<string>(Math.Max(newHeight, 1));
         var paddedLineWidth = newWidth + PaddingLeft + PaddingRight;
         foreach (var msg in messages) AddLogEntry(paddedLineWidth, msg);
-    }
-
-    #endregion
-
-    #region IEventSink Members
-
-    public void ProcessEvent(IEvent evt)
-    {
-        if (evt is not Event<SystemLog>(var logContent)) return;
-        var paddedLineWidth = Width + PaddingLeft + PaddingRight;
-        AddLogEntry(paddedLineWidth, logContent.Content);
-        IsRequireRender = true;
     }
 
     #endregion

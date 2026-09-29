@@ -26,6 +26,12 @@ public class Persistence
         _jsonContext = new TermRTSJsonContext(options);
     }
 
+    #region Fields
+
+    private static ILogger<Persistence> Log => TermRtsLog.For<Persistence>();
+
+    #endregion
+
     /// <summary>
     ///     Serialize the current simulation state into a json string.
     /// </summary>
@@ -302,10 +308,4 @@ public class Persistence
 
         return false;
     }
-
-    #region Fields
-
-    private static ILogger<Persistence> Log => TermRtsLog.For<Persistence>();
-
-    #endregion
 }

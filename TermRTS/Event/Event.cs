@@ -4,6 +4,11 @@ namespace TermRTS.Event;
 
 public readonly record struct Event<TPayload>(TPayload Payload, ulong ThisTriggerTime) : IEvent
 {
+    public void Deconstruct(out TPayload payload)
+    {
+        payload = Payload;
+    }
+
     #region IEvent Members
 
     [JsonIgnore]
@@ -12,11 +17,6 @@ public readonly record struct Event<TPayload>(TPayload Payload, ulong ThisTrigge
     public ulong TriggerTime => ThisTriggerTime;
 
     #endregion
-
-    public void Deconstruct(out TPayload payload)
-    {
-        payload = Payload;
-    }
 }
 
 public readonly record struct Profile(string ProfileInfo)

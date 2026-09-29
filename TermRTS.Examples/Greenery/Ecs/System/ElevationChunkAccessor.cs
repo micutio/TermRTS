@@ -11,7 +11,7 @@ public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
     private WorldPackedChunk? _currentChunk = null;
 
     /// <summary>
-    /// This assumes that bounds check has already been performed!
+    ///     This assumes that bounds check has already been performed!
     /// </summary>
     /// <param name="x"></param>
     /// <param name="y"></param>

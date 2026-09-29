@@ -25,7 +25,8 @@ public interface IReadonlyStorage
 
     /// <summary>
     ///     Tries to get a single component of type <typeparamref name="T" />. Returns false and sets
-    ///     <paramref name="component" /> to default when none exists; does not log. Use when "missing" is valid.
+    ///     <paramref name="component" /> to default when none exists; does not log. Use when "missing" is
+    ///     valid.
     /// </summary>
     bool TryGetSingleForType<T>(out T? component);
 
@@ -33,7 +34,8 @@ public interface IReadonlyStorage
     T? GetSingleForTypeAndEntity<T>(int entityId);
 
     /// <summary>
-    ///     Tries to get a single component of type <typeparamref name="T" /> for the given entity. Returns false
+    ///     Tries to get a single component of type <typeparamref name="T" /> for the given entity. Returns
+    ///     false
     ///     and sets <paramref name="component" /> to default when none exists; does not log.
     /// </summary>
     bool TryGetSingleForTypeAndEntity<T>(int entityId, out T? component);

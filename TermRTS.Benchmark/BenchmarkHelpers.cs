@@ -49,7 +49,10 @@ internal sealed class BusySystem(double workTimeMs) : ISimSystem
     }
 }
 
-/// <summary>System that calls GetAllForType and touches each component; used for Tick-with-components benchmarks.</summary>
+/// <summary>
+///     System that calls GetAllForType and touches each component; used for Tick-with-components
+///     benchmarks.
+/// </summary>
 internal sealed class GetAllAndTouchSystem : ISimSystem
 {
     public void ProcessComponents(

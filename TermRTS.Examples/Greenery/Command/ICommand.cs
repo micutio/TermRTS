@@ -47,10 +47,10 @@ public interface ICommand
     ///     The first item is the command name itself, followed by arguments
     ///     and parameters provided by the user.
     /// </summary>
-    /// <returns> 
-    ///     <see cref="CommandInitResult"/> consisting of the following:
+    /// <returns>
+    ///     <see cref="CommandInitResult" /> consisting of the following:
     ///     1. A new instance of the command if the command has been successfully initialised,
-    ///     <see Langword="null"/> otherwise.
+    ///     <see Langword="null" /> otherwise.
     ///     2. Optional log message with feedback to the user.
     /// </returns>
     CommandInitResult CreateNew(IReadOnlyList<Token> tokens);

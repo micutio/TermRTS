@@ -30,30 +30,6 @@ internal record CoreState(
 /// </summary>
 public class Core(IStorage storage) : IEventSink
 {
-    #region Fields
-
-    private readonly List<ISimSystem> _systems = [];
-    private readonly List<Entity> _entities = [];
-    private readonly List<Entity> _newEntities = [];
-    private readonly List<ComponentBase> _newComponents = [];
-
-    // Use ThreadLocal to give every CPU core it own private bucket to collect events from
-    // SimSystem execution.
-    private readonly ThreadLocal<List<ScheduledEvent>> _threadLocalEvents
-        = new(() => new List<ScheduledEvent>(2048), true);
-
-    private bool _isGameRunning = true;
-
-    #endregion
-
-    #region Properties
-
-    public IRenderer? Renderer { get; set; }
-
-    public bool IsParallelized { get; init; } // defaults to `false`
-
-    #endregion
-
     #region Constructors
 
     public Core() : this(new ContiguousStorage())
@@ -78,7 +54,7 @@ public class Core(IStorage storage) : IEventSink
     ///     A method to check whether the simulation is still running.
     /// </summary>
     /// <returns>
-    ///     <see Langword="true"/> if the simulation is still running, <see Langword="false"/> if it has
+    ///     <see Langword="true" /> if the simulation is still running, <see Langword="false" /> if it has
     ///     terminated.
     /// </returns>
     public bool IsRunning()
@@ -289,4 +265,28 @@ public class Core(IStorage storage) : IEventSink
         storage.Clear();
         storage.AddComponents(coreState.Components);
     }
+
+    #region Fields
+
+    private readonly List<ISimSystem> _systems = [];
+    private readonly List<Entity> _entities = [];
+    private readonly List<Entity> _newEntities = [];
+    private readonly List<ComponentBase> _newComponents = [];
+
+    // Use ThreadLocal to give every CPU core it own private bucket to collect events from
+    // SimSystem execution.
+    private readonly ThreadLocal<List<ScheduledEvent>> _threadLocalEvents
+        = new(() => new List<ScheduledEvent>(2048), true);
+
+    private bool _isGameRunning = true;
+
+    #endregion
+
+    #region Properties
+
+    public IRenderer? Renderer { get; set; }
+
+    public bool IsParallelized { get; init; } // defaults to `false`
+
+    #endregion
 }

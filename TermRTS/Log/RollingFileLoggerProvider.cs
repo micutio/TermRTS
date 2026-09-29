@@ -8,12 +8,12 @@ namespace TermRTS.Log;
 /// </summary>
 public sealed class RollingFileLoggerProvider : ILoggerProvider
 {
-    private readonly long _maxFileSizeBytes;
-    private readonly int _maxBackupFiles;
     private readonly string _filePath;
+    private readonly int _maxBackupFiles;
+    private readonly long _maxFileSizeBytes;
     private readonly Lock _sync = new();
-    private StreamWriter? _writer;
     private bool _disposed;
+    private StreamWriter? _writer;
 
     public RollingFileLoggerProvider(string filePath, long maxFileSizeBytes, int maxBackupFiles)
     {
@@ -23,7 +23,10 @@ public sealed class RollingFileLoggerProvider : ILoggerProvider
         _writer = CreateWriter();
     }
 
-    public ILogger CreateLogger(string categoryName) => new RollingFileLogger(this, categoryName);
+    public ILogger CreateLogger(string categoryName)
+    {
+        return new RollingFileLogger(this, categoryName);
+    }
 
     public void Dispose()
     {
@@ -84,9 +87,15 @@ public sealed class RollingFileLoggerProvider : ILoggerProvider
     private sealed class RollingFileLogger(RollingFileLoggerProvider provider, string categoryName)
         : ILogger
     {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+        {
+            return null;
+        }
 
-        public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return logLevel != LogLevel.None;
+        }
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
             Exception? exception, Func<TState, Exception?, string> formatter)

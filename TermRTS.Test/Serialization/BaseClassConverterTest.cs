@@ -98,7 +98,8 @@ public class BaseClassConverterTest(ITestOutputHelper testOutputHelper)
 
         var json = $"{{\"$type\":\"{typeof(UnregisteredAnimal).AssemblyQualifiedName}\"}}";
 
-        var exception = Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IAnimal>(json, options));
+        var exception =
+            Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IAnimal>(json, options));
 
         Assert.Contains("invalid type", exception.Message);
     }

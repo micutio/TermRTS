@@ -8,7 +8,7 @@ namespace TermRTS.Benchmark;
 #region Storage query benchmarks (plan §4)
 
 /// <summary>
-/// GetAllForType and full enumeration; N components of one type. Params: N = 100, 1K, 10K.
+///     GetAllForType and full enumeration; N components of one type. Params: N = 100, 1K, 10K.
 /// </summary>
 [MemoryDiagnoser]
 public class StorageGetAllForTypeBenchmark
@@ -36,7 +36,7 @@ public class StorageGetAllForTypeBenchmark
 }
 
 /// <summary>
-/// GetSingleForType and TryGetSingleForType with one component of type T (singleton path).
+///     GetSingleForType and TryGetSingleForType with one component of type T (singleton path).
 /// </summary>
 [MemoryDiagnoser]
 public class StorageGetSingleForTypeBenchmark
@@ -68,20 +68,20 @@ public class StorageGetSingleForTypeBenchmark
 #region Core.Tick with real workload (plan §4)
 
 /// <summary>
-/// Baseline: scheduler step overhead with no systems and NullRenderer.
+///     Baseline: scheduler step overhead with no systems and NullRenderer.
 /// </summary>
 [MemoryDiagnoser]
 public class SchedulerStepBaselineBenchmark
 {
-    private Scheduler _scheduler = null!;
     private Core _core = null!;
+    private Scheduler _scheduler = null!;
 
     [GlobalSetup]
     public void Setup()
     {
         _core = new Core { Renderer = new NoOpRenderer() };
         _core.AddEntity(new Entity());
-        _scheduler = new Scheduler(_core, 16.0, 16);
+        _scheduler = new Scheduler(_core);
         _scheduler.Prepare();
     }
 
@@ -94,13 +94,14 @@ public class SchedulerStepBaselineBenchmark
 }
 
 /// <summary>
-/// Scheduler step with K BusySystems (fixed small work per system) to see how step time grows with system count.
+///     Scheduler step with K BusySystems (fixed small work per system) to see how step time grows with
+///     system count.
 /// </summary>
 [MemoryDiagnoser]
 public class SchedulerStepTickLoadBenchmark
 {
-    private Scheduler _scheduler = null!;
     private Core _core = null!;
+    private Scheduler _scheduler = null!;
 
     [Params(1, 4, 8, 16)] public int SystemCount { get; set; }
 
@@ -111,7 +112,7 @@ public class SchedulerStepTickLoadBenchmark
         _core.AddEntity(new Entity());
         for (var i = 0; i < SystemCount; i++)
             _core.AddSimSystem(new BusySystem(0.1));
-        _scheduler = new Scheduler(_core, 16.0, 16);
+        _scheduler = new Scheduler(_core);
         _scheduler.Prepare();
     }
 
@@ -124,13 +125,14 @@ public class SchedulerStepTickLoadBenchmark
 }
 
 /// <summary>
-/// Core.Tick only (no scheduler/render); measures ECS tick throughput with N entities and M systems.
+///     Core.Tick only (no scheduler/render); measures ECS tick throughput with N entities and M
+///     systems.
 /// </summary>
 [MemoryDiagnoser]
 public class CoreTickOnlyBenchmark
 {
-    private Core _core = null!;
     private readonly List<ScheduledEvent> _emittedEvents = [];
+    private Core _core = null!;
 
     [Params(100, 1000, 5000)] public int EntityCount { get; set; }
 
@@ -154,13 +156,14 @@ public class CoreTickOnlyBenchmark
 }
 
 /// <summary>
-/// Core.Tick with M components (one per entity) and a system that GetAllForType and touches each. Params: entity count, system count.
+///     Core.Tick with M components (one per entity) and a system that GetAllForType and touches each.
+///     Params: entity count, system count.
 /// </summary>
 [MemoryDiagnoser]
 public class CoreTickWithComponentsBenchmark
 {
-    private Core _core = null!;
     private readonly List<ScheduledEvent> _emittedEvents = [];
+    private Core _core = null!;
 
     [Params(100, 1000, 5000)] public int EntityCount { get; set; }
 
@@ -193,13 +196,14 @@ public class CoreTickWithComponentsBenchmark
 }
 
 /// <summary>
-/// Every N ticks, mark one entity for removal and add a new one; measures Tick time and memory over many iterations.
+///     Every N ticks, mark one entity for removal and add a new one; measures Tick time and memory
+///     over many iterations.
 /// </summary>
 [MemoryDiagnoser]
 public class CoreTickWithEntityChurnBenchmark
 {
-    private Core _core = null!;
     private readonly List<ScheduledEvent> _emittedEvents = [];
+    private Core _core = null!;
     private List<Entity> _entities = null!;
     private int _indexToRemove;
 
@@ -248,13 +252,13 @@ public class CoreTickWithEntityChurnBenchmark
 }
 
 /// <summary>
-/// Optional: step time when render dominates (renderer does fixed work per frame).
+///     Optional: step time when render dominates (renderer does fixed work per frame).
 /// </summary>
 [MemoryDiagnoser]
 public class SchedulerStepHeavyRenderBenchmark
 {
-    private Scheduler _scheduler = null!;
     private Core _core = null!;
+    private Scheduler _scheduler = null!;
 
     [Params(2, 5, 10)] public int RenderSleepMs { get; set; }
 
@@ -263,7 +267,7 @@ public class SchedulerStepHeavyRenderBenchmark
     {
         _core = new Core { Renderer = new SlowRenderer(TimeSpan.FromMilliseconds(RenderSleepMs)) };
         _core.AddEntity(new Entity());
-        _scheduler = new Scheduler(_core, 16.0, 16);
+        _scheduler = new Scheduler(_core);
         _scheduler.Prepare();
     }
 

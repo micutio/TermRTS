@@ -52,13 +52,11 @@ public struct PackedTile
     public bool IsVisible => (VisibilityFlags & VisibilityMasks.SubInFov) != 0;
     public bool IsExplored => (VisibilityFlags & VisibilityMasks.SubExploredFow) != 0;
 
-    public Point WaterFlow => (
-        new((PackedVectors >> 0 & 0x3) - 1,
-            (PackedVectors >> 2 & 0x3) - 1));
+    public Point WaterFlow => new((PackedVectors >> 0 & 0x3) - 1,
+        (PackedVectors >> 2 & 0x3) - 1);
 
-    public Point Wind => (
-        new((PackedVectors >> 4 & 0x3) - 1,
-        (PackedVectors >> 6 & 0x3) - 1));
+    public Point Wind => new((PackedVectors >> 4 & 0x3) - 1,
+        (PackedVectors >> 6 & 0x3) - 1);
 
     #endregion
 
@@ -83,7 +81,7 @@ public struct PackedTile
 }
 
 /// <summary>
-/// Packs multiple world data sets into one single packed array.
+///     Packs multiple world data sets into one single packed array.
 /// </summary>
 public static class WorldPacker
 {
@@ -177,10 +175,11 @@ public static class WorldPacker
     }
 
     /// <summary>
-    /// Packs into a pooled array rented from <see cref="ArrayPool{PackedTile}.Shared"/>.
-    /// Caller must return the array with <see cref="ReturnPackedArray(PackedTile[],bool)"/> when done.
-    /// The returned array length may be larger than the requested length; only the first
-    /// <paramref name="biomes"/>.Length elements are valid.
+    ///     Packs into a pooled array rented from <see cref="ArrayPool{PackedTile}.Shared" />.
+    ///     Caller must return the array with <see cref="ReturnPackedArray(PackedTile[],bool)" /> when
+    ///     done.
+    ///     The returned array length may be larger than the requested length; only the first
+    ///     <paramref name="biomes" />.Length elements are valid.
     /// </summary>
     public static PackedTile[] PackPooled(
         ReadOnlySpan<Biome> biomes,
@@ -223,9 +222,9 @@ public static class WorldPacker
     }
 
     /// <summary>
-    /// Packs the provided spans directly into the destination span. This avoids
-    /// intermediate allocations and is ideal when packing into an existing
-    /// buffer (for example a row within a chunk).
+    ///     Packs the provided spans directly into the destination span. This avoids
+    ///     intermediate allocations and is ideal when packing into an existing
+    ///     buffer (for example a row within a chunk).
     /// </summary>
     public static void PackToSpan(
         Span<PackedTile> destination,
@@ -239,11 +238,13 @@ public static class WorldPacker
         ReadOnlySpan<SurfaceFeature> features)
     {
         var length = biomes.Length;
-        if (destination.Length < length || length != elevations.Length || length != temperatures.Length ||
+        if (destination.Length < length || length != elevations.Length ||
+            length != temperatures.Length ||
             length != humidities.Length || length != waterflows.Length || length != winds.Length ||
             length != windSpeeds.Length || length != features.Length)
         {
-            throw new ArgumentException("All input spans must have the same length and destination must be large enough.");
+            throw new ArgumentException(
+                "All input spans must have the same length and destination must be large enough.");
         }
 
         for (var i = 0; i < length; i++)
@@ -264,8 +265,8 @@ public static class WorldPacker
     }
 
     /// <summary>
-    /// Return a pooled array obtained from <see cref="PackPooled"/> back to the shared pool.
-    /// If <paramref name="clearArray"/> is true the array will be cleared before returning.
+    ///     Return a pooled array obtained from <see cref="PackPooled" /> back to the shared pool.
+    ///     If <paramref name="clearArray" /> is true the array will be cleared before returning.
     /// </summary>
     public static void ReturnPackedArray(PackedTile[] buffer, bool clearArray = false)
     {
@@ -283,10 +284,10 @@ public static class WorldPacker
         ValidateDirection(wind.Y, nameof(wind));
 
         return (byte)(
-            (waterflow.X + 1 & 0x3) |
-            ((waterflow.Y + 1 & 0x3) << 2) |
-            ((wind.X + 1 & 0x3) << 4) |
-            ((wind.Y + 1 & 0x3) << 6));
+            waterflow.X + 1 & 0x3 |
+            (waterflow.Y + 1 & 0x3) << 2 |
+            (wind.X + 1 & 0x3) << 4 |
+            (wind.Y + 1 & 0x3) << 6);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

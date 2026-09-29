@@ -7,15 +7,15 @@ namespace TermRTS.Benchmark;
 public class PackBenchmarks
 {
     private Biome[]? _biome;
+    private PackedTile[]? _destRow;
     private byte[]? _elevation;
-    private float[]? _temperature;
+    private SurfaceFeature[]? _feature;
     private byte[]? _humidity;
+    private int _length;
+    private float[]? _temperature;
     private Point[]? _waterflow;
     private Point[]? _wind;
     private byte[]? _windSpeed;
-    private SurfaceFeature[]? _feature;
-    private PackedTile[]? _destRow;
-    private int _length;
 
     [GlobalSetup]
     public void Setup()
@@ -79,7 +79,7 @@ public class PackBenchmarks
             _windSpeed,
             _feature);
 
-        WorldPacker.ReturnPackedArray(buffer, clearArray: false);
+        WorldPacker.ReturnPackedArray(buffer, false);
     }
 
     [Benchmark]

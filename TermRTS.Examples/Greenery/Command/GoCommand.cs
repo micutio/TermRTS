@@ -1,8 +1,8 @@
+using System.Numerics;
 using TermRTS.Algorithms;
 using TermRTS.Event;
-using TermRTS.Storage;
 using TermRTS.Examples.Greenery.Event;
-using System.Numerics;
+using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.Command;
 
@@ -27,25 +27,25 @@ public sealed class GoCommand : ICommand
     private const string ErrorTooManyArgs = "< Too many arguments!";
     private const string ErrorInvalidArgs = "Error: both following arguments must be numbers";
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string GetName()
     {
         return Name;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string GetDescription()
     {
         return Description;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string GetUsage()
     {
         return Usage;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public CommandInitResult CreateNew(IReadOnlyList<Token> tokens)
     {
         if (tokens.Count < 3) return new CommandInitResult(null, ErrorTooFewArgs);
@@ -66,7 +66,7 @@ public sealed class GoCommand : ICommand
         return new CommandInitResult(newCmd, string.Empty);
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public void Execute(
         ulong timeStepSizeMs,
         in IReadonlyStorage storage,

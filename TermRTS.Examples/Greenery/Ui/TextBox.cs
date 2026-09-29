@@ -1,4 +1,5 @@
 using TermRTS.Event;
+using TermRTS.Examples.Greenery.Event;
 using TermRTS.Storage;
 using TermRTS.Ui;
 
@@ -12,18 +13,6 @@ internal enum InputState
 
 public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
 {
-    #region Fields
-
-    private const ConsoleColor DefaultBg = ConsoleColor.Black;
-    private const ConsoleColor DefaultFg = ConsoleColor.Gray;
-    private const ConsoleColor ActiveBg = ConsoleColor.DarkGray;
-
-    private readonly char[] _msg = new char[80];
-    private int _idx;
-    private InputState _state = InputState.Idle;
-
-    #endregion
-
     #region Properties
 
     public bool IsOngoingInput => _state == InputState.OngoingInput;
@@ -75,6 +64,18 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
                 break;
         }
     }
+
+    #endregion
+
+    #region Fields
+
+    private const ConsoleColor DefaultBg = ConsoleColor.Black;
+    private const ConsoleColor DefaultFg = ConsoleColor.Gray;
+    private const ConsoleColor ActiveBg = ConsoleColor.DarkGray;
+
+    private readonly char[] _msg = new char[80];
+    private int _idx;
+    private InputState _state = InputState.Idle;
 
     #endregion
 
@@ -142,7 +143,7 @@ public class TextBox(SchedulerEventQueue evtQueue) : UiElementBase
         var cmd = new char[_idx];
         if (_idx > 0)
             Array.Copy(_msg, 0, cmd, 0, _idx);
-        evtQueue.EnqueueEvent(ScheduledEvent.From(new Event.CommandInput(cmd)));
+        evtQueue.EnqueueEvent(ScheduledEvent.From(new CommandInput(cmd)));
         _idx = 0;
     }
 

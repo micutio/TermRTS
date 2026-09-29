@@ -67,50 +67,6 @@ public readonly struct CellVisual
 
 public class MapView : UiElementBase, IEventSink
 {
-    #region Fields
-
-    #region Positioning Constants and Variables
-
-    // World size
-    // TODO: Remove world size fields
-    private readonly int _worldWidth;
-    private readonly int _worldHeight;
-
-    // Offsets for the Map rendering, to accommodate left and top scales
-    private const int SpaceForScaleTop = 1;
-    private const int SpaceForTextfieldBottom = 1;
-    private int _spaceForScaleLeft;
-
-    #endregion
-
-    // theme
-    private readonly UiThemes _theme;
-
-    // cached world and drone paths
-    // TODO: Change to (TerminalColor, char)[] _cachedWorld;
-    private readonly Dictionary<int, Vector2> _cachedDronePositions;
-    private readonly Dictionary<int, List<(int, int, char)>> _cachedDronePaths;
-
-    // rendering
-    private MapRenderMode _mapRenderMode = MapRenderMode.ElevationColor;
-    private readonly ElevationVisualizer _elevationColorVisualizer;
-    private readonly ElevationVisualizer _elevationMonochromeVisualizer;
-    private readonly ElevationHeatmapVisualizer _heatmapColorVisualizer;
-    private readonly ElevationHeatmapVisualizer _heatmapMonochromeVisualizer;
-    private readonly SurfaceFeatureVisualizer _surfaceFeatureVisualizer;
-    private readonly TemperatureVisualizer _temperatureVisualizer;
-    private readonly HumidityVisualizer _humidityVisualizer;
-    private readonly BiomeVisualizer _biomeVisualizer;
-    private readonly WindVisualizer _windVisualizer;
-    private readonly WaterFlowVisualizer _waterFlowVisualizer;
-
-    private readonly FovVisualizer _fovVisualizer;
-
-    private CellVisual[] _cachedWorld;
-    private FogOfWar[] _cachedFov;
-
-    #endregion
-
     #region Constructor
 
     public MapView(int worldWidth, int worldHeight, UiThemes theme)
@@ -167,6 +123,105 @@ public class MapView : UiElementBase, IEventSink
 
         IsRequireRender = true;
     }
+
+    #endregion
+
+    #region IEventSink Members
+
+    public void ProcessEvent(IEvent evt)
+    {
+        if (evt is Event<MapRenderMode>(var renderMode)) MapRenderMode = renderMode;
+    }
+
+    #endregion
+
+    #region KeyInputProcessorBase Members
+
+    public void HandleKeyInput(in ConsoleKeyInfo keyInfo)
+    {
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.UpArrow:
+                MoveCameraUp();
+                return;
+            case ConsoleKey.DownArrow:
+                MoveCameraDown();
+                return;
+            case ConsoleKey.LeftArrow:
+                MoveCameraLeft();
+                return;
+            case ConsoleKey.RightArrow:
+                MoveCameraRight();
+                return;
+            case ConsoleKey.Q:
+                MapRenderMode = MapRenderMode.ElevationColor;
+                return;
+            case ConsoleKey.W:
+                MapRenderMode = MapRenderMode.SurfaceFeatures;
+                return;
+            case ConsoleKey.E:
+                MapRenderMode = MapRenderMode.Temperature;
+                return;
+            case ConsoleKey.R:
+                MapRenderMode = MapRenderMode.Humidity;
+                return;
+            case ConsoleKey.T:
+                MapRenderMode = MapRenderMode.Biomes;
+                return;
+            case ConsoleKey.Y:
+                MapRenderMode = MapRenderMode.Wind;
+                return;
+            case ConsoleKey.U:
+                MapRenderMode = MapRenderMode.WaterFlow;
+                return;
+            default:
+                return;
+        }
+    }
+
+    #endregion
+
+    #region Fields
+
+    #region Positioning Constants and Variables
+
+    // World size
+    // TODO: Remove world size fields
+    private readonly int _worldWidth;
+    private readonly int _worldHeight;
+
+    // Offsets for the Map rendering, to accommodate left and top scales
+    private const int SpaceForScaleTop = 1;
+    private const int SpaceForTextfieldBottom = 1;
+    private int _spaceForScaleLeft;
+
+    #endregion
+
+    // theme
+    private readonly UiThemes _theme;
+
+    // cached world and drone paths
+    // TODO: Change to (TerminalColor, char)[] _cachedWorld;
+    private readonly Dictionary<int, Vector2> _cachedDronePositions;
+    private readonly Dictionary<int, List<(int, int, char)>> _cachedDronePaths;
+
+    // rendering
+    private MapRenderMode _mapRenderMode = MapRenderMode.ElevationColor;
+    private readonly ElevationVisualizer _elevationColorVisualizer;
+    private readonly ElevationVisualizer _elevationMonochromeVisualizer;
+    private readonly ElevationHeatmapVisualizer _heatmapColorVisualizer;
+    private readonly ElevationHeatmapVisualizer _heatmapMonochromeVisualizer;
+    private readonly SurfaceFeatureVisualizer _surfaceFeatureVisualizer;
+    private readonly TemperatureVisualizer _temperatureVisualizer;
+    private readonly HumidityVisualizer _humidityVisualizer;
+    private readonly BiomeVisualizer _biomeVisualizer;
+    private readonly WindVisualizer _windVisualizer;
+    private readonly WaterFlowVisualizer _waterFlowVisualizer;
+
+    private readonly FovVisualizer _fovVisualizer;
+
+    private CellVisual[] _cachedWorld;
+    private FogOfWar[] _cachedFov;
 
     #endregion
 
@@ -383,61 +438,6 @@ public class MapView : UiElementBase, IEventSink
 
     #endregion
 
-    #region IEventSink Members
-
-    public void ProcessEvent(IEvent evt)
-    {
-        if (evt is Event<MapRenderMode>(var renderMode)) MapRenderMode = renderMode;
-    }
-
-    #endregion
-
-    #region KeyInputProcessorBase Members
-
-    public void HandleKeyInput(in ConsoleKeyInfo keyInfo)
-    {
-        switch (keyInfo.Key)
-        {
-            case ConsoleKey.UpArrow:
-                MoveCameraUp();
-                return;
-            case ConsoleKey.DownArrow:
-                MoveCameraDown();
-                return;
-            case ConsoleKey.LeftArrow:
-                MoveCameraLeft();
-                return;
-            case ConsoleKey.RightArrow:
-                MoveCameraRight();
-                return;
-            case ConsoleKey.Q:
-                MapRenderMode = MapRenderMode.ElevationColor;
-                return;
-            case ConsoleKey.W:
-                MapRenderMode = MapRenderMode.SurfaceFeatures;
-                return;
-            case ConsoleKey.E:
-                MapRenderMode = MapRenderMode.Temperature;
-                return;
-            case ConsoleKey.R:
-                MapRenderMode = MapRenderMode.Humidity;
-                return;
-            case ConsoleKey.T:
-                MapRenderMode = MapRenderMode.Biomes;
-                return;
-            case ConsoleKey.Y:
-                MapRenderMode = MapRenderMode.Wind;
-                return;
-            case ConsoleKey.U:
-                MapRenderMode = MapRenderMode.WaterFlow;
-                return;
-            default:
-                return;
-        }
-    }
-
-    #endregion
-
     #region Private Members
 
     private void UpdateSpaceForScaleLeft()
@@ -484,7 +484,7 @@ public class MapView : UiElementBase, IEventSink
     }
 
     /// <summary>
-    /// Determine whether a position is within the viewport boundaries.
+    ///     Determine whether a position is within the viewport boundaries.
     /// </summary>
     /// <param name="worldX">x-position relative to world coordinates</param>
     /// <param name="worldY">y-position relative to world coordinates</param>
@@ -501,7 +501,7 @@ public class MapView : UiElementBase, IEventSink
     }
 
     /// <summary>
-    /// Determine whether a position is within the world or not
+    ///     Determine whether a position is within the world or not
     /// </summary>
     /// <param name="x">x-position relative to world coordinates</param>
     /// <param name="y">y-position relative to world coordinates</param>

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 
 namespace TermRTS.Serialization;
 
@@ -21,7 +20,6 @@ public static class BaseClassConverter
     {
         return new BaseClassConverter<T>(types);
     }
-
 }
 
 public class BaseClassConverter<TBaseType>(params Type[] types) : JsonConverter<TBaseType>

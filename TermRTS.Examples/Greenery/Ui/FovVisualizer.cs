@@ -4,7 +4,7 @@ using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.Ui;
 
-internal class FovVisualizer()
+internal class FovVisualizer
 {
     public void CacheFov(
         in IReadonlyStorage storage,

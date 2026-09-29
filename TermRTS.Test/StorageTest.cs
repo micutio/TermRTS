@@ -249,8 +249,8 @@ public class StorageTest
     }
 
     /// <summary>
-    /// After removing an entity that had components, adding the same type again should yield
-    /// correct count. With the fix, the store does not retain empty lists for removed entities.
+    ///     After removing an entity that had components, adding the same type again should yield
+    ///     correct count. With the fix, the store does not retain empty lists for removed entities.
     /// </summary>
     [Theory]
     [ClassData(typeof(StorageImplementations))]

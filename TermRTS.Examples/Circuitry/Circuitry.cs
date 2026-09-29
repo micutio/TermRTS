@@ -194,11 +194,11 @@ internal class Circuitry : IRunnableExample
     internal class Bus : ComponentBase
     {
         public const float Velocity = 25.5f; // in [m/s]
+        public readonly List<Wire> Connections;
         private readonly DoubleBuffered<bool> _isActive;
         private readonly DoubleBuffered<bool> _isForward;
 
         private readonly DoubleBuffered<float> _progress;
-        public readonly List<Wire> Connections;
 
         public Bus(int eid, List<Wire> connections) : base(eid)
         {

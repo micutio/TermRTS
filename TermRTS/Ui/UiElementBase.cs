@@ -53,14 +53,14 @@ public abstract class UiElementBase
     }
 
     /// <summary>
-    /// Flag indicating whether the contents of this UI element needs to be re-rendered.
-    /// If the UI element changes it's layout, which would affect other elements of this
-    /// element tree then use <see cref="IsRequireRootRender"/> instead.
+    ///     Flag indicating whether the contents of this UI element needs to be re-rendered.
+    ///     If the UI element changes it's layout, which would affect other elements of this
+    ///     element tree then use <see cref="IsRequireRootRender" /> instead.
     /// </summary>
     protected bool IsRequireRender { get; set; } = true;
 
     /// <summary>
-    /// Flag indicating that this UI element or any of its child elements has changed their layout.
+    ///     Flag indicating that this UI element or any of its child elements has changed their layout.
     /// </summary>
     protected bool IsRequireRootRender { get; set; } = true;
 
@@ -69,11 +69,10 @@ public abstract class UiElementBase
     #region Public Abstract Members
 
     /// <summary>
-    /// Update the UI element from the components it depends on.
-    /// This decides whether this component needs to be re-rendered, i.e.: this should set
-    /// <see cref="IsRequireRender"/> and <see cref="IsRequireRootRender"/>.
-    /// 
-    /// The update is separated from rendering to allow for parallelisation.
+    ///     Update the UI element from the components it depends on.
+    ///     This decides whether this component needs to be re-rendered, i.e.: this should set
+    ///     <see cref="IsRequireRender" /> and <see cref="IsRequireRootRender" />.
+    ///     The update is separated from rendering to allow for parallelisation.
     /// </summary>
     /// <param name="componentStorage"></param>
     /// <param name="timeStepSizeMs"></param>

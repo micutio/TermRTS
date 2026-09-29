@@ -91,9 +91,11 @@ public ref struct ChunkAStar<T> where T : allows ref struct
                     continue;
 
                 // Tentative score is the distance from start to neighbor through current.
-                var tentativeScore = _gScore[currentLoc] + Weight(currentLoc, wrappedNeighbor, _accessor);
+                var tentativeScore = _gScore[currentLoc] +
+                                     Weight(currentLoc, wrappedNeighbor, _accessor);
 
-                if (tentativeScore >= _gScore.GetValueOrDefault(wrappedNeighbor, float.PositiveInfinity))
+                if (tentativeScore >=
+                    _gScore.GetValueOrDefault(wrappedNeighbor, float.PositiveInfinity))
                     continue;
 
                 // This path to neighbor is better than any previous one. Record it!

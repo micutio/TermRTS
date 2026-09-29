@@ -398,6 +398,7 @@ internal class BiomeVisualizer(
                         surfaceVisual.GetForeground(),
                         biomeVisual.GetBackground());
                 }
+
                 viewportBuffer[vY * viewportWidth + vX] = biomeVisual;
             }
         }
@@ -467,7 +468,10 @@ internal class WindVisualizer(WindDirectionTheme directionTheme)
         }
     }
 }
-internal class WaterFlowVisualizer(DirectionMarkerTheme markerTheme, (ConsoleColor, ConsoleColor)[] colors)
+
+internal class WaterFlowVisualizer(
+    DirectionMarkerTheme markerTheme,
+    (ConsoleColor, ConsoleColor)[] colors)
     : IWorldComponentVisualizer
 {
     public void SetVisuals(
@@ -525,7 +529,8 @@ internal class WaterFlowVisualizer(DirectionMarkerTheme markerTheme, (ConsoleCol
                 var cols = colors[elevation];
 
                 // 6. Write to the VIEWPORT-relative buffer
-                viewportBuffer[vY * viewportWidth + vX] = new CellVisual(marker, cols.Item1, cols.Item2);
+                viewportBuffer[vY * viewportWidth + vX] =
+                    new CellVisual(marker, cols.Item1, cols.Item2);
             }
         }
     }

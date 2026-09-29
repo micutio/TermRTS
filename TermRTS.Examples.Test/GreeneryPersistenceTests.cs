@@ -1,6 +1,4 @@
 using System.Numerics;
-using TermRTS;
-using TermRTS.Ecs;
 using TermRTS.Event;
 using TermRTS.Examples.Greenery;
 using TermRTS.Examples.Greenery.Command;

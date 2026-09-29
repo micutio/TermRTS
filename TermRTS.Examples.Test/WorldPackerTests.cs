@@ -164,9 +164,9 @@ public class WorldPackerTests
             WorldMath.WorldWidth,
             WorldMath.WorldHeight,
             0.35f,
-            seed: 3,
-            voronoiCellCount: 175,
-            plateCount: 28,
+            3,
+            175,
+            28,
             new ElevationParameters(),
             new VolcanicParameters(),
             new ErosionParameters(),
@@ -175,7 +175,8 @@ public class WorldPackerTests
 
         var result = worldGen.Generate();
 
-        var expectedChunkCount = WorldMath.ChunksAcross * (WorldMath.WorldHeight / WorldMath.ChunkSize);
+        var expectedChunkCount =
+            WorldMath.ChunksAcross * (WorldMath.WorldHeight / WorldMath.ChunkSize);
         Assert.Equal(expectedChunkCount, result.Length);
 
         foreach (var chunk in result)
@@ -232,6 +233,6 @@ public class WorldPackerTests
         }
 
         // Return the pooled array to avoid leaking rented buffers in tests
-        WorldPacker.ReturnPackedArray(buffer, clearArray: true);
+        WorldPacker.ReturnPackedArray(buffer, true);
     }
 }

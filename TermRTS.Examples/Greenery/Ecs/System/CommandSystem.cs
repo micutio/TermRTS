@@ -15,7 +15,6 @@ public class CommandSystem : ISimSystem, IEventSink
         {
             _cmdQueue.Enqueue(eventCmd);
         }
-
     }
 
     public void ProcessComponents(
@@ -28,6 +27,7 @@ public class CommandSystem : ISimSystem, IEventSink
             var cmd = _cmdQueue.Dequeue();
             cmd.Execute(timeStepSizeMs, storage, emittedEvents);
         }
+
         _cmdQueue.Clear();
     }
 }

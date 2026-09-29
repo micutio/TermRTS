@@ -31,7 +31,7 @@ public enum TokenType
 /// <param name="Lexeme">
 ///     The token as string, i.e.: as it was read from the intput.
 /// </param>
-/// <param name=Literal>
+/// <param name= Literal>
 ///     The token in form of the actual type, if it is an
 ///     Identifier, String or Number.
 /// </param>

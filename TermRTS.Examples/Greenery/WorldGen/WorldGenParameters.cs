@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace TermRTS.Examples.Greenery.WorldGen;
 
 public class ElevationParameters
@@ -23,9 +21,10 @@ public class CoastalParameters
 public class VolcanicParameters
 {
     /// <summary>
-    /// The amount of volcanic soil eroded. Smaller value -> more resistance.
+    ///     The amount of volcanic soil eroded. Smaller value -> more resistance.
     /// </summary>
     public float VolcanicResistance { get; set; } = 0.05f;
+
     public float HotspotMinStrength { get; set; } = 0.3f;
     public float LavaHotspotThreshold { get; set; } = 0.6f;
     public float CraterElevationThreshold { get; set; } = 6;

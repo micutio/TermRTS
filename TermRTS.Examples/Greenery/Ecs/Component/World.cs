@@ -67,9 +67,9 @@ public sealed class WorldBiomeChunk(
     Biome[] biome)
     : ComponentBase(entityId)
 {
+    public readonly Biome[] Biome = biome;
     public readonly int Cx = cx;
     public readonly int Cy = cy;
-    public readonly Biome[] Biome = biome;
 }
 
 public sealed class WorldRiverChunk(int entityId, int cx, int cy, bool[] river)

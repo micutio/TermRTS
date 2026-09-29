@@ -4,8 +4,8 @@ using TermRTS.Event;
 namespace TermRTS.Test;
 
 /// <summary>
-/// Unit tests for simulation loop robustness: time advancement under tick/render load,
-/// lag catch-up over real time, event ordering, and stress with many entities/systems.
+///     Unit tests for simulation loop robustness: time advancement under tick/render load,
+///     lag catch-up over real time, event ordering, and stress with many entities/systems.
 /// </summary>
 public class SimulationLoopRobustnessTest
 {

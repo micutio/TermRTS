@@ -1,3 +1,4 @@
+using System.Collections;
 using Microsoft.Extensions.Logging;
 using TermRTS.Ecs;
 using TermRTS.Log;
@@ -10,9 +11,9 @@ namespace TermRTS.Storage;
 /// </summary>
 public class ContiguousStorage : IStorage
 {
-    private static ILogger<ContiguousStorage> Log => TermRtsLog.For<ContiguousStorage>();
     private readonly Dictionary<Type, List<ComponentBase>> _componentStores = new();
     private readonly Dictionary<Type, Dictionary<int, List<int>>> _entityIndices = new();
+    private static ILogger<ContiguousStorage> Log => TermRtsLog.For<ContiguousStorage>();
 
     #region IReadonlyStorage Members
 
@@ -248,7 +249,7 @@ internal sealed class ComponentListAdapter<T>(List<ComponentBase> list) : IReadO
         return list.Cast<T>().GetEnumerator();
     }
 
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+    IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
     }
