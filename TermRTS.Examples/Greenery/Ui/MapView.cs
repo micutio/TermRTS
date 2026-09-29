@@ -22,6 +22,13 @@ public enum MapRenderMode
     WaterFlow
 }
 
+public enum FogOfWar
+{
+    Unknown,
+    Explored,
+    Visible
+}
+
 public readonly struct CellVisual
 {
     private readonly char _marker;
@@ -100,7 +107,7 @@ public class MapView : UiElementBase, IEventSink
     private readonly FovVisualizer _fovVisualizer;
 
     private CellVisual[] _cachedWorld;
-    private bool[] _cachedFov;
+    private FogOfWar[] _cachedFov;
 
     #endregion
 
@@ -116,7 +123,7 @@ public class MapView : UiElementBase, IEventSink
             _cachedWorld[i] = new CellVisual();
         }
 
-        _cachedFov = new bool[ViewportWidth * ViewportHeight];
+        _cachedFov = new FogOfWar[ViewportWidth * ViewportHeight];
         _cachedDronePaths = new Dictionary<int, List<(int, int, char)>>();
         _cachedDronePositions = new Dictionary<int, Vector2>();
 
@@ -249,6 +256,7 @@ public class MapView : UiElementBase, IEventSink
         {
             if (drone.Path != null)
             {
+                IsRequireRender = true;
                 if (_cachedDronePaths.TryGetValue(drone.EntityId, out var path))
                 {
                     if (path.Count != drone.CachedPathVisual.Count) IsRequireRender = true;
@@ -276,15 +284,31 @@ public class MapView : UiElementBase, IEventSink
             for (var x = 0; x < ViewportWidth; x++)
             {
                 var cellVisual = _cachedWorld[y * ViewportWidth + x];
-                // Deactivate fov for debugging.
-                // TODO: Reactivate.
-                var isFov = true; //_cachedFov[y * ViewportWidth + x];
+                var fogOfWar = _cachedFov[y * ViewportWidth + x];
+                var fg = _theme.Default.DefaultFg;
+                var bg = _theme.Default.DefaultBg;
+                switch (fogOfWar)
+                {
+                    case FogOfWar.Visible:
+                        fg = cellVisual.GetForeground();
+                        bg = cellVisual.GetBackground();
+                        break;
+                    case FogOfWar.Explored:
+                        fg = _theme.Default.DefaultFg;
+                        bg = _theme.Default.DefaultBg;
+                        break;
+                    case FogOfWar.Unknown:
+                        fg = _theme.Default.DefaultBg;
+                        bg = _theme.Default.DefaultBg;
+                        break;
+                }
+
                 ctx.Draw(
                     x + _spaceForScaleLeft,
                     y + SpaceForScaleTop,
                     cellVisual.GetMarker(),
-                    isFov ? cellVisual.GetForeground() : _theme.Default.DefaultFg,
-                    isFov ? cellVisual.GetBackground() : _theme.Default.DefaultBg);
+                    fg,
+                    bg);
             }
 
         // Step 2: Render drone paths and drones on top of them.
@@ -337,7 +361,7 @@ public class MapView : UiElementBase, IEventSink
             _cachedWorld[i] = new CellVisual();
         }
 
-        _cachedFov = new bool[newSize];
+        _cachedFov = new FogOfWar[newSize];
         IsRequireRender = true;
         IsRequireRootRender = true;
     }
@@ -352,7 +376,7 @@ public class MapView : UiElementBase, IEventSink
             _cachedWorld[i] = new CellVisual();
         }
 
-        _cachedFov = new bool[newSize];
+        _cachedFov = new FogOfWar[newSize];
         IsRequireRender = true;
         IsRequireRootRender = true;
     }

@@ -8,7 +8,7 @@ public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
 {
     private readonly IReadonlyStorage _storage = storage;
 
-    private WorldElevationChunk? _currentChunk = null;
+    private WorldPackedChunk? _currentChunk = null;
 
     /// <summary>
     /// This assumes that bounds check has already been performed!
@@ -21,13 +21,13 @@ public ref struct ElevationChunkAccessor(in IReadonlyStorage storage)
         var chunkId = WorldMath.GetChunkIndexFast(x, y);
         if (_currentChunk == null || _currentChunk.EntityId != chunkId)
         {
-            if (!_storage.TryGetSingleForTypeAndEntity<WorldElevationChunk>(chunkId, out var chunk)
+            if (!_storage.TryGetSingleForTypeAndEntity<WorldPackedChunk>(chunkId, out var chunk)
                 || chunk == null)
                 return int.MinValue;
             _currentChunk = chunk;
         }
 
         var (_, _, lx, ly) = WorldMath.ToRelative(x, y);
-        return _currentChunk!.Elevation[ly * WorldMath.ChunkSize + lx];
+        return _currentChunk!.PackedTiles[ly * WorldMath.ChunkSize + lx].Elevation;
     }
 }

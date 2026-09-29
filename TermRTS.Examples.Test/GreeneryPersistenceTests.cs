@@ -12,8 +12,6 @@ namespace TermRTS.Examples.Test;
 
 public class GreeneryPersistenceTests
 {
-    private static readonly bool[] FovField = [true, false, true];
-
     [Fact]
     public void SaveAndLoad_RestoresGreeneryComponentsAndEvents()
     {
@@ -23,7 +21,7 @@ public class GreeneryPersistenceTests
             Path = [new Vector2(2, 3), new Vector2(4, 5)],
             PathIndex = 1
         };
-        var fov = new FovChunk(8, 1, 2, FovField);
+        var fov = new FovChunk(8, 1, 2);
         core.AddNewComponent(drone);
         core.AddNewComponent(fov);
         var scheduler = new Scheduler(core);

@@ -5,7 +5,9 @@ using TermRTS.Storage;
 
 namespace TermRTS.Examples.Greenery.Command;
 
-public readonly record struct CommandInitResult(bool IsSuccess, string LogMsg);
+public readonly record struct CommandInitResult(ICommand? cmd, string LogMsg);
+
+// TODO: Implement help program.
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$command")]
 [JsonDerivedType(typeof(GoCommand), "go")]
@@ -13,10 +15,31 @@ public readonly record struct CommandInitResult(bool IsSuccess, string LogMsg);
 [JsonDerivedType(typeof(SaveCommand), "save")]
 public interface ICommand
 {
+    /// <summary>
+    ///     Return the name of the command.
+    ///     This is the same term which is used to invoke it.
+    /// </summary>
+    /// <returns>
+    ///     Name of the program as string.
+    /// </returns>
     string GetName();
 
+    /// <summary>
+    ///     Return the description of the command.
+    ///     It should describe what it does.
+    /// </summary>
+    /// <returns>
+    ///     Description of the program as string.
+    /// </returns>
     string GetDescription();
 
+    /// <summary>
+    ///     Return the Usage of the command.
+    ///     This should describe all parameters and flags that can be used with the command.
+    /// </summary>
+    /// <returns>
+    ///     Usage of the program as string.
+    /// </returns>
     string GetUsage();
 
     /// <summary>
@@ -26,11 +49,11 @@ public interface ICommand
     /// </summary>
     /// <returns> 
     ///     <see cref="CommandInitResult"/> consisting of the following:
-    ///     1. <code>true</code> if the command has been successfully initialised,
-    ///     <code>false</code> otherwise.
+    ///     1. A new instance of the command if the command has been successfully initialised,
+    ///     <see Langword="null"/> otherwise.
     ///     2. Optional log message with feedback to the user.
     /// </returns>
-    CommandInitResult Init(IReadOnlyList<Token> tokens);
+    CommandInitResult CreateNew(IReadOnlyList<Token> tokens);
 
     /// <summary>
     ///     Executes the command against the game state.
@@ -45,7 +68,7 @@ public interface ICommand
     ///     Outbox for putting events to be emitted after this has executed.
     /// </param>
     void Execute(
-            ulong timeStepSizeMs,
-            in IReadonlyStorage storage,
-            in List<ScheduledEvent> emittedEvents);
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents);
 }

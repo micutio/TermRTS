@@ -8,10 +8,10 @@ namespace TermRTS.Examples.Greenery.Command;
 ///     CommandDispatcher receives a string via event, parses it into a list of tokens
 ///     and finally executes the respective command.
 /// </summary>
-/// <param name="evtQueue">Reference to the <see cref="Scheduler" />'s event queue</param>
+/// <param name="EvtQueue">Reference to the <see cref="Scheduler" />'s event queue</param>
 public readonly record struct CommandDispatcher(
-        SchedulerEventQueue evtQueue,
-        Dictionary<string, ICommand> cmdRegistry) : IEventSink
+    SchedulerEventQueue EvtQueue,
+    Dictionary<string, ICommand> CmdRegistry) : IEventSink
 {
     // Replies
     private const string ErrorEmptyCmd = "< Cannot run empty command";
@@ -27,44 +27,56 @@ public readonly record struct CommandDispatcher(
 
         var cmdStr = new string(command.Cmd);
         // Log reception of the command
-        emitLog(cmdStr);
+        EmitLog(cmdStr);
 
-        var tokens = new Scanner(command.Cmd).ScanTokens();
+        var tokens = ToTokens(command);
+        if (tokens == null) return;
 
-        if (tokens.Count == 0)
-        {
-            emitLog(ErrorEmptyCmd);
-            return;
-        }
+        var cmd = ToCommand(tokens);
+        if (cmd == null) return;
 
-        var firstToken = tokens[0];
-        if (firstToken.TokenType != TokenType.Identifier)
-        {
-            emitLog(ErrorNoIdentifier);
-            return;
-        }
-
-        var cmdName = firstToken.Lexeme;
-        if (cmdName == null)
-        {
-            emitLog(ErrorUnknownCmd);
-            return;
-        }
-
-        if (!cmdRegistry.TryGetValue(cmdName, out var cmd))
-        {
-            emitLog(ErrorUnknownCmd);
-            return;
-        }
-
-        evtQueue.EnqueueEvent(ScheduledEvent.From(cmd));
+        EvtQueue.EnqueueEvent(ScheduledEvent.From(cmd));
     }
 
     #endregion
 
-    private void emitLog(string msg)
+    #region Private Members
+
+    private void EmitLog(string msg)
     {
-        evtQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog(msg)));
+        EvtQueue.EnqueueEvent(ScheduledEvent.From(new SystemLog(msg)));
     }
 
+    private IReadOnlyList<Token>? ToTokens(CommandInput input)
+    {
+        var tokens = new Scanner(input.Cmd).ScanTokens();
+
+        if (tokens.Count != 0) return tokens;
+
+        EmitLog(ErrorEmptyCmd);
+        return null;
+    }
+
+    private ICommand? ToCommand(IReadOnlyList<Token> tokens)
+    {
+        var (tokenType, cmdName, _) = tokens[0];
+        if (tokenType != TokenType.Identifier)
+        {
+            EmitLog(ErrorNoIdentifier);
+            return null;
+        }
+
+        if (cmdName == null || !CmdRegistry.TryGetValue(cmdName, out var cmd))
+        {
+            EmitLog(ErrorUnknownCmd);
+            return null;
+        }
+
+        var result = cmd.CreateNew(tokens);
+        if (!string.IsNullOrEmpty(result.LogMsg)) EmitLog(result.LogMsg);
+
+        return result.cmd;
+    }
+
+    #endregion
 }

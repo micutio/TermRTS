@@ -1,7 +1,6 @@
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Storage;
-
 using TermRTS.Examples.Greenery.Event;
 using System.Numerics;
 
@@ -9,7 +8,7 @@ namespace TermRTS.Examples.Greenery.Command;
 
 public sealed class GoCommand : ICommand
 {
-    #region Private Fields
+    #region Public Fields
 
     public float X { get; set; }
 
@@ -28,33 +27,53 @@ public sealed class GoCommand : ICommand
     private const string ErrorTooManyArgs = "< Too many arguments!";
     private const string ErrorInvalidArgs = "Error: both following arguments must be numbers";
 
-    public string GetName() => Name;
-
-    public string GetDescription() => Description;
-
-    public string GetUsage() => Usage;
-
-    public CommandInitResult Init(IReadOnlyList<Token> tokens)
+    /// <inheritdoc/>
+    public string GetName()
     {
-        if (tokens.Count < 3) return new CommandInitResult(false, ErrorTooFewArgs);
+        return Name;
+    }
 
-        if (tokens.Count > 3) return new CommandInitResult(false, ErrorTooManyArgs);
+    /// <inheritdoc/>
+    public string GetDescription()
+    {
+        return Description;
+    }
+
+    /// <inheritdoc/>
+    public string GetUsage()
+    {
+        return Usage;
+    }
+
+    /// <inheritdoc/>
+    public CommandInitResult CreateNew(IReadOnlyList<Token> tokens)
+    {
+        if (tokens.Count < 3) return new CommandInitResult(null, ErrorTooFewArgs);
+
+        if (tokens.Count > 3) return new CommandInitResult(null, ErrorTooManyArgs);
 
         if (tokens[1].TokenType != TokenType.Number || tokens[2].TokenType != TokenType.Number)
-            return new CommandInitResult(false, ErrorInvalidArgs);
+            return new CommandInitResult(null, ErrorInvalidArgs);
 
         X = Convert.ToSingle(tokens[1].Literal);
         Y = Convert.ToSingle(tokens[2].Literal);
-        return new CommandInitResult(true, string.Empty);
 
+        var newCmd = new GoCommand
+        {
+            X = X,
+            Y = Y
+        };
+        return new CommandInitResult(newCmd, string.Empty);
     }
 
+    /// <inheritdoc/>
     public void Execute(
-            ulong timeStepSizeMs,
-            in IReadonlyStorage storage,
-            in List<ScheduledEvent> emittedEvents)
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
-        emittedEvents.Add(ScheduledEvent.From(new Move(3, new Vector2(X, Y))));
+        // TODO: Remove stupid hardcoded entity ID.
+        emittedEvents.Add(ScheduledEvent.From(new Move(31, new Vector2(X, Y))));
     }
 
     #endregion

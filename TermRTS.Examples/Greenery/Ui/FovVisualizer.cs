@@ -8,7 +8,7 @@ internal class FovVisualizer()
 {
     public void CacheFov(
         in IReadonlyStorage storage,
-        in bool[] cachedFov,
+        in FogOfWar[] cachedFow,
         int viewWorldX,
         int viewWorldY,
         int viewportWidth,
@@ -50,10 +50,19 @@ internal class FovVisualizer()
                 if (currentChunk == null) continue;
 
                 // 4. Extract data from the 32x32 slab
-                var isFov = currentChunk.FovField.Span[(ly << 5) + lx];
+                var fowState = (
+                    currentChunk.IsVisible(lx, ly),
+                    currentChunk.IsExplored(lx, ly)
+                );
+                var fow = fowState switch
+                {
+                    (true, _) => FogOfWar.Visible,
+                    (_, true) => FogOfWar.Explored,
+                    (_, false) => FogOfWar.Unknown
+                };
 
                 // 6. Write to the VIEWPORT-relative buffer
-                cachedFov[vY * viewportWidth + vX] = isFov;
+                cachedFow[vY * viewportWidth + vX] = fow;
             }
         }
     }

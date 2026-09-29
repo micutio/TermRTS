@@ -1,7 +1,6 @@
 using TermRTS.Algorithms;
 using TermRTS.Event;
 using TermRTS.Storage;
-
 using System.Runtime.InteropServices;
 
 namespace TermRTS.Examples.Greenery.Command;
@@ -16,23 +15,37 @@ public sealed class LoadCommand : ICommand
 
     private const string ErrorTooManyArgs = "< Too many arguments!";
 
-    public string GetName() => Name;
-
-    public string GetDescription() => Description;
-
-    public string GetUsage() => Usage;
-
-    public CommandInitResult Init(IReadOnlyList<Token> tokens)
+    /// <inheritdoc/>
+    public string GetName()
     {
-        if (tokens.Count > 1) return new CommandInitResult(false, ErrorTooManyArgs);
-
-        return new CommandInitResult(true, string.Empty);
+        return Name;
     }
 
+    /// <inheritdoc/>
+    public string GetDescription()
+    {
+        return Description;
+    }
+
+    /// <inheritdoc/>
+    public string GetUsage()
+    {
+        return Usage;
+    }
+
+    /// <inheritdoc/>
+    public CommandInitResult CreateNew(IReadOnlyList<Token> tokens)
+    {
+        if (tokens.Count > 1) return new CommandInitResult(null, ErrorTooManyArgs);
+
+        return new CommandInitResult(this, string.Empty);
+    }
+
+    /// <inheritdoc/>
     public void Execute(
-            ulong timeStepSizeMs,
-            in IReadonlyStorage storage,
-            in List<ScheduledEvent> emittedEvents)
+        ulong timeStepSizeMs,
+        in IReadonlyStorage storage,
+        in List<ScheduledEvent> emittedEvents)
     {
         var loadEvent = new Persist(PersistenceOption.Load, GetFilePath());
         emittedEvents.Add(ScheduledEvent.From(loadEvent));

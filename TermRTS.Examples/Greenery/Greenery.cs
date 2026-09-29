@@ -93,10 +93,11 @@ public class Greenery : IRunnableExample
         {
             [loadCmd.GetName()] = loadCmd,
             [saveCmd.GetName()] = saveCmd,
-            [goCmd.GetName()] = saveCmd
+            [goCmd.GetName()] = goCmd
         };
         scheduler.AddEventSink(renderer, typeof(MapRenderMode)); // render option events
-        scheduler.AddEventSink(new CommandDispatcher(scheduler.FutureEvents, commandDict), typeof(CommandInput));
+        scheduler.AddEventSink(new CommandDispatcher(scheduler.FutureEvents, commandDict),
+            typeof(CommandInput));
         scheduler.AddEventSink(cmdSystem, typeof(ICommand));
         scheduler.AddEventSink(pathFindingSystem, typeof(Move));
 
@@ -107,7 +108,8 @@ public class Greenery : IRunnableExample
         scheduler.AddEventSink(renderer.LogArea, typeof(SystemLog));
         input.Run();
 
-        var simulation = new Simulation(scheduler, GreeneryJsonContext.CreatePersistenceTypeRegistry());
+        var simulation =
+            new Simulation(scheduler, GreeneryJsonContext.CreatePersistenceTypeRegistry());
         simulation.EnableSerialization();
         simulation.IsSystemLogEnabled = true;
 

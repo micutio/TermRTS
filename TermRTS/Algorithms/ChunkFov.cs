@@ -35,9 +35,9 @@ public class ChunkFov
                 var wrappedGridX = (gridX % 320 + 320) % 320; // WorldWidth = 320
                 var clampedGridY = Math.Clamp(gridY, 0, 95); // WorldHeight = 96, so max Y = 95
 
-                if (isWall(wrappedGridX, clampedGridY, accessor)) break; // Stop the ray if it hits a wall
-
                 VisibleCells.Add(new Pos(wrappedGridX, clampedGridY));
+                if (isWall(wrappedGridX, clampedGridY, accessor))
+                    break; // Stop the ray if it hits a wall
             }
         }
     }

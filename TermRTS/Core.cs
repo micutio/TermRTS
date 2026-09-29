@@ -78,7 +78,7 @@ public class Core(IStorage storage) : IEventSink
     ///     A method to check whether the simulation is still running.
     /// </summary>
     /// <returns>
-    ///     <code>true</code> if the simulation is still running, <code>false</code> if it has
+    ///     <see Langword="true"/> if the simulation is still running, <see Langword="false"/> if it has
     ///     terminated.
     /// </returns>
     public bool IsRunning()
